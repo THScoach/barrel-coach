@@ -1,8 +1,11 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
-import { Check, MessageCircle, Video, Users, Brain, Shield } from 'lucide-react';
+import { Check, MessageCircle, Video, Users, Brain, Shield, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const features = [
   {
@@ -40,6 +43,35 @@ const whoIsThisFor = [
 ];
 
 export default function InnerCircle() {
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleCheckout = async () => {
+    if (!email || !email.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-inner-circle-checkout', {
+        body: { email },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error) {
+      console.error('Checkout failed:', error);
+      toast.error('Failed to start checkout. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -127,9 +159,31 @@ export default function InnerCircle() {
               ⚠️ Only 12 spots available
             </div>
             
-            <Button variant="hero" size="xl" className="w-full mb-8" asChild>
-              <a href="https://buy.stripe.com/test_00g4hM2Lf9xFe4w5kl">APPLY FOR INNER CIRCLE →</a>
-            </Button>
+            <div className="space-y-4 mb-8">
+              <Input
+                type="email"
+                placeholder="Enter your email to apply"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="text-center text-lg py-6"
+              />
+              <Button 
+                variant="hero" 
+                size="xl" 
+                className="w-full"
+                onClick={handleCheckout}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  'APPLY FOR INNER CIRCLE →'
+                )}
+              </Button>
+            </div>
 
             {/* Guarantee */}
             <div className="flex items-center gap-3 justify-center p-4 bg-card rounded-lg">
