@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      messages: {
+        Row: {
+          body: string
+          created_at: string
+          direction: string
+          id: string
+          phone_number: string
+          session_id: string | null
+          status: string | null
+          twilio_sid: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          direction: string
+          id?: string
+          phone_number: string
+          session_id?: string | null
+          status?: string | null
+          twilio_sid?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          phone_number?: string
+          session_id?: string | null
+          status?: string | null
+          twilio_sid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           email_status: string | null
@@ -82,6 +123,7 @@ export type Database = {
           player_email: string
           player_level: string
           player_name: string
+          player_phone: string | null
           price_cents: number
           product_type: string
           report_storage_path: string | null
@@ -119,6 +161,7 @@ export type Database = {
           player_email: string
           player_level: string
           player_name: string
+          player_phone?: string | null
           price_cents: number
           product_type: string
           report_storage_path?: string | null
@@ -156,6 +199,7 @@ export type Database = {
           player_email?: string
           player_level?: string
           player_name?: string
+          player_phone?: string | null
           price_cents?: number
           product_type?: string
           report_storage_path?: string | null

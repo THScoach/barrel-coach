@@ -40,6 +40,7 @@ export interface PlayerInfo {
   name: string;
   age: number;
   email: string;
+  phone?: string;
   level: PlayerLevel;
 }
 
