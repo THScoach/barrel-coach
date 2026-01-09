@@ -35,15 +35,31 @@ serve(async (req) => {
   }
 
   try {
-    const { message, scores, weakestCategory } = await req.json();
+    const { message, scores, weakestCategory, history = [] } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Build user message with context
-    const userMessage = `My 4B scores: Brain: ${scores.brain}, Body: ${scores.body}, Bat: ${scores.bat}, Ball: ${scores.ball}. My weakest area is ${weakestCategory}. My question: ${message}`;
+    // Build context message for the first user message
+    const contextPrefix = `My 4B scores: Brain: ${scores.brain}, Body: ${scores.body}, Bat: ${scores.bat}, Ball: ${scores.ball}. My weakest area is ${weakestCategory}.`;
+    
+    // Build conversation messages
+    const conversationMessages = history.map((msg: { role: string; content: string }, index: number) => {
+      // Add context to the first user message only
+      if (index === 0 && msg.role === 'user') {
+        return { role: msg.role, content: `${contextPrefix} My question: ${msg.content}` };
+      }
+      return { role: msg.role, content: msg.content };
+    });
+    
+    // Add current message with context if it's the first message
+    const currentMessage = history.length === 0 
+      ? `${contextPrefix} My question: ${message}`
+      : message;
+    
+    conversationMessages.push({ role: 'user', content: currentMessage });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -55,7 +71,7 @@ serve(async (req) => {
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
+          ...conversationMessages,
         ],
         max_tokens: 500,
       }),
