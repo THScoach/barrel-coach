@@ -1,15 +1,372 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { ArrowDown, Video, Brain, FileText, Check, ChevronDown } from 'lucide-react';
+import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
-const Index = () => {
-  const navigate = useNavigate();
+// MLB Team logos placeholder - would be replaced with actual images
+const mlbPlayers = [
+  { name: 'Pete Crow-Armstrong', team: 'Cubs' },
+  { name: 'Andrew Benintendi', team: 'Multiple Teams' },
+  { name: 'Cedric Mullins', team: 'Orioles' },
+  { name: 'Devin Williams', team: 'Brewers' },
+];
 
-  useEffect(() => {
-    // Redirect to the analyze page
-    navigate('/analyze');
-  }, [navigate]);
+const faqItems = [
+  {
+    question: "How do I record my swing?",
+    answer: "Side angle, 10-15 feet away, hip height, landscape mode. Full body visible. One swing per video."
+  },
+  {
+    question: "What equipment do I need?",
+    answer: "Just your phone. Any iPhone or Android from the last 5 years works. No sensors required."
+  },
+  {
+    question: "How long until I get my results?",
+    answer: "Usually 30-60 seconds. Your PDF report is emailed immediately."
+  },
+  {
+    question: "What's the difference between Single Swing and Complete Review?",
+    answer: "Single Swing analyzes 1 video and finds your #1 problem. Complete Review analyzes 5 swings, shows your consistency, compares you to your age group, and gives you a 30-day plan."
+  },
+  {
+    question: "Who is Rick Strickland?",
+    answer: "Rick is the AAA Hitting Coach for the Baltimore Orioles (Norfolk Tides). He's trained 400+ college commits, 78+ pro players, and 3 MLB Award Winners including Andrew Benintendi and Devin Williams."
+  },
+  {
+    question: "Can I get a refund?",
+    answer: "If you're not satisfied, email us within 24 hours of purchase and we'll refund you. No questions asked."
+  }
+];
 
-  return null;
-};
+export default function Index() {
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      
+      {/* Hero Section */}
+      <section className="relative bg-primary text-primary-foreground py-20 lg:py-32 overflow-hidden">
+        {/* Subtle grid pattern overlay */}
+        <div className="absolute inset-0 opacity-5" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }} />
+        
+        <div className="container relative z-10">
+          <div className="max-w-3xl mx-auto text-center">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+              UNLOCK YOUR <span className="text-accent">SWING DNA</span>
+            </h1>
+            <p className="text-lg md:text-xl text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
+              Get your swing analyzed by an AAA Hitting Coach. 
+              Find your #1 problem. Get the drill to fix it.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+              <Button asChild variant="hero" size="xl">
+                <Link to="/analyze">GET YOUR SWING ANALYZED — $37</Link>
+              </Button>
+              <Button variant="ghost" size="xl" className="text-primary-foreground/70 hover:text-primary-foreground">
+                See How It Works <ArrowDown className="ml-2 w-5 h-5" />
+              </Button>
+            </div>
 
-export default Index;
+            <div className="pt-8 border-t border-primary-foreground/10">
+              <p className="text-sm text-primary-foreground/60 mb-4">
+                Trusted by players who made it to:
+              </p>
+              <div className="flex flex-wrap justify-center gap-8 items-center">
+                {mlbPlayers.map((player) => (
+                  <div key={player.name} className="text-center">
+                    <div className="text-sm font-medium">{player.name}</div>
+                    <div className="text-xs text-primary-foreground/50">{player.team}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section id="how-it-works" className="py-20 bg-surface">
+        <div className="container">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+            HOW IT WORKS
+          </h2>
+          
+          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto mb-12">
+            {[
+              { icon: Video, step: '1', title: 'UPLOAD', description: 'Record your swing and upload it' },
+              { icon: Brain, step: '2', title: 'ANALYZE', description: 'We score your Brain, Body, Bat & Ball' },
+              { icon: FileText, step: '3', title: 'FIX', description: 'Get your personalized drill plan' },
+            ].map((item) => (
+              <div key={item.step} className="text-center p-6 bg-card rounded-xl shadow-card">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent/10 flex items-center justify-center">
+                  <item.icon className="w-8 h-8 text-accent" />
+                </div>
+                <div className="text-sm text-accent font-semibold mb-2">STEP {item.step}</div>
+                <h3 className="text-xl font-bold mb-2">{item.title}</h3>
+                <p className="text-muted-foreground">{item.description}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <Button asChild variant="hero" size="lg">
+              <Link to="/analyze">GET STARTED — $37</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* The 4B System Section */}
+      <section className="py-20 bg-background">
+        <div className="container">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
+              THE 4B SYSTEM™
+            </h2>
+            <p className="text-center text-muted-foreground mb-12">
+              We analyze 4 components of your swing
+            </p>
+
+            <div className="bg-card rounded-xl p-6 md:p-8 shadow-card space-y-6">
+              {[
+                { emoji: '🧠', name: 'BRAIN', desc: 'How you time and sequence your swing', value: 72 },
+                { emoji: '💪', name: 'BODY', desc: 'How you use your legs and hips', value: 85 },
+                { emoji: '🏏', name: 'BAT', desc: 'How you swing the bat', value: 45, isWeakest: true },
+                { emoji: '⚾', name: 'BALL', desc: 'How hard you\'ll hit it', value: 78 },
+              ].map((item) => (
+                <div key={item.name} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{item.emoji}</span>
+                      <div>
+                        <div className="font-bold">{item.name}</div>
+                        <div className="text-sm text-muted-foreground">{item.desc}</div>
+                      </div>
+                    </div>
+                    {item.isWeakest && (
+                      <span className="text-accent text-sm font-semibold">← YOUR PROBLEM</span>
+                    )}
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        item.isWeakest ? 'bg-accent' : 'bg-primary'
+                      }`}
+                      style={{ width: `${item.value}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-center mt-8 text-lg font-medium">
+              Most coaches guess. <span className="text-accent">We measure.</span> Then we fix the weakest link.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Meet Your Coach Section */}
+      <section className="py-20 bg-surface">
+        <div className="container">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid md:grid-cols-[240px_1fr] gap-8 items-start">
+              {/* Photo placeholder */}
+              <div className="bg-muted rounded-xl aspect-square flex items-center justify-center">
+                <span className="text-muted-foreground text-sm">Photo</span>
+              </div>
+
+              <div>
+                <p className="text-accent font-semibold mb-2">MEET YOUR COACH</p>
+                <h2 className="text-3xl font-bold mb-1">Rick Strickland</h2>
+                <p className="text-muted-foreground mb-4">
+                  The Swing Rehab Coach — AAA Hitting Coach, Baltimore Orioles
+                </p>
+
+                <p className="text-foreground/80 mb-6">
+                  Rick doesn't guess. He diagnoses your swing like a doctor diagnoses an injury — 
+                  find the problem, prescribe the fix, track your progress.
+                </p>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  {[
+                    '400+ college commits',
+                    '78+ professional players',
+                    '3 MLB Award Winners',
+                    'Technology Pioneer',
+                  ].map((stat) => (
+                    <div key={stat} className="flex items-center gap-2">
+                      <Check className="w-5 h-5 text-accent" />
+                      <span className="text-sm">{stat}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <Button asChild variant="accent-outline" size="lg">
+                  <Link to="/about">LEARN MORE ABOUT RICK →</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Social Proof Section */}
+      <section className="py-20 bg-background">
+        <div className="container">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+            PLAYERS RICK HAS TRAINED
+          </h2>
+
+          {/* Featured player */}
+          <div className="max-w-3xl mx-auto mb-12">
+            <div className="bg-muted rounded-xl aspect-video flex items-center justify-center">
+              <span className="text-muted-foreground">Rick with Andrew Benintendi Photo</span>
+            </div>
+            <p className="text-center mt-4 text-muted-foreground">
+              Rick with Andrew Benintendi — Gold Glove Winner, World Series Champion
+            </p>
+          </div>
+
+          {/* Player grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+            {[
+              { name: 'Pete Crow-Armstrong', team: 'Cubs' },
+              { name: 'Cedric Mullins', team: 'Orioles' },
+              { name: 'Devin Williams', team: 'NL ROY 2020' },
+              { name: 'Carson Kelly', team: 'All-Star' },
+            ].map((player) => (
+              <div key={player.name} className="bg-card p-4 rounded-xl text-center shadow-sm">
+                <div className="w-16 h-16 mx-auto mb-3 bg-muted rounded-full" />
+                <div className="font-semibold text-sm">{player.name}</div>
+                <div className="text-xs text-muted-foreground">{player.team}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="py-20 bg-surface">
+        <div className="container">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+            CHOOSE YOUR ANALYSIS
+          </h2>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto mb-12">
+            {/* Single Swing */}
+            <div className="bg-card rounded-xl p-8 shadow-card">
+              <h3 className="text-xl font-bold mb-2">SINGLE SWING SCORE</h3>
+              <div className="text-4xl font-bold mb-6">$37</div>
+              
+              <ul className="space-y-3 mb-8">
+                {[
+                  '1 swing analyzed',
+                  'Your #1 problem identified',
+                  '1 drill to fix it',
+                  'PDF report',
+                ].map((feature) => (
+                  <li key={feature} className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 text-accent" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+
+              <Button asChild variant="accent" className="w-full">
+                <Link to="/analyze">GET STARTED</Link>
+              </Button>
+            </div>
+
+            {/* Complete Review */}
+            <div className="bg-card rounded-xl p-8 shadow-card border-2 border-accent relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground px-3 py-1 rounded-full text-xs font-bold">
+                ⭐ MOST POPULAR
+              </div>
+              
+              <h3 className="text-xl font-bold mb-2">COMPLETE REVIEW</h3>
+              <div className="text-4xl font-bold mb-6">$97</div>
+              
+              <ul className="space-y-3 mb-8">
+                {[
+                  '5 swings analyzed',
+                  'Consistency score',
+                  'Age group comparison',
+                  '30-day drill plan',
+                  'PDF report',
+                ].map((feature) => (
+                  <li key={feature} className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 text-accent" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+
+              <Button asChild variant="hero" className="w-full">
+                <Link to="/analyze">GET STARTED</Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="text-center pt-8 border-t border-border max-w-xl mx-auto">
+            <p className="text-muted-foreground mb-4">Want personal coaching from Rick?</p>
+            <Button asChild variant="accent-outline" size="lg">
+              <Link to="/inner-circle">JOIN RICK'S INNER CIRCLE — $297/month →</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-20 bg-background">
+        <div className="container">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+            FREQUENTLY ASKED QUESTIONS
+          </h2>
+
+          <div className="max-w-2xl mx-auto">
+            <Accordion type="single" collapsible className="space-y-2">
+              {faqItems.map((item, index) => (
+                <AccordionItem 
+                  key={index} 
+                  value={`item-${index}`}
+                  className="bg-card rounded-lg px-6 border-none shadow-sm"
+                >
+                  <AccordionTrigger className="text-left font-semibold hover:no-underline">
+                    {item.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground">
+                    {item.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="py-20 bg-primary text-primary-foreground">
+        <div className="container text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-6">
+            Ready to unlock your swing potential?
+          </h2>
+          <Button asChild variant="hero" size="xl">
+            <Link to="/analyze">GET YOUR SWING ANALYZED — $37</Link>
+          </Button>
+        </div>
+      </section>
+
+      <Footer />
+    </div>
+  );
+}
