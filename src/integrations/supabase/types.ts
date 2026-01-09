@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      drill_videos: {
+        Row: {
+          access_level: string | null
+          created_at: string | null
+          description: string | null
+          drill_name: string | null
+          duration_seconds: number | null
+          four_b_category: string | null
+          id: string
+          motor_profiles: string[] | null
+          player_level: string[] | null
+          problems_addressed: string[] | null
+          published_at: string | null
+          status: string | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          title: string
+          transcript: string | null
+          transcript_segments: Json | null
+          updated_at: string | null
+          video_type: string | null
+          video_url: string
+        }
+        Insert: {
+          access_level?: string | null
+          created_at?: string | null
+          description?: string | null
+          drill_name?: string | null
+          duration_seconds?: number | null
+          four_b_category?: string | null
+          id?: string
+          motor_profiles?: string[] | null
+          player_level?: string[] | null
+          problems_addressed?: string[] | null
+          published_at?: string | null
+          status?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title: string
+          transcript?: string | null
+          transcript_segments?: Json | null
+          updated_at?: string | null
+          video_type?: string | null
+          video_url: string
+        }
+        Update: {
+          access_level?: string | null
+          created_at?: string | null
+          description?: string | null
+          drill_name?: string | null
+          duration_seconds?: number | null
+          four_b_category?: string | null
+          id?: string
+          motor_profiles?: string[] | null
+          player_level?: string[] | null
+          problems_addressed?: string[] | null
+          published_at?: string | null
+          status?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string
+          transcript?: string | null
+          transcript_segments?: Json | null
+          updated_at?: string | null
+          video_type?: string | null
+          video_url?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           body: string
@@ -296,6 +365,44 @@ export type Database = {
           },
         ]
       }
+      video_views: {
+        Row: {
+          completed: boolean | null
+          created_at: string | null
+          id: string
+          session_id: string | null
+          user_id: string | null
+          video_id: string | null
+          watched_seconds: number | null
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string | null
+          id?: string
+          session_id?: string | null
+          user_id?: string | null
+          video_id?: string | null
+          watched_seconds?: number | null
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string | null
+          id?: string
+          session_id?: string | null
+          user_id?: string | null
+          video_id?: string | null
+          watched_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_views_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "drill_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -304,6 +411,32 @@ export type Database = {
       calculate_session_aggregates: {
         Args: { p_session_id: string }
         Returns: undefined
+      }
+      search_videos: {
+        Args: {
+          category_filter?: string
+          level_filter?: string
+          search_query: string
+        }
+        Returns: {
+          access_level: string
+          description: string
+          drill_name: string
+          duration_seconds: number
+          four_b_category: string
+          headline: string
+          id: string
+          motor_profiles: string[]
+          player_level: string[]
+          problems_addressed: string[]
+          rank: number
+          tags: string[]
+          thumbnail_url: string
+          title: string
+          transcript: string
+          video_type: string
+          video_url: string
+        }[]
       }
     }
     Enums: {
