@@ -7,23 +7,28 @@ import { Check, Clock, MessageCircle, FileText, Brain, MapPin } from 'lucide-rea
 const features = [
   {
     icon: Clock,
-    title: '90 Minutes of Hands-On Coaching',
+    title: '90 Minutes Hands-On Coaching',
     description: 'Rick will video your swing, identify what\'s wrong, and fix it on the spot. You\'ll see improvement before you leave.',
   },
   {
+    icon: Check,
+    title: 'Full 4B Analysis',
+    description: 'Complete breakdown of Brain, Body, Bat, and Ball — the same system Rick uses with pro players.',
+  },
+  {
     icon: FileText,
-    title: 'Your Personal Drill Program',
-    description: 'Walk out with a custom 30-day plan — the exact drills for YOUR problems. Video demonstrations included.',
+    title: 'Custom 30-Day Drill Program',
+    description: 'Walk out with a personalized plan — the exact drills for YOUR problems. Video demonstrations included.',
   },
   {
     icon: MessageCircle,
-    title: '30 Days of Text Access to Rick',
+    title: '30 Days Text Access to Rick',
     description: 'Text Rick anytime for the next 30 days. Send swing videos. Ask questions. Stay on track.',
   },
   {
-    icon: Check,
-    title: 'Your Written Report',
-    description: 'Full 4B breakdown with scores, priorities, and prescriptions.',
+    icon: FileText,
+    title: 'Written Report',
+    description: 'Full breakdown with scores, priorities, and prescriptions you can reference anytime.',
   },
 ];
 
@@ -37,10 +42,10 @@ export default function Assessment() {
         <div className="container">
           <div className="max-w-3xl mx-auto text-center">
             <p className="text-lg text-accent font-semibold mb-4">
-              TRAIN WITH RICK BEFORE HE LEAVES FOR SPRING TRAINING
+              TRAIN WITH RICK IN PERSON
             </p>
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
-              2-HOUR IN-PERSON ASSESSMENT
+              IN-PERSON ASSESSMENT WITH COACH RICK
             </h1>
             <div className="flex items-center justify-center gap-4 mb-4">
               <span className="text-2xl text-primary-foreground/50 line-through">$399</span>
@@ -115,11 +120,11 @@ export default function Assessment() {
         <div className="container">
           <div className="max-w-xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 bg-warning/10 text-warning px-4 py-2 rounded-full mb-6 font-semibold">
-              ⚠️ Only 8 spots available
+              ⚠️ Only 8 spots available before spring training
             </div>
             
-            <Button variant="hero" size="xl" className="w-full mb-8">
-              BOOK YOUR SPOT — $299 →
+            <Button variant="hero" size="xl" className="w-full mb-8" asChild>
+              <a href="https://buy.stripe.com/test_00g4hM2Lf9xFe4w5kl">BOOK YOUR ASSESSMENT →</a>
             </Button>
 
             {/* Location */}
@@ -128,7 +133,7 @@ export default function Assessment() {
               <div className="text-left">
                 <div className="font-semibold">LOCATION</div>
                 <p className="text-sm text-muted-foreground">
-                  Contact for facility address
+                  St. Louis, MO area — exact address provided upon booking
                 </p>
               </div>
             </div>
