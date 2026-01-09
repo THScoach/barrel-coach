@@ -19,6 +19,11 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
+    const kommodoApiKey = Deno.env.get('KOMMODO_API_KEY')
+    if (!kommodoApiKey) {
+      throw new Error('KOMMODO_API_KEY not configured')
+    }
+
     // Get video details
     const { data: video, error: videoError } = await supabase
       .from('drill_videos')
@@ -36,68 +41,98 @@ serve(async (req) => {
       .update({ status: 'transcribing' })
       .eq('id', video_id)
 
-    console.log('Downloading video from:', video.video_url)
+    console.log('Starting Kommodo transcription for video:', video_id)
+    console.log('Video URL:', video.video_url)
 
-    // Download video file
-    const videoResponse = await fetch(video.video_url)
-    if (!videoResponse.ok) {
-      throw new Error('Failed to download video')
-    }
-    
-    const videoBlob = await videoResponse.blob()
-    console.log('Video downloaded, size:', videoBlob.size)
-
-    // Check file size - Whisper has 25MB limit
-    const maxSize = 25 * 1024 * 1024 // 25MB
-    if (videoBlob.size > maxSize) {
-      console.error('Video exceeds 25MB limit:', videoBlob.size)
-      await supabase
-        .from('drill_videos')
-        .update({ status: 'failed' })
-        .eq('id', video_id)
-      throw new Error(`Video file too large (${Math.round(videoBlob.size / 1024 / 1024)}MB). Maximum is 25MB.`)
-    }
-
-    // Send to OpenAI Whisper
-    const formData = new FormData()
-    formData.append('file', videoBlob, 'video.mp4')
-    formData.append('model', 'whisper-1')
-    formData.append('response_format', 'verbose_json')
-    formData.append('timestamp_granularities[]', 'segment')
-
-    console.log('Sending to Whisper API...')
-
-    const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    // Step 1: Create transcription job with Kommodo
+    const createJobResponse = await fetch('https://api.kommodo.ai/v1/transcribe', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${kommodoApiKey}`,
+        'Content-Type': 'application/json',
       },
-      body: formData,
+      body: JSON.stringify({
+        url: video.video_url,
+        language: 'en',
+        response_format: 'verbose_json'
+      })
     })
 
-    if (!whisperResponse.ok) {
-      const errorText = await whisperResponse.text()
-      console.error('Whisper API error:', errorText)
+    if (!createJobResponse.ok) {
+      const errorText = await createJobResponse.text()
+      console.error('Kommodo create job error:', errorText)
       
-      // Update status to failed
       await supabase
         .from('drill_videos')
         .update({ status: 'failed' })
         .eq('id', video_id)
         
-      throw new Error(`Whisper API error: ${whisperResponse.status}`)
+      throw new Error(`Kommodo API error: ${createJobResponse.status} - ${errorText}`)
     }
 
-    const whisperData = await whisperResponse.json()
-    console.log('Transcription complete, duration:', whisperData.duration)
+    const jobData = await createJobResponse.json()
+    console.log('Kommodo job created:', jobData)
 
-    // Extract transcript and segments
-    const transcript = whisperData.text
-    const segments = whisperData.segments?.map((seg: any) => ({
-      start: seg.start,
-      end: seg.end,
-      text: seg.text.trim(),
-    })) || []
+    // Check if we got immediate results or need to poll
+    let transcriptData = jobData
+
+    // If job_id returned, poll for completion
+    if (jobData.job_id && !jobData.text) {
+      console.log('Polling for job completion:', jobData.job_id)
+      
+      const maxAttempts = 60 // 5 minutes max (5 sec intervals)
+      let attempts = 0
+      let completed = false
+
+      while (!completed && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 5000)) // Wait 5 seconds
+        attempts++
+
+        const statusResponse = await fetch(`https://api.kommodo.ai/v1/transcribe/${jobData.job_id}`, {
+          headers: {
+            'Authorization': `Bearer ${kommodoApiKey}`,
+          }
+        })
+
+        if (!statusResponse.ok) {
+          console.error('Status check failed:', await statusResponse.text())
+          continue
+        }
+
+        const statusData = await statusResponse.json()
+        console.log(`Poll attempt ${attempts}:`, statusData.status)
+
+        if (statusData.status === 'completed' || statusData.text) {
+          transcriptData = statusData
+          completed = true
+        } else if (statusData.status === 'failed' || statusData.status === 'error') {
+          await supabase
+            .from('drill_videos')
+            .update({ status: 'failed' })
+            .eq('id', video_id)
+          throw new Error('Kommodo transcription failed')
+        }
+      }
+
+      if (!completed) {
+        await supabase
+          .from('drill_videos')
+          .update({ status: 'failed' })
+          .eq('id', video_id)
+        throw new Error('Transcription timeout')
+      }
+    }
+
+    console.log('Transcription complete!')
+
+    // Extract transcript and segments from Kommodo response
+    const transcript = transcriptData.text || transcriptData.transcript || ''
+    const segments = (transcriptData.segments || transcriptData.words || []).map((seg: any) => ({
+      start: seg.start || seg.startTime || 0,
+      end: seg.end || seg.endTime || 0,
+      text: (seg.text || seg.word || '').trim(),
+    }))
+    const duration = transcriptData.duration || transcriptData.duration_seconds || 0
 
     // Update database with transcript - status: analyzing
     const { error: updateError } = await supabase
@@ -105,7 +140,7 @@ serve(async (req) => {
       .update({ 
         transcript,
         transcript_segments: segments,
-        duration_seconds: Math.round(whisperData.duration || 0),
+        duration_seconds: Math.round(duration),
         status: 'analyzing'
       })
       .eq('id', video_id)
@@ -136,7 +171,7 @@ serve(async (req) => {
         success: true, 
         transcript, 
         segments,
-        duration: whisperData.duration,
+        duration,
         message: 'Transcription complete. Auto-tagging started.'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
