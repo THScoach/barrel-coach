@@ -11,25 +11,38 @@ import { Search, Play, Lock, Clock, X, Brain, Dumbbell, Target, CircleDot } from
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import type { Json } from "@/integrations/supabase/types";
+
+interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+interface DrillVideo {
   id: string;
   title: string;
   description: string | null;
   video_url: string;
   thumbnail_url: string | null;
   transcript: string | null;
-  transcript_segments: { start: number; end: number; text: string }[] | null;
+  transcript_segments: Json | null;
   four_b_category: string | null;
   drill_name: string | null;
   problems_addressed: string[] | null;
   motor_profiles: string[] | null;
   player_level: string[] | null;
   duration_seconds: number | null;
-  access_level: string;
-  video_type: string;
+  access_level: string | null;
+  video_type: string | null;
   tags: string[] | null;
   rank?: number;
   headline?: string;
 }
+
+const parseTranscriptSegments = (segments: Json | null): TranscriptSegment[] | null => {
+  if (!segments || !Array.isArray(segments)) return null;
+  return segments as unknown as TranscriptSegment[];
+};
 
 const categoryInfo: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
   brain: { color: 'bg-blue-500', icon: <Brain className="h-4 w-4" />, label: 'Brain' },
@@ -71,7 +84,7 @@ export default function Library() {
         });
 
         if (error) throw error;
-        setVideos(data || []);
+        setVideos((data || []) as DrillVideo[]);
       } else {
         // Regular query
         let query = supabase
@@ -377,9 +390,9 @@ export default function Library() {
                 <div className="lg:col-span-1">
                   <h4 className="font-semibold mb-2">Transcript</h4>
                   <ScrollArea className="h-[400px] border rounded-lg p-3">
-                    {selectedVideo.transcript_segments ? (
+                    {parseTranscriptSegments(selectedVideo.transcript_segments) ? (
                       <div className="space-y-2">
-                        {selectedVideo.transcript_segments.map((segment, i) => (
+                        {parseTranscriptSegments(selectedVideo.transcript_segments)!.map((segment, i) => (
                           <div 
                             key={i}
                             className="group cursor-pointer hover:bg-muted p-2 rounded"
