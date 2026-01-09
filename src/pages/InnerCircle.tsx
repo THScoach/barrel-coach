@@ -7,8 +7,8 @@ import { Check, MessageCircle, Video, Users, Brain, Shield } from 'lucide-react'
 const features = [
   {
     icon: Video,
-    title: '2 Personal Video Reviews from Rick Every Month',
-    description: 'Send your swings. Rick records a personal breakdown video for you.',
+    title: '2 Personal Video Reviews Per Month',
+    description: 'Send your swings. Rick records a personal breakdown video just for you.',
   },
   {
     icon: Users,
@@ -17,7 +17,7 @@ const features = [
   },
   {
     icon: MessageCircle,
-    title: 'Direct Access to Rick via Chat',
+    title: 'Direct Chat Access to Rick',
     description: 'Text Rick questions anytime. He responds within 24 hours.',
   },
   {
@@ -27,8 +27,8 @@ const features = [
   },
   {
     icon: Brain,
-    title: 'S2 Cognition Brain Testing (Add-On Available)',
-    description: 'The same brain test MLB teams use to evaluate players.',
+    title: 'Priority Scheduling for In-Person',
+    description: 'Jump the line when you want to train with Rick in person.',
   },
 ];
 
@@ -127,8 +127,8 @@ export default function InnerCircle() {
               ⚠️ Only 12 spots available
             </div>
             
-            <Button variant="hero" size="xl" className="w-full mb-8">
-              JOIN THE INNER CIRCLE →
+            <Button variant="hero" size="xl" className="w-full mb-8" asChild>
+              <a href="https://buy.stripe.com/test_00g4hM2Lf9xFe4w5kl">APPLY FOR INNER CIRCLE →</a>
             </Button>
 
             {/* Guarantee */}
