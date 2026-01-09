@@ -138,10 +138,10 @@ export default function Library() {
   };
 
   // Check user access (simplified - you can expand this)
-  const hasAccess = (accessLevel: string) => {
+  const hasAccess = (accessLevel: string | null) => {
     // For now, show all as accessible
     // In production, check against user's purchase history or subscription
-    return accessLevel === 'free';
+    return accessLevel === 'free' || !accessLevel;
   };
 
   return (
