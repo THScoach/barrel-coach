@@ -2,6 +2,7 @@ import { Download, Mail, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScoreCircle } from '@/components/ScoreCircle';
+import { CoachRickChat } from '@/components/CoachRickChat';
 import { AnalysisResults, FourBScores } from '@/types/analysis';
 import { cn } from '@/lib/utils';
 
@@ -135,9 +136,13 @@ export function ResultsPage({ results }: ResultsPageProps) {
             <span className="text-muted-foreground">{results.drill.whyItWorks}</span>
           </p>
         </div>
-      </Card>
+        </Card>
 
-      {/* 30-Day Plan (Complete Review only) */}
+      {/* Coach Rick AI Chat */}
+      <CoachRickChat 
+        scores={results.scores} 
+        weakestCategory={results.mainProblem.category} 
+      />
       {isCompleteReview && results.thirtyDayPlan && (
         <Card className="p-6 mb-8">
           <h2 className="text-lg font-bold mb-4">YOUR 30-DAY PLAN</h2>
