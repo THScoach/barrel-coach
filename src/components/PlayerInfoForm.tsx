@@ -14,6 +14,7 @@ export function PlayerInfoForm({ onSubmit, initialData }: PlayerInfoFormProps) {
   const [name, setName] = useState(initialData?.name || '');
   const [age, setAge] = useState(initialData?.age?.toString() || '');
   const [email, setEmail] = useState(initialData?.email || '');
+  const [phone, setPhone] = useState(initialData?.phone || '');
   const [level, setLevel] = useState<PlayerLevel | ''>(initialData?.level || '');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -33,6 +34,11 @@ export function PlayerInfoForm({ onSubmit, initialData }: PlayerInfoFormProps) {
       newErrors.email = 'Please enter a valid email';
     }
 
+    // Phone is optional but if provided, validate format
+    if (phone.trim() && !/^[\d\s\-\(\)\+]{10,}$/.test(phone.replace(/\s/g, ''))) {
+      newErrors.phone = 'Please enter a valid phone number';
+    }
+
     if (!level) {
       newErrors.level = 'Please select a level';
     }
@@ -49,6 +55,7 @@ export function PlayerInfoForm({ onSubmit, initialData }: PlayerInfoFormProps) {
         name: name.trim(),
         age: parseInt(age),
         email: email.trim(),
+        phone: phone.trim() || undefined,
         level: level as PlayerLevel,
       });
     }
@@ -79,8 +86,8 @@ export function PlayerInfoForm({ onSubmit, initialData }: PlayerInfoFormProps) {
           )}
         </div>
 
-        {/* Age & Email */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Age, Email, Phone */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label htmlFor="age">Age *</Label>
             <Input
@@ -110,6 +117,21 @@ export function PlayerInfoForm({ onSubmit, initialData }: PlayerInfoFormProps) {
             />
             {errors.email && (
               <p className="text-sm text-destructive">{errors.email}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone (optional)</Label>
+            <Input
+              id="phone"
+              type="tel"
+              placeholder="(555) 123-4567"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={errors.phone ? 'border-destructive' : ''}
+            />
+            {errors.phone && (
+              <p className="text-sm text-destructive">{errors.phone}</p>
             )}
           </div>
         </div>

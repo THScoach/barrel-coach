@@ -28,6 +28,17 @@ serve(async (req) => {
     const swingsRequired = productType === "complete_review" ? 5 : 1;
     const priceCents = productType === "complete_review" ? 9700 : 3700;
 
+    // Format phone number if provided
+    let formattedPhone = null;
+    if (player.phone) {
+      formattedPhone = player.phone.replace(/\D/g, '');
+      if (formattedPhone.length === 10) {
+        formattedPhone = '+1' + formattedPhone;
+      } else if (!formattedPhone.startsWith('+')) {
+        formattedPhone = '+' + formattedPhone;
+      }
+    }
+
     // Create session in database
     const { data: session, error } = await supabase
       .from("sessions")
@@ -37,6 +48,7 @@ serve(async (req) => {
         player_name: player.name,
         player_age: player.age,
         player_email: player.email,
+        player_phone: formattedPhone,
         player_level: player.level,
         environment: environment,
         swings_required: swingsRequired,
@@ -48,6 +60,56 @@ serve(async (req) => {
     if (error) {
       console.error("Database error:", error);
       throw new Error(`Failed to create session: ${error.message}`);
+    }
+
+    // Send welcome SMS if phone provided
+    if (formattedPhone) {
+      try {
+        const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
+        const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
+        const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER");
+        const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+
+        if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_PHONE_NUMBER) {
+          const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
+          const credentials = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
+          
+          // Get the base URL for the app
+          const baseUrl = SUPABASE_URL?.replace('.supabase.co', '').replace('https://', '');
+          const appUrl = `https://${baseUrl}.lovableproject.com`;
+          
+          const welcomeMessage = `Thanks for starting your swing analysis with Catching Barrels! 🔥\n\nUpload your swing here: ${appUrl}/analyze?session=${session.id}\n\n- Coach Rick`;
+
+          const twilioResponse = await fetch(twilioUrl, {
+            method: "POST",
+            headers: {
+              "Authorization": `Basic ${credentials}`,
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+              To: formattedPhone,
+              From: TWILIO_PHONE_NUMBER,
+              Body: welcomeMessage,
+            }),
+          });
+
+          if (twilioResponse.ok) {
+            const twilioData = await twilioResponse.json();
+            // Save to messages table
+            await supabase.from("messages").insert({
+              session_id: session.id,
+              phone_number: formattedPhone,
+              direction: "outbound",
+              body: welcomeMessage,
+              twilio_sid: twilioData.sid,
+              status: "sent",
+            });
+          }
+        }
+      } catch (smsError) {
+        console.error("SMS error (non-fatal):", smsError);
+        // Don't throw - session was created successfully
+      }
     }
 
     return new Response(

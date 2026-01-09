@@ -9,6 +9,7 @@ import Analyze from "./pages/Analyze";
 import About from "./pages/About";
 import InnerCircle from "./pages/InnerCircle";
 import Assessment from "./pages/Assessment";
+import AdminMessages from "./pages/AdminMessages";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/about" element={<About />} />
             <Route path="/inner-circle" element={<InnerCircle />} />
             <Route path="/assessment" element={<Assessment />} />
+            <Route path="/admin/messages" element={<AdminMessages />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
