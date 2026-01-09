@@ -62,7 +62,8 @@ export default function Index() {
         <div className="container relative z-10">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
-              UNLOCK YOUR <span className="text-accent">SWING DNA</span>
+              <span className="block">UNLOCK YOUR</span>
+              <span className="text-accent">SWING DNA</span>
             </h1>
             <p className="text-lg md:text-xl text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
               Get your swing analyzed by an AAA Hitting Coach. 
