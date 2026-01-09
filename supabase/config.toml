@@ -2,3 +2,15 @@ project_id = "ggmuthqsybnfitsfyzxn"
 
 [functions.twilio-webhook]
 verify_jwt = false
+
+[functions.transcribe-video]
+verify_jwt = false
+
+[functions.auto-tag-video]
+verify_jwt = false
+
+[functions.upload-video]
+verify_jwt = false
+
+[functions.admin-videos]
+verify_jwt = false
