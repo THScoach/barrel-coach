@@ -3,6 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { Check, Award, Users, Trophy, Microscope } from 'lucide-react';
+import rickBenintendi from '@/assets/rick-benintendi.jpg';
+import rickCoaching2 from '@/assets/rick-coaching-2.jpg';
+import rickTech from '@/assets/rick-tech.jpg';
+import rickSammySosa from '@/assets/rick-sammy-sosa.jpg';
 
 const credentials = [
   'AAA Hitting Coach, Baltimore Orioles (Norfolk Tides)',
@@ -59,9 +63,16 @@ export default function About() {
       <section className="py-12 bg-surface">
         <div className="container">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-muted rounded-xl aspect-video flex items-center justify-center">
-              <span className="text-muted-foreground">Rick coaching action shot / with Benintendi</span>
+            <div className="rounded-xl overflow-hidden aspect-video">
+              <img 
+                src={rickBenintendi} 
+                alt="Rick Strickland with Andrew Benintendi" 
+                className="w-full h-full object-cover"
+              />
             </div>
+            <p className="text-center mt-4 text-muted-foreground">
+              Rick with Andrew Benintendi — Gold Glove Winner, World Series Champion
+            </p>
           </div>
         </div>
       </section>
@@ -120,17 +131,27 @@ export default function About() {
               <h2 className="text-2xl md:text-3xl font-bold">TECHNOLOGY PIONEER</h2>
             </div>
             
-            <p className="text-lg leading-relaxed mb-8">
-              Rick helped build the systems that power modern baseball. When Rick analyzes your swing, 
-              he's using technology he helped create.
-            </p>
-
-            <div className="flex flex-wrap gap-3">
-              {techPartners.map((tech) => (
-                <div key={tech} className="bg-card px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
-                  {tech}
+            <div className="grid md:grid-cols-2 gap-8 mb-8">
+              <div>
+                <p className="text-lg leading-relaxed">
+                  Rick helped build the systems that power modern baseball. When Rick analyzes your swing, 
+                  he's using technology he helped create.
+                </p>
+                <div className="flex flex-wrap gap-3 mt-6">
+                  {techPartners.map((tech) => (
+                    <div key={tech} className="bg-card px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
+                      {tech}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+              <div className="rounded-xl overflow-hidden">
+                <img 
+                  src={rickTech} 
+                  alt="Rick using swing analysis technology" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -160,10 +181,29 @@ export default function About() {
       {/* Players Trained */}
       <section className="py-16 bg-background">
         <div className="container">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-4xl mx-auto">
             <div className="flex items-center gap-3 mb-8">
               <Users className="w-8 h-8 text-accent" />
               <h2 className="text-2xl md:text-3xl font-bold">PLAYERS RICK HAS TRAINED</h2>
+            </div>
+
+            {/* Photo gallery */}
+            <div className="grid md:grid-cols-2 gap-6 mb-12">
+              <div className="rounded-xl overflow-hidden">
+                <img 
+                  src={rickCoaching2} 
+                  alt="Rick coaching a player" 
+                  className="w-full h-64 object-cover"
+                />
+              </div>
+              <div className="rounded-xl overflow-hidden">
+                <img 
+                  src={rickSammySosa} 
+                  alt="Rick with Sammy Sosa" 
+                  className="w-full h-64 object-cover"
+                />
+                <p className="text-center mt-2 text-sm text-muted-foreground">Rick with Sammy Sosa</p>
+              </div>
             </div>
             
             {/* MLB Award Winners */}

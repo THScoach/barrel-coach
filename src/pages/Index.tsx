@@ -9,6 +9,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import rickCoaching1 from '@/assets/rick-coaching-1.jpg';
+import rickBenintendi from '@/assets/rick-benintendi.jpg';
 
 // MLB Team logos placeholder - would be replaced with actual images
 const mlbPlayers = [
@@ -180,9 +182,13 @@ export default function Index() {
         <div className="container">
           <div className="max-w-4xl mx-auto">
             <div className="grid md:grid-cols-[240px_1fr] gap-8 items-start">
-              {/* Photo placeholder */}
-              <div className="bg-muted rounded-xl aspect-square flex items-center justify-center">
-                <span className="text-muted-foreground text-sm">Photo</span>
+              {/* Rick coaching photo */}
+              <div className="rounded-xl overflow-hidden aspect-square">
+                <img 
+                  src={rickCoaching1} 
+                  alt="Rick Strickland coaching" 
+                  className="w-full h-full object-cover"
+                />
               </div>
 
               <div>
@@ -229,8 +235,12 @@ export default function Index() {
 
           {/* Featured player */}
           <div className="max-w-3xl mx-auto mb-12">
-            <div className="bg-muted rounded-xl aspect-video flex items-center justify-center">
-              <span className="text-muted-foreground">Rick with Andrew Benintendi Photo</span>
+            <div className="rounded-xl overflow-hidden aspect-video">
+              <img 
+                src={rickBenintendi} 
+                alt="Rick Strickland with Andrew Benintendi" 
+                className="w-full h-full object-cover"
+              />
             </div>
             <p className="text-center mt-4 text-muted-foreground">
               Rick with Andrew Benintendi — Gold Glove Winner, World Series Champion
