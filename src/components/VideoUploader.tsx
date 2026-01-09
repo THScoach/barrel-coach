@@ -1,35 +1,66 @@
 import { useState, useRef, useCallback } from 'react';
-import { Upload, X, Play, CheckCircle, AlertCircle, HelpCircle } from 'lucide-react';
+import { Upload, X, CheckCircle, HelpCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { UploadedVideo } from '@/types/analysis';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface VideoUploaderProps {
   swingsRequired: number;
-  onComplete: (videos: UploadedVideo[]) => void;
+  sessionId: string;
+  onComplete: () => void;
+  isCheckoutLoading?: boolean;
 }
 
-export function VideoUploader({ swingsRequired, onComplete }: VideoUploaderProps) {
+export function VideoUploader({ swingsRequired, sessionId, onComplete, isCheckoutLoading }: VideoUploaderProps) {
   const [videos, setVideos] = useState<UploadedVideo[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [showGuidelines, setShowGuidelines] = useState(false);
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isComplete = videos.filter(v => v.status === 'uploaded').length >= swingsRequired;
+  const uploadedCount = videos.filter(v => v.status === 'uploaded').length;
+  const isComplete = uploadedCount >= swingsRequired;
 
   const validateVideo = async (file: File): Promise<{ valid: boolean; error?: string }> => {
-    // Check file type
     if (!['video/mp4', 'video/quicktime'].includes(file.type)) {
       return { valid: false, error: 'Please upload a .mp4 or .mov file' };
     }
-
-    // Check file size (100MB max)
     if (file.size > 100 * 1024 * 1024) {
       return { valid: false, error: 'Video is too large (max 100MB)' };
     }
-
     return { valid: true };
+  };
+
+  const uploadVideoToBackend = async (file: File, swingIndex: number): Promise<boolean> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('sessionId', sessionId);
+      formData.append('swingIndex', swingIndex.toString());
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-swing`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Upload error:', error);
+      return false;
+    }
   };
 
   const handleFileSelect = useCallback(async (files: FileList | null) => {
@@ -42,26 +73,45 @@ export function VideoUploader({ swingsRequired, onComplete }: VideoUploaderProps
       const validation = await validateVideo(file);
       
       if (!validation.valid) {
-        // Show error toast or modal
-        console.error(validation.error);
+        toast.error(validation.error);
         continue;
       }
 
+      const currentIndex = videos.length;
       const id = crypto.randomUUID();
       const previewUrl = URL.createObjectURL(file);
       
+      // Add video in uploading state
       const newVideo: UploadedVideo = {
         id,
-        index: videos.length,
+        index: currentIndex,
         file,
         previewUrl,
         duration: 0,
-        status: 'uploaded', // Simulating immediate upload for now
+        status: 'uploading',
       };
 
       setVideos(prev => [...prev, newVideo]);
+      setUploadingIndex(currentIndex);
+
+      // Upload to backend
+      const success = await uploadVideoToBackend(file, currentIndex);
+
+      // Update video status
+      setVideos(prev => 
+        prev.map(v => 
+          v.id === id 
+            ? { ...v, status: success ? 'uploaded' : 'error' }
+            : v
+        )
+      );
+      setUploadingIndex(null);
+
+      if (!success) {
+        toast.error(`Failed to upload swing ${currentIndex + 1}`);
+      }
     }
-  }, [videos, swingsRequired]);
+  }, [videos, swingsRequired, sessionId]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -75,11 +125,9 @@ export function VideoUploader({ swingsRequired, onComplete }: VideoUploaderProps
 
   const handleContinue = () => {
     if (isComplete) {
-      onComplete(videos);
+      onComplete();
     }
   };
-
-  const uploadedCount = videos.filter(v => v.status === 'uploaded').length;
 
   return (
     <div className="animate-fade-in max-w-2xl mx-auto">
@@ -105,6 +153,7 @@ export function VideoUploader({ swingsRequired, onComplete }: VideoUploaderProps
                   key={i}
                   index={i}
                   video={video}
+                  isUploading={uploadingIndex === i}
                   onRemove={() => removeVideo(i)}
                   onClick={() => !video && fileInputRef.current?.click()}
                 />
@@ -128,7 +177,7 @@ export function VideoUploader({ swingsRequired, onComplete }: VideoUploaderProps
         </div>
       )}
 
-      {/* Upload zone (show if not complete) */}
+      {/* Upload zone */}
       {uploadedCount < swingsRequired && (
         <div
           className={cn(
@@ -162,7 +211,7 @@ export function VideoUploader({ swingsRequired, onComplete }: VideoUploaderProps
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
-              .mp4 or .mov • Max 30 seconds
+              .mp4 or .mov • Max 100MB
             </p>
           </div>
         </div>
@@ -182,8 +231,22 @@ export function VideoUploader({ swingsRequired, onComplete }: VideoUploaderProps
             <X className="w-4 h-4" />
           </button>
           <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-background/80 text-xs font-medium">
-            <CheckCircle className="w-3 h-3 text-success inline mr-1" />
-            Ready
+            {videos[0].status === 'uploading' ? (
+              <>
+                <Loader2 className="w-3 h-3 text-accent inline mr-1 animate-spin" />
+                Uploading...
+              </>
+            ) : videos[0].status === 'uploaded' ? (
+              <>
+                <CheckCircle className="w-3 h-3 text-success inline mr-1" />
+                Ready
+              </>
+            ) : (
+              <>
+                <X className="w-3 h-3 text-destructive inline mr-1" />
+                Error
+              </>
+            )}
           </div>
         </div>
       )}
@@ -209,17 +272,24 @@ export function VideoUploader({ swingsRequired, onComplete }: VideoUploaderProps
             HOW TO RECORD YOUR SWING
           </Button>
         </DialogTrigger>
-        <RecordingGuidelinesModal />
+        <RecordingGuidelinesModal onClose={() => setShowGuidelines(false)} />
       </Dialog>
 
       <Button 
         variant="accent" 
         size="lg" 
         className="w-full mt-6"
-        disabled={!isComplete}
+        disabled={!isComplete || isCheckoutLoading}
         onClick={handleContinue}
       >
-        {swingsRequired === 1 ? 'CONTINUE →' : `ANALYZE ALL ${swingsRequired} SWINGS →`}
+        {isCheckoutLoading ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Creating checkout...
+          </>
+        ) : (
+          swingsRequired === 1 ? 'CONTINUE TO CHECKOUT →' : `CHECKOUT & ANALYZE ALL ${swingsRequired} SWINGS →`
+        )}
       </Button>
     </div>
   );
@@ -228,11 +298,12 @@ export function VideoUploader({ swingsRequired, onComplete }: VideoUploaderProps
 interface VideoThumbnailProps {
   index: number;
   video?: UploadedVideo;
+  isUploading?: boolean;
   onRemove: () => void;
   onClick: () => void;
 }
 
-function VideoThumbnail({ index, video, onRemove, onClick }: VideoThumbnailProps) {
+function VideoThumbnail({ index, video, isUploading, onRemove, onClick }: VideoThumbnailProps) {
   if (!video) {
     return (
       <button
@@ -251,15 +322,23 @@ function VideoThumbnail({ index, video, onRemove, onClick }: VideoThumbnailProps
         src={video.previewUrl} 
         className="w-full h-full object-cover"
       />
-      <button
-        onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-background/80 flex items-center justify-center hover:bg-background transition-colors"
-      >
-        <X className="w-3 h-3" />
-      </button>
+      {!isUploading && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-background/80 flex items-center justify-center hover:bg-background transition-colors"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      )}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
         <div className="flex items-center gap-1">
-          <CheckCircle className="w-3 h-3 text-success" />
+          {isUploading || video.status === 'uploading' ? (
+            <Loader2 className="w-3 h-3 text-accent animate-spin" />
+          ) : video.status === 'uploaded' ? (
+            <CheckCircle className="w-3 h-3 text-success" />
+          ) : (
+            <X className="w-3 h-3 text-destructive" />
+          )}
           <span className="text-xs text-white font-medium">Swing {index + 1}</span>
         </div>
       </div>
@@ -267,7 +346,7 @@ function VideoThumbnail({ index, video, onRemove, onClick }: VideoThumbnailProps
   );
 }
 
-function RecordingGuidelinesModal() {
+function RecordingGuidelinesModal({ onClose }: { onClose: () => void }) {
   return (
     <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
       <DialogHeader>
@@ -277,7 +356,6 @@ function RecordingGuidelinesModal() {
       </DialogHeader>
 
       <div className="space-y-6">
-        {/* Camera diagram */}
         <div className="p-4 rounded-lg bg-surface border border-border">
           <p className="text-sm font-medium mb-3">CAMERA POSITION</p>
           <div className="text-center py-4 font-mono text-sm">
@@ -291,7 +369,6 @@ function RecordingGuidelinesModal() {
           </div>
         </div>
 
-        {/* Do this */}
         <div>
           <p className="font-medium text-success mb-2">✅ DO THIS:</p>
           <ul className="text-sm space-y-1 text-muted-foreground">
@@ -304,7 +381,6 @@ function RecordingGuidelinesModal() {
           </ul>
         </div>
 
-        {/* Don't do this */}
         <div>
           <p className="font-medium text-destructive mb-2">❌ DON'T DO THIS:</p>
           <ul className="text-sm space-y-1 text-muted-foreground">
@@ -315,7 +391,7 @@ function RecordingGuidelinesModal() {
           </ul>
         </div>
 
-        <Button variant="accent" className="w-full" onClick={() => {}}>
+        <Button variant="accent" className="w-full" onClick={onClose}>
           GOT IT
         </Button>
       </div>
