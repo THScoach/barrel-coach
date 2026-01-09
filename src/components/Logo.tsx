@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Brain } from 'lucide-react';
+import logoIcon from '@/assets/logo-icon.svg';
 
 interface LogoProps {
   showTagline?: boolean;
@@ -28,10 +28,8 @@ export function Logo({ showTagline = false, size = 'md', linkTo = '/' }: LogoPro
 
   const logoContent = (
     <div className="flex items-center gap-2">
-      {/* Brain Icon */}
-      <div className="relative">
-        <Brain className={`${sizeClasses[size].icon} text-accent`} strokeWidth={2.5} />
-      </div>
+      {/* Logo Icon */}
+      <img src={logoIcon} alt="Catching Barrels" className={sizeClasses[size].icon} />
       
       {/* Text */}
       <div className="flex flex-col">
