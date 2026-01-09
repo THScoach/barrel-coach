@@ -14,13 +14,253 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      reports: {
+        Row: {
+          email_status: string | null
+          emailed_at: string | null
+          emailed_to: string | null
+          generated_at: string | null
+          id: string
+          report_storage_path: string | null
+          report_type: string
+          report_url: string
+          session_id: string
+        }
+        Insert: {
+          email_status?: string | null
+          emailed_at?: string | null
+          emailed_to?: string | null
+          generated_at?: string | null
+          id?: string
+          report_storage_path?: string | null
+          report_type: string
+          report_url: string
+          session_id: string
+        }
+        Update: {
+          email_status?: string | null
+          emailed_at?: string | null
+          emailed_to?: string | null
+          generated_at?: string | null
+          id?: string
+          report_storage_path?: string | null
+          report_type?: string
+          report_url?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          analysis_json: Json | null
+          analyzed_at: string | null
+          best_swing_index: number | null
+          best_swing_score: number | null
+          composite_score: number | null
+          consistency_cv: number | null
+          consistency_mean: number | null
+          consistency_std_dev: number | null
+          created_at: string | null
+          environment: string
+          four_b_ball: number | null
+          four_b_bat: number | null
+          four_b_body: number | null
+          four_b_brain: number | null
+          grade: string | null
+          id: string
+          paid_at: string | null
+          percentile: number | null
+          player_age: number
+          player_email: string
+          player_level: string
+          player_name: string
+          price_cents: number
+          product_type: string
+          report_storage_path: string | null
+          report_url: string | null
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          swings_required: number
+          updated_at: string | null
+          user_id: string | null
+          weakest_category: string | null
+          worst_swing_index: number | null
+          worst_swing_score: number | null
+        }
+        Insert: {
+          analysis_json?: Json | null
+          analyzed_at?: string | null
+          best_swing_index?: number | null
+          best_swing_score?: number | null
+          composite_score?: number | null
+          consistency_cv?: number | null
+          consistency_mean?: number | null
+          consistency_std_dev?: number | null
+          created_at?: string | null
+          environment: string
+          four_b_ball?: number | null
+          four_b_bat?: number | null
+          four_b_body?: number | null
+          four_b_brain?: number | null
+          grade?: string | null
+          id?: string
+          paid_at?: string | null
+          percentile?: number | null
+          player_age: number
+          player_email: string
+          player_level: string
+          player_name: string
+          price_cents: number
+          product_type: string
+          report_storage_path?: string | null
+          report_url?: string | null
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          swings_required?: number
+          updated_at?: string | null
+          user_id?: string | null
+          weakest_category?: string | null
+          worst_swing_index?: number | null
+          worst_swing_score?: number | null
+        }
+        Update: {
+          analysis_json?: Json | null
+          analyzed_at?: string | null
+          best_swing_index?: number | null
+          best_swing_score?: number | null
+          composite_score?: number | null
+          consistency_cv?: number | null
+          consistency_mean?: number | null
+          consistency_std_dev?: number | null
+          created_at?: string | null
+          environment?: string
+          four_b_ball?: number | null
+          four_b_bat?: number | null
+          four_b_body?: number | null
+          four_b_brain?: number | null
+          grade?: string | null
+          id?: string
+          paid_at?: string | null
+          percentile?: number | null
+          player_age?: number
+          player_email?: string
+          player_level?: string
+          player_name?: string
+          price_cents?: number
+          product_type?: string
+          report_storage_path?: string | null
+          report_url?: string | null
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          swings_required?: number
+          updated_at?: string | null
+          user_id?: string | null
+          weakest_category?: string | null
+          worst_swing_index?: number | null
+          worst_swing_score?: number | null
+        }
+        Relationships: []
+      }
+      swings: {
+        Row: {
+          analysis_json: Json | null
+          analyzed_at: string | null
+          composite_score: number | null
+          created_at: string | null
+          four_b_ball: number | null
+          four_b_bat: number | null
+          four_b_body: number | null
+          four_b_brain: number | null
+          grade: string | null
+          id: string
+          session_id: string
+          status: string
+          swing_index: number
+          uploaded_at: string | null
+          validation_errors: Json | null
+          validation_passed: boolean | null
+          video_duration_seconds: number | null
+          video_filename: string | null
+          video_size_bytes: number | null
+          video_storage_path: string | null
+          video_url: string | null
+        }
+        Insert: {
+          analysis_json?: Json | null
+          analyzed_at?: string | null
+          composite_score?: number | null
+          created_at?: string | null
+          four_b_ball?: number | null
+          four_b_bat?: number | null
+          four_b_body?: number | null
+          four_b_brain?: number | null
+          grade?: string | null
+          id?: string
+          session_id: string
+          status?: string
+          swing_index: number
+          uploaded_at?: string | null
+          validation_errors?: Json | null
+          validation_passed?: boolean | null
+          video_duration_seconds?: number | null
+          video_filename?: string | null
+          video_size_bytes?: number | null
+          video_storage_path?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          analysis_json?: Json | null
+          analyzed_at?: string | null
+          composite_score?: number | null
+          created_at?: string | null
+          four_b_ball?: number | null
+          four_b_bat?: number | null
+          four_b_body?: number | null
+          four_b_brain?: number | null
+          grade?: string | null
+          id?: string
+          session_id?: string
+          status?: string
+          swing_index?: number
+          uploaded_at?: string | null
+          validation_errors?: Json | null
+          validation_passed?: boolean | null
+          video_duration_seconds?: number | null
+          video_filename?: string | null
+          video_size_bytes?: number | null
+          video_storage_path?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_session_aggregates: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
