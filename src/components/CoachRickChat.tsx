@@ -42,6 +42,7 @@ export function CoachRickChat({ scores, weakestCategory }: CoachRickChatProps) {
           message: messageText,
           scores,
           weakestCategory,
+          history: messages, // Send conversation history for multi-turn support
         },
       });
 
