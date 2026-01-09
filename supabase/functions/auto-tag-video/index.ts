@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { video_id } = await req.json()
+    const { video_id, auto_publish = false } = await req.json()
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -22,7 +22,7 @@ serve(async (req) => {
     // Get video transcript
     const { data: video, error: videoError } = await supabase
       .from('drill_videos')
-      .select('transcript, title, description')
+      .select('transcript, title, description, transcript_segments')
       .eq('id', video_id)
       .single()
 
@@ -36,7 +36,7 @@ serve(async (req) => {
 
     console.log('Analyzing transcript for video:', video_id)
 
-    // Use Lovable AI Gateway for analysis
+    // Use Lovable AI Gateway for comprehensive analysis
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -48,28 +48,37 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You analyze baseball coaching video transcripts and categorize them.
+            content: `You analyze baseball coaching video transcripts from Coach Rick and generate comprehensive metadata.
 
-Return ONLY valid JSON with these fields:
+Coach Rick uses the "4B System" for hitting analysis:
+- Brain: timing, pitch recognition, mental approach, sequencing
+- Body: lower half, hip rotation, weight transfer, ground force
+- Bat: swing path, bat lag, hand position, bat speed
+- Ball: contact point, barrel accuracy, launch angle, exit velocity
+
+Return ONLY valid JSON with ALL these fields:
 {
-  "four_b_category": "brain" | "body" | "bat" | "ball" (pick the PRIMARY category based on Coach Rick's 4B System - Brain=timing/mental, Body=legs/hips/rotation, Bat=swing mechanics, Ball=contact/impact),
-  "problems_addressed": ["problem1", "problem2"] (from this list: spinning_out, casting, late_timing, early_timing, drifting, rolling_over, ground_balls, no_power, chasing_pitches, collapsing_back_side, long_swing, weak_rotation, poor_balance, head_movement, bat_drag, uppercut, chopping),
-  "drill_name": "Name of drill if one is being taught" or null,
-  "motor_profiles": [] (which profiles this applies to from: "whipper", "spinner", "slinger", "puncher" - empty array if general),
-  "player_level": [] (which levels this is appropriate for from: "youth", "travel", "high_school", "college", "pro"),
+  "title": "Clear, specific title that describes what this video teaches (e.g., 'Fix Your Hip Rotation with the Wall Drill' or 'Reading Pitch Spin for Better Timing')",
+  "description": "A compelling 1-2 sentence description explaining what players will learn and why it matters",
+  "four_b_category": "brain" | "body" | "bat" | "ball" (the PRIMARY category this video addresses),
+  "problems_addressed": ["problem1", "problem2"] (from: spinning_out, casting, late_timing, early_timing, drifting, rolling_over, ground_balls, no_power, chasing_pitches, collapsing_back_side, long_swing, weak_rotation, poor_balance, head_movement, bat_drag, uppercut, chopping),
+  "drill_name": "Name of the specific drill if one is being taught, or null",
+  "motor_profiles": [] (from: "whipper", "spinner", "slinger", "puncher" - which swing types benefit most, empty if general),
+  "player_level": [] (from: "youth", "travel", "high_school", "college", "pro" - appropriate skill levels),
   "video_type": "drill" | "lesson" | "breakdown" | "q_and_a" | "live_session",
-  "suggested_title": "A clear, specific title for this video",
-  "suggested_description": "A 1-2 sentence description of what this video teaches",
-  "suggested_tags": ["tag1", "tag2", "tag3"] (additional searchable terms, max 5)
-}`
+  "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"] (5 searchable terms that players might search for),
+  "thumbnail_timestamp": number (seconds into the video that would make the best thumbnail - usually when demonstrating the key concept)
+}
+
+Be specific with titles - avoid generic names like "Hitting Tips" or "Swing Lesson". Reference the actual drill or concept being taught.`
           },
           {
             role: 'user',
-            content: `Title: ${video.title || 'Untitled'}
-Description: ${video.description || 'None'}
+            content: `Current title: ${video.title || 'Untitled'}
+Current description: ${video.description || 'None'}
 
-Transcript:
-${video.transcript.substring(0, 6000)}`
+Full Transcript:
+${video.transcript.substring(0, 8000)}`
           }
         ],
         temperature: 0.3,
@@ -79,6 +88,13 @@ ${video.transcript.substring(0, 6000)}`
     if (!response.ok) {
       const errorText = await response.text()
       console.error('AI Gateway error:', errorText)
+      
+      // Update status to failed
+      await supabase
+        .from('drill_videos')
+        .update({ status: 'failed' })
+        .eq('id', video_id)
+        
       throw new Error(`AI analysis failed: ${response.status}`)
     }
 
@@ -103,8 +119,45 @@ ${video.transcript.substring(0, 6000)}`
 
     console.log('Analysis complete:', analysis)
 
+    // Determine final status
+    const finalStatus = auto_publish ? 'published' : 'ready_for_review'
+    const publishedAt = auto_publish ? new Date().toISOString() : null
+
+    // Save ALL generated metadata to database
+    const { error: updateError } = await supabase
+      .from('drill_videos')
+      .update({
+        title: analysis.title || video.title,
+        description: analysis.description || null,
+        four_b_category: analysis.four_b_category || null,
+        problems_addressed: analysis.problems_addressed?.length ? analysis.problems_addressed : null,
+        drill_name: analysis.drill_name || null,
+        motor_profiles: analysis.motor_profiles?.length ? analysis.motor_profiles : null,
+        player_level: analysis.player_level?.length ? analysis.player_level : null,
+        video_type: analysis.video_type || 'drill',
+        tags: analysis.tags?.length ? analysis.tags : null,
+        status: finalStatus,
+        published_at: publishedAt,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', video_id)
+
+    if (updateError) {
+      console.error('Database update error:', updateError)
+      throw updateError
+    }
+
+    console.log('Video fully processed:', video_id, 'Status:', finalStatus)
+
     return new Response(
-      JSON.stringify({ success: true, analysis }),
+      JSON.stringify({ 
+        success: true, 
+        analysis,
+        status: finalStatus,
+        message: auto_publish 
+          ? 'Video processed and published automatically!'
+          : 'Video processed and ready for review!'
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File
-    const title = formData.get('title') as string || 'Untitled Video'
+    const autoPublish = formData.get('auto_publish') === 'true'
 
     if (!file) {
       throw new Error('No file provided')
@@ -54,13 +54,13 @@ serve(async (req) => {
       throw new Error('Failed to generate video URL')
     }
 
-    // Create database record
+    // Create database record with 'uploading' status
     const { data: video, error: dbError } = await supabase
       .from('drill_videos')
       .insert({
-        title,
+        title: file.name.replace(/\.[^/.]+$/, '') || 'Processing...',
         video_url: urlData.signedUrl,
-        status: 'draft'
+        status: 'processing'
       })
       .select()
       .single()
@@ -70,13 +70,29 @@ serve(async (req) => {
       throw dbError
     }
 
-    console.log('Video record created:', video.id)
+    console.log('Video record created:', video.id, '- Starting automated pipeline')
+
+    // Trigger transcription automatically (fire and forget)
+    // The transcribe function will chain to auto-tag when done
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    fetch(`${supabaseUrl}/functions/v1/transcribe-video`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+      },
+      body: JSON.stringify({ 
+        video_id: video.id,
+        auto_publish: autoPublish
+      })
+    }).catch(err => console.error('Failed to trigger transcription:', err))
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         video_id: video.id,
-        video_url: urlData.signedUrl
+        video_url: urlData.signedUrl,
+        message: 'Upload complete. Transcription started automatically.'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
