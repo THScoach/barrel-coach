@@ -1,15 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Upload, Mic, Tag, Play, Trash2, Edit, Eye, EyeOff, Loader2, ArrowLeft, Video } from "lucide-react";
+import { Upload, Play, Trash2, Edit, Eye, EyeOff, Loader2, ArrowLeft, Video, CheckCircle2, Clock, AlertCircle, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -53,16 +55,27 @@ const categoryColors: Record<string, string> = {
   ball: 'bg-orange-500'
 };
 
+const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  processing: { label: 'Uploading...', icon: <Loader2 className="h-3 w-3 animate-spin" />, color: 'bg-yellow-500' },
+  transcribing: { label: 'Transcribing...', icon: <Loader2 className="h-3 w-3 animate-spin" />, color: 'bg-blue-500' },
+  analyzing: { label: 'Analyzing...', icon: <Sparkles className="h-3 w-3 animate-pulse" />, color: 'bg-purple-500' },
+  ready_for_review: { label: 'Ready for Review', icon: <CheckCircle2 className="h-3 w-3" />, color: 'bg-green-500' },
+  draft: { label: 'Draft', icon: <Clock className="h-3 w-3" />, color: 'bg-gray-500' },
+  published: { label: 'Published', icon: <Eye className="h-3 w-3" />, color: 'bg-green-600' },
+  failed: { label: 'Failed', icon: <AlertCircle className="h-3 w-3" />, color: 'bg-red-500' }
+};
+
 export default function AdminVideos() {
   const [videos, setVideos] = useState<DrillVideo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploadOpen, setUploadOpen] = useState(false);
   const [editVideo, setEditVideo] = useState<DrillVideo | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
-  const [autoTagging, setAutoTagging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [autoPublish, setAutoPublish] = useState(false);
+  const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pollIntervalRef = useRef<number | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -85,8 +98,21 @@ export default function AdminVideos() {
       if (!res.ok) throw new Error('Failed to fetch videos');
       const data = await res.json();
       setVideos(data);
+      
+      // Check if any videos are still processing
+      const hasProcessing = data.some((v: DrillVideo) => 
+        ['processing', 'transcribing', 'analyzing'].includes(v.status)
+      );
+      
+      // If processing, poll more frequently
+      if (hasProcessing && !pollIntervalRef.current) {
+        pollIntervalRef.current = window.setInterval(fetchVideos, 5000);
+      } else if (!hasProcessing && pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
     } catch (error) {
-      toast.error('Failed to load videos');
+      console.error('Failed to load videos:', error);
     } finally {
       setLoading(false);
     }
@@ -94,113 +120,58 @@ export default function AdminVideos() {
 
   useEffect(() => {
     fetchVideos();
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
   }, [fetchVideos]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploading(true);
-    setUploadProgress(0);
+    const totalFiles = files.length;
+    let completedFiles = 0;
 
-    try {
-      const formDataUpload = new FormData();
-      formDataUpload.append('file', file);
-      formDataUpload.append('title', formData.title || file.name);
+    for (const file of Array.from(files)) {
+      try {
+        setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
+        
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', file);
+        formDataUpload.append('auto_publish', autoPublish.toString());
 
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90));
-      }, 500);
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/upload-video`, {
+          method: 'POST',
+          body: formDataUpload
+        });
 
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/upload-video`, {
-        method: 'POST',
-        body: formDataUpload
-      });
+        if (!res.ok) throw new Error(`Upload failed for ${file.name}`);
 
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      if (!res.ok) throw new Error('Upload failed');
-
-      const { video_id } = await res.json();
-      toast.success('Video uploaded successfully!');
-      
-      // Fetch the new video and open edit
-      await fetchVideos();
-      const newVideo = videos.find(v => v.id === video_id);
-      if (newVideo) {
-        setEditVideo(newVideo);
+        completedFiles++;
+        toast.success(`Uploaded: ${file.name}`);
+      } catch (error) {
+        toast.error(`Failed to upload ${file.name}`);
       }
-      setUploadOpen(false);
-    } catch (error) {
-      toast.error('Upload failed');
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
     }
-  };
 
-  const handleTranscribe = async () => {
-    if (!editVideo) return;
-
-    setTranscribing(true);
-    try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/transcribe-video`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_id: editVideo.id })
-      });
-
-      if (!res.ok) throw new Error('Transcription failed');
-
-      const { transcript, duration } = await res.json();
-      
-      setFormData(prev => ({ ...prev, transcript }));
-      setEditVideo(prev => prev ? { ...prev, transcript, duration_seconds: duration } : null);
-      
-      toast.success('Transcription complete!');
-      await fetchVideos();
-    } catch (error) {
-      toast.error('Transcription failed');
-    } finally {
-      setTranscribing(false);
+    setUploadProgress(100);
+    toast.success(`${completedFiles} video(s) uploaded! Processing started automatically.`);
+    
+    // Start polling for updates
+    if (!pollIntervalRef.current) {
+      pollIntervalRef.current = window.setInterval(fetchVideos, 5000);
     }
-  };
-
-  const handleAutoTag = async () => {
-    if (!editVideo) return;
-
-    setAutoTagging(true);
-    try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/auto-tag-video`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_id: editVideo.id })
-      });
-
-      if (!res.ok) throw new Error('Auto-tagging failed');
-
-      const { analysis } = await res.json();
-      
-      setFormData(prev => ({
-        ...prev,
-        title: analysis.suggested_title || prev.title,
-        description: analysis.suggested_description || prev.description,
-        four_b_category: analysis.four_b_category || prev.four_b_category,
-        drill_name: analysis.drill_name || prev.drill_name,
-        problems_addressed: analysis.problems_addressed || prev.problems_addressed,
-        motor_profiles: analysis.motor_profiles || prev.motor_profiles,
-        video_type: analysis.video_type || prev.video_type,
-        player_level: analysis.player_level || prev.player_level,
-        tags: (analysis.suggested_tags || []).join(', ')
-      }));
-      
-      toast.success('Auto-tagging complete! Review suggestions.');
-    } catch (error) {
-      toast.error('Auto-tagging failed');
-    } finally {
-      setAutoTagging(false);
+    
+    await fetchVideos();
+    setUploading(false);
+    setUploadProgress(0);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -257,6 +228,35 @@ export default function AdminVideos() {
     }
   };
 
+  const handleBulkPublish = async () => {
+    const toPublish = videos.filter(v => 
+      selectedVideos.has(v.id) && v.status !== 'published'
+    );
+    
+    if (toPublish.length === 0) {
+      toast.error('No videos selected for publishing');
+      return;
+    }
+
+    let published = 0;
+    for (const video of toPublish) {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos?id=${video.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'published' })
+        });
+        if (res.ok) published++;
+      } catch (error) {
+        console.error('Failed to publish:', video.id);
+      }
+    }
+
+    toast.success(`Published ${published} video(s)!`);
+    setSelectedVideos(new Set());
+    await fetchVideos();
+  };
+
   const handleDelete = async (video: DrillVideo) => {
     if (!confirm('Delete this video?')) return;
 
@@ -298,38 +298,152 @@ export default function AdminVideos() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const toggleVideoSelection = (id: string) => {
+    const newSelection = new Set(selectedVideos);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedVideos(newSelection);
+  };
+
+  const selectAllReady = () => {
+    const readyVideos = videos.filter(v => v.status === 'ready_for_review');
+    setSelectedVideos(new Set(readyVideos.map(v => v.id)));
+  };
+
   const filteredVideos = statusFilter === 'all' 
     ? videos 
     : videos.filter(v => v.status === statusFilter);
 
+  const readyCount = videos.filter(v => v.status === 'ready_for_review').length;
+  const processingCount = videos.filter(v => ['processing', 'transcribing', 'analyzing'].includes(v.status)).length;
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Link to="/" className="text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-5 w-5" />
             </Link>
-            <h1 className="text-2xl font-bold">Video Library Admin</h1>
+            <div>
+              <h1 className="text-2xl font-bold">Video Library Admin</h1>
+              <p className="text-sm text-muted-foreground">
+                Drop videos to auto-transcribe and tag
+              </p>
+            </div>
           </div>
-          <Button onClick={() => setUploadOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" /> Upload Video
-          </Button>
+          
+          <div className="flex items-center gap-4">
+            {/* Auto-publish toggle */}
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={autoPublish}
+                onCheckedChange={setAutoPublish}
+                id="auto-publish"
+              />
+              <label htmlFor="auto-publish" className="text-sm">
+                Auto-publish
+              </label>
+            </div>
+            
+            {/* Upload button */}
+            <div className="relative">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/*"
+                multiple
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={handleFileUpload}
+                disabled={uploading}
+              />
+              <Button disabled={uploading}>
+                {uploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Videos
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-4 mb-6">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="processing">Processing</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Upload Progress */}
+        {uploading && (
+          <Card className="mb-6">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-4">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Uploading videos...</p>
+                  <Progress value={uploadProgress} className="mt-2" />
+                </div>
+                <span className="text-sm text-muted-foreground">{uploadProgress}%</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Processing Status Banner */}
+        {processingCount > 0 && (
+          <Card className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950/20">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                <p className="text-sm">
+                  <strong>{processingCount} video(s)</strong> processing... 
+                  They'll appear here when ready for review.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Action Bar */}
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="flex gap-4">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="ready_for_review">Ready for Review ({readyCount})</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex gap-2">
+            {readyCount > 0 && (
+              <>
+                <Button variant="outline" size="sm" onClick={selectAllReady}>
+                  Select All Ready ({readyCount})
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={handleBulkPublish}
+                  disabled={selectedVideos.size === 0}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Publish Selected ({selectedVideos.size})
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Videos Table */}
@@ -338,6 +452,7 @@ export default function AdminVideos() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12"></TableHead>
                   <TableHead>Video</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Duration</TableHead>
@@ -349,115 +464,106 @@ export default function AdminVideos() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                     </TableCell>
                   </TableRow>
                 ) : filteredVideos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No videos yet. Upload your first video!
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredVideos.map(video => (
-                    <TableRow key={video.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-24 h-14 bg-muted rounded flex items-center justify-center">
-                            <Video className="h-6 w-6 text-muted-foreground" />
+                  filteredVideos.map(video => {
+                    const status = statusConfig[video.status] || statusConfig.draft;
+                    const isProcessing = ['processing', 'transcribing', 'analyzing'].includes(video.status);
+                    
+                    return (
+                      <TableRow key={video.id} className={isProcessing ? 'opacity-70' : ''}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedVideos.has(video.id)}
+                            onCheckedChange={() => toggleVideoSelection(video.id)}
+                            disabled={isProcessing}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="w-24 h-14 bg-muted rounded flex items-center justify-center relative overflow-hidden">
+                              {isProcessing ? (
+                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                              ) : (
+                                <Video className="h-6 w-6 text-muted-foreground" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium line-clamp-1">{video.title}</p>
+                              {video.drill_name && (
+                                <p className="text-sm text-muted-foreground">{video.drill_name}</p>
+                              )}
+                              {video.description && !video.drill_name && (
+                                <p className="text-sm text-muted-foreground line-clamp-1">{video.description}</p>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium">{video.title}</p>
-                            {video.drill_name && (
-                              <p className="text-sm text-muted-foreground">{video.drill_name}</p>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {video.four_b_category && (
-                          <Badge className={`${categoryColors[video.four_b_category]} text-white`}>
-                            {video.four_b_category}
+                        </TableCell>
+                        <TableCell>
+                          {video.four_b_category && (
+                            <Badge className={`${categoryColors[video.four_b_category]} text-white`}>
+                              {video.four_b_category}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>{formatDuration(video.duration_seconds)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{video.access_level}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`${status.color} text-white gap-1`}>
+                            {status.icon}
+                            {status.label}
                           </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{formatDuration(video.duration_seconds)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{video.access_level}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={video.status === 'published' ? 'default' : 'secondary'}>
-                          {video.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => openEdit(video)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => handlePublish(video)}>
-                            {video.status === 'published' ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleDelete(video)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => openEdit(video)}
+                              disabled={isProcessing}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => handlePublish(video)}
+                              disabled={isProcessing}
+                            >
+                              {video.status === 'published' ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => handleDelete(video)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
-
-        {/* Upload Dialog */}
-        <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Upload New Video</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Input
-                placeholder="Video title"
-                value={formData.title}
-                onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              />
-              <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                {uploading ? (
-                  <div className="space-y-2">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-                    <p>Uploading... {uploadProgress}%</p>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-primary h-2 rounded-full transition-all"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-4">
-                      Drag and drop or click to upload
-                    </p>
-                    <Input
-                      type="file"
-                      accept="video/*"
-                      className="cursor-pointer"
-                      onChange={handleFileUpload}
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Edit Dialog */}
         <Dialog open={!!editVideo} onOpenChange={(open) => !open && setEditVideo(null)}>
@@ -476,48 +582,15 @@ export default function AdminVideos() {
                   />
                 </div>
 
-                {/* AI Actions */}
-                <div className="flex gap-3">
-                  <Button 
-                    onClick={handleTranscribe} 
-                    disabled={transcribing}
-                    variant="outline"
-                  >
-                    {transcribing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Transcribing...
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="h-4 w-4 mr-2" />
-                        🎤 Transcribe
-                      </>
-                    )}
-                  </Button>
-                  <Button 
-                    onClick={handleAutoTag} 
-                    disabled={autoTagging || !editVideo.transcript}
-                    variant="outline"
-                  >
-                    {autoTagging ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <Tag className="h-4 w-4 mr-2" />
-                        🏷️ Auto-Tag
-                      </>
-                    )}
-                  </Button>
-                  {!editVideo.transcript && (
-                    <p className="text-sm text-muted-foreground self-center">
-                      Transcribe first to enable auto-tagging
+                {/* AI-Generated Notice */}
+                {editVideo.status === 'ready_for_review' && (
+                  <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200">
+                    <Sparkles className="h-5 w-5 text-green-500" />
+                    <p className="text-sm text-green-700 dark:text-green-400">
+                      AI has pre-filled all fields. Review and publish when ready!
                     </p>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Form Fields */}
                 <div className="grid grid-cols-2 gap-4">
@@ -687,13 +760,26 @@ export default function AdminVideos() {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3">
-                  <Button variant="outline" onClick={() => setEditVideo(null)}>
-                    Cancel
+                <div className="flex justify-between gap-3">
+                  <Button 
+                    variant="default"
+                    onClick={() => {
+                      handlePublish(editVideo);
+                      setEditVideo(null);
+                    }}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Save & Publish
                   </Button>
-                  <Button onClick={handleSave}>
-                    Save Changes
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={() => setEditVideo(null)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSave}>
+                      Save Draft
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}

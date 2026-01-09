@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { video_id } = await req.json()
+    const { video_id, auto_publish = false } = await req.json()
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -30,10 +30,10 @@ serve(async (req) => {
       throw new Error('Video not found')
     }
 
-    // Update status to processing
+    // Update status to transcribing
     await supabase
       .from('drill_videos')
-      .update({ status: 'processing' })
+      .update({ status: 'transcribing' })
       .eq('id', video_id)
 
     console.log('Downloading video from:', video.video_url)
@@ -67,6 +67,13 @@ serve(async (req) => {
     if (!whisperResponse.ok) {
       const errorText = await whisperResponse.text()
       console.error('Whisper API error:', errorText)
+      
+      // Update status to failed
+      await supabase
+        .from('drill_videos')
+        .update({ status: 'failed' })
+        .eq('id', video_id)
+        
       throw new Error(`Whisper API error: ${whisperResponse.status}`)
     }
 
@@ -81,14 +88,14 @@ serve(async (req) => {
       text: seg.text.trim(),
     })) || []
 
-    // Update database with transcript
+    // Update database with transcript - status: analyzing
     const { error: updateError } = await supabase
       .from('drill_videos')
       .update({ 
         transcript,
         transcript_segments: segments,
         duration_seconds: Math.round(whisperData.duration || 0),
-        status: 'draft'
+        status: 'analyzing'
       })
       .eq('id', video_id)
 
@@ -97,12 +104,29 @@ serve(async (req) => {
       throw updateError
     }
 
+    console.log('Transcription saved, triggering auto-tag...')
+
+    // Automatically trigger auto-tag (chain the pipeline)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    fetch(`${supabaseUrl}/functions/v1/auto-tag-video`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+      },
+      body: JSON.stringify({ 
+        video_id,
+        auto_publish
+      })
+    }).catch(err => console.error('Failed to trigger auto-tag:', err))
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         transcript, 
         segments,
-        duration: whisperData.duration 
+        duration: whisperData.duration,
+        message: 'Transcription complete. Auto-tagging started.'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
