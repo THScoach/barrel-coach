@@ -54,10 +54,19 @@ export default function Index() {
       
       {/* Hero Section */}
       <section className="relative bg-primary text-primary-foreground py-20 lg:py-32 overflow-hidden">
-        {/* Subtle grid pattern overlay */}
-        <div className="absolute inset-0 opacity-5" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }} />
+        {/* Background Video */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/videos/hero-swing.mp4" type="video/mp4" />
+        </video>
+        
+        {/* Dark overlay for text readability */}
+        <div className="absolute inset-0 bg-primary/80" />
         
         <div className="container relative z-10">
           <div className="max-w-3xl mx-auto text-center">
@@ -65,7 +74,7 @@ export default function Index() {
               <span className="block text-white">UNLOCK YOUR</span>
               <span className="text-accent">SWING DNA</span>
             </h1>
-            <p className="text-lg md:text-xl text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
+            <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto">
               Get your swing analyzed by an AAA Hitting Coach. 
               Find your #1 problem. Get the drill to fix it.
             </p>
@@ -74,20 +83,20 @@ export default function Index() {
               <Button asChild variant="hero" size="xl">
                 <Link to="/analyze">GET YOUR SWING ANALYZED — $37</Link>
               </Button>
-              <Button variant="ghost" size="xl" className="text-primary-foreground/70 hover:text-primary-foreground">
+              <Button variant="ghost" size="xl" className="text-white/70 hover:text-white">
                 See How It Works <ArrowDown className="ml-2 w-5 h-5" />
               </Button>
             </div>
 
-            <div className="pt-8 border-t border-primary-foreground/10">
-              <p className="text-sm text-primary-foreground/60 mb-4">
+            <div className="pt-8 border-t border-white/10">
+              <p className="text-sm text-white/60 mb-4">
                 Trusted by players who made it to:
               </p>
               <div className="flex flex-wrap justify-center gap-8 items-center">
                 {mlbPlayers.map((player) => (
                   <div key={player.name} className="text-center">
-                    <div className="text-sm font-medium">{player.name}</div>
-                    <div className="text-xs text-primary-foreground/50">{player.team}</div>
+                    <div className="text-sm font-medium text-white">{player.name}</div>
+                    <div className="text-xs text-white/50">{player.team}</div>
                   </div>
                 ))}
               </div>
