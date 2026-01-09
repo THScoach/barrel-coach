@@ -6,9 +6,9 @@ import { useState } from 'react';
 
 const navigation = [
   { name: 'Get Analyzed', href: '/analyze' },
+  { name: 'Video Vault', href: '/library' },
   { name: 'About Rick', href: '/about' },
   { name: 'Inner Circle', href: '/inner-circle' },
-  { name: 'In-Person', href: '/assessment' },
 ];
 
 interface HeaderProps {
