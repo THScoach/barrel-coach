@@ -47,6 +47,17 @@ serve(async (req) => {
     const videoBlob = await videoResponse.blob()
     console.log('Video downloaded, size:', videoBlob.size)
 
+    // Check file size - Whisper has 25MB limit
+    const maxSize = 25 * 1024 * 1024 // 25MB
+    if (videoBlob.size > maxSize) {
+      console.error('Video exceeds 25MB limit:', videoBlob.size)
+      await supabase
+        .from('drill_videos')
+        .update({ status: 'failed' })
+        .eq('id', video_id)
+      throw new Error(`Video file too large (${Math.round(videoBlob.size / 1024 / 1024)}MB). Maximum is 25MB.`)
+    }
+
     // Send to OpenAI Whisper
     const formData = new FormData()
     formData.append('file', videoBlob, 'video.mp4')
