@@ -8,9 +8,10 @@ import { Environment, ENVIRONMENTS } from '@/types/analysis';
 interface EnvironmentSelectorProps {
   onSelect: (environment: Environment) => void;
   initialValue?: Environment;
+  isLoading?: boolean;
 }
 
-export function EnvironmentSelector({ onSelect, initialValue }: EnvironmentSelectorProps) {
+export function EnvironmentSelector({ onSelect, initialValue, isLoading }: EnvironmentSelectorProps) {
   const [selected, setSelected] = useState<Environment | ''>(initialValue || '');
   const [error, setError] = useState('');
 
@@ -88,8 +89,9 @@ export function EnvironmentSelector({ onSelect, initialValue }: EnvironmentSelec
         size="lg" 
         className="w-full mt-8"
         onClick={handleContinue}
+        disabled={isLoading}
       >
-        CONTINUE →
+        {isLoading ? 'Creating session...' : 'CONTINUE →'}
       </Button>
     </div>
   );

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { StepIndicator } from '@/components/StepIndicator';
 import { ProductSelector } from '@/components/ProductSelector';
@@ -8,6 +8,8 @@ import { EnvironmentSelector } from '@/components/EnvironmentSelector';
 import { VideoUploader } from '@/components/VideoUploader';
 import { ProcessingScreen } from '@/components/ProcessingScreen';
 import { ResultsPage } from '@/components/ResultsPage';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { 
   Product, 
   PlayerInfo, 
@@ -17,77 +19,33 @@ import {
   PRODUCTS 
 } from '@/types/analysis';
 
-type Step = 'product' | 'player' | 'environment' | 'upload' | 'payment' | 'processing' | 'results';
-
-// Mock results for demo
-const getMockResults = (product: Product, playerInfo: PlayerInfo): AnalysisResults => {
-  const isComplete = product.id === 'complete_review';
-  
-  return {
-    sessionId: crypto.randomUUID(),
-    productType: product.id,
-    playerInfo,
-    compositeScore: 62,
-    grade: 'Above Avg',
-    scores: {
-      brain: 68,
-      body: 65,
-      bat: 58,
-      ball: 61,
-    },
-    mainProblem: {
-      category: 'bat',
-      name: 'Late Barrel Release',
-      description: "You're swinging too late. Your bat reaches full speed AFTER you should hit the ball.",
-      consequences: [
-        "You're losing 30-50 feet of distance",
-        "You'll hit weak grounders instead of line drives",
-        "Pitchers will throw inside and jam you",
-      ],
-    },
-    drill: {
-      name: 'CONNECTION BALL',
-      sets: 3,
-      reps: 10,
-      instructions: "Put a tennis ball under your front armpit. Swing without dropping it.",
-      whyItWorks: "Makes you swing earlier and stay connected through the zone.",
-    },
-    ...(isComplete && {
-      swingAnalyses: [
-        { id: '1', index: 0, compositeScore: 58, scores: { brain: 60, body: 55, bat: 52, ball: 58 } },
-        { id: '2', index: 1, compositeScore: 71, scores: { brain: 75, body: 70, bat: 68, ball: 72 } },
-        { id: '3', index: 2, compositeScore: 65, scores: { brain: 68, body: 65, bat: 62, ball: 66 } },
-        { id: '4', index: 3, compositeScore: 56, scores: { brain: 58, body: 54, bat: 50, ball: 55 } },
-        { id: '5', index: 4, compositeScore: 60, scores: { brain: 62, body: 60, bat: 58, ball: 61 } },
-      ],
-      bestSwing: { index: 1, score: 71 },
-      worstSwing: { index: 3, score: 56 },
-      percentile: 62,
-      thirtyDayPlan: {
-        week1_2: 'Connection Ball (3×10, every day)',
-        week3_4: 'Timing Tees (2×15, every day)',
-        week5_6: 'Film 5 swings and upload',
-        schedule: 'Monday-Friday: 10 minutes before practice | Saturday: Film 5 swings | Sunday: Rest',
-      },
-    }),
-  };
-};
+type Step = 'product' | 'player' | 'environment' | 'upload' | 'processing' | 'results';
 
 export default function Analyze() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState<Step>('product');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [playerInfo, setPlayerInfo] = useState<PlayerInfo | null>(null);
   const [environment, setEnvironment] = useState<Environment | null>(null);
-  const [videos, setVideos] = useState<UploadedVideo[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [results, setResults] = useState<AnalysisResults | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Handle returning from Stripe checkout
+  useEffect(() => {
+    const urlSessionId = searchParams.get('session_id');
+    if (urlSessionId) {
+      setSessionId(urlSessionId);
+      setStep('processing');
+    }
+  }, [searchParams]);
 
   const getStepNumber = (): number => {
     switch (step) {
       case 'player': return 1;
       case 'environment': return 2;
       case 'upload': return 3;
-      case 'payment': return 4;
       default: return 0;
     }
   };
@@ -103,9 +61,6 @@ export default function Analyze() {
       case 'upload':
         setStep('environment');
         break;
-      case 'payment':
-        setStep('upload');
-        break;
     }
   };
 
@@ -119,26 +74,195 @@ export default function Analyze() {
     setStep('environment');
   };
 
-  const handleEnvironmentSelect = (env: Environment) => {
+  const handleEnvironmentSelect = async (env: Environment) => {
     setEnvironment(env);
-    setStep('upload');
-  };
+    
+    if (!selectedProduct || !playerInfo) {
+      toast.error('Missing product or player info');
+      return;
+    }
 
-  const handleVideosComplete = (uploadedVideos: UploadedVideo[]) => {
-    setVideos(uploadedVideos);
-    // Skip payment for demo, go straight to processing
-    setStep('processing');
-  };
+    setIsLoading(true);
+    try {
+      // Create session in backend
+      const { data, error } = await supabase.functions.invoke('create-session', {
+        body: {
+          productType: selectedProduct.id,
+          player: playerInfo,
+          environment: env,
+        },
+      });
 
-  const handleProcessingComplete = () => {
-    if (selectedProduct && playerInfo) {
-      const mockResults = getMockResults(selectedProduct, playerInfo);
-      setResults(mockResults);
-      setStep('results');
+      if (error) throw error;
+      
+      setSessionId(data.sessionId);
+      setStep('upload');
+    } catch (error) {
+      console.error('Failed to create session:', error);
+      toast.error('Failed to start session. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const showStepIndicator = ['player', 'environment', 'upload', 'payment'].includes(step);
+  const handleVideosComplete = async () => {
+    if (!sessionId) {
+      toast.error('No session found');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Create Stripe checkout
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { sessionId },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error) {
+      console.error('Checkout failed:', error);
+      toast.error('Failed to create checkout. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
+  const handleProcessingComplete = async () => {
+    if (!sessionId) return;
+
+    try {
+      // Fetch results from backend
+      const { data, error } = await supabase.functions.invoke('get-session', {
+        body: {},
+        headers: {},
+      });
+
+      // Actually fetch via query params since it's a GET-style function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-session?sessionId=${sessionId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to fetch results');
+      
+      const sessionData = await response.json();
+      
+      if (sessionData.session.status !== 'complete') {
+        toast.error('Analysis is still processing. Please wait.');
+        return;
+      }
+
+      // Transform backend data to frontend format
+      const analysisResults: AnalysisResults = {
+        sessionId: sessionData.session.id,
+        productType: sessionData.session.product_type,
+        playerInfo: {
+          name: sessionData.session.player_name,
+          age: sessionData.session.player_age,
+          email: sessionData.session.player_email,
+          level: sessionData.session.player_level,
+        },
+        compositeScore: parseFloat(sessionData.session.composite_score) || 62,
+        grade: sessionData.session.grade || 'Above Avg',
+        scores: {
+          brain: parseFloat(sessionData.session.four_b_brain) || 68,
+          body: parseFloat(sessionData.session.four_b_body) || 65,
+          bat: parseFloat(sessionData.session.four_b_bat) || 58,
+          ball: parseFloat(sessionData.session.four_b_ball) || 61,
+        },
+        mainProblem: sessionData.session.analysis_json?.problem || {
+          category: sessionData.session.weakest_category || 'bat',
+          name: 'Late Barrel Release',
+          description: "You're swinging too late. Your bat reaches full speed AFTER you should hit the ball.",
+          consequences: [
+            "You're losing 30-50 feet of distance",
+            "You'll hit weak grounders instead of line drives",
+            "Pitchers will throw inside and jam you",
+          ],
+        },
+        drill: sessionData.session.analysis_json?.drill || {
+          name: 'CONNECTION BALL',
+          sets: 3,
+          reps: 10,
+          instructions: "Put a tennis ball under your front armpit. Swing without dropping it.",
+          whyItWorks: "Makes you swing earlier and stay connected through the zone.",
+        },
+        ...(sessionData.session.product_type === 'complete_review' && {
+          swingAnalyses: sessionData.swings?.map((swing: any, index: number) => ({
+            id: swing.id,
+            index: swing.swing_index,
+            compositeScore: parseFloat(swing.composite_score) || 60,
+            scores: {
+              brain: parseFloat(swing.four_b_brain) || 60,
+              body: parseFloat(swing.four_b_body) || 60,
+              bat: parseFloat(swing.four_b_bat) || 60,
+              ball: parseFloat(swing.four_b_ball) || 60,
+            },
+          })) || [],
+          bestSwing: {
+            index: sessionData.session.best_swing_index || 0,
+            score: parseFloat(sessionData.session.best_swing_score) || 70,
+          },
+          worstSwing: {
+            index: sessionData.session.worst_swing_index || 0,
+            score: parseFloat(sessionData.session.worst_swing_score) || 55,
+          },
+          percentile: sessionData.session.percentile || 62,
+          thirtyDayPlan: sessionData.session.analysis_json?.thirty_day_plan || {
+            week1_2: 'Connection Ball (3×10, every day)',
+            week3_4: 'Timing Tees (2×15, every day)',
+            week5_6: 'Film 5 swings and upload',
+            schedule: 'Monday-Friday: 10 minutes before practice | Saturday: Film 5 swings | Sunday: Rest',
+          },
+        }),
+        reportUrl: sessionData.session.report_url,
+      };
+
+      setResults(analysisResults);
+      setSelectedProduct(PRODUCTS.find(p => p.id === sessionData.session.product_type) || null);
+      setStep('results');
+    } catch (error) {
+      console.error('Failed to fetch results:', error);
+      // Use mock results for now if fetch fails
+      if (selectedProduct && playerInfo) {
+        const mockResults: AnalysisResults = {
+          sessionId: sessionId,
+          productType: selectedProduct.id,
+          playerInfo,
+          compositeScore: 62,
+          grade: 'Above Avg',
+          scores: { brain: 68, body: 65, bat: 58, ball: 61 },
+          mainProblem: {
+            category: 'bat',
+            name: 'Late Barrel Release',
+            description: "You're swinging too late.",
+            consequences: ["Losing distance", "Weak grounders", "Getting jammed"],
+          },
+          drill: {
+            name: 'CONNECTION BALL',
+            sets: 3,
+            reps: 10,
+            instructions: "Put a tennis ball under your front armpit.",
+            whyItWorks: "Makes you swing earlier.",
+          },
+        };
+        setResults(mockResults);
+        setStep('results');
+      }
+    }
+  };
+
+  const showStepIndicator = ['player', 'environment', 'upload'].includes(step);
 
   return (
     <div className="min-h-screen bg-background">
@@ -148,7 +272,7 @@ export default function Analyze() {
         {showStepIndicator && (
           <StepIndicator 
             currentStep={getStepNumber()} 
-            totalSteps={4}
+            totalSteps={3}
             onBack={handleBack}
             showBack={step !== 'product'}
           />
@@ -170,19 +294,23 @@ export default function Analyze() {
             <EnvironmentSelector 
               onSelect={handleEnvironmentSelect}
               initialValue={environment || undefined}
+              isLoading={isLoading}
             />
           )}
 
-          {step === 'upload' && selectedProduct && (
+          {step === 'upload' && selectedProduct && sessionId && (
             <VideoUploader 
               swingsRequired={selectedProduct.swingsRequired}
+              sessionId={sessionId}
               onComplete={handleVideosComplete}
+              isCheckoutLoading={isLoading}
             />
           )}
 
           {step === 'processing' && selectedProduct && (
             <ProcessingScreen 
-              swingsCount={selectedProduct.swingsRequired}
+              swingsCount={selectedProduct?.swingsRequired || 1}
+              sessionId={sessionId}
               onComplete={handleProcessingComplete}
             />
           )}

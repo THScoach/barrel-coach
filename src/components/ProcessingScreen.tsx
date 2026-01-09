@@ -3,15 +3,50 @@ import { Loader2 } from 'lucide-react';
 
 interface ProcessingScreenProps {
   swingsCount: number;
+  sessionId?: string | null;
   onComplete: () => void;
 }
 
-export function ProcessingScreen({ swingsCount, onComplete }: ProcessingScreenProps) {
+export function ProcessingScreen({ swingsCount, sessionId, onComplete }: ProcessingScreenProps) {
   const [currentSwing, setCurrentSwing] = useState(1);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // Simulate analysis progress
+    // Poll for session status if sessionId provided
+    if (sessionId) {
+      const pollInterval = setInterval(async () => {
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-session?sessionId=${sessionId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+            }
+          );
+          const data = await response.json();
+          if (data.session?.status === 'complete') {
+            clearInterval(pollInterval);
+            onComplete();
+          }
+        } catch (error) {
+          console.error('Polling error:', error);
+        }
+      }, 3000);
+
+      // Fallback timeout
+      const timeout = setTimeout(() => {
+        clearInterval(pollInterval);
+        onComplete();
+      }, 60000);
+
+      return () => {
+        clearInterval(pollInterval);
+        clearTimeout(timeout);
+      };
+    }
+
+    // Simulate progress for demo
     const progressInterval = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
@@ -23,7 +58,6 @@ export function ProcessingScreen({ swingsCount, onComplete }: ProcessingScreenPr
       });
     }, 100);
 
-    // Update current swing being analyzed
     const swingInterval = setInterval(() => {
       setCurrentSwing(prev => (prev < swingsCount ? prev + 1 : prev));
     }, (5000 / swingsCount));
@@ -32,7 +66,7 @@ export function ProcessingScreen({ swingsCount, onComplete }: ProcessingScreenPr
       clearInterval(progressInterval);
       clearInterval(swingInterval);
     };
-  }, [swingsCount, onComplete]);
+  }, [swingsCount, sessionId, onComplete]);
 
   return (
     <div className="animate-fade-in min-h-[60vh] flex flex-col items-center justify-center text-center">
