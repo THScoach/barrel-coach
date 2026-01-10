@@ -127,6 +127,135 @@ export type Database = {
           },
         ]
       }
+      player_profiles: {
+        Row: {
+          age: number | null
+          baseball_reference_id: string | null
+          bats: string | null
+          birth_date: string | null
+          coach_notes: string | null
+          created_at: string | null
+          current_focus: string | null
+          current_team: string | null
+          email: string | null
+          fangraphs_id: string | null
+          first_name: string
+          first_session_date: string | null
+          height: string | null
+          hometown: string | null
+          id: string
+          intake_completed_at: string | null
+          intake_responses: Json | null
+          is_active: boolean | null
+          known_issues: string[] | null
+          last_name: string | null
+          last_researched_at: string | null
+          level: string | null
+          lifetime_value: number | null
+          milb_id: string | null
+          mlb_id: string | null
+          organization: string | null
+          parent_email: string | null
+          parent_name: string | null
+          parent_phone: string | null
+          phone: string | null
+          position: string | null
+          scouting_grades: Json | null
+          scouting_reports: string[] | null
+          stats_json: Json | null
+          stats_updated_at: string | null
+          throws: string | null
+          total_sessions: number | null
+          training_history: string | null
+          updated_at: string | null
+          weight: number | null
+        }
+        Insert: {
+          age?: number | null
+          baseball_reference_id?: string | null
+          bats?: string | null
+          birth_date?: string | null
+          coach_notes?: string | null
+          created_at?: string | null
+          current_focus?: string | null
+          current_team?: string | null
+          email?: string | null
+          fangraphs_id?: string | null
+          first_name: string
+          first_session_date?: string | null
+          height?: string | null
+          hometown?: string | null
+          id?: string
+          intake_completed_at?: string | null
+          intake_responses?: Json | null
+          is_active?: boolean | null
+          known_issues?: string[] | null
+          last_name?: string | null
+          last_researched_at?: string | null
+          level?: string | null
+          lifetime_value?: number | null
+          milb_id?: string | null
+          mlb_id?: string | null
+          organization?: string | null
+          parent_email?: string | null
+          parent_name?: string | null
+          parent_phone?: string | null
+          phone?: string | null
+          position?: string | null
+          scouting_grades?: Json | null
+          scouting_reports?: string[] | null
+          stats_json?: Json | null
+          stats_updated_at?: string | null
+          throws?: string | null
+          total_sessions?: number | null
+          training_history?: string | null
+          updated_at?: string | null
+          weight?: number | null
+        }
+        Update: {
+          age?: number | null
+          baseball_reference_id?: string | null
+          bats?: string | null
+          birth_date?: string | null
+          coach_notes?: string | null
+          created_at?: string | null
+          current_focus?: string | null
+          current_team?: string | null
+          email?: string | null
+          fangraphs_id?: string | null
+          first_name?: string
+          first_session_date?: string | null
+          height?: string | null
+          hometown?: string | null
+          id?: string
+          intake_completed_at?: string | null
+          intake_responses?: Json | null
+          is_active?: boolean | null
+          known_issues?: string[] | null
+          last_name?: string | null
+          last_researched_at?: string | null
+          level?: string | null
+          lifetime_value?: number | null
+          milb_id?: string | null
+          mlb_id?: string | null
+          organization?: string | null
+          parent_email?: string | null
+          parent_name?: string | null
+          parent_phone?: string | null
+          phone?: string | null
+          position?: string | null
+          scouting_grades?: Json | null
+          scouting_reports?: string[] | null
+          stats_json?: Json | null
+          stats_updated_at?: string | null
+          throws?: string | null
+          total_sessions?: number | null
+          training_history?: string | null
+          updated_at?: string | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
       problem_tags: {
         Row: {
           category: string
@@ -228,6 +357,7 @@ export type Database = {
           percentile: number | null
           player_age: number
           player_email: string
+          player_id: string | null
           player_level: string
           player_name: string
           player_notes: string | null
@@ -273,6 +403,7 @@ export type Database = {
           percentile?: number | null
           player_age: number
           player_email: string
+          player_id?: string | null
           player_level: string
           player_name: string
           player_notes?: string | null
@@ -318,6 +449,7 @@ export type Database = {
           percentile?: number | null
           player_age?: number
           player_email?: string
+          player_id?: string | null
           player_level?: string
           player_name?: string
           player_notes?: string | null
@@ -337,7 +469,15 @@ export type Database = {
           worst_swing_index?: number | null
           worst_swing_score?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "player_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sms_logs: {
         Row: {

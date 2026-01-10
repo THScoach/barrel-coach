@@ -25,6 +25,9 @@ export function AdminHeader() {
             <Link to="/admin/analyzer" className="text-muted-foreground hover:text-foreground transition-colors">
               Analyzer
             </Link>
+            <Link to="/admin/players" className="text-muted-foreground hover:text-foreground transition-colors">
+              Players
+            </Link>
             <Link to="/admin/messages" className="text-muted-foreground hover:text-foreground transition-colors">
               Messages
             </Link>
