@@ -70,11 +70,11 @@ export default function About() {
       <section className="py-12 bg-surface">
         <div className="container">
           <div className="max-w-4xl mx-auto">
-            <div className="rounded-xl overflow-hidden aspect-video">
+            <div className="rounded-xl overflow-hidden">
               <img 
                 src={rickBenintendi} 
                 alt="Rick Strickland with Andrew Benintendi" 
-                className="w-full h-full object-cover"
+                className="w-full h-auto object-contain"
               />
             </div>
             <p className="text-center mt-4 text-muted-foreground">
