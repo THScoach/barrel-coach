@@ -7,9 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Play, Lock, Clock, X, Brain, Dumbbell, Target, CircleDot } from "lucide-react";
+import { Search, Play, Lock, Clock, X, Brain, Dumbbell, Target, CircleDot, Sparkles } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { VideoRecommendations } from "@/components/VideoRecommendations";
 import type { Json } from "@/integrations/supabase/types";
 
 interface TranscriptSegment {
@@ -71,6 +72,66 @@ export default function Library() {
   const [problemFilter, setProblemFilter] = useState<string>('all');
   const [selectedVideo, setSelectedVideo] = useState<DrillVideo | null>(null);
   const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
+  
+  // User session state for personalized recommendations
+  const [userSession, setUserSession] = useState<{
+    weakestCategory: string | null;
+    accessLevel: 'free' | 'paid' | 'inner_circle';
+    sessionId: string | null;
+  } | null>(null);
+
+  // Check for user's latest session
+  useEffect(() => {
+    checkUserSession();
+  }, []);
+
+  const checkUserSession = async () => {
+    try {
+      // First check URL for session ID
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get('session');
+      
+      if (sessionId) {
+        const { data: session } = await supabase
+          .from('sessions')
+          .select('weakest_category, product_type, status')
+          .eq('id', sessionId)
+          .maybeSingle();
+          
+        if (session && session.status === 'complete' && session.weakest_category) {
+          setUserSession({
+            weakestCategory: session.weakest_category,
+            accessLevel: session.product_type === 'complete_review' ? 'paid' : 'paid',
+            sessionId
+          });
+          return;
+        }
+      }
+      
+      // Check for authenticated user's sessions
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: latestSession } = await supabase
+          .from('sessions')
+          .select('id, weakest_category, product_type')
+          .eq('user_id', user.id)
+          .eq('status', 'complete')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+          
+        if (latestSession?.weakest_category) {
+          setUserSession({
+            weakestCategory: latestSession.weakest_category,
+            accessLevel: 'paid',
+            sessionId: latestSession.id
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking user session:', error);
+    }
+  };
 
   const fetchVideos = useCallback(async () => {
     setLoading(true);
@@ -156,6 +217,23 @@ export default function Library() {
             {videos.length} coaching videos • Search drills, problems, or techniques
           </p>
         </div>
+
+        {/* Personalized Recommendations */}
+        {userSession?.weakestCategory && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="h-5 w-5 text-accent" />
+              <h2 className="text-xl font-bold">Recommended For You</h2>
+            </div>
+            <VideoRecommendations 
+              weakestCategory={userSession.weakestCategory}
+              userAccessLevel={userSession.accessLevel}
+              maxVideos={5}
+              showHeader={false}
+              sessionId={userSession.sessionId || undefined}
+            />
+          </div>
+        )}
 
         {/* Search Bar */}
         <div className="max-w-2xl mx-auto mb-8">
