@@ -12,6 +12,7 @@ import Analyze from "./pages/Analyze";
 import About from "./pages/About";
 import InnerCircle from "./pages/InnerCircle";
 import Assessment from "./pages/Assessment";
+import AdminDashboard from "./pages/AdminDashboard";
 import AdminMessages from "./pages/AdminMessages";
 import AdminVideos from "./pages/AdminVideos";
 import AdminAnalyzer from "./pages/AdminAnalyzer";
@@ -47,6 +48,11 @@ const App = () => (
               <Route path="/results/:sessionId" element={<Results />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+              <Route path="/admin" element={
+                <ProtectedAdminRoute>
+                  <AdminDashboard />
+                </ProtectedAdminRoute>
+              } />
               <Route path="/admin/messages" element={
                 <ProtectedAdminRoute>
                   <AdminMessages />

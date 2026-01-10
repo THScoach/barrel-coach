@@ -34,7 +34,7 @@ export default function Login() {
       // Wait a moment for the auth state to update
       setTimeout(() => {
         // The ProtectedAdminRoute will handle the redirect if not admin
-        navigate("/admin/videos");
+        navigate("/admin");
       }, 500);
     } catch (err) {
       setError("An unexpected error occurred");

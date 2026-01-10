@@ -1,15 +1,34 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { LogOut, User, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function AdminHeader() {
   const { user, signOut } = useAuth();
+  const location = useLocation();
 
   const handleSignOut = async () => {
     await signOut();
     window.location.href = "/login";
+  };
+
+  const navLinks = [
+    { to: "/admin", label: "Dashboard" },
+    { to: "/admin/players", label: "Players" },
+    { to: "/admin/analyzer", label: "Analyzer" },
+    { to: "/admin/videos", label: "Videos" },
+    { to: "/admin/messages", label: "Messages" },
+    { to: "/admin/sms", label: "SMS" },
+    { to: "/admin/import-kommodo", label: "Import" },
+  ];
+
+  const isActive = (path: string) => {
+    if (path === "/admin") {
+      return location.pathname === "/admin";
+    }
+    return location.pathname.startsWith(path);
   };
 
   return (
@@ -18,25 +37,21 @@ export function AdminHeader() {
         <div className="flex items-center gap-6">
           <Logo size="md" />
           
-          <nav className="hidden md:flex items-center gap-4 text-sm">
-            <Link to="/admin/videos" className="text-muted-foreground hover:text-foreground transition-colors">
-              Videos
-            </Link>
-            <Link to="/admin/analyzer" className="text-muted-foreground hover:text-foreground transition-colors">
-              Analyzer
-            </Link>
-            <Link to="/admin/players" className="text-muted-foreground hover:text-foreground transition-colors">
-              Players
-            </Link>
-            <Link to="/admin/messages" className="text-muted-foreground hover:text-foreground transition-colors">
-              Messages
-            </Link>
-            <Link to="/admin/sms" className="text-muted-foreground hover:text-foreground transition-colors">
-              SMS
-            </Link>
-            <Link to="/admin/import-kommodo" className="text-muted-foreground hover:text-foreground transition-colors">
-              Import
-            </Link>
+          <nav className="hidden md:flex items-center gap-1 text-sm">
+            {navLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={cn(
+                  "px-3 py-1.5 rounded-md transition-colors",
+                  isActive(link.to)
+                    ? "bg-muted text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                {link.label}
+              </Link>
+            ))}
           </nav>
         </div>
 
