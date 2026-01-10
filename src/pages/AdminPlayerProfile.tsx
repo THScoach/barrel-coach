@@ -19,10 +19,12 @@ import {
 import { toast } from "sonner";
 import { 
   ArrowLeft, Save, User, Phone, Mail, Building, 
-  MapPin, FileText, Plus, Loader2, Calendar, Sparkles
+  MapPin, FileText, Plus, Loader2, Calendar, Sparkles, Target, Eye
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { PlayerResearchModal } from "@/components/PlayerResearchModal";
+import { HitTraxUploadModal } from "@/components/HitTraxUploadModal";
+import { HitTraxSessionDetail } from "@/components/HitTraxSessionDetail";
 
 const LEVELS = ['Youth', 'High School', 'Travel Ball', 'College', 'Independent', 'MiLB', 'MLB'];
 const POSITIONS = ['C', '1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF', 'OF', 'DH', 'P', 'Utility'];
@@ -59,6 +61,8 @@ export default function AdminPlayerProfile() {
   });
 
   const [showResearchModal, setShowResearchModal] = useState(false);
+  const [showHitTraxUpload, setShowHitTraxUpload] = useState(false);
+  const [selectedHitTraxSession, setSelectedHitTraxSession] = useState<any>(null);
 
   const { data: player, isLoading } = useQuery({
     queryKey: ['player-profile', id],
@@ -111,6 +115,22 @@ export default function AdminPlayerProfile() {
         .select('id, product_type, status, composite_score, grade, created_at')
         .eq('player_id', id)
         .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !isNew,
+  });
+
+  // Fetch player's HitTrax sessions
+  const { data: hittraxSessions, refetch: refetchHitTrax } = useQuery({
+    queryKey: ['player-hittrax-sessions', id],
+    queryFn: async () => {
+      if (isNew) return [];
+      const { data, error } = await supabase
+        .from('hittrax_sessions')
+        .select('*')
+        .eq('player_id', id)
+        .order('session_date', { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -282,6 +302,7 @@ export default function AdminPlayerProfile() {
             <TabsTrigger value="contact">Contact</TabsTrigger>
             <TabsTrigger value="notes">Coach Notes</TabsTrigger>
             {!isNew && <TabsTrigger value="sessions">Sessions ({sessions?.length || 0})</TabsTrigger>}
+            {!isNew && <TabsTrigger value="hittrax">HitTrax ({hittraxSessions?.length || 0})</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="info" className="space-y-6">
@@ -597,6 +618,76 @@ export default function AdminPlayerProfile() {
               </Card>
             </TabsContent>
           )}
+          
+          {/* HitTrax Sessions Tab */}
+          {!isNew && (
+            <TabsContent value="hittrax" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Target className="h-5 w-5" />
+                      HitTrax Sessions
+                    </span>
+                    <Button onClick={() => setShowHitTraxUpload(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Upload Session
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {hittraxSessions && hittraxSessions.length > 0 ? (
+                    <div className="space-y-2">
+                      {hittraxSessions.map((session) => (
+                        <div
+                          key={session.id}
+                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => setSelectedHitTraxSession(session)}
+                        >
+                          <div>
+                            <div className="font-medium">
+                              {new Date(session.session_date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {session.total_swings} swings • {session.contact_rate}% contact • {session.avg_exit_velo} avg velo
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className="text-sm text-muted-foreground">Ball Score</div>
+                              <div className={`text-xl font-bold ${
+                                session.ball_score >= 60 ? 'text-green-500' :
+                                session.ball_score >= 50 ? 'text-yellow-500' :
+                                session.ball_score >= 40 ? 'text-orange-500' : 'text-red-500'
+                              }`}>
+                                {session.ball_score}
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="icon">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Target className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                      <p className="text-muted-foreground mb-4">No HitTrax sessions yet</p>
+                      <Button onClick={() => setShowHitTraxUpload(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Upload HitTrax CSV
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </main>
 
@@ -606,6 +697,25 @@ export default function AdminPlayerProfile() {
         onOpenChange={setShowResearchModal}
         onPlayerFound={handleResearchData}
         initialName={`${formData.first_name} ${formData.last_name}`.trim()}
+      />
+      
+      {/* HitTrax Upload Modal */}
+      {id && !isNew && (
+        <HitTraxUploadModal
+          open={showHitTraxUpload}
+          onOpenChange={setShowHitTraxUpload}
+          playerId={id}
+          playerName={`${formData.first_name} ${formData.last_name}`.trim()}
+          onSuccess={() => refetchHitTrax()}
+        />
+      )}
+      
+      {/* HitTrax Session Detail Modal */}
+      <HitTraxSessionDetail
+        open={!!selectedHitTraxSession}
+        onOpenChange={(open) => !open && setSelectedHitTraxSession(null)}
+        session={selectedHitTraxSession}
+        onDelete={() => refetchHitTrax()}
       />
     </div>
   );
