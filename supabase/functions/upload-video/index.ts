@@ -12,12 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const formData = await req.formData()
-    const file = formData.get('file') as File
-    const autoPublish = formData.get('auto_publish') === 'true'
+    // Now expects JSON with storage_path (file already uploaded by client)
+    const { storage_path, original_title, auto_publish = false } = await req.json()
 
-    if (!file) {
-      throw new Error('No file provided')
+    if (!storage_path) {
+      throw new Error('No storage_path provided')
     }
 
     const supabase = createClient(
@@ -25,40 +24,23 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Generate unique filename
-    const ext = file.name.split('.').pop() || 'mp4'
-    const filename = `${crypto.randomUUID()}.${ext}`
-    const storagePath = `drills/${filename}`
+    console.log('Processing uploaded video:', storage_path)
 
-    console.log('Uploading video:', filename, 'Size:', file.size)
-
-    // Upload to storage
-    const { error: uploadError } = await supabase.storage
+    // Get signed URL for the already-uploaded file (valid for 1 year)
+    const { data: urlData, error: urlError } = await supabase.storage
       .from('videos')
-      .upload(storagePath, file, {
-        contentType: file.type,
-        upsert: false
-      })
+      .createSignedUrl(storage_path, 60 * 60 * 24 * 365)
 
-    if (uploadError) {
-      console.error('Upload error:', uploadError)
-      throw uploadError
-    }
-
-    // Get signed URL (valid for 1 year)
-    const { data: urlData } = await supabase.storage
-      .from('videos')
-      .createSignedUrl(storagePath, 60 * 60 * 24 * 365)
-
-    if (!urlData?.signedUrl) {
+    if (urlError || !urlData?.signedUrl) {
+      console.error('URL generation error:', urlError)
       throw new Error('Failed to generate video URL')
     }
 
-    // Create database record with 'uploading' status
+    // Create database record with 'processing' status
     const { data: video, error: dbError } = await supabase
       .from('drill_videos')
       .insert({
-        title: file.name.replace(/\.[^/.]+$/, '') || 'Processing...',
+        title: original_title || 'Processing...',
         video_url: urlData.signedUrl,
         status: 'processing'
       })
@@ -83,7 +65,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({ 
         video_id: video.id,
-        auto_publish: autoPublish
+        auto_publish: auto_publish
       })
     }).catch(err => console.error('Failed to trigger transcription:', err))
 
