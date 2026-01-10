@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.research-player]
 verify_jwt = false
+
+[functions.process-reboot-session]
+verify_jwt = false
+
+[functions.fetch-reboot-sessions]
+verify_jwt = false
