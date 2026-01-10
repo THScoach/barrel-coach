@@ -18,6 +18,7 @@ export function AdminHeader() {
     { to: "/admin", label: "Dashboard" },
     { to: "/admin/players", label: "Players" },
     { to: "/admin/analyzer", label: "Analyzer" },
+    { to: "/admin/reboot-analysis", label: "Reboot" },
     { to: "/admin/videos", label: "Videos" },
     { to: "/admin/messages", label: "Messages" },
     { to: "/admin/sms", label: "SMS" },
