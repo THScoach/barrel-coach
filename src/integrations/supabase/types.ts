@@ -489,6 +489,7 @@ export type Database = {
           id: string
           is_beta_tester: boolean | null
           is_public: boolean | null
+          is_validation_study: boolean | null
           level: string | null
           name: string
           notes: string | null
@@ -515,6 +516,7 @@ export type Database = {
           id?: string
           is_beta_tester?: boolean | null
           is_public?: boolean | null
+          is_validation_study?: boolean | null
           level?: string | null
           name: string
           notes?: string | null
@@ -541,6 +543,7 @@ export type Database = {
           id?: string
           is_beta_tester?: boolean | null
           is_public?: boolean | null
+          is_validation_study?: boolean | null
           level?: string | null
           name?: string
           notes?: string | null
