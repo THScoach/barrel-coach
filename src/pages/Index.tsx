@@ -52,13 +52,23 @@ const faqItems = [
   }
 ];
 
+// Build ID for deployment verification - check with ?debug=1 or View Source
+const BUILD_ID = '2025-01-10-v2';
+
 export default function Index() {
   useEffect(() => {
     document.title = 'Baseball Swing Analysis by MLB Hitting Coach | Catching Barrels';
   }, []);
 
+  // Show build ID in console for debugging
+  useEffect(() => {
+    console.log(`[Catching Barrels] Build: ${BUILD_ID}`);
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Build verification: check View Source for this comment */}
+      {/* BUILD_ID: 2025-01-10-v2 */}
       <Header />
       
       {/* Hero Section */}
