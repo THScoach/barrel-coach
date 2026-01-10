@@ -20,6 +20,11 @@ export default {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         surface: "hsl(var(--surface))",
+        "white-95": "hsl(var(--white-95))",
+        "navy-900": "hsl(var(--navy-900))",
+        "navy-800": "hsl(var(--navy-800))",
+        "navy-700": "hsl(var(--navy-700))",
+        "navy-600": "hsl(var(--navy-600))",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -48,6 +53,11 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        // 4B System Colors
+        "brain-purple": "hsl(var(--brain-purple))",
+        "body-blue": "hsl(var(--body-blue))",
+        "bat-orange": "hsl(var(--bat-orange))",
+        "ball-red": "hsl(var(--ball-red))",
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
@@ -91,10 +101,26 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "float-main": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-15px)" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-8px)" },
+        },
+        "float-delayed": {
+          "0%, 100%": { transform: "translateY(-50%)" },
+          "50%": { transform: "translateY(calc(-50% - 8px))" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "float-main": "float-main 6s ease-in-out infinite",
+        "float": "float 4s ease-in-out infinite",
+        "float-delayed": "float-delayed 4s ease-in-out infinite 1s",
+        "float-slow": "float 4s ease-in-out infinite 2s",
       },
     },
   },

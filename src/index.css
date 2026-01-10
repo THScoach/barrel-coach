@@ -2,22 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Catching Barrels Design System */
+/* Catching Barrels Design System - MiniMax Redesign */
 
 @layer base {
   :root {
+    /* Navy Base Colors */
+    --navy-900: 222 47% 11%;
+    --navy-800: 217 33% 17%;
+    --navy-700: 215 25% 27%;
+    --navy-600: 215 20% 35%;
+
     /* Primary - Near Black (Authority) */
     --primary: 222 47% 11%;
     --primary-foreground: 210 40% 98%;
 
     /* Accent - Red (Energy, Action - matches logo) */
-    --accent: 0 84% 50%;
+    --accent: 0 84% 60%;
     --accent-foreground: 0 0% 100%;
+
+    /* 4B System Colors */
+    --brain-purple: 270 91% 65%;
+    --brain-purple-light: 270 100% 75%;
+    --body-blue: 217 91% 60%;
+    --body-blue-light: 217 100% 70%;
+    --bat-orange: 25 95% 53%;
+    --bat-orange-light: 25 100% 63%;
+    --ball-red: 0 84% 60%;
+    --ball-red-light: 0 86% 70%;
 
     /* Backgrounds */
     --background: 0 0% 100%;
     --foreground: 222 47% 11%;
     --surface: 210 40% 98%;
+    --white-95: 220 20% 97%;
 
     /* Cards */
     --card: 0 0% 100%;
@@ -34,6 +51,11 @@
     /* Muted */
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
+
+    /* Grays */
+    --gray-400: 215 20% 65%;
+    --gray-500: 215 16% 47%;
+    --gray-600: 215 20% 35%;
 
     /* Status Colors */
     --success: 142 71% 45%;
@@ -61,7 +83,7 @@
     --sidebar-ring: 0 84% 50%;
 
     /* Custom gradients */
-    --gradient-accent: linear-gradient(135deg, hsl(0 84% 50%) 0%, hsl(0 72% 45%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(0 72% 50%) 100%);
     --gradient-dark: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(222 47% 18%) 100%);
     --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
   }
