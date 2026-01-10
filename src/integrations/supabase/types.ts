@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_logs: {
+        Row: {
+          created_at: string | null
+          feedback_type: string | null
+          id: string
+          is_feedback: boolean | null
+          messages: Json
+          page_url: string | null
+          player_id: string | null
+          session_id: string | null
+          updated_at: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          feedback_type?: string | null
+          id?: string
+          is_feedback?: boolean | null
+          messages?: Json
+          page_url?: string | null
+          player_id?: string | null
+          session_id?: string | null
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          feedback_type?: string | null
+          id?: string
+          is_feedback?: boolean | null
+          messages?: Json
+          page_url?: string | null
+          player_id?: string | null
+          session_id?: string | null
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       drill_videos: {
         Row: {
           access_level: string | null
