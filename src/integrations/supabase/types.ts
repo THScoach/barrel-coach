@@ -378,6 +378,125 @@ export type Database = {
           },
         ]
       }
+      launch_monitor_sessions: {
+        Row: {
+          avg_distance: number | null
+          avg_exit_velo: number | null
+          avg_launch_angle: number | null
+          ball_score: number | null
+          balls_in_play: number | null
+          barrel_hits: number | null
+          barrel_pct: number | null
+          contact_rate: number | null
+          created_at: string | null
+          fly_ball_count: number | null
+          fouls: number | null
+          ground_ball_count: number | null
+          hit_types_breakdown: Json | null
+          id: string
+          max_distance: number | null
+          max_exit_velo: number | null
+          min_exit_velo: number | null
+          misses: number | null
+          optimal_la_count: number | null
+          player_id: string | null
+          points_per_swing: number | null
+          quality_hit_pct: number | null
+          quality_hits: number | null
+          raw_swings: Json | null
+          results_breakdown: Json | null
+          session_date: string
+          source: string
+          source_file_name: string | null
+          total_points: number | null
+          total_swings: number
+          updated_at: string | null
+          velo_100_plus: number | null
+          velo_90_plus: number | null
+          velo_95_plus: number | null
+        }
+        Insert: {
+          avg_distance?: number | null
+          avg_exit_velo?: number | null
+          avg_launch_angle?: number | null
+          ball_score?: number | null
+          balls_in_play?: number | null
+          barrel_hits?: number | null
+          barrel_pct?: number | null
+          contact_rate?: number | null
+          created_at?: string | null
+          fly_ball_count?: number | null
+          fouls?: number | null
+          ground_ball_count?: number | null
+          hit_types_breakdown?: Json | null
+          id?: string
+          max_distance?: number | null
+          max_exit_velo?: number | null
+          min_exit_velo?: number | null
+          misses?: number | null
+          optimal_la_count?: number | null
+          player_id?: string | null
+          points_per_swing?: number | null
+          quality_hit_pct?: number | null
+          quality_hits?: number | null
+          raw_swings?: Json | null
+          results_breakdown?: Json | null
+          session_date: string
+          source: string
+          source_file_name?: string | null
+          total_points?: number | null
+          total_swings: number
+          updated_at?: string | null
+          velo_100_plus?: number | null
+          velo_90_plus?: number | null
+          velo_95_plus?: number | null
+        }
+        Update: {
+          avg_distance?: number | null
+          avg_exit_velo?: number | null
+          avg_launch_angle?: number | null
+          ball_score?: number | null
+          balls_in_play?: number | null
+          barrel_hits?: number | null
+          barrel_pct?: number | null
+          contact_rate?: number | null
+          created_at?: string | null
+          fly_ball_count?: number | null
+          fouls?: number | null
+          ground_ball_count?: number | null
+          hit_types_breakdown?: Json | null
+          id?: string
+          max_distance?: number | null
+          max_exit_velo?: number | null
+          min_exit_velo?: number | null
+          misses?: number | null
+          optimal_la_count?: number | null
+          player_id?: string | null
+          points_per_swing?: number | null
+          quality_hit_pct?: number | null
+          quality_hits?: number | null
+          raw_swings?: Json | null
+          results_breakdown?: Json | null
+          session_date?: string
+          source?: string
+          source_file_name?: string | null
+          total_points?: number | null
+          total_swings?: number
+          updated_at?: string | null
+          velo_100_plus?: number | null
+          velo_90_plus?: number | null
+          velo_95_plus?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "launch_monitor_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string
@@ -604,6 +723,10 @@ export type Database = {
           is_public: boolean | null
           is_validation_study: boolean | null
           latest_ball_score: number | null
+          latest_bat_score: number | null
+          latest_body_score: number | null
+          latest_brain_score: number | null
+          latest_composite_score: number | null
           latest_hittrax_session_id: string | null
           level: string | null
           name: string
@@ -633,6 +756,10 @@ export type Database = {
           is_public?: boolean | null
           is_validation_study?: boolean | null
           latest_ball_score?: number | null
+          latest_bat_score?: number | null
+          latest_body_score?: number | null
+          latest_brain_score?: number | null
+          latest_composite_score?: number | null
           latest_hittrax_session_id?: string | null
           level?: string | null
           name: string
@@ -662,6 +789,10 @@ export type Database = {
           is_public?: boolean | null
           is_validation_study?: boolean | null
           latest_ball_score?: number | null
+          latest_bat_score?: number | null
+          latest_body_score?: number | null
+          latest_brain_score?: number | null
+          latest_composite_score?: number | null
           latest_hittrax_session_id?: string | null
           level?: string | null
           name?: string
@@ -766,6 +897,98 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "reboot_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reboot_uploads: {
+        Row: {
+          bat_ke: number | null
+          bat_score: number | null
+          body_score: number | null
+          brain_score: number | null
+          composite_score: number | null
+          consistency_cv: number | null
+          consistency_grade: string | null
+          core_flow_score: number | null
+          created_at: string | null
+          grade: string | null
+          ground_flow_score: number | null
+          id: string
+          ik_data: Json | null
+          ik_file_uploaded: boolean | null
+          me_data: Json | null
+          me_file_uploaded: boolean | null
+          pelvis_velocity: number | null
+          player_id: string | null
+          session_date: string
+          torso_velocity: number | null
+          transfer_efficiency: number | null
+          updated_at: string | null
+          upper_flow_score: number | null
+          weakest_link: string | null
+          x_factor: number | null
+        }
+        Insert: {
+          bat_ke?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          composite_score?: number | null
+          consistency_cv?: number | null
+          consistency_grade?: string | null
+          core_flow_score?: number | null
+          created_at?: string | null
+          grade?: string | null
+          ground_flow_score?: number | null
+          id?: string
+          ik_data?: Json | null
+          ik_file_uploaded?: boolean | null
+          me_data?: Json | null
+          me_file_uploaded?: boolean | null
+          pelvis_velocity?: number | null
+          player_id?: string | null
+          session_date: string
+          torso_velocity?: number | null
+          transfer_efficiency?: number | null
+          updated_at?: string | null
+          upper_flow_score?: number | null
+          weakest_link?: string | null
+          x_factor?: number | null
+        }
+        Update: {
+          bat_ke?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          composite_score?: number | null
+          consistency_cv?: number | null
+          consistency_grade?: string | null
+          core_flow_score?: number | null
+          created_at?: string | null
+          grade?: string | null
+          ground_flow_score?: number | null
+          id?: string
+          ik_data?: Json | null
+          ik_file_uploaded?: boolean | null
+          me_data?: Json | null
+          me_file_uploaded?: boolean | null
+          pelvis_velocity?: number | null
+          player_id?: string | null
+          session_date?: string
+          torso_velocity?: number | null
+          transfer_efficiency?: number | null
+          updated_at?: string | null
+          upper_flow_score?: number | null
+          weakest_link?: string | null
+          x_factor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reboot_uploads_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
