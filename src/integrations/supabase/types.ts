@@ -127,6 +127,36 @@ export type Database = {
           },
         ]
       }
+      problem_tags: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          display_name: string
+          id: string
+          name: string
+          severity_weight: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          name: string
+          severity_weight?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          name?: string
+          severity_weight?: number | null
+        }
+        Relationships: []
+      }
       reports: {
         Row: {
           email_status: string | null
@@ -393,6 +423,80 @@ export type Database = {
           trigger_name?: string
         }
         Relationships: []
+      }
+      swing_analyses: {
+        Row: {
+          analyzed_by: string | null
+          ball_score: number | null
+          bat_score: number | null
+          body_score: number | null
+          brain_score: number | null
+          coach_notes: string | null
+          created_at: string | null
+          id: string
+          motor_profile: string | null
+          overall_score: number | null
+          primary_problem: string
+          private_notes: string | null
+          recommended_drill_ids: string[] | null
+          report_generated_at: string | null
+          results_sent_at: string | null
+          secondary_problems: string[] | null
+          session_id: string
+          updated_at: string | null
+          weakest_category: string | null
+        }
+        Insert: {
+          analyzed_by?: string | null
+          ball_score?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          coach_notes?: string | null
+          created_at?: string | null
+          id?: string
+          motor_profile?: string | null
+          overall_score?: number | null
+          primary_problem: string
+          private_notes?: string | null
+          recommended_drill_ids?: string[] | null
+          report_generated_at?: string | null
+          results_sent_at?: string | null
+          secondary_problems?: string[] | null
+          session_id: string
+          updated_at?: string | null
+          weakest_category?: string | null
+        }
+        Update: {
+          analyzed_by?: string | null
+          ball_score?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          coach_notes?: string | null
+          created_at?: string | null
+          id?: string
+          motor_profile?: string | null
+          overall_score?: number | null
+          primary_problem?: string
+          private_notes?: string | null
+          recommended_drill_ids?: string[] | null
+          report_generated_at?: string | null
+          results_sent_at?: string | null
+          secondary_problems?: string[] | null
+          session_id?: string
+          updated_at?: string | null
+          weakest_category?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swing_analyses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       swings: {
         Row: {

@@ -17,6 +17,7 @@ import AdminAnalyzer from "./pages/AdminAnalyzer";
 import AdminImportKommodo from "./pages/AdminImportKommodo";
 import AdminSMS from "./pages/AdminSMS";
 import Library from "./pages/Library";
+import Results from "./pages/Results";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
@@ -38,6 +39,7 @@ const App = () => (
               <Route path="/inner-circle" element={<InnerCircle />} />
               <Route path="/assessment" element={<Assessment />} />
               <Route path="/library" element={<Library />} />
+              <Route path="/results/:sessionId" element={<Results />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/admin/messages" element={

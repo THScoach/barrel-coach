@@ -1,23 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { 
-  Play, Loader2, ArrowLeft, Brain, User, Phone, Mail, 
+  Play, Loader2, ArrowLeft, User, Phone, Mail, 
   FileText, Send, CheckCircle2, Clock, Video, ChevronRight,
-  Target, Activity, Zap
+  Save, RefreshCw
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
-import { format } from "date-fns";
+import { ScoreInput } from "@/components/analyzer/ScoreInput";
+import { ProblemSelector } from "@/components/analyzer/ProblemSelector";
+import { DrillRecommendations } from "@/components/analyzer/DrillRecommendations";
+import { format, formatDistanceToNow } from "date-fns";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -41,6 +42,7 @@ interface Session {
   problems_identified: string[] | null;
   grade: string | null;
   analyzed_at: string | null;
+  price_cents: number;
 }
 
 interface Swing {
@@ -48,21 +50,27 @@ interface Swing {
   session_id: string;
   swing_index: number;
   video_url: string | null;
-  video_storage_path: string | null;
   status: string;
-  composite_score: number | null;
-  four_b_brain: number | null;
-  four_b_body: number | null;
-  four_b_bat: number | null;
-  four_b_ball: number | null;
 }
 
-const PROBLEMS_LIST = [
-  'spinning_out', 'casting', 'late_timing', 'early_timing', 'drifting',
-  'rolling_over', 'ground_balls', 'no_power', 'chasing_pitches',
-  'collapsing_back_side', 'long_swing', 'weak_rotation', 'poor_balance',
-  'head_movement', 'bat_drag', 'uppercut', 'chopping'
-];
+interface Analysis {
+  id: string;
+  session_id: string;
+  brain_score: number | null;
+  body_score: number | null;
+  bat_score: number | null;
+  ball_score: number | null;
+  overall_score: number | null;
+  weakest_category: string | null;
+  primary_problem: string;
+  secondary_problems: string[] | null;
+  motor_profile: string | null;
+  coach_notes: string | null;
+  private_notes: string | null;
+  recommended_drill_ids: string[] | null;
+  report_generated_at: string | null;
+  results_sent_at: string | null;
+}
 
 const statusColors: Record<string, string> = {
   pending_upload: 'bg-gray-500',
@@ -74,38 +82,39 @@ const statusColors: Record<string, string> = {
   failed: 'bg-red-500'
 };
 
+const MOTOR_PROFILES = ['force', 'rhythm', 'timing', 'balance'];
+
 export default function AdminAnalyzer() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [completedSessions, setCompletedSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [swings, setSwings] = useState<Swing[]>([]);
+  const [existingAnalysis, setExistingAnalysis] = useState<Analysis | null>(null);
   const [loadingSwings, setLoadingSwings] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
-  const [activeTab, setActiveTab] = useState('queue');
+  const [activeTab, setActiveTab] = useState('pending');
+  const [currentSwingIndex, setCurrentSwingIndex] = useState(0);
   
   // Analysis form state
-  const [scores, setScores] = useState({
-    brain: 5,
-    body: 5,
-    bat: 5,
-    ball: 5
-  });
-  const [problems, setProblems] = useState<string[]>([]);
-  const [notes, setNotes] = useState('');
-  const [currentSwingIndex, setCurrentSwingIndex] = useState(0);
+  const [scores, setScores] = useState({ brain: 5, body: 5, bat: 5, ball: 5 });
+  const [primaryProblem, setPrimaryProblem] = useState('');
+  const [secondaryProblems, setSecondaryProblems] = useState<string[]>([]);
+  const [motorProfile, setMotorProfile] = useState('');
+  const [coachNotes, setCoachNotes] = useState('');
+  const [privateNotes, setPrivateNotes] = useState('');
+  const [selectedDrillIds, setSelectedDrillIds] = useState<string[]>([]);
 
   const fetchSessions = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // Fetch pending/paid sessions (queue)
+      // Fetch pending sessions (queue)
       const { data: queueData, error: queueError } = await supabase
         .from('sessions')
         .select('*')
         .in('status', ['pending_upload', 'uploading', 'pending_payment', 'paid', 'analyzing'])
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
       
       if (queueError) throw queueError;
       setSessions(queueData || []);
@@ -138,166 +147,210 @@ export default function AdminAnalyzer() {
     setLoadingSwings(true);
     setCurrentSwingIndex(0);
     
-    // Initialize scores from session if available
-    if (session.four_b_brain !== null) {
-      setScores({
-        brain: session.four_b_brain,
-        body: session.four_b_body || 5,
-        bat: session.four_b_bat || 5,
-        ball: session.four_b_ball || 5
-      });
-    } else {
-      setScores({ brain: 5, body: 5, bat: 5, ball: 5 });
-    }
-    
-    setProblems(session.problems_identified || []);
-    setNotes('');
-    
     try {
       // Fetch swings with signed URLs
       const { data: { session: authSession } } = await supabase.auth.getSession();
       const res = await fetch(`${SUPABASE_URL}/functions/v1/get-session?sessionId=${session.id}`, {
-        headers: {
-          'Authorization': `Bearer ${authSession?.access_token}`
-        }
+        headers: { 'Authorization': `Bearer ${authSession?.access_token}` }
       });
       
       if (res.ok) {
         const data = await res.json();
         setSwings(data.swings || []);
-      } else {
-        // Fallback to direct query
-        const { data: swingsData } = await supabase
-          .from('swings')
-          .select('*')
-          .eq('session_id', session.id)
-          .order('swing_index', { ascending: true });
-        setSwings(swingsData || []);
       }
+      
+      // Fetch existing analysis if any
+      const { data: analysisData } = await supabase
+        .from('swing_analyses')
+        .select('*')
+        .eq('session_id', session.id)
+        .maybeSingle();
+      
+      if (analysisData) {
+        setExistingAnalysis(analysisData);
+        setScores({
+          brain: analysisData.brain_score || 5,
+          body: analysisData.body_score || 5,
+          bat: analysisData.bat_score || 5,
+          ball: analysisData.ball_score || 5
+        });
+        setPrimaryProblem(analysisData.primary_problem || '');
+        setSecondaryProblems(analysisData.secondary_problems || []);
+        setMotorProfile(analysisData.motor_profile || '');
+        setCoachNotes(analysisData.coach_notes || '');
+        setPrivateNotes(analysisData.private_notes || '');
+        setSelectedDrillIds(analysisData.recommended_drill_ids || []);
+      } else {
+        // Reset form for new analysis
+        setExistingAnalysis(null);
+        setScores({ brain: 5, body: 5, bat: 5, ball: 5 });
+        setPrimaryProblem('');
+        setSecondaryProblems([]);
+        setMotorProfile('');
+        setCoachNotes('');
+        setPrivateNotes('');
+        setSelectedDrillIds([]);
+      }
+      
     } catch (error) {
-      console.error('Failed to load swings:', error);
+      console.error('Failed to load session details:', error);
     } finally {
       setLoadingSwings(false);
     }
   };
 
-  const handleGenerateReport = async () => {
-    if (!selectedSession) return;
+  const getWeakestCategory = () => {
+    const entries = Object.entries(scores);
+    return entries.reduce((min, [key, val]) => val < min.val ? { key, val } : min, { key: 'brain', val: 10 }).key;
+  };
+
+  const isCompleteReview = selectedSession?.product_type === 'complete_assessment';
+  const maxDrills = isCompleteReview ? 5 : 1;
+  const maxSecondaryProblems = isCompleteReview ? 3 : 0;
+
+  const handleSaveDraft = async () => {
+    if (!selectedSession || !primaryProblem) {
+      toast.error('Please select a primary problem');
+      return;
+    }
     
     setSaving(true);
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession();
-      
-      // Calculate composite score (average of 4B scores * 10 for 0-100 scale)
-      const compositeScore = ((scores.brain + scores.body + scores.bat + scores.ball) / 4) * 10;
-      
-      // Determine grade
-      let grade = 'Needs Work';
-      if (compositeScore >= 80) grade = 'Elite';
-      else if (compositeScore >= 70) grade = 'Excellent';
-      else if (compositeScore >= 60) grade = 'Above Avg';
-      else if (compositeScore >= 50) grade = 'Average';
-      else if (compositeScore >= 40) grade = 'Below Avg';
-      
-      // Determine weakest category
-      const categoryScores = { brain: scores.brain, body: scores.body, bat: scores.bat, ball: scores.ball };
-      const weakest = Object.entries(categoryScores).reduce((min, [key, val]) => 
-        val < min[1] ? [key, val] : min, ['brain', 10])[0];
-      
-      // Update session with analysis
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-analyzer`, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/save-analysis`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authSession?.access_token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          action: 'analyze',
-          sessionId: selectedSession.id,
-          scores: {
-            four_b_brain: scores.brain * 10,
-            four_b_body: scores.body * 10,
-            four_b_bat: scores.bat * 10,
-            four_b_ball: scores.ball * 10,
-            composite_score: compositeScore,
-            grade,
-            weakest_category: weakest,
-            problems_identified: problems
-          },
-          notes
+          session_id: selectedSession.id,
+          brain_score: scores.brain,
+          body_score: scores.body,
+          bat_score: scores.bat,
+          ball_score: scores.ball,
+          primary_problem: primaryProblem,
+          secondary_problems: secondaryProblems,
+          motor_profile: motorProfile || null,
+          coach_notes: coachNotes,
+          private_notes: privateNotes,
+          recommended_drill_ids: selectedDrillIds,
+          is_draft: true
         })
       });
       
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to save analysis');
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to save');
       }
       
-      toast.success('Analysis saved! Report generated.');
+      toast.success('Draft saved!');
+      await fetchSessions();
+    } catch (error) {
+      console.error('Save error:', error);
+      toast.error('Failed to save draft');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    if (!selectedSession || !primaryProblem) {
+      toast.error('Please select a primary problem');
+      return;
+    }
+    
+    if (selectedDrillIds.length === 0) {
+      toast.error('Please select at least one drill');
+      return;
+    }
+    
+    setGenerating(true);
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/save-analysis`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authSession?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          session_id: selectedSession.id,
+          brain_score: scores.brain,
+          body_score: scores.body,
+          bat_score: scores.bat,
+          ball_score: scores.ball,
+          primary_problem: primaryProblem,
+          secondary_problems: secondaryProblems,
+          motor_profile: motorProfile || null,
+          coach_notes: coachNotes,
+          private_notes: privateNotes,
+          recommended_drill_ids: selectedDrillIds,
+          is_draft: false
+        })
+      });
+      
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to generate report');
+      }
+      
+      toast.success('Report generated! Ready to send.');
       await fetchSessions();
       
-      // Refresh the selected session
-      const { data: updatedSession } = await supabase
+      // Refresh session data
+      const { data: updated } = await supabase
         .from('sessions')
         .select('*')
         .eq('id', selectedSession.id)
         .maybeSingle();
-      
-      if (updatedSession) {
-        setSelectedSession(updatedSession);
-      }
+      if (updated) setSelectedSession(updated);
       
     } catch (error) {
-      console.error('Failed to generate report:', error);
+      console.error('Generate error:', error);
       toast.error('Failed to generate report');
     } finally {
-      setSaving(false);
+      setGenerating(false);
     }
   };
 
   const handleSendResults = async () => {
     if (!selectedSession) return;
     
+    if (!selectedSession.player_phone) {
+      toast.error('No phone number for this player');
+      return;
+    }
+    
     setSending(true);
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession();
-      
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-analyzer`, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-results`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authSession?.access_token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          action: 'sendResults',
-          sessionId: selectedSession.id
-        })
+        body: JSON.stringify({ session_id: selectedSession.id })
       });
       
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to send results');
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to send');
       }
       
-      toast.success('Results sent to player!');
+      toast.success(`Results sent to ${selectedSession.player_phone}!`);
       
     } catch (error) {
-      console.error('Failed to send results:', error);
+      console.error('Send error:', error);
       toast.error('Failed to send results');
     } finally {
       setSending(false);
     }
   };
 
-  const toggleProblem = (problem: string) => {
-    setProblems(prev => 
-      prev.includes(problem) 
-        ? prev.filter(p => p !== problem)
-        : [...prev, problem]
-    );
-  };
-
   const currentSwing = swings[currentSwingIndex];
+  const pendingCount = sessions.filter(s => s.status === 'paid').length;
 
   if (loading) {
     return (
@@ -316,22 +369,29 @@ export default function AdminAnalyzer() {
       
       <main className="container py-6">
         {selectedSession ? (
-          // Analyzer View
+          // Analyzer Detail View
           <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" onClick={() => setSelectedSession(null)}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Queue
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" onClick={() => setSelectedSession(null)}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Queue
+                </Button>
+                <h1 className="text-2xl font-bold">{selectedSession.player_name}</h1>
+                <Badge className={statusColors[selectedSession.status] || 'bg-gray-500'}>
+                  {selectedSession.status.replace(/_/g, ' ')}
+                </Badge>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                Save Draft
               </Button>
-              <h1 className="text-2xl font-bold">Analyzing: {selectedSession.player_name}</h1>
-              <Badge className={statusColors[selectedSession.status] || 'bg-gray-500'}>
-                {selectedSession.status.replace('_', ' ')}
-              </Badge>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Video Player */}
-              <div className="lg:col-span-2 space-y-4">
+              {/* Left Column - Video & Scores */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Video Player */}
                 <Card>
                   <CardContent className="p-4">
                     {loadingSwings ? (
@@ -371,53 +431,35 @@ export default function AdminAnalyzer() {
                   </CardContent>
                 </Card>
 
-                {/* 4B Score Inputs */}
+                {/* 4B Scores */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Target className="h-5 w-5" />
-                      4B Scores (1-10)
-                    </CardTitle>
+                    <CardTitle>4B Scores</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-6">
-                    {[
-                      { key: 'brain', label: 'Brain (Timing/Sequencing)', icon: Brain, color: 'text-blue-500' },
-                      { key: 'body', label: 'Body (Legs/Hips)', icon: Activity, color: 'text-green-500' },
-                      { key: 'bat', label: 'Bat (Mechanics)', icon: Zap, color: 'text-red-500' },
-                      { key: 'ball', label: 'Ball (Impact)', icon: Target, color: 'text-orange-500' }
-                    ].map(({ key, label, icon: Icon, color }) => (
-                      <div key={key} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="flex items-center gap-2">
-                            <Icon className={`h-4 w-4 ${color}`} />
-                            {label}
-                          </Label>
-                          <span className="text-lg font-bold">{scores[key as keyof typeof scores]}</span>
-                        </div>
-                        <Slider
-                          value={[scores[key as keyof typeof scores]]}
-                          onValueChange={([val]) => setScores(prev => ({ ...prev, [key]: val }))}
-                          min={1}
-                          max={10}
-                          step={0.5}
-                          className="w-full"
-                        />
-                      </div>
-                    ))}
-                    
-                    <div className="pt-4 border-t">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">Composite Score</span>
-                        <span className="text-2xl font-bold text-primary">
-                          {((scores.brain + scores.body + scores.bat + scores.ball) / 4 * 10).toFixed(0)}
-                        </span>
-                      </div>
-                    </div>
+                  <CardContent>
+                    <ScoreInput scores={scores} onChange={setScores} />
+                  </CardContent>
+                </Card>
+
+                {/* Problems */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Problem Identification</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ProblemSelector
+                      primaryProblem={primaryProblem}
+                      secondaryProblems={secondaryProblems}
+                      onPrimaryChange={setPrimaryProblem}
+                      onSecondaryChange={setSecondaryProblems}
+                      weakestCategory={getWeakestCategory()}
+                      maxSecondary={maxSecondaryProblems}
+                    />
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Sidebar */}
+              {/* Right Column - Player Info & Actions */}
               <div className="space-y-4">
                 {/* Player Info */}
                 <Card>
@@ -427,22 +469,22 @@ export default function AdminAnalyzer() {
                       Player Info
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-3 text-sm">
                     <div>
-                      <Label className="text-muted-foreground">Name</Label>
+                      <Label className="text-muted-foreground text-xs">Name</Label>
                       <p className="font-medium">{selectedSession.player_name}</p>
                     </div>
                     <div>
-                      <Label className="text-muted-foreground">Email</Label>
-                      <p className="font-medium flex items-center gap-1">
+                      <Label className="text-muted-foreground text-xs">Email</Label>
+                      <p className="flex items-center gap-1">
                         <Mail className="h-3 w-3" />
                         {selectedSession.player_email}
                       </p>
                     </div>
                     {selectedSession.player_phone && (
                       <div>
-                        <Label className="text-muted-foreground">Phone</Label>
-                        <p className="font-medium flex items-center gap-1">
+                        <Label className="text-muted-foreground text-xs">Phone</Label>
+                        <p className="flex items-center gap-1">
                           <Phone className="h-3 w-3" />
                           {selectedSession.player_phone}
                         </p>
@@ -450,60 +492,98 @@ export default function AdminAnalyzer() {
                     )}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="text-muted-foreground">Age</Label>
-                        <p className="font-medium">{selectedSession.player_age}</p>
+                        <Label className="text-muted-foreground text-xs">Age</Label>
+                        <p>{selectedSession.player_age}</p>
                       </div>
                       <div>
-                        <Label className="text-muted-foreground">Level</Label>
-                        <p className="font-medium capitalize">{selectedSession.player_level}</p>
+                        <Label className="text-muted-foreground text-xs">Level</Label>
+                        <p className="capitalize">{selectedSession.player_level}</p>
                       </div>
                     </div>
                     <div>
-                      <Label className="text-muted-foreground">Product</Label>
-                      <Badge variant="secondary" className="mt-1">
-                        {selectedSession.product_type.replace('_', ' ')}
-                      </Badge>
+                      <Label className="text-muted-foreground text-xs">Product</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="secondary">
+                          {selectedSession.product_type.replace(/_/g, ' ')}
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          ${(selectedSession.price_cents / 100).toFixed(0)}
+                        </span>
+                      </div>
                     </div>
                     <div>
-                      <Label className="text-muted-foreground">Environment</Label>
-                      <p className="font-medium capitalize">{selectedSession.environment}</p>
+                      <Label className="text-muted-foreground text-xs">Purchased</Label>
+                      <p>{format(new Date(selectedSession.created_at), 'MMM d, yyyy h:mm a')}</p>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Problem Identifier */}
+                {/* Motor Profile (Complete Review only) */}
+                {isCompleteReview && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Motor Profile</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <RadioGroup value={motorProfile} onValueChange={setMotorProfile}>
+                        <div className="grid grid-cols-2 gap-2">
+                          {MOTOR_PROFILES.map(profile => (
+                            <label
+                              key={profile}
+                              className={`flex items-center gap-2 p-2 rounded border cursor-pointer capitalize
+                                ${motorProfile === profile ? 'bg-primary/10 border-primary' : 'hover:bg-muted'}
+                              `}
+                            >
+                              <RadioGroupItem value={profile} />
+                              {profile}
+                            </label>
+                          ))}
+                        </div>
+                      </RadioGroup>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Drill Recommendations */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Problems Identified</CardTitle>
+                    <CardTitle>Drills ({isCompleteReview ? '3-5' : '1'})</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {PROBLEMS_LIST.map(problem => (
-                        <Badge
-                          key={problem}
-                          variant={problems.includes(problem) ? "default" : "outline"}
-                          className="cursor-pointer"
-                          onClick={() => toggleProblem(problem)}
-                        >
-                          {problem.replace(/_/g, ' ')}
-                        </Badge>
-                      ))}
-                    </div>
+                    <DrillRecommendations
+                      selectedDrillIds={selectedDrillIds}
+                      onSelectionChange={setSelectedDrillIds}
+                      weakestCategory={getWeakestCategory()}
+                      primaryProblem={primaryProblem}
+                      maxDrills={maxDrills}
+                    />
                   </CardContent>
                 </Card>
 
-                {/* Notes */}
+                {/* Coach Notes */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Coach Notes</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <Textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Add notes about this swing..."
-                      rows={4}
-                    />
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Shown to player</Label>
+                      <Textarea
+                        value={coachNotes}
+                        onChange={(e) => setCoachNotes(e.target.value)}
+                        placeholder="Your lower body is spinning open too early..."
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Private (internal only)</Label>
+                      <Textarea
+                        value={privateNotes}
+                        onChange={(e) => setPrivateNotes(e.target.value)}
+                        placeholder="Reminds me of player X..."
+                        rows={2}
+                      />
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -512,13 +592,9 @@ export default function AdminAnalyzer() {
                   <Button 
                     className="w-full" 
                     onClick={handleGenerateReport}
-                    disabled={saving}
+                    disabled={generating || !primaryProblem || selectedDrillIds.length === 0}
                   >
-                    {saving ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <FileText className="h-4 w-4 mr-2" />
-                    )}
+                    {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
                     Generate Report
                   </Button>
                   
@@ -526,177 +602,134 @@ export default function AdminAnalyzer() {
                     variant="secondary" 
                     className="w-full"
                     onClick={handleSendResults}
-                    disabled={sending || selectedSession.status !== 'complete'}
+                    disabled={sending || selectedSession.status !== 'complete' || !selectedSession.player_phone}
                   >
-                    {sending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4 mr-2" />
-                    )}
-                    Send Results
+                    {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                    Send Results to Player
                   </Button>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          // Queue/Completed View
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          // Queue/Completed List View
+          <div>
             <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold">Swing Analyzer</h1>
-              <TabsList>
-                <TabsTrigger value="queue" className="flex items-center gap-2">
+              <div>
+                <h1 className="text-2xl font-bold">Swing Analyzer</h1>
+                <p className="text-muted-foreground">Review and analyze player swings</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <Badge variant="secondary" className="text-lg px-3 py-1">
+                  Queue: {pendingCount}
+                </Badge>
+                <Button variant="outline" size="sm" onClick={fetchSessions}>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="pending" className="flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  Queue ({sessions.filter(s => s.status === 'paid').length})
+                  Pending ({pendingCount})
+                </TabsTrigger>
+                <TabsTrigger value="in_progress" className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4" />
+                  In Progress ({sessions.filter(s => s.status === 'analyzing').length})
                 </TabsTrigger>
                 <TabsTrigger value="completed" className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4" />
                   Completed ({completedSessions.length})
                 </TabsTrigger>
+                <TabsTrigger value="all">All</TabsTrigger>
               </TabsList>
-            </div>
 
-            <TabsContent value="queue">
               <Card>
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Player</TableHead>
-                        <TableHead>Contact</TableHead>
                         <TableHead>Product</TableHead>
+                        <TableHead>Uploaded</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Date</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sessions.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                            No pending sessions
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        sessions.map(session => (
+                      {(() => {
+                        let filtered: Session[] = [];
+                        if (activeTab === 'pending') filtered = sessions.filter(s => s.status === 'paid');
+                        else if (activeTab === 'in_progress') filtered = sessions.filter(s => s.status === 'analyzing');
+                        else if (activeTab === 'completed') filtered = completedSessions;
+                        else filtered = [...sessions, ...completedSessions];
+                        
+                        if (filtered.length === 0) {
+                          return (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                No sessions in this category
+                              </TableCell>
+                            </TableRow>
+                          );
+                        }
+                        
+                        return filtered.map(session => (
                           <TableRow key={session.id}>
                             <TableCell>
                               <div>
                                 <p className="font-medium">{session.player_name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {session.player_level}, Age {session.player_age}
+                                <p className="text-sm text-muted-foreground">{session.player_email}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <Badge variant="secondary">
+                                  {session.product_type.replace(/_/g, ' ')}
+                                </Badge>
+                                <p className="text-xs text-muted-foreground">
+                                  ${(session.price_cents / 100).toFixed(0)}
                                 </p>
                               </div>
                             </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <p>{session.player_email}</p>
-                                {session.player_phone && (
-                                  <p className="text-muted-foreground">{session.player_phone}</p>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">
-                                {session.product_type.replace('_', ' ')}
-                              </Badge>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {formatDistanceToNow(new Date(session.created_at), { addSuffix: true })}
                             </TableCell>
                             <TableCell>
                               <Badge className={statusColors[session.status] || 'bg-gray-500'}>
-                                {session.status.replace('_', ' ')}
+                                {session.status.replace(/_/g, ' ')}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {format(new Date(session.created_at), 'MMM d, yyyy')}
-                            </TableCell>
                             <TableCell>
                               <Button 
                                 size="sm" 
-                                variant="ghost"
+                                variant={session.status === 'paid' ? 'default' : 'ghost'}
                                 onClick={() => selectSession(session)}
-                                disabled={session.status !== 'paid' && session.status !== 'complete'}
+                                disabled={!['paid', 'analyzing', 'complete'].includes(session.status)}
                               >
-                                <Play className="h-4 w-4 mr-1" />
-                                Analyze
+                                {session.status === 'paid' ? (
+                                  <>
+                                    <Play className="h-4 w-4 mr-1" />
+                                    Analyze
+                                  </>
+                                ) : (
+                                  'View'
+                                )}
                                 <ChevronRight className="h-4 w-4 ml-1" />
                               </Button>
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
+                        ));
+                      })()}
                     </TableBody>
                   </Table>
                 </CardContent>
               </Card>
-            </TabsContent>
-
-            <TabsContent value="completed">
-              <Card>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Player</TableHead>
-                        <TableHead>Score</TableHead>
-                        <TableHead>Grade</TableHead>
-                        <TableHead>Weakest</TableHead>
-                        <TableHead>Analyzed</TableHead>
-                        <TableHead></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {completedSessions.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                            No completed analyses
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        completedSessions.map(session => (
-                          <TableRow key={session.id}>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{session.player_name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {session.player_email}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-lg font-bold">
-                                {session.composite_score?.toFixed(0) || '—'}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{session.grade || '—'}</Badge>
-                            </TableCell>
-                            <TableCell className="capitalize">
-                              {session.problems_identified?.slice(0, 2).join(', ').replace(/_/g, ' ') || '—'}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {session.analyzed_at 
-                                ? format(new Date(session.analyzed_at), 'MMM d, yyyy')
-                                : '—'}
-                            </TableCell>
-                            <TableCell>
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                onClick={() => selectSession(session)}
-                              >
-                                View
-                                <ChevronRight className="h-4 w-4 ml-1" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+            </Tabs>
+          </div>
         )}
       </main>
     </div>

@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.admin-analyzer]
 verify_jwt = false
+
+[functions.save-analysis]
+verify_jwt = false
+
+[functions.send-results]
+verify_jwt = false
