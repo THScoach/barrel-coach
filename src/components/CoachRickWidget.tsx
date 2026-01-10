@@ -1,16 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, MessageCircle, X, Loader2 } from 'lucide-react';
+import { Send, MessageCircle, X, Loader2, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
+
+interface DrillVideo {
+  id: string;
+  title: string;
+  description: string | null;
+  four_b_category: string | null;
+  duration_seconds: number | null;
+  video_url: string;
+}
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  drills?: DrillVideo[];
 }
 
 const QUICK_ACTIONS = [
@@ -123,7 +134,8 @@ export function CoachRickWidget() {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: data.response,
-        timestamp: new Date()
+        timestamp: new Date(),
+        drills: data.drills
       };
       
       setMessages(prev => [...prev, assistantMessage]);
@@ -223,18 +235,52 @@ export function CoachRickWidget() {
             ) : (
               <>
                 {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`p-3 rounded-lg ${
-                      msg.role === 'user'
-                        ? 'bg-accent/10 ml-8'
-                        : 'bg-muted mr-4'
-                    }`}
-                  >
-                    {msg.role === 'assistant' && (
-                      <p className="text-xs font-semibold text-accent mb-1">COACH RICK</p>
+                  <div key={msg.id} className="space-y-2">
+                    <div
+                      className={`p-3 rounded-lg ${
+                        msg.role === 'user'
+                          ? 'bg-accent/10 ml-8'
+                          : 'bg-muted mr-4'
+                      }`}
+                    >
+                      {msg.role === 'assistant' && (
+                        <p className="text-xs font-semibold text-accent mb-1">COACH RICK</p>
+                      )}
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                    
+                    {/* Drill Recommendations */}
+                    {msg.drills && msg.drills.length > 0 && (
+                      <div className="mr-4 space-y-2">
+                        <p className="text-xs font-semibold text-muted-foreground px-1">RECOMMENDED DRILLS</p>
+                        {msg.drills.map((drill) => (
+                          <Link
+                            key={drill.id}
+                            to={`/library?video=${drill.id}`}
+                            className="flex items-center gap-3 p-2 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="w-12 h-8 bg-muted rounded flex items-center justify-center shrink-0">
+                              <Play className="w-3 h-3 text-accent" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{drill.title}</p>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                {drill.four_b_category && (
+                                  <Badge variant="outline" className="text-[9px] capitalize h-4 px-1">
+                                    {drill.four_b_category}
+                                  </Badge>
+                                )}
+                                {drill.duration_seconds && (
+                                  <span className="text-[9px] text-muted-foreground">
+                                    {Math.floor(drill.duration_seconds / 60)}:{(drill.duration_seconds % 60).toString().padStart(2, '0')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
                     )}
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   </div>
                 ))}
                 

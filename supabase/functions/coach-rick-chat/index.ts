@@ -35,7 +35,33 @@ You're currently helping users with the Catching Barrels app:
 - In-Person Assessments ($299) — Full session at facility
 - Inner Circle ($297/mo) — Ongoing coaching subscription
 
-When users report bugs or issues, thank them and ask for details. Their feedback helps improve the app.`;
+When users report bugs or issues, thank them and ask for details. Their feedback helps improve the app.
+
+IMPORTANT: You have access to a library of drill videos. When you recommend drills, ONLY recommend from the videos provided to you. Reference them by exact title. If no relevant drills are available, acknowledge that and give general advice instead.`;
+
+// Keywords that suggest the user wants drill recommendations
+const DRILL_KEYWORDS = [
+  'drill', 'drills', 'exercise', 'exercises', 'practice', 'work on',
+  'improve', 'fix', 'help with', 'struggle', 'problem', 'issue',
+  'spinning', 'casting', 'timing', 'bat path', 'hip', 'rotation',
+  'launch angle', 'ground balls', 'pop ups', 'strikeouts', 'contact',
+  'power', 'exit velo', 'balance', 'load', 'stride', 'swing'
+];
+
+function shouldSearchDrills(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  return DRILL_KEYWORDS.some(keyword => lowerMessage.includes(keyword));
+}
+
+interface DrillVideo {
+  id: string;
+  title: string;
+  description: string | null;
+  four_b_category: string | null;
+  problems_addressed: string[] | null;
+  duration_seconds: number | null;
+  video_url: string;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -58,6 +84,57 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // Initialize Supabase client for drill lookup
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    let supabase: ReturnType<typeof createClient> | null = null;
+    let relevantDrills: DrillVideo[] = [];
+
+    if (supabaseUrl && supabaseKey) {
+      supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Search for relevant drill videos if the message suggests they want drills
+      if (shouldSearchDrills(message)) {
+        const searchTerms = message.toLowerCase();
+        
+        // Determine category from message
+        let categoryFilter: string | null = null;
+        if (searchTerms.includes('brain') || searchTerms.includes('timing') || searchTerms.includes('rhythm')) {
+          categoryFilter = 'brain';
+        } else if (searchTerms.includes('body') || searchTerms.includes('hip') || searchTerms.includes('rotation') || searchTerms.includes('leg')) {
+          categoryFilter = 'body';
+        } else if (searchTerms.includes('bat') || searchTerms.includes('hand') || searchTerms.includes('path') || searchTerms.includes('barrel')) {
+          categoryFilter = 'bat';
+        } else if (searchTerms.includes('ball') || searchTerms.includes('exit') || searchTerms.includes('launch') || searchTerms.includes('contact')) {
+          categoryFilter = 'ball';
+        }
+
+        let query = supabase
+          .from('drill_videos')
+          .select('id, title, description, four_b_category, problems_addressed, duration_seconds, video_url')
+          .eq('status', 'published')
+          .limit(5);
+
+        if (categoryFilter) {
+          query = query.eq('four_b_category', categoryFilter);
+        }
+
+        const { data: drills } = await query;
+        
+        if (drills && drills.length > 0) {
+          relevantDrills = drills;
+        } else if (categoryFilter) {
+          // If no category-specific drills, get any drills
+          const { data: anyDrills } = await supabase
+            .from('drill_videos')
+            .select('id, title, description, four_b_category, problems_addressed, duration_seconds, video_url')
+            .eq('status', 'published')
+            .limit(5);
+          relevantDrills = anyDrills || [];
+        }
+      }
+    }
+
     // Build system prompt with optional context
     let systemPrompt = SYSTEM_PROMPT;
     
@@ -67,6 +144,14 @@ serve(async (req) => {
     
     if (scores) {
       systemPrompt += `\n\nPlayer's 4B scores: Brain: ${scores.brain}, Body: ${scores.body}, Bat: ${scores.bat}, Ball: ${scores.ball}. Weakest area: ${weakestCategory}. Focus advice on their weakest category.`;
+    }
+
+    // Add available drills to system prompt
+    if (relevantDrills.length > 0) {
+      const drillList = relevantDrills.map(d => 
+        `- "${d.title}" (${d.four_b_category?.toUpperCase() || 'General'}): ${d.description || 'No description'}`
+      ).join('\n');
+      systemPrompt += `\n\nAvailable drill videos you can recommend:\n${drillList}\n\nWhen recommending drills, use the EXACT titles shown above.`;
     }
     
     // Build conversation messages
@@ -174,8 +259,17 @@ serve(async (req) => {
       // Continue anyway - logging shouldn't break the chat
     }
 
+    // Extract recommended drill titles from AI response
+    const recommendedDrills = relevantDrills.filter(drill => 
+      content.toLowerCase().includes(drill.title.toLowerCase())
+    );
+
     return new Response(
-      JSON.stringify({ response: content, chatLogId: newChatLogId }),
+      JSON.stringify({ 
+        response: content, 
+        chatLogId: newChatLogId,
+        drills: recommendedDrills.length > 0 ? recommendedDrills : undefined
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
   } catch (error) {
