@@ -227,7 +227,8 @@ export default function Index() {
               <img 
                 src={rickBenintendi} 
                 alt="Rick Strickland with Andrew Benintendi" 
-                className="w-full h-full object-cover object-top"
+                className="w-full h-full object-cover"
+                style={{ objectPosition: 'center 15%' }}
               />
             </div>
             <p className="text-center mt-4 text-muted-foreground">
