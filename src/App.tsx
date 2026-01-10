@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AnalysisProvider } from "@/contexts/AnalysisContext";
+import { ProtectedAdminRoute } from "@/components/ProtectedAdminRoute";
 import Index from "./pages/Index";
 import Analyze from "./pages/Analyze";
 import About from "./pages/About";
@@ -32,10 +33,26 @@ const App = () => (
             <Route path="/inner-circle" element={<InnerCircle />} />
             <Route path="/assessment" element={<Assessment />} />
             <Route path="/library" element={<Library />} />
-            <Route path="/admin/messages" element={<AdminMessages />} />
-            <Route path="/admin/videos" element={<AdminVideos />} />
-            <Route path="/admin/import-kommodo" element={<AdminImportKommodo />} />
-            <Route path="/admin/sms" element={<AdminSMS />} />
+            <Route path="/admin/messages" element={
+              <ProtectedAdminRoute>
+                <AdminMessages />
+              </ProtectedAdminRoute>
+            } />
+            <Route path="/admin/videos" element={
+              <ProtectedAdminRoute>
+                <AdminVideos />
+              </ProtectedAdminRoute>
+            } />
+            <Route path="/admin/import-kommodo" element={
+              <ProtectedAdminRoute>
+                <AdminImportKommodo />
+              </ProtectedAdminRoute>
+            } />
+            <Route path="/admin/sms" element={
+              <ProtectedAdminRoute>
+                <AdminSMS />
+              </ProtectedAdminRoute>
+            } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

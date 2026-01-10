@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import DOMPurify from "dompurify";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +13,14 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { VideoRecommendations } from "@/components/VideoRecommendations";
 import type { Json } from "@/integrations/supabase/types";
+
+// Sanitize HTML from search results - only allow <mark> tags for highlighting
+const sanitizeHeadline = (html: string): string => {
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['mark'],
+    ALLOWED_ATTR: []
+  });
+};
 
 interface TranscriptSegment {
   start: number;
@@ -391,11 +400,11 @@ export default function Library() {
                       )}
                     </div>
 
-                    {/* Search Highlight */}
+                    {/* Search Highlight - Sanitized to prevent XSS */}
                     {video.headline && (
                       <p 
                         className="text-sm text-muted-foreground line-clamp-2"
-                        dangerouslySetInnerHTML={{ __html: video.headline }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHeadline(video.headline) }}
                       />
                     )}
 

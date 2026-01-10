@@ -56,10 +56,15 @@ serve(async (req) => {
       throw new Error("Failed to upload video");
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
+    // Generate a signed URL (valid for 1 hour) instead of public URL
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from("swing-videos")
-      .getPublicUrl(fileName);
+      .createSignedUrl(fileName, 3600); // 1 hour expiration
+
+    if (signedUrlError) {
+      console.error("Signed URL error:", signedUrlError);
+      throw new Error("Failed to generate video URL");
+    }
 
     // Check if swing record already exists
     const { data: existingSwing } = await supabase
@@ -70,11 +75,10 @@ serve(async (req) => {
       .single();
 
     if (existingSwing) {
-      // Update existing swing
+      // Update existing swing - store path only, not public URL
       await supabase
         .from("swings")
         .update({
-          video_url: urlData.publicUrl,
           video_storage_path: fileName,
           video_filename: file.name,
           video_size_bytes: file.size,
@@ -83,11 +87,10 @@ serve(async (req) => {
         })
         .eq("id", existingSwing.id);
     } else {
-      // Create new swing record
+      // Create new swing record - store path only, not public URL
       await supabase.from("swings").insert({
         session_id: sessionId,
         swing_index: swingIndex,
-        video_url: urlData.publicUrl,
         video_storage_path: fileName,
         video_filename: file.name,
         video_size_bytes: file.size,
@@ -144,7 +147,7 @@ serve(async (req) => {
         swingsUploaded,
         swingsRequired: session.swings_required,
         readyForPayment,
-        videoUrl: urlData.publicUrl,
+        videoUrl: signedUrlData.signedUrl, // Return signed URL instead of public
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
