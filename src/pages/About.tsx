@@ -9,7 +9,7 @@ import rickTech from '@/assets/rick-tech.jpg';
 import rickSammySosa from '@/assets/rick-sammy-sosa.jpg';
 
 const credentials = [
-  'AAA Hitting Coach, Baltimore Orioles (Norfolk Tides)',
+  'MLB Hitting Coach, Baltimore Orioles',
   'New York Yankees Draft Pick',
   'MLB Scout: New York Mets, Tampa Bay Rays',
   '30+ years in professional baseball',
@@ -82,7 +82,7 @@ export default function About() {
         <div className="container">
           <div className="max-w-3xl mx-auto">
             <p className="text-lg leading-relaxed mb-8">
-              Rick Strickland is the AAA Hitting Coach for the Baltimore Orioles (Norfolk Tides). 
+              Rick Strickland is the MLB Hitting Coach for the Baltimore Orioles. 
               He's trained <span className="font-semibold text-accent">400+ college commits</span>, 
               <span className="font-semibold text-accent"> 78+ professional players</span>, and 
               <span className="font-semibold text-accent"> 3 MLB Award Winners</span>.

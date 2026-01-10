@@ -197,7 +197,7 @@ export function ResultsPage({ results, userAccessLevel = 'paid' }: ResultsPagePr
         <Card className="p-6 mb-8 bg-primary text-primary-foreground">
           <h2 className="text-lg font-bold mb-2">WANT PERSONAL COACHING?</h2>
           <p className="text-sm opacity-80 mb-4">
-            Rick Strickland is the AAA Hitting Coach for the Baltimore Orioles. 
+            Rick Strickland is the MLB Hitting Coach for the Baltimore Orioles. 
             He's trained Pete Crow-Armstrong, Andrew Benintendi, and Devin Williams.
           </p>
           

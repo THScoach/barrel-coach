@@ -236,7 +236,7 @@ export default function Assessment() {
                 <h2 className="text-3xl md:text-4xl font-bold mb-4">Train With Coach Rick</h2>
                 <p className="text-lg text-muted-foreground mb-6">
                   20+ years of professional coaching experience. 
-                  AAA Hitting Coach with the Baltimore Orioles organization. 
+                  MLB Hitting Coach with the Baltimore Orioles organization. 
                   Trained 78+ pro players including MLB All-Stars.
                 </p>
                 <div className="space-y-3">
