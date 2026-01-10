@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Header } from '@/components/Header';
+import { AdminHeader } from '@/components/AdminHeader';
 import { Footer } from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -222,7 +222,7 @@ export default function AdminMessages() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Header />
+      <AdminHeader />
       
       <main className="flex-1 container py-8">
         <div className="flex items-center justify-between mb-8">

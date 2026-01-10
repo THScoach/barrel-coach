@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Upload, Play, Trash2, Edit, Eye, EyeOff, Loader2, ArrowLeft, Video, CheckCircle2, Clock, AlertCircle, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
+import { AdminHeader } from "@/components/AdminHeader";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -347,8 +348,9 @@ export default function AdminVideos() {
   const processingCount = videos.filter(v => ['processing', 'transcribing', 'analyzing'].includes(v.status)).length;
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-background">
+      <AdminHeader />
+      <div className="p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
