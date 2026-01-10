@@ -30,10 +30,16 @@ interface Player {
   reboot_athlete_id: string | null;
 }
 
+type SessionType =
+  | string
+  | { name?: string | null }
+  | null
+  | undefined;
+
 interface RebootSession {
   session_id: string;
   session_date: string;
-  session_type: string;
+  session_type: SessionType;
   movement_count: number;
 }
 
@@ -75,6 +81,16 @@ const getScoreTextColor = (score: number): string => {
   if (score >= 40) return "text-yellow-500";
   if (score >= 30) return "text-orange-500";
   return "text-red-500";
+};
+
+const getSessionTypeLabel = (sessionType: SessionType): string => {
+  if (!sessionType) return "Unknown";
+  if (typeof sessionType === "string") return sessionType;
+  if (typeof sessionType === "object") {
+    const name = (sessionType as any)?.name;
+    return typeof name === "string" && name.trim() ? name : "Unknown";
+  }
+  return "Unknown";
 };
 
 const ScoreCard = ({ 
@@ -461,7 +477,7 @@ export default function AdminRebootAnalysis() {
                             })}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {session.session_type} • {session.movement_count} movements
+                            {getSessionTypeLabel(session.session_type)} • {session.movement_count} movements
                           </p>
                         </div>
                       </label>
