@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Header } from "@/components/Header";
+import { AdminHeader } from "@/components/AdminHeader";
 import { Footer } from "@/components/Footer";
 import { MessageSquare, Clock, Send, Edit2, Save, X, RefreshCw } from "lucide-react";
 
@@ -220,7 +220,7 @@ const AdminSMS = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <AdminHeader />
       
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="flex items-center justify-between mb-8">

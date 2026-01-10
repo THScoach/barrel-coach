@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ArrowLeft, Download, Loader2, RefreshCw, Check, X, Video } from "lucide-react";
 import { Link } from "react-router-dom";
+import { AdminHeader } from "@/components/AdminHeader";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -145,157 +146,145 @@ export default function AdminImportKommodo() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Link to="/admin/videos">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Videos
-              </Button>
-            </Link>
-            <h1 className="text-2xl font-bold">Import from Kommodo</h1>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="flex flex-wrap items-center gap-4">
-              <Button onClick={fetchRecordings} disabled={loading}>
-                {loading ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                Fetch Videos from Kommodo
-              </Button>
-
-              {recordings.length > 0 && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={autoPublish}
-                      onCheckedChange={setAutoPublish}
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      Auto-publish after tagging
-                    </span>
-                  </div>
-
-                  <Button
-                    onClick={importSelected}
-                    disabled={importing || selectedIds.size === 0}
-                    variant="default"
-                  >
-                    {importing ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4 mr-2" />
-                    )}
-                    Import Selected ({selectedIds.size})
-                  </Button>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recordings List */}
-        {recordings.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Kommodo Recordings</CardTitle>
-                <Button variant="ghost" size="sm" onClick={selectAll}>
-                  {selectedIds.size === recordings.length ? 'Deselect All' : 'Select All'}
+    <div className="min-h-screen bg-background">
+      <AdminHeader />
+      <div className="p-6">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <Link to="/admin/videos">
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Videos
                 </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {recordings.map((rec) => {
-                  const result = getResultForId(rec.id);
-                  const isSelected = selectedIds.has(rec.id);
-                  const title = rec.title || rec.name || `Recording ${rec.id}`;
-                  const duration = rec.duration || rec.duration_seconds;
-                  const hasTranscript = !!rec.transcript;
+              </Link>
+              <h1 className="text-2xl font-bold">Import from Kommodo</h1>
+            </div>
+          </div>
 
-                  return (
-                    <div
-                      key={rec.id}
-                      className={`flex items-center gap-4 p-4 rounded-lg border transition-colors ${
-                        result?.success 
-                          ? 'bg-green-500/10 border-green-500/30' 
-                          : result && !result.success 
-                            ? 'bg-red-500/10 border-red-500/30'
-                            : isSelected 
-                              ? 'bg-primary/10 border-primary/30' 
-                              : 'bg-muted/50'
-                      }`}
-                    >
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleSelect(rec.id)}
-                        disabled={result?.success}
+          {/* Controls */}
+          <Card className="mb-6">
+            <CardContent className="pt-6">
+              <div className="flex flex-wrap items-center gap-4">
+                <Button onClick={fetchRecordings} disabled={loading}>
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  Fetch Videos from Kommodo
+                </Button>
+
+                {recordings.length > 0 && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={autoPublish}
+                        onCheckedChange={setAutoPublish}
+                        id="auto-publish"
                       />
-
-                      <Video className="h-8 w-8 text-muted-foreground" />
-
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{title}</p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>{formatDuration(duration)}</span>
-                          {rec.created_at && (
-                            <>
-                              <span>•</span>
-                              <span>{new Date(rec.created_at).toLocaleDateString()}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {hasTranscript && (
-                          <Badge variant="secondary">Has Transcript</Badge>
-                        )}
-                        
-                        {result?.success && (
-                          <Badge className="bg-green-600">
-                            <Check className="h-3 w-3 mr-1" />
-                            Imported
-                          </Badge>
-                        )}
-                        
-                        {result && !result.success && (
-                          <Badge variant="destructive">
-                            <X className="h-3 w-3 mr-1" />
-                            {result.error || 'Failed'}
-                          </Badge>
-                        )}
-                      </div>
+                      <label htmlFor="auto-publish" className="text-sm">
+                        Auto-publish after import
+                      </label>
                     </div>
-                  );
-                })}
+
+                    <Button
+                      variant="outline"
+                      onClick={selectAll}
+                    >
+                      {selectedIds.size === recordings.length ? 'Deselect All' : 'Select All'}
+                    </Button>
+
+                    <Button
+                      onClick={importSelected}
+                      disabled={importing || selectedIds.size === 0}
+                    >
+                      {importing ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      Import Selected ({selectedIds.size})
+                    </Button>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
-        )}
 
-        {/* Empty State */}
-        {!loading && recordings.length === 0 && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Video className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">No Recordings Loaded</h3>
-              <p className="text-muted-foreground mb-4">
-                Click "Fetch Videos from Kommodo" to load your recordings
-              </p>
-            </CardContent>
-          </Card>
-        )}
+          {/* Recordings List */}
+          {recordings.length > 0 ? (
+            <div className="space-y-2">
+              {recordings.map((rec) => {
+                const result = getResultForId(rec.id);
+                const title = rec.title || rec.name || 'Untitled';
+                const duration = rec.duration || rec.duration_seconds;
+
+                return (
+                  <Card
+                    key={rec.id}
+                    className={`transition-colors ${
+                      result?.success === true ? 'bg-green-500/10 border-green-500/30' :
+                      result?.success === false ? 'bg-red-500/10 border-red-500/30' :
+                      selectedIds.has(rec.id) ? 'bg-accent' : ''
+                    }`}
+                  >
+                    <CardContent className="py-3 px-4">
+                      <div className="flex items-center gap-4">
+                        <Checkbox
+                          checked={selectedIds.has(rec.id)}
+                          onCheckedChange={() => toggleSelect(rec.id)}
+                          disabled={importing || result !== undefined}
+                        />
+
+                        <Video className="h-5 w-5 text-muted-foreground shrink-0" />
+
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{title}</p>
+                          <div className="flex gap-3 text-xs text-muted-foreground">
+                            {duration && (
+                              <span>{formatDuration(duration)}</span>
+                            )}
+                            {rec.created_at && (
+                              <span>{new Date(rec.created_at).toLocaleDateString()}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {result !== undefined && (
+                          <Badge variant={result.success ? 'default' : 'destructive'}>
+                            {result.success ? (
+                              <>
+                                <Check className="h-3 w-3 mr-1" />
+                                Imported
+                              </>
+                            ) : (
+                              <>
+                                <X className="h-3 w-3 mr-1" />
+                                {result.error || 'Failed'}
+                              </>
+                            )}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Video className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                <h3 className="font-medium mb-2">No Recordings Loaded</h3>
+                <p className="text-muted-foreground mb-4">
+                  Click "Fetch Videos from Kommodo" to load your recordings
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );
