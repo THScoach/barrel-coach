@@ -3,15 +3,20 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScoreCircle } from '@/components/ScoreCircle';
 import { CoachRickChat } from '@/components/CoachRickChat';
+import { VideoRecommendations } from '@/components/VideoRecommendations';
 import { AnalysisResults, FourBScores } from '@/types/analysis';
 import { cn } from '@/lib/utils';
 
 interface ResultsPageProps {
   results: AnalysisResults;
+  userAccessLevel?: 'free' | 'paid' | 'inner_circle';
 }
 
-export function ResultsPage({ results }: ResultsPageProps) {
+export function ResultsPage({ results, userAccessLevel = 'paid' }: ResultsPageProps) {
   const isCompleteReview = results.productType === 'complete_review';
+  
+  // Determine access level based on product type
+  const accessLevel: 'free' | 'paid' | 'inner_circle' = userAccessLevel;
   
   return (
     <div className="animate-fade-in max-w-3xl mx-auto pb-16">
@@ -137,6 +142,14 @@ export function ResultsPage({ results }: ResultsPageProps) {
           </p>
         </div>
         </Card>
+
+      {/* Personalized Video Recommendations */}
+      <VideoRecommendations 
+        weakestCategory={results.mainProblem.category}
+        problemsAddressed={results.mainProblem.name ? [results.mainProblem.name.toLowerCase().replace(/\s+/g, '_')] : []}
+        userAccessLevel={accessLevel}
+        maxVideos={5}
+      />
 
       {/* Coach Rick AI Chat */}
       <CoachRickChat 
