@@ -77,14 +77,35 @@ serve(async (req) => {
           const recording = await response.json()
           console.log('Recording details:', recording)
 
-          // Extract data from Kommodo response (adjust field names based on actual API)
-          const videoUrl = recording.video_url || recording.playback_url || recording.embed_url || recording.url
-          const transcript = recording.transcript || recording.text || ''
+          // Extract data from Kommodo response - URLs are nested under 'urls' object
+          const videoUrl = recording.urls?.video || recording.urls?.page || recording.video_url || recording.playback_url || recording.url
+          const thumbnailUrl = recording.urls?.poster || recording.thumbnail_url || null
+          const transcriptUrl = recording.urls?.transcript || null
           const title = recording.title || recording.name || `Imported ${recordingId}`
           const duration = recording.duration || recording.duration_seconds || 0
 
           if (!videoUrl) {
             throw new Error('No video URL found in recording')
+          }
+
+          // Fetch transcript from VTT URL if available
+          let transcript = ''
+          if (transcriptUrl) {
+            try {
+              const vttResponse = await fetch(transcriptUrl)
+              if (vttResponse.ok) {
+                const vttText = await vttResponse.text()
+                // Parse VTT to plain text (remove timestamps and WEBVTT header)
+                transcript = vttText
+                  .split('\n')
+                  .filter(line => !line.startsWith('WEBVTT') && !line.match(/^\d{2}:\d{2}/) && line.trim() !== '')
+                  .join(' ')
+                  .trim()
+                console.log('Fetched transcript length:', transcript.length)
+              }
+            } catch (e) {
+              console.error('Failed to fetch transcript:', e)
+            }
           }
 
           // Check if already imported
@@ -105,6 +126,7 @@ serve(async (req) => {
             .insert({
               title,
               video_url: videoUrl,
+              thumbnail_url: thumbnailUrl,
               transcript,
               duration_seconds: Math.round(duration),
               status: transcript ? 'analyzing' : 'ready_for_review'
