@@ -14,6 +14,7 @@ import Assessment from "./pages/Assessment";
 import AdminMessages from "./pages/AdminMessages";
 import AdminVideos from "./pages/AdminVideos";
 import AdminAnalyzer from "./pages/AdminAnalyzer";
+import AdminNewSession from "./pages/AdminNewSession";
 import AdminImportKommodo from "./pages/AdminImportKommodo";
 import AdminSMS from "./pages/AdminSMS";
 import Library from "./pages/Library";
@@ -55,6 +56,11 @@ const App = () => (
               <Route path="/admin/analyzer" element={
                 <ProtectedAdminRoute>
                   <AdminAnalyzer />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/new-session" element={
+                <ProtectedAdminRoute>
+                  <AdminNewSession />
                 </ProtectedAdminRoute>
               } />
               <Route path="/admin/import-kommodo" element={

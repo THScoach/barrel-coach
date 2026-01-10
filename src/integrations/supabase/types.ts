@@ -212,6 +212,7 @@ export type Database = {
           consistency_mean: number | null
           consistency_std_dev: number | null
           created_at: string | null
+          created_by: string | null
           environment: string
           four_b_ball: number | null
           four_b_bat: number | null
@@ -219,12 +220,17 @@ export type Database = {
           four_b_brain: number | null
           grade: string | null
           id: string
+          is_in_person: boolean | null
           paid_at: string | null
+          payment_link_id: string | null
+          payment_link_url: string | null
+          payment_method: string | null
           percentile: number | null
           player_age: number
           player_email: string
           player_level: string
           player_name: string
+          player_notes: string | null
           player_phone: string | null
           price_cents: number
           problems_identified: string[] | null
@@ -251,6 +257,7 @@ export type Database = {
           consistency_mean?: number | null
           consistency_std_dev?: number | null
           created_at?: string | null
+          created_by?: string | null
           environment: string
           four_b_ball?: number | null
           four_b_bat?: number | null
@@ -258,12 +265,17 @@ export type Database = {
           four_b_brain?: number | null
           grade?: string | null
           id?: string
+          is_in_person?: boolean | null
           paid_at?: string | null
+          payment_link_id?: string | null
+          payment_link_url?: string | null
+          payment_method?: string | null
           percentile?: number | null
           player_age: number
           player_email: string
           player_level: string
           player_name: string
+          player_notes?: string | null
           player_phone?: string | null
           price_cents: number
           problems_identified?: string[] | null
@@ -290,6 +302,7 @@ export type Database = {
           consistency_mean?: number | null
           consistency_std_dev?: number | null
           created_at?: string | null
+          created_by?: string | null
           environment?: string
           four_b_ball?: number | null
           four_b_bat?: number | null
@@ -297,12 +310,17 @@ export type Database = {
           four_b_brain?: number | null
           grade?: string | null
           id?: string
+          is_in_person?: boolean | null
           paid_at?: string | null
+          payment_link_id?: string | null
+          payment_link_url?: string | null
+          payment_method?: string | null
           percentile?: number | null
           player_age?: number
           player_email?: string
           player_level?: string
           player_name?: string
+          player_notes?: string | null
           player_phone?: string | null
           price_cents?: number
           problems_identified?: string[] | null

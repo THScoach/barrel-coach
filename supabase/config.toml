@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.send-results]
 verify_jwt = false
+
+[functions.create-in-person-session]
+verify_jwt = false
