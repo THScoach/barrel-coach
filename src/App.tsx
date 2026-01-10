@@ -11,6 +11,7 @@ import InnerCircle from "./pages/InnerCircle";
 import Assessment from "./pages/Assessment";
 import AdminMessages from "./pages/AdminMessages";
 import AdminVideos from "./pages/AdminVideos";
+import AdminImportKommodo from "./pages/AdminImportKommodo";
 import Library from "./pages/Library";
 import NotFound from "./pages/NotFound";
 
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/library" element={<Library />} />
             <Route path="/admin/messages" element={<AdminMessages />} />
             <Route path="/admin/videos" element={<AdminVideos />} />
+            <Route path="/admin/import-kommodo" element={<AdminImportKommodo />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
