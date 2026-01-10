@@ -288,6 +288,109 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_logs: {
+        Row: {
+          created_at: string | null
+          id: string
+          message_sent: string
+          phone_number: string
+          session_id: string | null
+          status: string | null
+          trigger_name: string
+          twilio_sid: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message_sent: string
+          phone_number: string
+          session_id?: string | null
+          status?: string | null
+          trigger_name: string
+          twilio_sid?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message_sent?: string
+          phone_number?: string
+          session_id?: string | null
+          status?: string | null
+          trigger_name?: string
+          twilio_sid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_scheduled: {
+        Row: {
+          created_at: string | null
+          id: string
+          scheduled_for: string
+          session_id: string | null
+          status: string | null
+          trigger_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          scheduled_for: string
+          session_id?: string | null
+          status?: string | null
+          trigger_name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          scheduled_for?: string
+          session_id?: string | null
+          status?: string | null
+          trigger_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_scheduled_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_templates: {
+        Row: {
+          created_at: string | null
+          delay_minutes: number | null
+          id: string
+          is_active: boolean | null
+          message_body: string
+          trigger_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          delay_minutes?: number | null
+          id?: string
+          is_active?: boolean | null
+          message_body: string
+          trigger_name: string
+        }
+        Update: {
+          created_at?: string | null
+          delay_minutes?: number | null
+          id?: string
+          is_active?: boolean | null
+          message_body?: string
+          trigger_name?: string
+        }
+        Relationships: []
+      }
       swings: {
         Row: {
           analysis_json: Json | null

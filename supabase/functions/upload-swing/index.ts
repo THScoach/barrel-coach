@@ -117,6 +117,26 @@ serve(async (req) => {
         .eq("id", sessionId);
     }
 
+    // === SMS WORKFLOW: VIDEO UPLOADED ===
+    // Cancel the no_upload_reminder since they uploaded
+    try {
+      const cancelUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/cancel-sms`;
+      await fetch(cancelUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({
+          sessionId,
+          triggerName: "no_upload_reminder",
+        }),
+      });
+      console.log("Cancelled no_upload_reminder for session:", sessionId);
+    } catch (smsError) {
+      console.error("Failed to cancel SMS (non-fatal):", smsError);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

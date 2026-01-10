@@ -37,6 +37,27 @@ const generateMockAnalysis = (swingIndex: number) => {
   };
 };
 
+// Helper to call SMS functions
+async function callSmsFunction(functionName: string, body: object) {
+  const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/${functionName}`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify(body),
+    });
+    const result = await response.json();
+    console.log(`${functionName} result:`, result);
+    return result;
+  } catch (error) {
+    console.error(`${functionName} error:`, error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -155,57 +176,35 @@ serve(async (req) => {
 
     console.log("Analysis complete for session:", sessionId);
 
-    // Send completion SMS if phone is on file
-    try {
-      const { data: sessionData } = await supabase
-        .from("sessions")
-        .select("player_phone, player_name, composite_score, grade")
-        .eq("id", sessionId)
-        .single();
+    // Fetch updated session data for SMS
+    const { data: sessionData } = await supabase
+      .from("sessions")
+      .select("player_phone, player_name, product_type")
+      .eq("id", sessionId)
+      .single();
 
-      if (sessionData?.player_phone) {
-        const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
-        const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
-        const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER");
-        const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    // === SMS WORKFLOW: ANALYSIS COMPLETE ===
+    if (sessionData?.player_phone) {
+      // Send analysis_complete SMS immediately
+      await callSmsFunction("send-sms", {
+        sessionId,
+        triggerName: "analysis_complete",
+        useTemplate: true,
+      });
 
-        if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_PHONE_NUMBER) {
-          const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
-          const credentials = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
-          
-          const baseUrl = SUPABASE_URL?.replace('.supabase.co', '').replace('https://', '');
-          const appUrl = `https://${baseUrl}.lovableproject.com`;
-          
-          const completionMessage = `🔥 ${sessionData.player_name}'s 4B Report is ready!\n\nScore: ${Math.round(sessionData.composite_score || 0)} (${sessionData.grade})\n\nView full results: ${appUrl}/analyze?session=${sessionId}\n\n- Coach Rick`;
+      // Schedule follow_up (3 days = 4320 minutes)
+      await callSmsFunction("schedule-sms", {
+        sessionId,
+        triggerName: "follow_up",
+      });
 
-          const twilioResponse = await fetch(twilioUrl, {
-            method: "POST",
-            headers: {
-              "Authorization": `Basic ${credentials}`,
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-              To: sessionData.player_phone,
-              From: TWILIO_PHONE_NUMBER,
-              Body: completionMessage,
-            }),
-          });
-
-          if (twilioResponse.ok) {
-            const twilioData = await twilioResponse.json();
-            await supabase.from("messages").insert({
-              session_id: sessionId,
-              phone_number: sessionData.player_phone,
-              direction: "outbound",
-              body: completionMessage,
-              twilio_sid: twilioData.sid,
-              status: "sent",
-            });
-          }
-        }
+      // Schedule upsell only for single swing purchases (7 days = 10080 minutes)
+      if (sessionData.product_type === "single_swing" || sessionData.product_type === "single") {
+        await callSmsFunction("schedule-sms", {
+          sessionId,
+          triggerName: "upsell",
+        });
       }
-    } catch (smsError) {
-      console.error("SMS error (non-fatal):", smsError);
     }
 
     return new Response(
