@@ -19,9 +19,10 @@ import {
 import { toast } from "sonner";
 import { 
   ArrowLeft, Save, User, Phone, Mail, Building, 
-  MapPin, FileText, Plus, Loader2, Calendar
+  MapPin, FileText, Plus, Loader2, Calendar, Sparkles
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
+import { PlayerResearchModal } from "@/components/PlayerResearchModal";
 
 const LEVELS = ['Youth', 'High School', 'Travel Ball', 'College', 'Independent', 'MiLB', 'MLB'];
 const POSITIONS = ['C', '1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF', 'OF', 'DH', 'P', 'Utility'];
@@ -56,6 +57,8 @@ export default function AdminPlayerProfile() {
     training_history: '',
     current_focus: '',
   });
+
+  const [showResearchModal, setShowResearchModal] = useState(false);
 
   const { data: player, isLoading } = useQuery({
     queryKey: ['player-profile', id],
@@ -183,6 +186,31 @@ export default function AdminPlayerProfile() {
     saveMutation.mutate();
   };
 
+  const handleResearchData = (data: any) => {
+    // Parse the name
+    const nameParts = data.name?.split(' ') || [];
+    const firstName = nameParts[0] || formData.first_name;
+    const lastName = nameParts.slice(1).join(' ') || formData.last_name;
+    
+    setFormData(prev => ({
+      ...prev,
+      first_name: firstName || prev.first_name,
+      last_name: lastName || prev.last_name,
+      organization: data.organization || prev.organization,
+      current_team: data.current_team || prev.current_team,
+      level: data.level || prev.level,
+      position: data.position || prev.position,
+      bats: data.bats || prev.bats,
+      throws: data.throws || prev.throws,
+      age: data.age?.toString() || prev.age,
+      height: data.height || prev.height,
+      weight: data.weight?.toString() || prev.weight,
+      coach_notes: data.scouting_reports?.join('\n\n') || prev.coach_notes,
+    }));
+    
+    toast.success('Player data imported from research!');
+  };
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
       month: 'short',
@@ -225,6 +253,12 @@ export default function AdminPlayerProfile() {
             </div>
           </div>
           <div className="flex gap-2">
+            {isNew && (
+              <Button variant="outline" onClick={() => setShowResearchModal(true)}>
+                <Sparkles className="h-4 w-4 mr-2" />
+                AI Research
+              </Button>
+            )}
             {!isNew && (
               <Button onClick={() => navigate(`/admin/new-session?player=${id}`)}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -565,6 +599,14 @@ export default function AdminPlayerProfile() {
           )}
         </Tabs>
       </main>
+
+      {/* AI Research Modal */}
+      <PlayerResearchModal
+        open={showResearchModal}
+        onOpenChange={setShowResearchModal}
+        onPlayerFound={handleResearchData}
+        initialName={`${formData.first_name} ${formData.last_name}`.trim()}
+      />
     </div>
   );
 }
