@@ -14,6 +14,7 @@ interface DrillVideo {
   four_b_category: string | null;
   duration_seconds: number | null;
   video_url: string;
+  thumbnail_url?: string | null;
 }
 
 interface Message {
@@ -259,8 +260,19 @@ export function CoachRickWidget() {
                             to={`/library?video=${drill.id}`}
                             className="flex items-center gap-3 p-2 rounded-lg border border-border hover:bg-muted/50 transition-colors"
                           >
-                            <div className="w-12 h-8 bg-muted rounded flex items-center justify-center shrink-0">
-                              <Play className="w-3 h-3 text-accent" />
+                            <div className="w-12 h-8 bg-muted rounded overflow-hidden flex items-center justify-center shrink-0 relative">
+                              {drill.thumbnail_url ? (
+                                <img 
+                                  src={drill.thumbnail_url} 
+                                  alt={drill.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Play className="w-3 h-3 text-accent" />
+                              )}
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                <Play className="w-2.5 h-2.5 text-white drop-shadow" />
+                              </div>
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium truncate">{drill.title}</p>

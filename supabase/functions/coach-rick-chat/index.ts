@@ -61,6 +61,7 @@ interface DrillVideo {
   problems_addressed: string[] | null;
   duration_seconds: number | null;
   video_url: string;
+  thumbnail_url: string | null;
 }
 
 serve(async (req) => {
@@ -111,7 +112,7 @@ serve(async (req) => {
 
         let query = supabase
           .from('drill_videos')
-          .select('id, title, description, four_b_category, problems_addressed, duration_seconds, video_url')
+          .select('id, title, description, four_b_category, problems_addressed, duration_seconds, video_url, thumbnail_url')
           .eq('status', 'published')
           .limit(5);
 
@@ -127,7 +128,7 @@ serve(async (req) => {
           // If no category-specific drills, get any drills
           const { data: anyDrills } = await supabase
             .from('drill_videos')
-            .select('id, title, description, four_b_category, problems_addressed, duration_seconds, video_url')
+            .select('id, title, description, four_b_category, problems_addressed, duration_seconds, video_url, thumbnail_url')
             .eq('status', 'published')
             .limit(5);
           relevantDrills = anyDrills || [];
