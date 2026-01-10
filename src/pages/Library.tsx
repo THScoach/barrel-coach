@@ -5,20 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Play, Lock, Clock, X, Brain, Dumbbell, Target, CircleDot, Sparkles } from "lucide-react";
+import { Search, Play, Lock, Clock, X, Brain, Dumbbell, Target, CircleDot, Sparkles, Zap, Filter } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { VideoRecommendations } from "@/components/VideoRecommendations";
 import type { Json } from "@/integrations/supabase/types";
 
-// Sanitize HTML from search results - only allow <mark> tags for highlighting
+// Sanitize HTML from search results
 const sanitizeHeadline = (html: string): string => {
   return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['mark'],
-    ALLOWED_ATTR: []
+    ALLOWED_TAGS: ["mark"],
+    ALLOWED_ATTR: [],
   });
 };
 
@@ -54,92 +53,111 @@ const parseTranscriptSegments = (segments: Json | null): TranscriptSegment[] | n
   return segments as unknown as TranscriptSegment[];
 };
 
-const categoryInfo: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
-  brain: { color: 'bg-blue-500', icon: <Brain className="h-4 w-4" />, label: 'Brain' },
-  body: { color: 'bg-green-500', icon: <Dumbbell className="h-4 w-4" />, label: 'Body' },
-  bat: { color: 'bg-red-500', icon: <Target className="h-4 w-4" />, label: 'Bat' },
-  ball: { color: 'bg-orange-500', icon: <CircleDot className="h-4 w-4" />, label: 'Ball' }
+const categoryInfo: Record<string, { color: string; bgColor: string; icon: JSX.Element; label: string }> = {
+  brain: {
+    color: "text-purple-400",
+    bgColor: "bg-purple-500/20 border-purple-500/30",
+    icon: <Brain className="w-5 h-5" />,
+    label: "Brain",
+  },
+  body: {
+    color: "text-blue-400",
+    bgColor: "bg-blue-500/20 border-blue-500/30",
+    icon: <Dumbbell className="w-5 h-5" />,
+    label: "Body",
+  },
+  bat: {
+    color: "text-orange-400",
+    bgColor: "bg-orange-500/20 border-orange-500/30",
+    icon: <Target className="w-5 h-5" />,
+    label: "Bat",
+  },
+  ball: {
+    color: "text-red-400",
+    bgColor: "bg-red-500/20 border-red-500/30",
+    icon: <CircleDot className="w-5 h-5" />,
+    label: "Ball",
+  },
 };
 
 const PROBLEMS_LIST = [
-  { value: 'spinning_out', label: 'Spinning Out', category: 'body' },
-  { value: 'casting', label: 'Casting / Long Swing', category: 'bat' },
-  { value: 'late_timing', label: 'Late on Fastballs', category: 'brain' },
-  { value: 'early_timing', label: 'Early on Off-Speed', category: 'brain' },
-  { value: 'drifting', label: 'Drifting Forward', category: 'body' },
-  { value: 'rolling_over', label: 'Rolling Over', category: 'bat' },
-  { value: 'ground_balls', label: 'Ground Ball Machine', category: 'ball' },
-  { value: 'no_power', label: 'No Power / Low Exit Velo', category: 'ball' },
-  { value: 'chasing', label: 'Chasing Pitches', category: 'brain' },
-  { value: 'collapsing', label: 'Collapsing Back Side', category: 'body' }
+  { value: "spinning_out", label: "Spinning Out", category: "body" },
+  { value: "casting", label: "Casting / Long Swing", category: "bat" },
+  { value: "late_timing", label: "Late on Fastballs", category: "brain" },
+  { value: "early_timing", label: "Early on Off-Speed", category: "brain" },
+  { value: "drifting", label: "Drifting Forward", category: "body" },
+  { value: "rolling_over", label: "Rolling Over", category: "bat" },
+  { value: "ground_balls", label: "Ground Ball Machine", category: "ball" },
+  { value: "no_power", label: "No Power / Low Exit Velo", category: "ball" },
+  { value: "chasing", label: "Chasing Pitches", category: "brain" },
+  { value: "collapsing", label: "Collapsing Back Side", category: "body" },
 ];
 
 export default function Library() {
   const [videos, setVideos] = useState<DrillVideo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [problemFilter, setProblemFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [problemFilter, setProblemFilter] = useState("all");
   const [selectedVideo, setSelectedVideo] = useState<DrillVideo | null>(null);
   const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
-  
-  // User session state for personalized recommendations
+
   const [userSession, setUserSession] = useState<{
     weakestCategory: string | null;
-    accessLevel: 'free' | 'paid' | 'inner_circle';
+    accessLevel: "free" | "paid" | "inner_circle";
     sessionId: string | null;
   } | null>(null);
 
-  // Check for user's latest session
   useEffect(() => {
+    document.title = "Video Vault | Coach Rick's Drill Library | Catching Barrels";
     checkUserSession();
   }, []);
 
   const checkUserSession = async () => {
     try {
-      // First check URL for session ID
       const urlParams = new URLSearchParams(window.location.search);
-      const sessionId = urlParams.get('session');
-      
+      const sessionId = urlParams.get("session");
+
       if (sessionId) {
         const { data: session } = await supabase
-          .from('sessions')
-          .select('weakest_category, product_type, status')
-          .eq('id', sessionId)
+          .from("sessions")
+          .select("weakest_category, product_type, status")
+          .eq("id", sessionId)
           .maybeSingle();
-          
-        if (session && session.status === 'complete' && session.weakest_category) {
+
+        if (session && session.status === "complete" && session.weakest_category) {
           setUserSession({
             weakestCategory: session.weakest_category,
-            accessLevel: session.product_type === 'complete_review' ? 'paid' : 'paid',
-            sessionId
+            accessLevel: session.product_type === "complete_review" ? "paid" : "paid",
+            sessionId,
           });
           return;
         }
       }
-      
-      // Check for authenticated user's sessions
-      const { data: { user } } = await supabase.auth.getUser();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         const { data: latestSession } = await supabase
-          .from('sessions')
-          .select('id, weakest_category, product_type')
-          .eq('user_id', user.id)
-          .eq('status', 'complete')
-          .order('created_at', { ascending: false })
+          .from("sessions")
+          .select("id, weakest_category, product_type")
+          .eq("user_id", user.id)
+          .eq("status", "complete")
+          .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-          
+
         if (latestSession?.weakest_category) {
           setUserSession({
             weakestCategory: latestSession.weakest_category,
-            accessLevel: 'paid',
-            sessionId: latestSession.id
+            accessLevel: "paid",
+            sessionId: latestSession.id,
           });
         }
       }
     } catch (error) {
-      console.error('Error checking user session:', error);
+      console.error("Error checking user session:", error);
     }
   };
 
@@ -147,29 +165,25 @@ export default function Library() {
     setLoading(true);
     try {
       if (searchQuery.trim()) {
-        // Use search function
-        const { data, error } = await supabase.rpc('search_videos', {
+        const { data, error } = await supabase.rpc("search_videos", {
           search_query: searchQuery,
-          category_filter: categoryFilter === 'all' ? null : categoryFilter,
-          level_filter: null
+          category_filter: categoryFilter === "all" ? null : categoryFilter,
+          level_filter: null,
         });
-
         if (error) throw error;
         setVideos((data || []) as DrillVideo[]);
       } else {
-        // Regular query
         let query = supabase
-          .from('drill_videos')
-          .select('*')
-          .eq('status', 'published')
-          .order('created_at', { ascending: false });
+          .from("drill_videos")
+          .select("*")
+          .eq("status", "published")
+          .order("created_at", { ascending: false });
 
-        if (categoryFilter !== 'all') {
-          query = query.eq('four_b_category', categoryFilter);
+        if (categoryFilter !== "all") {
+          query = query.eq("four_b_category", categoryFilter);
         }
-
-        if (problemFilter !== 'all') {
-          query = query.contains('problems_addressed', [problemFilter]);
+        if (problemFilter !== "all") {
+          query = query.contains("problems_addressed", [problemFilter]);
         }
 
         const { data, error } = await query;
@@ -177,7 +191,7 @@ export default function Library() {
         setVideos(data || []);
       }
     } catch (error) {
-      console.error('Error fetching videos:', error);
+      console.error("Error fetching videos:", error);
     } finally {
       setLoading(false);
     }
@@ -189,10 +203,10 @@ export default function Library() {
   }, [fetchVideos]);
 
   const formatDuration = (seconds: number | null) => {
-    if (!seconds) return '';
+    if (!seconds) return "";
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const seekToTime = (seconds: number) => {
@@ -205,333 +219,413 @@ export default function Library() {
   const formatTimestamp = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Check user access based on their access level
   const hasAccess = (videoAccessLevel: string | null) => {
-    if (!videoAccessLevel || videoAccessLevel === 'free') return true;
-    
-    const userLevel = userSession?.accessLevel || 'free';
-    if (userLevel === 'inner_circle') return true;
-    if (userLevel === 'paid' && videoAccessLevel === 'paid') return true;
-    
+    if (!videoAccessLevel || videoAccessLevel === "free") return true;
+    const userLevel = userSession?.accessLevel || "free";
+    if (userLevel === "inner_circle") return true;
+    if (userLevel === "paid" && videoAccessLevel === "paid") return true;
     return false;
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-950">
       <Header />
-      
-      <main className="container mx-auto px-4 py-8">
-        {/* Hero Section */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">Coach Rick's Video Vault</h1>
-          <p className="text-muted-foreground text-lg">
-            {videos.length} coaching videos • Search drills, problems, or techniques
-          </p>
-        </div>
 
-        {/* Personalized Recommendations */}
-        {userSession?.weakestCategory && (
-          <div className="mb-10 bg-gradient-to-br from-card to-muted/30 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-accent" />
-                <h2 className="text-xl font-bold">📍 Recommended For You</h2>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Based on your 4B analysis
+      {/* ===== HERO SECTION ===== */}
+      <section className="relative pt-24 pb-16 overflow-hidden">
+        {/* Background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/20 via-transparent to-transparent" />
+
+        {/* Animated grid pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }}
+        />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Hero Content */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/20 mb-6">
+              <Sparkles className="w-4 h-4 text-red-400" />
+              <span className="text-sm font-semibold text-red-400 uppercase tracking-wider">
+                Coach Rick's Drill Library
+              </span>
+            </div>
+
+            <h1 className="text-4xl md:text-6xl font-black text-white mb-4 tracking-tight">
+              VIDEO <span className="text-red-500">VAULT</span>
+            </h1>
+
+            <p className="text-lg text-slate-400 max-w-2xl mx-auto mb-8">
+              {videos.length} coaching videos to fix any swing problem. Search by category, problem, or technique.
+            </p>
+
+            {/* Glassmorphism Search Bar */}
+            <div className="max-w-2xl mx-auto">
+              <div className="relative group">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500" />
+                <div className="relative flex items-center bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-xl overflow-hidden">
+                  <Search className="w-5 h-5 text-slate-500 ml-4" />
+                  <Input
+                    type="text"
+                    placeholder="Search drills, problems, or techniques..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="flex-1 bg-transparent border-0 text-white placeholder:text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0 py-4 px-4 text-lg"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="p-2 mr-2 text-slate-400 hover:text-white transition"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 mb-4 text-sm">
-              <span className="text-muted-foreground">Your weakest area:</span>
-              <Badge className={categoryInfo[userSession.weakestCategory]?.color || 'bg-accent'}>
-                {categoryInfo[userSession.weakestCategory]?.icon}
-                <span className="ml-1">{categoryInfo[userSession.weakestCategory]?.label || userSession.weakestCategory}</span>
-              </Badge>
-            </div>
-            <VideoRecommendations 
-              weakestCategory={userSession.weakestCategory}
-              userAccessLevel={userSession.accessLevel}
-              maxVideos={4}
-              showHeader={false}
-              sessionId={userSession.sessionId || undefined}
-            />
           </div>
-        )}
 
-        {/* Search Bar */}
-        <div className="max-w-2xl mx-auto mb-8">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              className="pl-12 h-14 text-lg"
-              placeholder="Search drills, problems, or techniques..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Browse by Category */}
-        <section className="mb-8">
-          <h2 className="text-lg font-bold mb-4">Browse by Category</h2>
-          <div className="flex flex-wrap gap-2 mb-6">
-            <Button
-              variant={categoryFilter === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setCategoryFilter('all')}
-            >
-              All Categories
-            </Button>
-            {Object.entries(categoryInfo).map(([key, { color, icon, label }]) => (
-              <Button
+          {/* ===== 4B CATEGORY CARDS ===== */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {Object.entries(categoryInfo).map(([key, info]) => (
+              <button
                 key={key}
-                variant={categoryFilter === key ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setCategoryFilter(key)}
-                className={categoryFilter === key ? `${color} text-white hover:opacity-90` : ''}
+                onClick={() => setCategoryFilter(categoryFilter === key ? "all" : key)}
+                className={`group relative p-6 rounded-2xl border transition-all duration-300 ${
+                  categoryFilter === key
+                    ? `${info.bgColor} border-current shadow-lg shadow-current/20`
+                    : "bg-slate-900/50 border-slate-700/50 hover:border-slate-600"
+                }`}
               >
-                {icon}
-                <span className="ml-1">{label}</span>
-              </Button>
+                <div className={`flex flex-col items-center gap-3 ${info.color}`}>
+                  <div
+                    className={`p-3 rounded-xl ${categoryFilter === key ? "bg-current/20" : "bg-slate-800"} transition-colors`}
+                  >
+                    {info.icon}
+                  </div>
+                  <span
+                    className={`font-bold uppercase tracking-wider text-sm ${categoryFilter === key ? info.color : "text-white"}`}
+                  >
+                    {info.label}
+                  </span>
+                </div>
+                {categoryFilter === key && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-current rounded-full animate-pulse" />
+                )}
+              </button>
             ))}
           </div>
-        </section>
 
-        {/* Fix a Specific Problem */}
-        <section className="mb-8">
-          <h2 className="text-lg font-bold mb-4">🔧 Fix a Specific Problem</h2>
+          {/* Reset Filter Button */}
+          {categoryFilter !== "all" && (
+            <div className="text-center mb-8">
+              <Button
+                variant="ghost"
+                onClick={() => setCategoryFilter("all")}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Clear {categoryInfo[categoryFilter]?.label} Filter
+              </Button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== PROBLEM FILTERS ===== */}
+      <section className="py-8 border-y border-slate-800 bg-slate-900/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Filter className="w-5 h-5 text-slate-500" />
+            <span className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+              Fix a Specific Problem
+            </span>
+          </div>
+
           <div className="flex flex-wrap gap-2">
-            {PROBLEMS_LIST.map(problem => {
-              const isActive = problemFilter === problem.value;
-              const categoryColor = categoryInfo[problem.category]?.color || 'bg-muted';
+            {PROBLEMS_LIST.map((problem) => {
+              const catInfo = categoryInfo[problem.category];
               return (
-                <Button
+                <button
                   key={problem.value}
-                  variant={isActive ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setProblemFilter(isActive ? 'all' : problem.value)}
-                  className={isActive ? `${categoryColor} text-white` : 'hover:bg-muted'}
+                  onClick={() => setProblemFilter(problemFilter === problem.value ? "all" : problem.value)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    problemFilter === problem.value
+                      ? `${catInfo?.bgColor} ${catInfo?.color} border`
+                      : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-transparent"
+                  }`}
                 >
                   {problem.label}
-                </Button>
+                </button>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== PERSONALIZED RECOMMENDATIONS ===== */}
+      {userSession?.weakestCategory && (
+        <section className="py-12 bg-gradient-to-r from-red-900/20 via-slate-900 to-slate-900">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-red-500/20 rounded-lg">
+                <Zap className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Recommended for You</h2>
+                <p className="text-sm text-slate-400">
+                  Based on your weakest link:{" "}
+                  <span className="text-red-400 font-semibold capitalize">{userSession.weakestCategory}</span>
+                </p>
+              </div>
+            </div>
+            <VideoRecommendations weakestCategory={userSession.weakestCategory} sessionId={userSession.sessionId} />
           </div>
         </section>
+      )}
 
-        {/* Video Grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <Card key={i} className="animate-pulse">
-                <div className="aspect-video bg-muted" />
-                <CardContent className="p-4">
-                  <div className="h-4 bg-muted rounded w-3/4 mb-2" />
-                  <div className="h-3 bg-muted rounded w-1/2" />
-                </CardContent>
-              </Card>
-            ))}
+      {/* ===== VIDEO GRID ===== */}
+      <section className="py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Results Header */}
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-bold text-white">
+              {searchQuery ? `Search Results` : "All Drills"}
+              <span className="ml-3 text-lg text-slate-500 font-normal">({videos.length})</span>
+            </h2>
           </div>
-        ) : videos.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-xl text-muted-foreground">
-              {searchQuery ? 'No videos found for your search' : 'No videos available yet'}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {videos.map(video => {
-              const locked = !hasAccess(video.access_level);
-              const category = video.four_b_category ? categoryInfo[video.four_b_category] : null;
 
-              return (
-                <Card 
-                  key={video.id}
-                  className={`cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg ${locked ? 'opacity-75' : ''}`}
-                  onClick={() => setSelectedVideo(video)}
-                >
-                  <div className="relative aspect-video bg-muted flex items-center justify-center overflow-hidden">
-                    {video.thumbnail_url ? (
-                      <img 
-                        src={video.thumbnail_url} 
-                        alt={video.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Play className="h-12 w-12 text-muted-foreground" />
-                    )}
-                    
-                    {/* Duration Badge */}
-                    {video.duration_seconds && (
-                      <Badge 
-                        className="absolute bottom-2 right-2 bg-black/80 text-white"
-                        variant="secondary"
-                      >
-                        <Clock className="h-3 w-3 mr-1" />
-                        {formatDuration(video.duration_seconds)}
-                      </Badge>
-                    )}
-
-                    {/* Lock Overlay */}
-                    {locked && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                        <Lock className="h-8 w-8 text-white" />
-                      </div>
-                    )}
-
-                    {/* Play Overlay */}
-                    {!locked && (
-                      <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                        <Play className="h-12 w-12 text-white" />
-                      </div>
-                    )}
-                  </div>
-
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="font-semibold line-clamp-2">{video.title}</h3>
-                      {category && (
-                        <Badge className={`${category.color} text-white shrink-0`}>
-                          {category.label}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Search Highlight - Sanitized to prevent XSS */}
-                    {video.headline && (
-                      <p 
-                        className="text-sm text-muted-foreground line-clamp-2"
-                        dangerouslySetInnerHTML={{ __html: sanitizeHeadline(video.headline) }}
-                      />
-                    )}
-
-                    {video.drill_name && !video.headline && (
-                      <p className="text-sm text-muted-foreground">{video.drill_name}</p>
-                    )}
-
-                    {/* Tags */}
-                    {video.problems_addressed && video.problems_addressed.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {video.problems_addressed.slice(0, 3).map(problem => (
-                          <Badge key={problem} variant="outline" className="text-xs">
-                            {problem.replace(/_/g, ' ')}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </main>
-
-      {/* Video Modal */}
-      <Dialog open={!!selectedVideo} onOpenChange={(open) => !open && setSelectedVideo(null)}>
-        <DialogContent className="max-w-5xl max-h-[95vh] p-0 overflow-hidden">
-          {selectedVideo && (
-            <>
-              <DialogHeader className="p-4 pb-0">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <DialogTitle className="text-xl">{selectedVideo.title}</DialogTitle>
-                    {selectedVideo.drill_name && (
-                      <p className="text-muted-foreground">{selectedVideo.drill_name}</p>
-                    )}
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={() => setSelectedVideo(null)}>
-                    <X className="h-4 w-4" />
-                  </Button>
+          {/* Loading State */}
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="aspect-video bg-slate-800 rounded-xl mb-4" />
+                  <div className="h-4 bg-slate-800 rounded w-3/4 mb-2" />
+                  <div className="h-3 bg-slate-800 rounded w-1/2" />
                 </div>
-              </DialogHeader>
+              ))}
+            </div>
+          ) : videos.length === 0 ? (
+            /* Empty State */
+            <div className="text-center py-20">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-slate-800 flex items-center justify-center">
+                <Search className="w-8 h-8 text-slate-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">No videos found</h3>
+              <p className="text-slate-400 mb-6">Try adjusting your search or filters</p>
+              <Button
+                onClick={() => {
+                  setSearchQuery("");
+                  setCategoryFilter("all");
+                  setProblemFilter("all");
+                }}
+                className="bg-red-500 hover:bg-red-600"
+              >
+                Clear All Filters
+              </Button>
+            </div>
+          ) : (
+            /* Video Cards Grid */
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {videos.map((video) => {
+                const catInfo = video.four_b_category ? categoryInfo[video.four_b_category] : null;
+                const canAccess = hasAccess(video.access_level);
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
-                {/* Video Player */}
-                <div className="lg:col-span-2">
-                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                    {hasAccess(selectedVideo.access_level) ? (
-                      <video
-                        ref={setVideoRef}
-                        src={selectedVideo.video_url}
-                        controls
-                        className="w-full h-full"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-white">
-                        <Lock className="h-12 w-12 mb-4" />
-                        <p className="text-lg font-medium mb-2">Upgrade to Access</p>
-                        <p className="text-sm text-gray-400 mb-4">
-                          This video requires {selectedVideo.access_level === 'inner_circle' ? 'Inner Circle' : 'Paid'} access
-                        </p>
-                        <Button>Upgrade Now</Button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Video Info */}
-                  <div className="mt-4 space-y-3">
-                    {selectedVideo.description && (
-                      <p className="text-muted-foreground">{selectedVideo.description}</p>
-                    )}
-
-                    <div className="flex flex-wrap gap-2">
-                      {selectedVideo.four_b_category && (
-                        <Badge className={`${categoryInfo[selectedVideo.four_b_category]?.color} text-white`}>
-                          {categoryInfo[selectedVideo.four_b_category]?.icon}
-                          <span className="ml-1">{categoryInfo[selectedVideo.four_b_category]?.label}</span>
-                        </Badge>
+                return (
+                  <div
+                    key={video.id}
+                    onClick={() => canAccess && setSelectedVideo(video)}
+                    className={`group relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 transition-all duration-300 ${
+                      canAccess
+                        ? "cursor-pointer hover:border-slate-600 hover:shadow-2xl hover:shadow-red-500/10 hover:-translate-y-1"
+                        : "opacity-60"
+                    }`}
+                  >
+                    {/* Thumbnail */}
+                    <div className="relative aspect-video overflow-hidden">
+                      {video.thumbnail_url ? (
+                        <img
+                          src={video.thumbnail_url}
+                          alt={video.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+                          <Play className="w-12 h-12 text-slate-700" />
+                        </div>
                       )}
-                      {selectedVideo.problems_addressed?.map(problem => (
-                        <Badge key={problem} variant="outline">
-                          {problem.replace(/_/g, ' ')}
-                        </Badge>
-                      ))}
-                      {selectedVideo.player_level?.map(level => (
-                        <Badge key={level} variant="secondary">
-                          {level.replace(/_/g, ' ')}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
 
-                {/* Transcript */}
-                <div className="lg:col-span-1">
-                  <h4 className="font-semibold mb-2">Transcript</h4>
-                  <ScrollArea className="h-[400px] border rounded-lg p-3">
-                    {parseTranscriptSegments(selectedVideo.transcript_segments) ? (
-                      <div className="space-y-2">
-                        {parseTranscriptSegments(selectedVideo.transcript_segments)!.map((segment, i) => (
-                          <div 
-                            key={i}
-                            className="group cursor-pointer hover:bg-muted p-2 rounded"
-                            onClick={() => seekToTime(segment.start)}
-                          >
-                            <span className="text-xs text-primary font-mono">
-                              {formatTimestamp(segment.start)}
-                            </span>
-                            <p className="text-sm">{segment.text}</p>
+                      {/* Overlay on hover */}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        {canAccess ? (
+                          <div className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center transform scale-75 group-hover:scale-100 transition-transform">
+                            <Play className="w-7 h-7 text-white ml-1" />
                           </div>
-                        ))}
+                        ) : (
+                          <Lock className="w-8 h-8 text-white" />
+                        )}
                       </div>
-                    ) : selectedVideo.transcript ? (
-                      <p className="text-sm">{selectedVideo.transcript}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No transcript available</p>
-                    )}
+
+                      {/* Duration Badge */}
+                      {video.duration_seconds && (
+                        <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/70 rounded text-xs text-white font-medium">
+                          {formatDuration(video.duration_seconds)}
+                        </div>
+                      )}
+
+                      {/* Category Badge */}
+                      {catInfo && (
+                        <div
+                          className={`absolute top-2 left-2 px-3 py-1 rounded-full ${catInfo.bgColor} border flex items-center gap-1.5`}
+                        >
+                          <span className={catInfo.color}>{catInfo.icon}</span>
+                          <span className={`text-xs font-semibold ${catInfo.color}`}>{catInfo.label}</span>
+                        </div>
+                      )}
+
+                      {/* Lock Badge for Paid Content */}
+                      {!canAccess && (
+                        <div className="absolute top-2 right-2 p-2 bg-black/70 rounded-full">
+                          <Lock className="w-4 h-4 text-yellow-400" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-4">
+                      <h3 className="font-semibold text-white mb-2 line-clamp-2 group-hover:text-red-400 transition-colors">
+                        {video.headline ? (
+                          <span dangerouslySetInnerHTML={{ __html: sanitizeHeadline(video.headline) }} />
+                        ) : (
+                          video.title
+                        )}
+                      </h3>
+
+                      {video.description && (
+                        <p className="text-sm text-slate-400 line-clamp-2 mb-3">{video.description}</p>
+                      )}
+
+                      {/* Tags */}
+                      {video.problems_addressed && video.problems_addressed.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {video.problems_addressed.slice(0, 2).map((problem) => (
+                            <span key={problem} className="px-2 py-0.5 bg-slate-800 rounded text-xs text-slate-400">
+                              {PROBLEMS_LIST.find((p) => p.value === problem)?.label || problem}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== CTA SECTION ===== */}
+      <section className="py-20 bg-gradient-to-b from-slate-900 to-slate-950">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
+            WANT <span className="text-red-500">UNLIMITED ACCESS?</span>
+          </h2>
+          <p className="text-lg text-slate-400 mb-8 max-w-2xl mx-auto">
+            Join the Inner Circle for full access to 200+ drills, weekly live calls with Coach Rick, and unlimited swing
+            reviews.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button asChild size="lg" className="bg-red-500 hover:bg-red-600 text-white font-bold px-8 py-6 text-lg">
+              <a href="/inner-circle">Join Inner Circle — $297/mo</a>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="border-slate-600 text-white hover:bg-slate-800 px-8 py-6 text-lg"
+            >
+              <a href="/analyze">Get Single Analysis — $37</a>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <Footer />
+
+      {/* ===== VIDEO MODAL ===== */}
+      <Dialog open={!!selectedVideo} onOpenChange={() => setSelectedVideo(null)}>
+        <DialogContent className="max-w-5xl bg-slate-900 border-slate-700 p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle className="text-xl font-bold text-white pr-8">{selectedVideo?.title}</DialogTitle>
+          </DialogHeader>
+
+          {selectedVideo && (
+            <div className="p-6 pt-4">
+              {/* Video Player */}
+              <div className="relative aspect-video bg-black rounded-xl overflow-hidden mb-6">
+                <video
+                  ref={(ref) => setVideoRef(ref)}
+                  src={selectedVideo.video_url}
+                  controls
+                  autoPlay
+                  className="w-full h-full"
+                />
+              </div>
+
+              {/* Video Info */}
+              <div className="flex flex-wrap gap-3 mb-4">
+                {selectedVideo.four_b_category && categoryInfo[selectedVideo.four_b_category] && (
+                  <Badge
+                    className={`${categoryInfo[selectedVideo.four_b_category].bgColor} ${categoryInfo[selectedVideo.four_b_category].color} border`}
+                  >
+                    {categoryInfo[selectedVideo.four_b_category].icon}
+                    <span className="ml-1">{categoryInfo[selectedVideo.four_b_category].label}</span>
+                  </Badge>
+                )}
+                {selectedVideo.duration_seconds && (
+                  <Badge variant="outline" className="border-slate-600 text-slate-300">
+                    <Clock className="w-3 h-3 mr-1" />
+                    {formatDuration(selectedVideo.duration_seconds)}
+                  </Badge>
+                )}
+              </div>
+
+              {selectedVideo.description && <p className="text-slate-300 mb-6">{selectedVideo.description}</p>}
+
+              {/* Transcript with Timestamps */}
+              {selectedVideo.transcript_segments && (
+                <div className="border-t border-slate-700 pt-6">
+                  <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Transcript</h4>
+                  <ScrollArea className="h-48">
+                    <div className="space-y-2">
+                      {parseTranscriptSegments(selectedVideo.transcript_segments)?.map((segment, i) => (
+                        <button
+                          key={i}
+                          onClick={() => seekToTime(segment.start)}
+                          className="w-full text-left p-3 rounded-lg hover:bg-slate-800 transition group"
+                        >
+                          <span className="text-xs text-red-400 font-mono mr-3 group-hover:text-red-300">
+                            {formatTimestamp(segment.start)}
+                          </span>
+                          <span className="text-slate-300 group-hover:text-white">{segment.text}</span>
+                        </button>
+                      ))}
+                    </div>
                   </ScrollArea>
                 </div>
-              </div>
-            </>
+              )}
+            </div>
           )}
         </DialogContent>
       </Dialog>
-
-      <Footer />
     </div>
   );
 }
