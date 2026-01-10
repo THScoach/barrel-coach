@@ -21,6 +21,7 @@ import AdminPlayers from "./pages/AdminPlayers";
 import AdminPlayerProfile from "./pages/AdminPlayerProfile";
 import AdminImportKommodo from "./pages/AdminImportKommodo";
 import AdminSMS from "./pages/AdminSMS";
+import AdminRebootAnalysis from "./pages/AdminRebootAnalysis";
 import Library from "./pages/Library";
 import Results from "./pages/Results";
 import Login from "./pages/Login";
@@ -91,6 +92,11 @@ const App = () => (
               <Route path="/admin/sms" element={
                 <ProtectedAdminRoute>
                   <AdminSMS />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/reboot-analysis" element={
+                <ProtectedAdminRoute>
+                  <AdminRebootAnalysis />
                 </ProtectedAdminRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
