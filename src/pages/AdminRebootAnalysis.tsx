@@ -33,7 +33,7 @@ interface Player {
 interface RebootSession {
   session_id: string;
   session_date: string;
-  session_type: string | { name: string; slug?: string; id?: string } | null;
+  session_type: string;
   movement_count: number;
 }
 
@@ -129,13 +129,20 @@ export default function AdminRebootAnalysis() {
     queryFn: async () => {
       if (!searchQuery || searchQuery.length < 2) return [];
       
+      console.log(`[Player Search] Searching for: "${searchQuery}"`);
+      
       const { data, error } = await supabase
         .from("players")
         .select("id, name, level, team, reboot_athlete_id")
         .ilike("name", `%${searchQuery}%`)
         .limit(10);
 
-      if (error) throw error;
+      if (error) {
+        console.error("[Player Search] Error:", error);
+        throw error;
+      }
+      
+      console.log(`[Player Search] Found ${data?.length || 0} players:`, data);
       return data as Player[];
     },
     enabled: searchQuery.length >= 2,
@@ -156,6 +163,8 @@ export default function AdminRebootAnalysis() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
+      console.log("[Fetch Sessions] Fetching for player:", selectedPlayer.reboot_athlete_id);
+      
       const response = await supabase.functions.invoke("fetch-reboot-sessions", {
         body: { org_player_id: selectedPlayer.reboot_athlete_id },
         headers: {
@@ -163,18 +172,40 @@ export default function AdminRebootAnalysis() {
         },
       });
 
+      console.log("[Fetch Sessions] Raw response:", response);
+
       if (response.error) throw new Error(response.error.message);
       
       const sessions = response.data?.sessions || [];
-      setRebootSessions(sessions.map((s: any) => ({
-        session_id: s.session_id || s.id,
-        session_date: s.session_date || s.created_at,
-        session_type: s.session_type || "Practice",
-        movement_count: s.movement_count || 0,
-      })));
+      console.log("[Fetch Sessions] Raw sessions data:", sessions);
+      
+      // Map sessions and handle session_type being an object or string
+      const mappedSessions = sessions.map((s: any) => {
+        // Extract session type name if it's an object
+        let sessionTypeName = "Practice";
+        if (s.session_type) {
+          if (typeof s.session_type === 'object' && s.session_type.name) {
+            sessionTypeName = s.session_type.name;
+          } else if (typeof s.session_type === 'string') {
+            sessionTypeName = s.session_type;
+          }
+        }
+        
+        return {
+          session_id: s.session_id || s.id,
+          session_date: s.session_date || s.created_at,
+          session_type: sessionTypeName,
+          movement_count: s.movement_count || 0,
+        };
+      });
+      
+      console.log("[Fetch Sessions] Mapped sessions:", mappedSessions);
+      setRebootSessions(mappedSessions);
 
       if (sessions.length === 0) {
         toast.info("No sessions found for this player");
+      } else {
+        toast.success(`Found ${sessions.length} sessions`);
       }
     } catch (error: any) {
       console.error("Error fetching sessions:", error);
@@ -222,6 +253,12 @@ export default function AdminRebootAnalysis() {
   };
 
   const selectPlayer = (player: Player) => {
+    console.log("[Player Select] Selected player:", player);
+    
+    if (!player.reboot_athlete_id) {
+      toast.warning("This player is not linked to Reboot Motion. They will need a Reboot Athlete ID to process sessions.");
+    }
+    
     setSelectedPlayer(player);
     setSearchQuery("");
     setShowPlayerSearch(false);
@@ -424,11 +461,7 @@ export default function AdminRebootAnalysis() {
                             })}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {(() => {
-                              if (!session.session_type) return 'Unknown';
-                              if (typeof session.session_type === 'object') return session.session_type.name;
-                              return session.session_type;
-                            })()} • {session.movement_count} movements
+                            {session.session_type} • {session.movement_count} movements
                           </p>
                         </div>
                       </label>
