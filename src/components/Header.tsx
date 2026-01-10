@@ -43,8 +43,8 @@ export function Header({ showLogin = true }: HeaderProps) {
 
         <div className="flex items-center gap-4">
           {showLogin && (
-            <Button variant="ghost" size="sm" className="hidden md:inline-flex">
-              Login
+            <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
+              <Link to="/login">Login</Link>
             </Button>
           )}
           
@@ -77,8 +77,8 @@ export function Header({ showLogin = true }: HeaderProps) {
               </Link>
             ))}
             {showLogin && (
-              <Button variant="ghost" size="sm" className="justify-start mt-2">
-                Login
+              <Button asChild variant="ghost" size="sm" className="justify-start mt-2">
+                <Link to="/login">Login</Link>
               </Button>
             )}
           </nav>
