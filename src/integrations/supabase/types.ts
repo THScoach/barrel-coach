@@ -475,12 +475,19 @@ export type Database = {
       }
       players: {
         Row: {
+          account_status: string | null
+          account_type: string | null
+          activated_at: string | null
           age: number | null
+          beta_expires_at: string | null
+          beta_notes: string | null
+          can_login: boolean | null
           created_at: string | null
           email: string | null
           handedness: string | null
           height_inches: number | null
           id: string
+          is_beta_tester: boolean | null
           is_public: boolean | null
           level: string | null
           name: string
@@ -488,17 +495,25 @@ export type Database = {
           phone: string | null
           position: string | null
           reboot_athlete_id: string | null
+          stripe_customer_id: string | null
           team: string | null
           updated_at: string | null
           weight_lbs: number | null
         }
         Insert: {
+          account_status?: string | null
+          account_type?: string | null
+          activated_at?: string | null
           age?: number | null
+          beta_expires_at?: string | null
+          beta_notes?: string | null
+          can_login?: boolean | null
           created_at?: string | null
           email?: string | null
           handedness?: string | null
           height_inches?: number | null
           id?: string
+          is_beta_tester?: boolean | null
           is_public?: boolean | null
           level?: string | null
           name: string
@@ -506,17 +521,25 @@ export type Database = {
           phone?: string | null
           position?: string | null
           reboot_athlete_id?: string | null
+          stripe_customer_id?: string | null
           team?: string | null
           updated_at?: string | null
           weight_lbs?: number | null
         }
         Update: {
+          account_status?: string | null
+          account_type?: string | null
+          activated_at?: string | null
           age?: number | null
+          beta_expires_at?: string | null
+          beta_notes?: string | null
+          can_login?: boolean | null
           created_at?: string | null
           email?: string | null
           handedness?: string | null
           height_inches?: number | null
           id?: string
+          is_beta_tester?: boolean | null
           is_public?: boolean | null
           level?: string | null
           name?: string
@@ -524,6 +547,7 @@ export type Database = {
           phone?: string | null
           position?: string | null
           reboot_athlete_id?: string | null
+          stripe_customer_id?: string | null
           team?: string | null
           updated_at?: string | null
           weight_lbs?: number | null
