@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          description: string | null
+          id: string
+          metadata: Json | null
+          player_id: string | null
+          session_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          player_id?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          player_id?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_logs: {
         Row: {
           created_at: string | null
@@ -125,6 +163,108 @@ export type Database = {
         }
         Relationships: []
       }
+      fourb_scores: {
+        Row: {
+          ball_score: number | null
+          bat_ke: number | null
+          bat_score: number | null
+          body_score: number | null
+          brain_score: number | null
+          composite_score: number | null
+          consistency_cv: number | null
+          consistency_grade: string | null
+          core_flow_score: number | null
+          created_at: string | null
+          grade: string | null
+          ground_flow_score: number | null
+          id: string
+          pelvis_velocity: number | null
+          player_id: string | null
+          prescribed_drill_id: string | null
+          prescribed_drill_name: string | null
+          primary_issue_category: string | null
+          primary_issue_description: string | null
+          primary_issue_title: string | null
+          reboot_session_id: string | null
+          torso_velocity: number | null
+          transfer_efficiency: number | null
+          upper_flow_score: number | null
+          weakest_link: string | null
+          x_factor: number | null
+        }
+        Insert: {
+          ball_score?: number | null
+          bat_ke?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          composite_score?: number | null
+          consistency_cv?: number | null
+          consistency_grade?: string | null
+          core_flow_score?: number | null
+          created_at?: string | null
+          grade?: string | null
+          ground_flow_score?: number | null
+          id?: string
+          pelvis_velocity?: number | null
+          player_id?: string | null
+          prescribed_drill_id?: string | null
+          prescribed_drill_name?: string | null
+          primary_issue_category?: string | null
+          primary_issue_description?: string | null
+          primary_issue_title?: string | null
+          reboot_session_id?: string | null
+          torso_velocity?: number | null
+          transfer_efficiency?: number | null
+          upper_flow_score?: number | null
+          weakest_link?: string | null
+          x_factor?: number | null
+        }
+        Update: {
+          ball_score?: number | null
+          bat_ke?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          composite_score?: number | null
+          consistency_cv?: number | null
+          consistency_grade?: string | null
+          core_flow_score?: number | null
+          created_at?: string | null
+          grade?: string | null
+          ground_flow_score?: number | null
+          id?: string
+          pelvis_velocity?: number | null
+          player_id?: string | null
+          prescribed_drill_id?: string | null
+          prescribed_drill_name?: string | null
+          primary_issue_category?: string | null
+          primary_issue_description?: string | null
+          primary_issue_title?: string | null
+          reboot_session_id?: string | null
+          torso_velocity?: number | null
+          transfer_efficiency?: number | null
+          upper_flow_score?: number | null
+          weakest_link?: string | null
+          x_factor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fourb_scores_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fourb_scores_reboot_session_id_fkey"
+            columns: ["reboot_session_id"]
+            isOneToOne: false
+            referencedRelation: "reboot_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string
@@ -165,6 +305,41 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_notes: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_private: boolean | null
+          note: string
+          player_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_private?: boolean | null
+          note: string
+          player_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_private?: boolean | null
+          note?: string
+          player_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_notes_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
             referencedColumns: ["id"]
           },
         ]
@@ -298,6 +473,63 @@ export type Database = {
         }
         Relationships: []
       }
+      players: {
+        Row: {
+          age: number | null
+          created_at: string | null
+          email: string | null
+          handedness: string | null
+          height_inches: number | null
+          id: string
+          is_public: boolean | null
+          level: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          position: string | null
+          reboot_athlete_id: string | null
+          team: string | null
+          updated_at: string | null
+          weight_lbs: number | null
+        }
+        Insert: {
+          age?: number | null
+          created_at?: string | null
+          email?: string | null
+          handedness?: string | null
+          height_inches?: number | null
+          id?: string
+          is_public?: boolean | null
+          level?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          position?: string | null
+          reboot_athlete_id?: string | null
+          team?: string | null
+          updated_at?: string | null
+          weight_lbs?: number | null
+        }
+        Update: {
+          age?: number | null
+          created_at?: string | null
+          email?: string | null
+          handedness?: string | null
+          height_inches?: number | null
+          id?: string
+          is_public?: boolean | null
+          level?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          position?: string | null
+          reboot_athlete_id?: string | null
+          team?: string | null
+          updated_at?: string | null
+          weight_lbs?: number | null
+        }
+        Relationships: []
+      }
       problem_tags: {
         Row: {
           category: string
@@ -327,6 +559,65 @@ export type Database = {
           severity_weight?: number | null
         }
         Relationships: []
+      }
+      reboot_sessions: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          id: string
+          ik_file_path: string | null
+          location: string | null
+          me_file_path: string | null
+          notes: string | null
+          player_id: string | null
+          processed_at: string | null
+          reboot_session_id: string | null
+          session_date: string | null
+          session_number: number | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          ik_file_path?: string | null
+          location?: string | null
+          me_file_path?: string | null
+          notes?: string | null
+          player_id?: string | null
+          processed_at?: string | null
+          reboot_session_id?: string | null
+          session_date?: string | null
+          session_number?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          ik_file_path?: string | null
+          location?: string | null
+          me_file_path?: string | null
+          notes?: string | null
+          player_id?: string | null
+          processed_at?: string | null
+          reboot_session_id?: string | null
+          session_date?: string | null
+          session_number?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reboot_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reports: {
         Row: {
