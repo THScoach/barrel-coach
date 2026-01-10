@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
 import { StepIndicator } from '@/components/StepIndicator';
 import { ProductSelector } from '@/components/ProductSelector';
 import { PlayerInfoForm } from '@/components/PlayerInfoForm';
@@ -12,6 +13,7 @@ import { SampleReportPreview } from '@/components/SampleReportPreview';
 import { TrustBadges } from '@/components/TrustBadges';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Shield, Clock, Users, Zap, ChevronDown, Target, Sparkles } from 'lucide-react';
 import { 
   Product, 
   PlayerInfo, 
@@ -22,6 +24,12 @@ import {
 } from '@/types/analysis';
 
 type Step = 'product' | 'player' | 'environment' | 'upload' | 'processing' | 'results';
+
+const trustStats = [
+  { icon: Users, value: '1,000+', label: 'Swings Analyzed', gradient: 'from-blue-500 to-cyan-500' },
+  { icon: Shield, value: '400+', label: 'College Commits', gradient: 'from-emerald-500 to-green-500' },
+  { icon: Zap, value: '78+', label: 'Pro Players', gradient: 'from-yellow-500 to-orange-500' },
+];
 
 export default function Analyze() {
   const navigate = useNavigate();
@@ -272,65 +280,183 @@ export default function Analyze() {
   const showStepIndicator = ['player', 'environment', 'upload'].includes(step);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-950">
       <Header />
       
-      <main className="container py-8">
-        {showStepIndicator && (
-          <StepIndicator 
-            currentStep={getStepNumber()} 
-            totalSteps={3}
-            onBack={handleBack}
-            showBack={step !== 'product'}
-          />
-        )}
+      {/* ===== PRODUCT SELECTION STEP ===== */}
+      {step === 'product' && (
+        <>
+          {/* Hero Section */}
+          <section className="relative pt-28 pb-20 overflow-hidden">
+            {/* Background effects */}
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/20 via-transparent to-transparent" />
+            
+            {/* Animated glow orbs */}
+            <div className="absolute top-20 left-1/4 w-96 h-96 bg-red-500/10 rounded-full blur-3xl animate-pulse" />
+            <div className="absolute top-40 right-1/4 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+            
+            {/* Grid pattern */}
+            <div
+              className="absolute inset-0 opacity-[0.03]"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              }}
+            />
 
-        <div className="mt-8">
-          {step === 'product' && (
-            <>
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center max-w-4xl mx-auto animate-fade-in">
+                {/* Badge */}
+                <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 mb-8 backdrop-blur-sm">
+                  <Target className="w-5 h-5 text-red-400" />
+                  <span className="text-sm font-bold text-red-400 uppercase tracking-wider">Get Analyzed</span>
+                  <Sparkles className="w-4 h-4 text-red-400" />
+                </div>
+
+                <h1 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tight leading-tight">
+                  CHOOSE YOUR{" "}
+                  <span className="relative">
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-orange-400 to-red-400">
+                      ANALYSIS
+                    </span>
+                    <span className="absolute -inset-1 bg-gradient-to-r from-red-400/20 to-orange-400/20 blur-xl -z-10" />
+                  </span>
+                </h1>
+
+                <p className="text-xl md:text-2xl text-slate-300 mb-12 max-w-2xl mx-auto leading-relaxed">
+                  Upload your swing. Get your 4B Score. Know exactly what to fix.
+                </p>
+
+                {/* Trust Stats */}
+                <div className="flex flex-wrap justify-center gap-6 md:gap-10 mb-12">
+                  {trustStats.map((stat, i) => (
+                    <div key={i} className="flex flex-col items-center group">
+                      <div className={`flex items-center gap-2 text-2xl md:text-3xl font-black text-white mb-1`}>
+                        <div className={`p-2 rounded-lg bg-gradient-to-br ${stat.gradient} bg-opacity-20`}>
+                          <stat.icon className="w-5 h-5 text-white" />
+                        </div>
+                        <span className={`bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent`}>
+                          {stat.value}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-400 font-medium">{stat.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Scroll indicator */}
+                <div className="animate-bounce">
+                  <ChevronDown className="w-8 h-8 text-slate-500 mx-auto" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Product Selector */}
+          <section className="py-16 relative">
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900/30 to-slate-950" />
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <ProductSelector onSelect={handleProductSelect} />
-              <TrustBadges />
-              <SampleReportPreview />
-            </>
-          )}
+            </div>
+          </section>
 
-          {step === 'player' && (
+          {/* Sample Report */}
+          <section className="py-16 bg-slate-900/30">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <SampleReportPreview />
+            </div>
+          </section>
+
+          {/* Trust Badges */}
+          <section className="py-16">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <TrustBadges />
+            </div>
+          </section>
+
+          <Footer />
+        </>
+      )}
+
+      {/* ===== WIZARD STEPS ===== */}
+      {showStepIndicator && (
+        <section className="relative pt-28 pb-8">
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950" />
+          <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <StepIndicator 
+              currentStep={getStepNumber()} 
+              totalSteps={3}
+              onBack={handleBack}
+              showBack={step !== 'product'}
+            />
+          </div>
+        </section>
+      )}
+
+      {step === 'player' && (
+        <section className="relative py-12 min-h-[60vh]">
+          <div className="absolute inset-0 bg-slate-950" />
+          <div className="relative max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
             <PlayerInfoForm 
               onSubmit={handlePlayerInfoSubmit}
               initialData={playerInfo || undefined}
             />
-          )}
+          </div>
+        </section>
+      )}
 
-          {step === 'environment' && (
+      {step === 'environment' && (
+        <section className="relative py-12 min-h-[60vh]">
+          <div className="absolute inset-0 bg-slate-950" />
+          <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <EnvironmentSelector 
               onSelect={handleEnvironmentSelect}
               initialValue={environment || undefined}
               isLoading={isLoading}
             />
-          )}
+          </div>
+        </section>
+      )}
 
-          {step === 'upload' && selectedProduct && sessionId && (
+      {step === 'upload' && selectedProduct && sessionId && (
+        <section className="relative py-12 min-h-[60vh]">
+          <div className="absolute inset-0 bg-slate-950" />
+          <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <VideoUploader 
               swingsRequired={selectedProduct.swingsRequired}
               sessionId={sessionId}
               onComplete={handleVideosComplete}
               isCheckoutLoading={isLoading}
             />
-          )}
+          </div>
+        </section>
+      )}
 
-          {step === 'processing' && selectedProduct && (
+      {/* ===== PROCESSING & RESULTS ===== */}
+      {step === 'processing' && selectedProduct && (
+        <section className="relative min-h-screen">
+          <div className="absolute inset-0 bg-slate-950" />
+          <div className="relative">
             <ProcessingScreen 
               swingsCount={selectedProduct?.swingsRequired || 1}
               sessionId={sessionId}
               onComplete={handleProcessingComplete}
             />
-          )}
+          </div>
+        </section>
+      )}
 
-          {step === 'results' && results && (
+      {step === 'results' && results && (
+        <section className="relative min-h-screen">
+          <div className="absolute inset-0 bg-slate-950" />
+          <div className="relative">
             <ResultsPage results={results} />
-          )}
-        </div>
-      </main>
+          </div>
+        </section>
+      )}
+
+      {/* Footer for wizard steps */}
+      {showStepIndicator && <Footer />}
     </div>
   );
 }
