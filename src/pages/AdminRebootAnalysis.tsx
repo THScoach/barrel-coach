@@ -33,7 +33,7 @@ interface Player {
 interface RebootSession {
   session_id: string;
   session_date: string;
-  session_type: string;
+  session_type: string | { name: string; slug?: string; id?: string } | null;
   movement_count: number;
 }
 
@@ -424,7 +424,11 @@ export default function AdminRebootAnalysis() {
                             })}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {session.session_type} • {session.movement_count} movements
+                            {(() => {
+                              if (!session.session_type) return 'Unknown';
+                              if (typeof session.session_type === 'object') return session.session_type.name;
+                              return session.session_type;
+                            })()} • {session.movement_count} movements
                           </p>
                         </div>
                       </label>
