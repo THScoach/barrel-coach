@@ -7,6 +7,8 @@ import rickBenintendi from '@/assets/rick-benintendi.jpg';
 import rickCoaching2 from '@/assets/rick-coaching-2.jpg';
 import rickTech from '@/assets/rick-tech.jpg';
 import rickSammySosa from '@/assets/rick-sammy-sosa.jpg';
+import rickJourneyTimeline from '@/assets/rick-journey-timeline.png';
+import mlbTechnologyImg from '@/assets/mlb-technology.png';
 
 const credentials = [
   'MLB Hitting Coach, Baltimore Orioles',
@@ -77,8 +79,21 @@ export default function About() {
         </div>
       </section>
 
-      {/* Bio Section */}
+      {/* Journey Timeline */}
       <section className="py-16 bg-background">
+        <div className="container">
+          <div className="max-w-5xl mx-auto">
+            <img 
+              src={rickJourneyTimeline} 
+              alt="Rick Strickland's Baseball Journey - 1990s: New York Yankees Draft Pick (Professional player), 2000s: MLB Scout (New York Mets and Tampa Bay Rays), 2010s: Technology Pioneer (Helped build HitTrax, Consulted for Blast Motion & Rapsodo, Developed Reboot Motion protocols, Certified S2 Cognition facility), 2020s: MLB Hitting Coach (Baltimore Orioles AAA Norfolk Tides, 400+ college commits, 78+ professional players, 3 MLB Award Winners), Present: The Swing Rehab Coach (Catching Barrels founder, Bringing MLB technology to youth players)" 
+              className="w-full h-auto"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Bio Section */}
+      <section className="py-16 bg-surface">
         <div className="container">
           <div className="max-w-3xl mx-auto">
             <p className="text-lg leading-relaxed mb-8">
@@ -92,7 +107,7 @@ export default function About() {
       </section>
 
       {/* The Swing Rehab Coach */}
-      <section className="py-16 bg-surface">
+      <section className="py-16 bg-background">
         <div className="container">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-center gap-3 mb-6">
@@ -122,37 +137,15 @@ export default function About() {
         </div>
       </section>
 
-      {/* Technology Pioneer */}
+      {/* MLB-Level Technology */}
       <section className="py-16 bg-background">
         <div className="container">
-          <div className="max-w-3xl mx-auto">
-            <div className="flex items-center gap-3 mb-6">
-              <Award className="w-8 h-8 text-accent" />
-              <h2 className="text-2xl md:text-3xl font-bold">TECHNOLOGY PIONEER</h2>
-            </div>
-            
-            <div className="grid md:grid-cols-2 gap-8 mb-8">
-              <div>
-                <p className="text-lg leading-relaxed">
-                  Rick helped build the systems that power modern baseball. When Rick analyzes your swing, 
-                  he's using technology he helped create.
-                </p>
-                <div className="flex flex-wrap gap-3 mt-6">
-                  {techPartners.map((tech) => (
-                    <div key={tech} className="bg-card px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
-                      {tech}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-xl overflow-hidden">
-                <img 
-                  src={rickTech} 
-                  alt="Rick using swing analysis technology" 
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
+          <div className="max-w-4xl mx-auto">
+            <img 
+              src={mlbTechnologyImg} 
+              alt="MLB-Level Technology - Rick helped BUILD these systems. Now he uses them to analyze YOUR swing. Biomechanics: Reboot Motion 3D Motion Capture, Blast Motion Bat Sensors, HitTrax Ball Flight Tracking. Brain Vision: S2 Cognition MLB Evaluation System, Timing and Pattern Recognition Testing. Data Analysis: Rapsodo Pitch Tracking, Diamond Kinetics Swing Metrics, Uplift Performance Tracking." 
+              className="w-full h-auto"
+            />
           </div>
         </div>
       </section>
