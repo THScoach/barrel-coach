@@ -90,6 +90,7 @@ export type Database = {
           direction: string
           id: string
           phone_number: string
+          read_at: string | null
           session_id: string | null
           status: string | null
           twilio_sid: string | null
@@ -100,6 +101,7 @@ export type Database = {
           direction: string
           id?: string
           phone_number: string
+          read_at?: string | null
           session_id?: string | null
           status?: string | null
           twilio_sid?: string | null
@@ -110,6 +112,7 @@ export type Database = {
           direction?: string
           id?: string
           phone_number?: string
+          read_at?: string | null
           session_id?: string | null
           status?: string | null
           twilio_sid?: string | null
