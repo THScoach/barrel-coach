@@ -194,6 +194,7 @@ export type Database = {
           player_name: string
           player_phone: string | null
           price_cents: number
+          problems_identified: string[] | null
           product_type: string
           report_storage_path: string | null
           report_url: string | null
@@ -232,6 +233,7 @@ export type Database = {
           player_name: string
           player_phone?: string | null
           price_cents: number
+          problems_identified?: string[] | null
           product_type: string
           report_storage_path?: string | null
           report_url?: string | null
@@ -270,6 +272,7 @@ export type Database = {
           player_name?: string
           player_phone?: string | null
           price_cents?: number
+          problems_identified?: string[] | null
           product_type?: string
           report_storage_path?: string | null
           report_url?: string | null
@@ -411,6 +414,21 @@ export type Database = {
       calculate_session_aggregates: {
         Args: { p_session_id: string }
         Returns: undefined
+      }
+      get_recommended_videos: {
+        Args: { p_limit?: number; p_session_id: string }
+        Returns: {
+          access_level: string
+          description: string
+          duration_seconds: number
+          four_b_category: string
+          id: string
+          problems_addressed: string[]
+          relevance_score: number
+          thumbnail_url: string
+          title: string
+          video_url: string
+        }[]
       }
       search_videos: {
         Args: {

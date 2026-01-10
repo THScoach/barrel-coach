@@ -53,15 +53,16 @@ const categoryInfo: Record<string, { color: string; icon: React.ReactNode; label
 };
 
 const PROBLEMS_LIST = [
-  { value: 'spinning_out', label: 'Spinning Out' },
-  { value: 'casting', label: 'Casting' },
-  { value: 'late_timing', label: 'Late Timing' },
-  { value: 'early_timing', label: 'Early Timing' },
-  { value: 'drifting', label: 'Drifting' },
-  { value: 'rolling_over', label: 'Rolling Over' },
-  { value: 'ground_balls', label: 'Ground Balls' },
-  { value: 'no_power', label: 'No Power' },
-  { value: 'chasing_pitches', label: 'Chasing Pitches' }
+  { value: 'spinning_out', label: 'Spinning Out', category: 'body' },
+  { value: 'casting', label: 'Casting / Long Swing', category: 'bat' },
+  { value: 'late_timing', label: 'Late on Fastballs', category: 'brain' },
+  { value: 'early_timing', label: 'Early on Off-Speed', category: 'brain' },
+  { value: 'drifting', label: 'Drifting Forward', category: 'body' },
+  { value: 'rolling_over', label: 'Rolling Over', category: 'bat' },
+  { value: 'ground_balls', label: 'Ground Ball Machine', category: 'ball' },
+  { value: 'no_power', label: 'No Power / Low Exit Velo', category: 'ball' },
+  { value: 'chasing', label: 'Chasing Pitches', category: 'brain' },
+  { value: 'collapsing', label: 'Collapsing Back Side', category: 'body' }
 ];
 
 export default function Library() {
@@ -198,11 +199,15 @@ export default function Library() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Check user access (simplified - you can expand this)
-  const hasAccess = (accessLevel: string | null) => {
-    // For now, show all as accessible
-    // In production, check against user's purchase history or subscription
-    return accessLevel === 'free' || !accessLevel;
+  // Check user access based on their access level
+  const hasAccess = (videoAccessLevel: string | null) => {
+    if (!videoAccessLevel || videoAccessLevel === 'free') return true;
+    
+    const userLevel = userSession?.accessLevel || 'free';
+    if (userLevel === 'inner_circle') return true;
+    if (userLevel === 'paid' && videoAccessLevel === 'paid') return true;
+    
+    return false;
   };
 
   return (
@@ -220,15 +225,27 @@ export default function Library() {
 
         {/* Personalized Recommendations */}
         {userSession?.weakestCategory && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="h-5 w-5 text-accent" />
-              <h2 className="text-xl font-bold">Recommended For You</h2>
+          <div className="mb-10 bg-gradient-to-br from-card to-muted/30 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-accent" />
+                <h2 className="text-xl font-bold">📍 Recommended For You</h2>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Based on your 4B analysis
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mb-4 text-sm">
+              <span className="text-muted-foreground">Your weakest area:</span>
+              <Badge className={categoryInfo[userSession.weakestCategory]?.color || 'bg-accent'}>
+                {categoryInfo[userSession.weakestCategory]?.icon}
+                <span className="ml-1">{categoryInfo[userSession.weakestCategory]?.label || userSession.weakestCategory}</span>
+              </Badge>
             </div>
             <VideoRecommendations 
               weakestCategory={userSession.weakestCategory}
               userAccessLevel={userSession.accessLevel}
-              maxVideos={5}
+              maxVideos={4}
               showHeader={false}
               sessionId={userSession.sessionId || undefined}
             />
@@ -248,16 +265,16 @@ export default function Library() {
           </div>
         </div>
 
-        {/* Filter Bar */}
-        <div className="flex flex-wrap justify-center gap-3 mb-8">
-          {/* Category Pills */}
-          <div className="flex gap-2">
+        {/* Browse by Category */}
+        <section className="mb-8">
+          <h2 className="text-lg font-bold mb-4">Browse by Category</h2>
+          <div className="flex flex-wrap gap-2 mb-6">
             <Button
               variant={categoryFilter === 'all' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setCategoryFilter('all')}
             >
-              All
+              All Categories
             </Button>
             {Object.entries(categoryInfo).map(([key, { color, icon, label }]) => (
               <Button
@@ -265,27 +282,36 @@ export default function Library() {
                 variant={categoryFilter === key ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setCategoryFilter(key)}
-                className={categoryFilter === key ? color : ''}
+                className={categoryFilter === key ? `${color} text-white hover:opacity-90` : ''}
               >
                 {icon}
                 <span className="ml-1">{label}</span>
               </Button>
             ))}
           </div>
+        </section>
 
-          {/* Problem Filter */}
-          <Select value={problemFilter} onValueChange={setProblemFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by problem" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Problems</SelectItem>
-              {PROBLEMS_LIST.map(p => (
-                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Fix a Specific Problem */}
+        <section className="mb-8">
+          <h2 className="text-lg font-bold mb-4">🔧 Fix a Specific Problem</h2>
+          <div className="flex flex-wrap gap-2">
+            {PROBLEMS_LIST.map(problem => {
+              const isActive = problemFilter === problem.value;
+              const categoryColor = categoryInfo[problem.category]?.color || 'bg-muted';
+              return (
+                <Button
+                  key={problem.value}
+                  variant={isActive ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setProblemFilter(isActive ? 'all' : problem.value)}
+                  className={isActive ? `${categoryColor} text-white` : 'hover:bg-muted'}
+                >
+                  {problem.label}
+                </Button>
+              );
+            })}
+          </div>
+        </section>
 
         {/* Video Grid */}
         {loading ? (
