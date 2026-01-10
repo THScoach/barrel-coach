@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Plus } from "lucide-react";
 
 export function AdminHeader() {
   const { user, signOut } = useAuth();
@@ -37,7 +37,14 @@ export function AdminHeader() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <Link to="/admin/new-session">
+            <Button size="sm" className="gap-1">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">New Session</span>
+            </Button>
+          </Link>
+          
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">{user?.email}</span>
