@@ -101,7 +101,7 @@ export function ProcessingScreen({ swingsCount, sessionId, onComplete }: Process
         <p className="text-sm text-muted-foreground">
           <span className="font-medium text-foreground">While you wait...</span>
           <br /><br />
-          Rick Strickland is the AAA Hitting Coach for the Baltimore Orioles. 
+          Rick Strickland is the MLB Hitting Coach for the Baltimore Orioles. 
           He's trained Pete Crow-Armstrong, Andrew Benintendi, and Devin Williams.
         </p>
       </div>

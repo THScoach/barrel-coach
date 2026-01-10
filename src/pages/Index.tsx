@@ -39,7 +39,7 @@ const faqItems = [
   },
   {
     question: "Who is Rick Strickland?",
-    answer: "Rick is the AAA Hitting Coach for the Baltimore Orioles (Norfolk Tides). He's trained 400+ college commits, 78+ pro players, and 3 MLB Award Winners including Andrew Benintendi and Devin Williams."
+    answer: "Rick is the MLB Hitting Coach for the Baltimore Orioles. He's trained 400+ college commits, 78+ pro players, and 3 MLB Award Winners including Andrew Benintendi and Devin Williams."
   },
   {
     question: "Can I get a refund?",
@@ -75,7 +75,7 @@ export default function Index() {
               <span className="text-accent">SWING DNA</span>
             </h1>
             <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto">
-              Get your swing analyzed by an AAA Hitting Coach. 
+              Get your swing analyzed by an MLB Hitting Coach. 
               Find your #1 problem. Get the drill to fix it.
             </p>
             
@@ -205,7 +205,7 @@ export default function Index() {
                 <p className="text-accent font-semibold mb-2">MEET YOUR COACH</p>
                 <h2 className="text-3xl font-bold mb-1">Rick Strickland</h2>
                 <p className="text-muted-foreground mb-4">
-                  The Swing Rehab Coach — AAA Hitting Coach, Baltimore Orioles
+                  The Swing Rehab Coach — MLB Hitting Coach, Baltimore Orioles
                 </p>
 
                 <p className="text-foreground/80 mb-6">

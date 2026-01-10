@@ -16,7 +16,7 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
           GET YOUR SWING ANALYZED
         </h1>
         <p className="text-lg text-muted-foreground">
-          by an AAA Hitting Coach
+          by an MLB Hitting Coach
         </p>
       </div>
 
