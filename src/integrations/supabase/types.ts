@@ -536,6 +536,22 @@ export type Database = {
           video_url: string
         }[]
       }
+      get_session_public_data: {
+        Args: { session_id_param: string }
+        Returns: {
+          composite_score: number
+          four_b_ball: number
+          four_b_bat: number
+          four_b_body: number
+          four_b_brain: number
+          grade: string
+          id: string
+          player_name: string
+          product_type: string
+          status: string
+          weakest_category: string
+        }[]
+      }
       search_videos: {
         Args: {
           category_filter?: string
