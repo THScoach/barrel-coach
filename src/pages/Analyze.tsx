@@ -8,6 +8,7 @@ import { EnvironmentSelector } from '@/components/EnvironmentSelector';
 import { VideoUploader } from '@/components/VideoUploader';
 import { ProcessingScreen } from '@/components/ProcessingScreen';
 import { ResultsPage } from '@/components/ResultsPage';
+import { SampleReportPreview } from '@/components/SampleReportPreview';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
@@ -285,7 +286,10 @@ export default function Analyze() {
 
         <div className="mt-8">
           {step === 'product' && (
-            <ProductSelector onSelect={handleProductSelect} />
+            <>
+              <ProductSelector onSelect={handleProductSelect} />
+              <SampleReportPreview />
+            </>
           )}
 
           {step === 'player' && (
