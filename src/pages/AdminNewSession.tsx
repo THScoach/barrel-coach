@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,12 +7,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { 
   ArrowLeft, Loader2, Upload, Video, DollarSign, 
-  User, Phone, Mail, FileText, Link as LinkIcon
+  User, Phone, Mail, FileText, Link as LinkIcon, Camera
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
+import { VideoRecorder } from "@/components/VideoRecorder";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -32,6 +39,8 @@ const PAYMENT_METHODS = ['cash', 'venmo', 'cashapp', 'zelle', 'other'];
 
 export default function AdminNewSession() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const playerId = searchParams.get('player');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form state
@@ -46,6 +55,7 @@ export default function AdminNewSession() {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [onformUrl, setOnformUrl] = useState('');
+  const [showRecorder, setShowRecorder] = useState(false);
   
   // Loading states
   const [creating, setCreating] = useState(false);
@@ -362,27 +372,46 @@ export default function AdminNewSession() {
                 className="hidden"
               />
               
-              <div 
-                className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {videoFile ? (
-                  <div className="space-y-2">
-                    <Video className="h-12 w-12 mx-auto text-primary" />
-                    <p className="font-medium">{videoFile.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {(videoFile.size / 1024 / 1024).toFixed(1)} MB
-                    </p>
-                    <Button variant="outline" size="sm">Change Video</Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
-                    <p className="font-medium">Click to upload or drag & drop</p>
-                    <p className="text-sm text-muted-foreground">MP4, MOV, WebM up to 100MB</p>
-                  </div>
-                )}
+              {/* Record or Upload buttons */}
+              <div className="flex gap-3 justify-center">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setShowRecorder(true)}
+                  className="flex-1"
+                >
+                  <Camera className="h-5 w-5 mr-2" />
+                  Record Video
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-1"
+                >
+                  <Upload className="h-5 w-5 mr-2" />
+                  Upload File
+                </Button>
               </div>
+              
+              {/* Show selected video */}
+              {videoFile && (
+                <div className="border rounded-lg p-4 text-center bg-muted/50">
+                  <Video className="h-8 w-8 mx-auto text-primary mb-2" />
+                  <p className="font-medium">{videoFile.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {(videoFile.size / 1024 / 1024).toFixed(1)} MB
+                  </p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => setVideoFile(null)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              )}
 
               <div className="flex items-center gap-4">
                 <div className="flex-1 h-px bg-border" />
@@ -430,6 +459,24 @@ export default function AdminNewSession() {
             )}
           </Button>
         </div>
+
+        {/* Video Recorder Dialog */}
+        <Dialog open={showRecorder} onOpenChange={setShowRecorder}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Record Swing Video</DialogTitle>
+            </DialogHeader>
+            <VideoRecorder
+              onVideoRecorded={(blob) => {
+                const file = new File([blob], `swing-${Date.now()}.webm`, { type: 'video/webm' });
+                setVideoFile(file);
+                setShowRecorder(false);
+                toast.success('Video recorded!');
+              }}
+              onCancel={() => setShowRecorder(false)}
+            />
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

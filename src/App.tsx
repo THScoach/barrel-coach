@@ -15,6 +15,8 @@ import AdminMessages from "./pages/AdminMessages";
 import AdminVideos from "./pages/AdminVideos";
 import AdminAnalyzer from "./pages/AdminAnalyzer";
 import AdminNewSession from "./pages/AdminNewSession";
+import AdminPlayers from "./pages/AdminPlayers";
+import AdminPlayerProfile from "./pages/AdminPlayerProfile";
 import AdminImportKommodo from "./pages/AdminImportKommodo";
 import AdminSMS from "./pages/AdminSMS";
 import Library from "./pages/Library";
@@ -66,6 +68,16 @@ const App = () => (
               <Route path="/admin/import-kommodo" element={
                 <ProtectedAdminRoute>
                   <AdminImportKommodo />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/players" element={
+                <ProtectedAdminRoute>
+                  <AdminPlayers />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/players/:id" element={
+                <ProtectedAdminRoute>
+                  <AdminPlayerProfile />
                 </ProtectedAdminRoute>
               } />
               <Route path="/admin/sms" element={
