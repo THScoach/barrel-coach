@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -139,20 +140,45 @@ export default function AdminVideos() {
       try {
         setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
         
-        const formDataUpload = new FormData();
-        formDataUpload.append('file', file);
-        formDataUpload.append('auto_publish', autoPublish.toString());
+        // Generate unique filename
+        const ext = file.name.split('.').pop() || 'mp4';
+        const filename = `${crypto.randomUUID()}.${ext}`;
+        const storagePath = `drills/${filename}`;
+        const originalTitle = file.name.replace(/\.[^/.]+$/, '') || 'Processing...';
 
+        // Upload directly to Supabase Storage from client (avoids edge function memory limits)
+        const { error: uploadError } = await supabase.storage
+          .from('videos')
+          .upload(storagePath, file, {
+            contentType: file.type,
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error('Storage upload error:', uploadError);
+          throw new Error(`Storage upload failed: ${uploadError.message}`);
+        }
+
+        // Call lightweight edge function to create DB record and trigger pipeline
         const res = await fetch(`${SUPABASE_URL}/functions/v1/upload-video`, {
           method: 'POST',
-          body: formDataUpload
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storage_path: storagePath,
+            original_title: originalTitle,
+            auto_publish: autoPublish
+          })
         });
 
-        if (!res.ok) throw new Error(`Upload failed for ${file.name}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Pipeline failed for ${file.name}`);
+        }
 
         completedFiles++;
         toast.success(`Uploaded: ${file.name}`);
       } catch (error) {
+        console.error('Upload error:', error);
         toast.error(`Failed to upload ${file.name}`);
       }
     }
