@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { 
-  Play, Loader2, ArrowLeft, User, Phone, Mail, 
+  Loader2, ArrowLeft, User, Mail, Phone, Play,
   FileText, Send, CheckCircle2, Clock, Video, ChevronRight,
   Save, RefreshCw
 } from "lucide-react";
@@ -18,6 +18,7 @@ import { AdminHeader } from "@/components/AdminHeader";
 import { ScoreInput } from "@/components/analyzer/ScoreInput";
 import { ProblemSelector } from "@/components/analyzer/ProblemSelector";
 import { DrillRecommendations } from "@/components/analyzer/DrillRecommendations";
+import { VideoPlayer } from "@/components/analyzer/VideoPlayer";
 import { format, formatDistanceToNow } from "date-fns";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -399,12 +400,7 @@ export default function AdminAnalyzer() {
                         <Loader2 className="h-8 w-8 animate-spin" />
                       </div>
                     ) : currentSwing?.video_url ? (
-                      <video
-                        key={currentSwing.id}
-                        src={currentSwing.video_url}
-                        controls
-                        className="w-full aspect-video bg-black rounded-lg"
-                      />
+                      <VideoPlayer key={currentSwing.id} src={currentSwing.video_url} />
                     ) : (
                       <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
                         <div className="text-center text-muted-foreground">
