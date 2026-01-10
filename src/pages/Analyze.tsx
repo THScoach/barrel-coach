@@ -9,6 +9,7 @@ import { VideoUploader } from '@/components/VideoUploader';
 import { ProcessingScreen } from '@/components/ProcessingScreen';
 import { ResultsPage } from '@/components/ResultsPage';
 import { SampleReportPreview } from '@/components/SampleReportPreview';
+import { TrustBadges } from '@/components/TrustBadges';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
@@ -288,6 +289,7 @@ export default function Analyze() {
           {step === 'product' && (
             <>
               <ProductSelector onSelect={handleProductSelect} />
+              <TrustBadges />
               <SampleReportPreview />
             </>
           )}
