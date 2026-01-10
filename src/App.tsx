@@ -13,6 +13,7 @@ import InnerCircle from "./pages/InnerCircle";
 import Assessment from "./pages/Assessment";
 import AdminMessages from "./pages/AdminMessages";
 import AdminVideos from "./pages/AdminVideos";
+import AdminAnalyzer from "./pages/AdminAnalyzer";
 import AdminImportKommodo from "./pages/AdminImportKommodo";
 import AdminSMS from "./pages/AdminSMS";
 import Library from "./pages/Library";
@@ -47,6 +48,11 @@ const App = () => (
               <Route path="/admin/videos" element={
                 <ProtectedAdminRoute>
                   <AdminVideos />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/analyzer" element={
+                <ProtectedAdminRoute>
+                  <AdminAnalyzer />
                 </ProtectedAdminRoute>
               } />
               <Route path="/admin/import-kommodo" element={
