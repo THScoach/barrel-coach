@@ -442,7 +442,7 @@ export default function AdminRebootAnalysis() {
                   Process
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <Button
                   onClick={processSession}
                   disabled={!selectedPlayer || !selectedSessionId || isProcessing}
@@ -456,6 +456,49 @@ export default function AdminRebootAnalysis() {
                   )}
                   Calculate 4B Scores
                 </Button>
+
+                {/* Test Button */}
+                <div className="pt-4 border-t">
+                  <p className="text-xs text-muted-foreground mb-2">🧪 Test with hardcoded values:</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    disabled={isProcessing}
+                    onClick={async () => {
+                      setIsProcessing(true);
+                      setResults(null);
+                      try {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        const response = await supabase.functions.invoke("process-reboot-session", {
+                          body: {
+                            session_id: "841e4aec-0ded-4445-95e9-9b0d3fc27adb",
+                            org_player_id: "a293f033-6ebd-47ad-8af9-81a68ab35406",
+                          },
+                          headers: {
+                            Authorization: `Bearer ${session?.access_token}`,
+                          },
+                        });
+                        console.log("Test response:", response);
+                        if (response.error) throw new Error(response.error.message);
+                        if (response.data?.success) {
+                          setResults(response.data.scores);
+                          toast.success("Test processed successfully!");
+                        } else {
+                          throw new Error(response.data?.error || "Test failed");
+                        }
+                      } catch (error: any) {
+                        console.error("Test error:", error);
+                        toast.error(`Test failed: ${error.message}`);
+                      } finally {
+                        setIsProcessing(false);
+                      }
+                    }}
+                  >
+                    {isProcessing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    Test Process Session
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
