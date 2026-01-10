@@ -20,20 +20,23 @@ export function Header({ showLogin = true }: HeaderProps) {
   const location = useLocation();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
-        <Logo size="md" />
-        
+    <header className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+        {/* Logo */}
+        <Link to="/" className="flex-shrink-0">
+          <Logo />
+        </Link>
+
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6">
+        <nav className="hidden md:flex items-center gap-8">
           {navigation.map((item) => (
             <Link
               key={item.name}
               to={item.href}
-              className={`text-sm font-medium transition-colors hover:text-accent ${
-                location.pathname === item.href 
-                  ? 'text-accent' 
-                  : 'text-muted-foreground'
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === item.href
+                  ? 'text-red-500'
+                  : 'text-slate-300 hover:text-white'
               }`}
             >
               {item.name}
@@ -41,47 +44,48 @@ export function Header({ showLogin = true }: HeaderProps) {
           ))}
         </nav>
 
-        <div className="flex items-center gap-4">
+        {/* Desktop Login Button */}
+        <div className="hidden md:flex items-center">
           {showLogin && (
-            <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
+            <Button asChild variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800">
               <Link to="/login">Login</Link>
             </Button>
           )}
-          
-          {/* Mobile menu button */}
-          <button
-            className="md:hidden p-2"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
         </div>
+
+        {/* Mobile menu button */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden p-2 text-slate-300 hover:text-white transition-colors"
+        >
+          {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
       </div>
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-border bg-background">
-          <nav className="container py-4 flex flex-col gap-2">
+        <div className="md:hidden bg-slate-900/95 backdrop-blur-xl border-t border-slate-800">
+          <div className="px-4 py-4 space-y-1">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`py-2 text-sm font-medium transition-colors hover:text-accent ${
-                  location.pathname === item.href 
-                    ? 'text-accent' 
-                    : 'text-muted-foreground'
+                className={`block py-3 text-base font-medium transition-colors ${
+                  location.pathname === item.href
+                    ? 'text-red-500'
+                    : 'text-slate-300 hover:text-white'
                 }`}
               >
                 {item.name}
               </Link>
             ))}
             {showLogin && (
-              <Button asChild variant="ghost" size="sm" className="justify-start mt-2">
+              <Button asChild variant="outline" className="w-full mt-4 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800">
                 <Link to="/login">Login</Link>
               </Button>
             )}
-          </nav>
+          </div>
         </div>
       )}
     </header>
