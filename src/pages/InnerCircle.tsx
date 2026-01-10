@@ -23,6 +23,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import fourBSystemGraphic from '@/assets/4b-system-graphic.png';
 
 const features = [
   {
@@ -177,6 +178,26 @@ export default function InnerCircle() {
             <p className="text-sm text-primary-foreground/60 mt-4">
               Cancel anytime. No contracts.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* The 4B System Framework */}
+      <section className="py-20 bg-surface">
+        <div className="container">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">The Coaching Framework</h2>
+            <p className="text-center text-muted-foreground mb-8">
+              Every swing review, drill prescription, and coaching call is built around the 4B System
+            </p>
+            
+            <div className="bg-card rounded-xl p-4 md:p-8 shadow-card">
+              <img 
+                src={fourBSystemGraphic} 
+                alt="The 4B Hitting System - Brain (Timing, Sync, Pattern Recognition), Body (Ground-Up Sequencing, Force Creation), Bat (Barrel Control, Transfer Efficiency), Ball (Contact Quality, Exit Velocity)" 
+                className="w-full h-auto"
+              />
+            </div>
           </div>
         </div>
       </section>
