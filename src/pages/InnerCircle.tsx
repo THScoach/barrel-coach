@@ -24,6 +24,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import fourBSystemGraphic from '@/assets/4b-system-graphic.png';
+import innerCircleInfographic from '@/assets/inner-circle-infographic.png';
 
 const features = [
   {
@@ -178,6 +179,19 @@ export default function InnerCircle() {
             <p className="text-sm text-primary-foreground/60 mt-4">
               Cancel anytime. No contracts.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Inner Circle Infographic */}
+      <section className="py-16 bg-background">
+        <div className="container">
+          <div className="max-w-3xl mx-auto">
+            <img 
+              src={innerCircleInfographic} 
+              alt="The Inner Circle - Coach Rick at the center with core benefits: Unlimited Swing Reviews, Monthly Live Calls, Direct Access, surrounded by resources like Full Video Library, Private Community, Member Discounts, and results like Make Varsity/College/Pro, Ongoing Coaching, Level Up Knowledge" 
+              className="w-full h-auto"
+            />
           </div>
         </div>
       </section>
