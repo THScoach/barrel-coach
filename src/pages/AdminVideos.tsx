@@ -96,7 +96,13 @@ export default function AdminVideos() {
 
   const fetchVideos = useCallback(async () => {
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       if (!res.ok) throw new Error('Failed to fetch videos');
       const data = await res.json();
       setVideos(data);
@@ -161,9 +167,13 @@ export default function AdminVideos() {
         }
 
         // Call lightweight edge function to create DB record and trigger pipeline
+        const { data: { session: uploadSession } } = await supabase.auth.getSession();
         const res = await fetch(`${SUPABASE_URL}/functions/v1/upload-video`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Authorization': `Bearer ${uploadSession?.access_token}`,
+            'Content-Type': 'application/json' 
+          },
           body: JSON.stringify({
             storage_path: storagePath,
             original_title: originalTitle,
@@ -220,9 +230,13 @@ export default function AdminVideos() {
         transcript: formData.transcript || null
       };
 
+      const { data: { session: saveSession } } = await supabase.auth.getSession();
       const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos?id=${editVideo.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Authorization': `Bearer ${saveSession?.access_token}`,
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify(updates)
       });
 
@@ -240,9 +254,13 @@ export default function AdminVideos() {
     const newStatus = video.status === 'published' ? 'draft' : 'published';
     
     try {
+      const { data: { session: publishSession } } = await supabase.auth.getSession();
       const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos?id=${video.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Authorization': `Bearer ${publishSession?.access_token}`,
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify({ status: newStatus })
       });
 
@@ -266,11 +284,15 @@ export default function AdminVideos() {
     }
 
     let published = 0;
+    const { data: { session: bulkSession } } = await supabase.auth.getSession();
     for (const video of toPublish) {
       try {
         const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos?id=${video.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Authorization': `Bearer ${bulkSession?.access_token}`,
+            'Content-Type': 'application/json' 
+          },
           body: JSON.stringify({ status: 'published' })
         });
         if (res.ok) published++;
@@ -288,8 +310,12 @@ export default function AdminVideos() {
     if (!confirm('Delete this video?')) return;
 
     try {
+      const { data: { session: deleteSession } } = await supabase.auth.getSession();
       const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos?id=${video.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 
+          'Authorization': `Bearer ${deleteSession?.access_token}`
+        }
       });
 
       if (!res.ok) throw new Error('Delete failed');
