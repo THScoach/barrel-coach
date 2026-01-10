@@ -18,13 +18,15 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { 
-  ArrowLeft, Save, User, Phone, Mail, Building, 
-  MapPin, FileText, Plus, Loader2, Calendar, Sparkles, Target, Eye
+  ArrowLeft, Save, User, Phone, Building, 
+  FileText, Plus, Loader2, Calendar, Sparkles, Target, Eye, Activity, Database
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { PlayerResearchModal } from "@/components/PlayerResearchModal";
-import { HitTraxUploadModal } from "@/components/HitTraxUploadModal";
-import { HitTraxSessionDetail } from "@/components/HitTraxSessionDetail";
+import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
+import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
+import { RebootSessionDetail } from "@/components/RebootSessionDetail";
+import { getBrandDisplayName } from "@/lib/csv-detector";
 
 const LEVELS = ['Youth', 'High School', 'Travel Ball', 'College', 'Independent', 'MiLB', 'MLB'];
 const POSITIONS = ['C', '1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF', 'OF', 'DH', 'P', 'Utility'];
@@ -61,8 +63,9 @@ export default function AdminPlayerProfile() {
   });
 
   const [showResearchModal, setShowResearchModal] = useState(false);
-  const [showHitTraxUpload, setShowHitTraxUpload] = useState(false);
-  const [selectedHitTraxSession, setSelectedHitTraxSession] = useState<any>(null);
+  const [showDataUpload, setShowDataUpload] = useState(false);
+  const [selectedLaunchMonitorSession, setSelectedLaunchMonitorSession] = useState<any>(null);
+  const [selectedRebootSession, setSelectedRebootSession] = useState<any>(null);
 
   const { data: player, isLoading } = useQuery({
     queryKey: ['player-profile', id],
@@ -121,13 +124,13 @@ export default function AdminPlayerProfile() {
     enabled: !isNew,
   });
 
-  // Fetch player's HitTrax sessions
-  const { data: hittraxSessions, refetch: refetchHitTrax } = useQuery({
-    queryKey: ['player-hittrax-sessions', id],
+  // Fetch player's Launch Monitor sessions
+  const { data: launchMonitorSessions, refetch: refetchLaunchMonitor } = useQuery({
+    queryKey: ['player-launch-monitor-sessions', id],
     queryFn: async () => {
       if (isNew) return [];
       const { data, error } = await supabase
-        .from('hittrax_sessions')
+        .from('launch_monitor_sessions')
         .select('*')
         .eq('player_id', id)
         .order('session_date', { ascending: false });
@@ -136,6 +139,27 @@ export default function AdminPlayerProfile() {
     },
     enabled: !isNew,
   });
+
+  // Fetch player's Reboot uploads
+  const { data: rebootUploads, refetch: refetchReboot } = useQuery({
+    queryKey: ['player-reboot-uploads', id],
+    queryFn: async () => {
+      if (isNew) return [];
+      const { data, error } = await supabase
+        .from('reboot_uploads')
+        .select('*')
+        .eq('player_id', id)
+        .order('session_date', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !isNew,
+  });
+
+  const refetchDataSessions = () => {
+    refetchLaunchMonitor();
+    refetchReboot();
+  };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -302,7 +326,7 @@ export default function AdminPlayerProfile() {
             <TabsTrigger value="contact">Contact</TabsTrigger>
             <TabsTrigger value="notes">Coach Notes</TabsTrigger>
             {!isNew && <TabsTrigger value="sessions">Sessions ({sessions?.length || 0})</TabsTrigger>}
-            {!isNew && <TabsTrigger value="hittrax">HitTrax ({hittraxSessions?.length || 0})</TabsTrigger>}
+            {!isNew && <TabsTrigger value="data">Data Sessions ({(launchMonitorSessions?.length || 0) + (rebootUploads?.length || 0)})</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="info" className="space-y-6">
@@ -619,41 +643,46 @@ export default function AdminPlayerProfile() {
             </TabsContent>
           )}
           
-          {/* HitTrax Sessions Tab */}
+          {/* Data Sessions Tab */}
           {!isNew && (
-            <TabsContent value="hittrax" className="space-y-6">
+            <TabsContent value="data" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
-                      <Target className="h-5 w-5" />
-                      HitTrax Sessions
+                      <Database className="h-5 w-5" />
+                      Data Sessions
                     </span>
-                    <Button onClick={() => setShowHitTraxUpload(true)}>
+                    <Button onClick={() => setShowDataUpload(true)}>
                       <Plus className="h-4 w-4 mr-2" />
-                      Upload Session
+                      Upload Data
                     </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {hittraxSessions && hittraxSessions.length > 0 ? (
+                  {(launchMonitorSessions && launchMonitorSessions.length > 0) || (rebootUploads && rebootUploads.length > 0) ? (
                     <div className="space-y-2">
-                      {hittraxSessions.map((session) => (
+                      {/* Launch Monitor Sessions */}
+                      {launchMonitorSessions?.map((session) => (
                         <div
                           key={session.id}
                           className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                          onClick={() => setSelectedHitTraxSession(session)}
+                          onClick={() => setSelectedLaunchMonitorSession(session)}
                         >
-                          <div>
-                            <div className="font-medium">
-                              {new Date(session.session_date).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric'
-                              })}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {session.total_swings} swings • {session.contact_rate}% contact • {session.avg_exit_velo} avg velo
+                          <div className="flex items-center gap-3">
+                            <Target className="h-5 w-5 text-blue-500" />
+                            <div>
+                              <div className="font-medium flex items-center gap-2">
+                                {new Date(session.session_date).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                                <Badge variant="outline" className="text-xs">{getBrandDisplayName(session.source as any)}</Badge>
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {session.total_swings} swings • {session.contact_rate}% contact • {session.avg_exit_velo} avg velo
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
@@ -667,20 +696,57 @@ export default function AdminPlayerProfile() {
                                 {session.ball_score}
                               </div>
                             </div>
-                            <Button variant="ghost" size="icon">
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Reboot Uploads */}
+                      {rebootUploads?.map((session) => (
+                        <div
+                          key={session.id}
+                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => setSelectedRebootSession(session)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Activity className="h-5 w-5 text-purple-500" />
+                            <div>
+                              <div className="font-medium flex items-center gap-2">
+                                {new Date(session.session_date).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                                <Badge variant="outline" className="text-xs">Reboot Motion</Badge>
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                Brain: {session.brain_score} • Body: {session.body_score} • Bat: {session.bat_score}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className="text-sm text-muted-foreground">Composite</div>
+                              <div className={`text-xl font-bold ${
+                                session.composite_score >= 60 ? 'text-green-500' :
+                                session.composite_score >= 50 ? 'text-yellow-500' :
+                                session.composite_score >= 40 ? 'text-orange-500' : 'text-red-500'
+                              }`}>
+                                {session.composite_score}
+                              </div>
+                            </div>
+                            <Eye className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <Target className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                      <p className="text-muted-foreground mb-4">No HitTrax sessions yet</p>
-                      <Button onClick={() => setShowHitTraxUpload(true)}>
+                      <Database className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                      <p className="text-muted-foreground mb-4">No data sessions yet</p>
+                      <Button onClick={() => setShowDataUpload(true)}>
                         <Plus className="h-4 w-4 mr-2" />
-                        Upload HitTrax CSV
+                        Upload CSV Data
                       </Button>
                     </div>
                   )}
@@ -699,23 +765,31 @@ export default function AdminPlayerProfile() {
         initialName={`${formData.first_name} ${formData.last_name}`.trim()}
       />
       
-      {/* HitTrax Upload Modal */}
+      {/* Unified Data Upload Modal */}
       {id && !isNew && (
-        <HitTraxUploadModal
-          open={showHitTraxUpload}
-          onOpenChange={setShowHitTraxUpload}
+        <UnifiedDataUploadModal
+          open={showDataUpload}
+          onOpenChange={setShowDataUpload}
           playerId={id}
           playerName={`${formData.first_name} ${formData.last_name}`.trim()}
-          onSuccess={() => refetchHitTrax()}
+          onSuccess={refetchDataSessions}
         />
       )}
       
-      {/* HitTrax Session Detail Modal */}
-      <HitTraxSessionDetail
-        open={!!selectedHitTraxSession}
-        onOpenChange={(open) => !open && setSelectedHitTraxSession(null)}
-        session={selectedHitTraxSession}
-        onDelete={() => refetchHitTrax()}
+      {/* Launch Monitor Session Detail Modal */}
+      <LaunchMonitorSessionDetail
+        open={!!selectedLaunchMonitorSession}
+        onOpenChange={(open) => !open && setSelectedLaunchMonitorSession(null)}
+        session={selectedLaunchMonitorSession}
+        onDelete={refetchDataSessions}
+      />
+      
+      {/* Reboot Session Detail Modal */}
+      <RebootSessionDetail
+        open={!!selectedRebootSession}
+        onOpenChange={(open) => !open && setSelectedRebootSession(null)}
+        session={selectedRebootSession}
+        onDelete={refetchDataSessions}
       />
     </div>
   );
