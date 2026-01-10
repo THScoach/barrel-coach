@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AnalysisProvider } from "@/contexts/AnalysisContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedAdminRoute } from "@/components/ProtectedAdminRoute";
+import { CoachRickWidget } from "@/components/CoachRickWidget";
 import Index from "./pages/Index";
 import Analyze from "./pages/Analyze";
 import About from "./pages/About";
@@ -35,6 +36,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <CoachRickWidget />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/analyze" element={<Analyze />} />
