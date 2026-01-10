@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/accordion";
 import rickCoaching1 from '@/assets/rick-coaching-1.jpg';
 import rickBenintendi from '@/assets/rick-benintendi.jpg';
+import fourBSystemGraphic from '@/assets/4b-system-graphic.png';
 
 // MLB Team logos placeholder - would be replaced with actual images
 const mlbPlayers = [
@@ -140,44 +141,20 @@ export default function Index() {
       {/* The 4B System Section */}
       <section className="py-20 bg-background">
         <div className="container">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
               THE 4B SYSTEM™
             </h2>
-            <p className="text-center text-muted-foreground mb-12">
-              We analyze 4 components of your swing
+            <p className="text-center text-muted-foreground mb-8">
+              We analyze 4 components of your swing to find and fix your weakest link
             </p>
 
-            <div className="bg-card rounded-xl p-6 md:p-8 shadow-card space-y-6">
-              {[
-                { emoji: '🧠', name: 'BRAIN', desc: 'How you time and sequence your swing', value: 72 },
-                { emoji: '💪', name: 'BODY', desc: 'How you use your legs and hips', value: 85 },
-                { emoji: '🏏', name: 'BAT', desc: 'How you swing the bat', value: 45, isWeakest: true },
-                { emoji: '⚾', name: 'BALL', desc: 'How hard you\'ll hit it', value: 78 },
-              ].map((item) => (
-                <div key={item.name} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{item.emoji}</span>
-                      <div>
-                        <div className="font-bold">{item.name}</div>
-                        <div className="text-sm text-muted-foreground">{item.desc}</div>
-                      </div>
-                    </div>
-                    {item.isWeakest && (
-                      <span className="text-accent text-sm font-semibold">← YOUR PROBLEM</span>
-                    )}
-                  </div>
-                  <div className="h-3 bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        item.isWeakest ? 'bg-accent' : 'bg-primary'
-                      }`}
-                      style={{ width: `${item.value}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+            <div className="bg-card rounded-xl p-4 md:p-8 shadow-card">
+              <img 
+                src={fourBSystemGraphic} 
+                alt="The 4B Hitting System - Brain (Timing, Sync, Pattern Recognition), Body (Ground-Up Sequencing, Force Creation), Bat (Barrel Control, Transfer Efficiency), Ball (Contact Quality, Exit Velocity)" 
+                className="w-full h-auto"
+              />
             </div>
 
             <p className="text-center mt-8 text-lg font-medium">
