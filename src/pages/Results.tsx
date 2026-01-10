@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Brain, Activity, Zap, Target, Play, MessageCircle, ArrowRight, AlertTriangle } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { FourBScoreCard } from "@/components/FourBScoreCard";
 
 interface SessionData {
   id: string;
@@ -170,75 +171,18 @@ export default function Results() {
           </p>
         </div>
 
-        {/* 4B Scores Card */}
-        <Card className="mb-8 overflow-hidden">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-4 gap-4 mb-6">
-              {(['brain', 'body', 'bat', 'ball'] as const).map(category => {
-                const config = categoryConfig[category];
-                const score = session[`four_b_${category}` as keyof SessionData] as number | null;
-                const isWeakest = session.weakest_category === category;
-                
-                return (
-                  <div key={category} className="text-center">
-                    <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full mb-2 ${isWeakest ? 'bg-amber-500/20 ring-2 ring-amber-500' : 'bg-muted'}`}>
-                      <config.icon className={`h-6 w-6 ${config.color}`} />
-                    </div>
-                    <div className={`text-2xl md:text-3xl font-bold ${getScoreColor(score)}`}>
-                      {formatScore(score)}
-                    </div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wide">
-                      {config.label}
-                    </div>
-                    {isWeakest && (
-                      <Badge variant="secondary" className="mt-1 text-[10px]">
-                        Focus Area
-                      </Badge>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            
-            <div className="border-t pt-4 flex items-center justify-between">
-              <div>
-                <span className="text-muted-foreground">Overall Score</span>
-              </div>
-              <div className="text-right">
-                <span className={`text-3xl font-bold ${getScoreColor(session.composite_score)}`}>
-                  {formatScore(session.composite_score)}
-                </span>
-                <span className="text-muted-foreground"> / 10</span>
-                {session.grade && (
-                  <Badge className="ml-3" variant="secondary">
-                    {session.grade}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* 4B Score Card */}
+        <FourBScoreCard
+          brainScore={session.four_b_brain}
+          bodyScore={session.four_b_body}
+          batScore={session.four_b_bat}
+          ballScore={session.four_b_ball}
+          compositeScore={session.composite_score}
+          grade={session.grade}
+          weakestCategory={session.weakest_category}
+          primaryProblem={analysis?.primary_problem}
+        />
 
-        {/* Priority Issue */}
-        {session.weakest_category && analysis?.primary_problem && (
-          <Card className="mb-8 border-amber-500/50 bg-amber-500/5">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-3">
-                <div className="bg-amber-500/20 rounded-full p-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-500" />
-                </div>
-                <div>
-                  <h2 className="font-bold text-lg mb-1">
-                    Your #1 Priority: {session.weakest_category.toUpperCase()} — {analysis.primary_problem.replace(/_/g, ' ')}
-                  </h2>
-                  <p className="text-muted-foreground">
-                    This is the most important thing to fix right now. Focus here first.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Coach Notes */}
         {analysis?.coach_notes && (

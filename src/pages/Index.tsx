@@ -11,7 +11,10 @@ import {
 } from "@/components/ui/accordion";
 import rickCoaching1 from '@/assets/rick-coaching-1.jpg';
 import rickBenintendi from '@/assets/rick-benintendi.jpg';
-import fourBSystemGraphic from '@/assets/4b-system-graphic.png';
+import fourBSystemDiagram from '@/assets/4b-system-diagram.png';
+import howItWorksImg from '@/assets/how-it-works.png';
+import productComparisonImg from '@/assets/product-comparison.png';
+import mlbTechnologyImg from '@/assets/mlb-technology.png';
 
 // MLB Team logos placeholder - would be replaced with actual images
 const mlbPlayers = [
@@ -109,28 +112,15 @@ export default function Index() {
       {/* How It Works Section */}
       <section id="how-it-works" className="py-20 bg-surface">
         <div className="container">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
-            HOW IT WORKS
-          </h2>
-          
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto mb-12">
-            {[
-              { icon: Video, step: '1', title: 'UPLOAD', description: 'Record your swing and upload it' },
-              { icon: Brain, step: '2', title: 'ANALYZE', description: 'We score your Brain, Body, Bat & Ball' },
-              { icon: FileText, step: '3', title: 'FIX', description: 'Get your personalized drill plan' },
-            ].map((item) => (
-              <div key={item.step} className="text-center p-6 bg-card rounded-xl shadow-card">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent/10 flex items-center justify-center">
-                  <item.icon className="w-8 h-8 text-accent" />
-                </div>
-                <div className="text-sm text-accent font-semibold mb-2">STEP {item.step}</div>
-                <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                <p className="text-muted-foreground">{item.description}</p>
-              </div>
-            ))}
+          <div className="max-w-4xl mx-auto">
+            <img 
+              src={howItWorksImg} 
+              alt="How It Works - Step 1: Upload Your Swing (Record from phone, front or side view, takes 2 minutes), Step 2: Get Analyzed (Coach Rick reviews personally, 4B System scores your swing, identifies your number 1 problem), Step 3: Fix Your Weakness (Get personalized drill prescription, watch video demonstrations, track your progress)" 
+              className="w-full h-auto"
+            />
           </div>
 
-          <div className="text-center">
+          <div className="text-center mt-8">
             <Button asChild variant="hero" size="lg">
               <Link to="/analyze">GET STARTED — $37</Link>
             </Button>
@@ -142,21 +132,11 @@ export default function Index() {
       <section className="py-20 bg-background">
         <div className="container">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
-              THE 4B SYSTEM™
-            </h2>
-            <p className="text-center text-muted-foreground mb-8">
-              We analyze 4 components of your swing to find and fix your weakest link
-            </p>
-
-            <div className="bg-card rounded-xl p-4 md:p-8 shadow-card">
-              <img 
-                src={fourBSystemGraphic} 
-                alt="The 4B Hitting System - Brain (Timing, Sync, Pattern Recognition), Body (Ground-Up Sequencing, Force Creation), Bat (Barrel Control, Transfer Efficiency), Ball (Contact Quality, Exit Velocity)" 
-                className="w-full h-auto"
-              />
-            </div>
-
+            <img 
+              src={fourBSystemDiagram} 
+              alt="The 4B Hitting System - Brain (Timing, Sync, Pattern Recognition: Pitch recognition, timing windows, plate discipline), Body (Ground-Up Sequencing, Force Creation: Pelvis rotation, hip-shoulder separation, kinetic chain), Bat (Barrel Control, Transfer Efficiency: Bat path, barrel release timing, attack angle), Ball (Contact Quality, Exit Velocity: Exit velocity, launch angle, hard contact rate)" 
+              className="w-full h-auto"
+            />
             <p className="text-center mt-8 text-lg font-medium">
               Most coaches guess. <span className="text-accent">We measure.</span> Then we fix the weakest link.
             </p>
@@ -252,73 +232,59 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Pricing Section */}
+      {/* Pricing Section - Product Comparison */}
       <section className="py-20 bg-surface">
         <div className="container">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
             CHOOSE YOUR ANALYSIS
           </h2>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto mb-12">
-            {/* Single Swing */}
-            <div className="bg-card rounded-xl p-8 shadow-card">
-              <h3 className="text-xl font-bold mb-2">SINGLE SWING SCORE</h3>
-              <div className="text-4xl font-bold mb-6">$37</div>
-              
-              <ul className="space-y-3 mb-8">
-                {[
-                  '1 swing analyzed',
-                  'Your #1 problem identified',
-                  '1 drill to fix it',
-                  'PDF report',
-                ].map((feature) => (
-                  <li key={feature} className="flex items-center gap-2 text-sm">
-                    <Check className="w-4 h-4 text-accent" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
+          <div className="max-w-4xl mx-auto mb-12">
+            <img 
+              src={productComparisonImg} 
+              alt="Product Comparison: Single Swing Score $37 (1 swing, 1 drill prescription, 48 hours, quick fix), Complete Review $97 Most Popular (5 swings, 30-day drill plan, 48 hours, serious improvement), In-Person Assessment $299 (Full session, custom program, same day, elite players)" 
+              className="w-full h-auto"
+            />
+          </div>
 
-              <Button asChild variant="accent" className="w-full">
-                <Link to="/analyze">GET STARTED</Link>
-              </Button>
-            </div>
-
-            {/* Complete Review */}
-            <div className="bg-card rounded-xl p-8 shadow-card border-2 border-accent relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground px-3 py-1 rounded-full text-xs font-bold">
-                ⭐ MOST POPULAR
-              </div>
-              
-              <h3 className="text-xl font-bold mb-2">COMPLETE REVIEW</h3>
-              <div className="text-4xl font-bold mb-6">$97</div>
-              
-              <ul className="space-y-3 mb-8">
-                {[
-                  '5 swings analyzed',
-                  'Consistency score',
-                  'Age group comparison',
-                  '30-day drill plan',
-                  'PDF report',
-                ].map((feature) => (
-                  <li key={feature} className="flex items-center gap-2 text-sm">
-                    <Check className="w-4 h-4 text-accent" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-
-              <Button asChild variant="hero" className="w-full">
-                <Link to="/analyze">GET STARTED</Link>
-              </Button>
-            </div>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+            <Button asChild variant="hero" size="lg">
+              <Link to="/analyze">GET YOUR SWING ANALYZED</Link>
+            </Button>
+            <Button asChild variant="accent-outline" size="lg">
+              <Link to="/assessment">BOOK IN-PERSON SESSION</Link>
+            </Button>
           </div>
 
           <div className="text-center pt-8 border-t border-border max-w-xl mx-auto">
-            <p className="text-muted-foreground mb-4">Want personal coaching from Rick?</p>
+            <p className="text-muted-foreground mb-4">Want ongoing coaching from Rick?</p>
             <Button asChild variant="accent-outline" size="lg">
               <Link to="/inner-circle">JOIN RICK'S INNER CIRCLE — $297/month →</Link>
             </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* MLB-Level Technology Section */}
+      <section className="py-20 bg-background">
+        <div className="container">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
+              WHY COACH RICK?
+            </h2>
+            <p className="text-center text-muted-foreground mb-8">
+              He helped build the technology. Now he uses it to analyze your swing.
+            </p>
+            <img 
+              src={mlbTechnologyImg} 
+              alt="MLB-Level Technology - Rick helped BUILD these systems. Now he uses them to analyze YOUR swing. Biomechanics: Reboot Motion 3D Motion Capture, Blast Motion Bat Sensors, HitTrax Ball Flight Tracking. Brain Vision: S2 Cognition MLB Evaluation System, Timing and Pattern Recognition Testing. Data Analysis: Rapsodo Pitch Tracking, Diamond Kinetics Swing Metrics, Uplift Performance Tracking." 
+              className="w-full h-auto"
+            />
+            <div className="text-center mt-8">
+              <Button asChild variant="accent-outline" size="lg">
+                <Link to="/about">LEARN MORE ABOUT RICK →</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </section>
