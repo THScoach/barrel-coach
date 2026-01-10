@@ -12,6 +12,7 @@ import Assessment from "./pages/Assessment";
 import AdminMessages from "./pages/AdminMessages";
 import AdminVideos from "./pages/AdminVideos";
 import AdminImportKommodo from "./pages/AdminImportKommodo";
+import AdminSMS from "./pages/AdminSMS";
 import Library from "./pages/Library";
 import NotFound from "./pages/NotFound";
 
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/admin/messages" element={<AdminMessages />} />
             <Route path="/admin/videos" element={<AdminVideos />} />
             <Route path="/admin/import-kommodo" element={<AdminImportKommodo />} />
+            <Route path="/admin/sms" element={<AdminSMS />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

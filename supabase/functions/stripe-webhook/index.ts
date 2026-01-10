@@ -11,6 +11,27 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
 );
 
+// Helper to call SMS functions
+async function callSmsFunction(functionName: string, body: object) {
+  const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/${functionName}`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify(body),
+    });
+    const result = await response.json();
+    console.log(`${functionName} result:`, result);
+    return result;
+  } catch (error) {
+    console.error(`${functionName} error:`, error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   const signature = req.headers.get("stripe-signature");
   const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
@@ -59,6 +80,21 @@ serve(async (req) => {
         console.error("Failed to update session:", updateError);
         return new Response("Failed to update session", { status: 500 });
       }
+
+      // === SMS WORKFLOW: PURCHASE COMPLETE ===
+      // Send immediate purchase confirmation SMS
+      await callSmsFunction("send-sms", {
+        sessionId,
+        triggerName: "purchase_complete",
+        useTemplate: true,
+      });
+
+      // Schedule follow-up reminders
+      // no_upload_reminder - 24 hours (1440 minutes)
+      await callSmsFunction("schedule-sms", {
+        sessionId,
+        triggerName: "no_upload_reminder",
+      });
 
       // Trigger analysis
       const analyzeUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-swings`;
