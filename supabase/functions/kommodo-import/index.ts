@@ -29,7 +29,7 @@ serve(async (req) => {
     if (action === 'list') {
       console.log('Fetching recordings from Kommodo...')
       
-      const response = await fetch('https://api.kommodo.ai/v1/recordings', {
+      const response = await fetch('https://api.komododecks.com/v1/recordings', {
         headers: {
           'Authorization': `Bearer ${kommodoApiKey}`,
         }
@@ -64,7 +64,7 @@ serve(async (req) => {
       for (const recordingId of recording_ids) {
         try {
           // Fetch full recording details from Kommodo
-          const response = await fetch(`https://api.kommodo.ai/v1/recordings/${recordingId}`, {
+          const response = await fetch(`https://api.komododecks.com/v1/recordings/${recordingId}`, {
             headers: {
               'Authorization': `Bearer ${kommodoApiKey}`,
             }

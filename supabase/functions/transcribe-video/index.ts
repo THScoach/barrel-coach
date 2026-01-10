@@ -45,7 +45,7 @@ serve(async (req) => {
     console.log('Video URL:', video.video_url)
 
     // Step 1: Create transcription job with Kommodo
-    const createJobResponse = await fetch('https://api.kommodo.ai/v1/transcribe', {
+    const createJobResponse = await fetch('https://api.komododecks.com/v1/transcribe', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${kommodoApiKey}`,
@@ -88,7 +88,7 @@ serve(async (req) => {
         await new Promise(resolve => setTimeout(resolve, 5000)) // Wait 5 seconds
         attempts++
 
-        const statusResponse = await fetch(`https://api.kommodo.ai/v1/transcribe/${jobData.job_id}`, {
+        const statusResponse = await fetch(`https://api.komododecks.com/v1/transcribe/${jobData.job_id}`, {
           headers: {
             'Authorization': `Bearer ${kommodoApiKey}`,
           }
