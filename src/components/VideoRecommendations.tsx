@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
-import { Play, Lock, Clock, X, Brain, Dumbbell, Target, CircleDot, ArrowRight } from 'lucide-react';
+import { Play, Lock, Clock, X, Brain, Dumbbell, Target, CircleDot, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Json } from '@/integrations/supabase/types';
 
@@ -62,6 +62,8 @@ export function VideoRecommendations({
   const [videos, setVideos] = useState<DrillVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<DrillVideo | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [lockedVideo, setLockedVideo] = useState<DrillVideo | null>(null);
   const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
   const navigate = useNavigate();
 
@@ -116,6 +118,16 @@ export function VideoRecommendations({
     return false;
   };
 
+  const handleVideoClick = (video: DrillVideo) => {
+    const locked = !hasAccess(video.access_level);
+    if (locked) {
+      setLockedVideo(video);
+      setShowUpgradeModal(true);
+    } else {
+      setSelectedVideo(video);
+    }
+  };
+
   const formatDuration = (seconds: number | null) => {
     if (!seconds) return '';
     const mins = Math.floor(seconds / 60);
@@ -163,9 +175,12 @@ export function VideoRecommendations({
         {showHeader && (
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-lg font-bold">VIDEOS FOR YOU</h2>
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-accent" />
+                VIDEOS FOR YOU
+              </h2>
               <p className="text-sm text-muted-foreground">
-                Based on your <span className="font-semibold text-foreground">{categoryLabel.toUpperCase()}</span> score, Coach Rick recommends these videos:
+                Based on your <span className="font-semibold text-foreground">{categoryLabel.toUpperCase()}</span> score, Coach Rick recommends:
               </p>
             </div>
             <Button 
@@ -188,18 +203,18 @@ export function VideoRecommendations({
             return (
               <div 
                 key={video.id}
-                className={`cursor-pointer transition-all hover:scale-[1.02] ${locked ? 'opacity-75' : ''}`}
-                onClick={() => setSelectedVideo(video)}
+                className={`cursor-pointer transition-all hover:scale-[1.02] ${locked ? 'opacity-90' : ''}`}
+                onClick={() => handleVideoClick(video)}
               >
                 <div className="relative aspect-video bg-muted rounded-lg overflow-hidden mb-2">
                   {video.thumbnail_url ? (
                     <img 
                       src={video.thumbnail_url} 
                       alt={video.title}
-                      className="w-full h-full object-cover"
+                      className={`w-full h-full object-cover ${locked ? 'blur-[2px]' : ''}`}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/20">
                       <Play className="h-8 w-8 text-muted-foreground" />
                     </div>
                   )}
@@ -209,13 +224,15 @@ export function VideoRecommendations({
                       className="absolute bottom-1 right-1 bg-black/80 text-white text-xs"
                       variant="secondary"
                     >
+                      <Clock className="h-3 w-3 mr-1" />
                       {formatDuration(video.duration_seconds)}
                     </Badge>
                   )}
 
                   {locked && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                      <Lock className="h-6 w-6 text-white" />
+                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
+                      <Lock className="h-6 w-6 text-white mb-1" />
+                      <span className="text-xs text-white font-medium">Unlock</span>
                     </div>
                   )}
 
@@ -229,7 +246,8 @@ export function VideoRecommendations({
                 <h3 className="text-sm font-medium line-clamp-2">{video.title}</h3>
                 {category && (
                   <Badge className={`${category.color} text-white text-xs mt-1`}>
-                    {category.label}
+                    {category.icon}
+                    <span className="ml-1">{category.label}</span>
                   </Badge>
                 )}
               </div>
@@ -238,7 +256,99 @@ export function VideoRecommendations({
         </div>
       </Card>
 
-      {/* Video Modal */}
+      {/* Upgrade Modal */}
+      <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              Unlock This Video
+            </DialogTitle>
+            <DialogDescription>
+              Get access to "{lockedVideo?.title}" and all coaching videos
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* $37 Option */}
+            <div 
+              className="border rounded-lg p-4 cursor-pointer hover:border-primary transition-colors"
+              onClick={() => {
+                setShowUpgradeModal(false);
+                navigate('/analyze');
+              }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-bold text-lg">Single Swing Score</h3>
+                <span className="text-2xl font-bold text-primary">$37</span>
+              </div>
+              <ul className="space-y-1 text-sm text-muted-foreground mb-3">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  AI analysis of 1 swing video
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  Your 4B Score breakdown
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  Access to paid video library
+                </li>
+              </ul>
+              <Button className="w-full" variant="outline">
+                Get Started
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+
+            {/* $97 Option - Highlighted */}
+            <div 
+              className="border-2 border-accent rounded-lg p-4 cursor-pointer hover:bg-accent/5 transition-colors relative"
+              onClick={() => {
+                setShowUpgradeModal(false);
+                navigate('/analyze');
+              }}
+            >
+              <Badge className="absolute -top-2.5 left-4 bg-accent text-accent-foreground">
+                BEST VALUE
+              </Badge>
+              <div className="flex items-center justify-between mb-2 mt-1">
+                <h3 className="font-bold text-lg">Complete Swing Review™</h3>
+                <span className="text-2xl font-bold text-accent">$97</span>
+              </div>
+              <ul className="space-y-1 text-sm text-muted-foreground mb-3">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  AI analysis of 5 swing videos
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  Best vs Worst swing comparison
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  Percentile ranking vs peers
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  30-day improvement plan
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  Full video library access
+                </li>
+              </ul>
+              <Button className="w-full" variant="accent">
+                Get Complete Review
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Video Player Modal */}
       <Dialog open={!!selectedVideo} onOpenChange={(open) => !open && setSelectedVideo(null)}>
         <DialogContent className="max-w-5xl max-h-[95vh] p-0 overflow-hidden">
           {selectedVideo && (
@@ -260,34 +370,31 @@ export function VideoRecommendations({
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
                 <div className="lg:col-span-2">
                   <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                    {hasAccess(selectedVideo.access_level) ? (
-                      <video
-                        ref={setVideoRef}
-                        src={selectedVideo.video_url}
-                        controls
-                        className="w-full h-full"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-white">
-                        <Lock className="h-12 w-12 mb-4" />
-                        <p className="text-lg font-medium mb-2">Upgrade to Access</p>
-                        <p className="text-sm text-gray-400 mb-4">
-                          {selectedVideo.access_level === 'inner_circle' 
-                            ? 'This video requires Inner Circle access'
-                            : 'Get a Swing Analysis to unlock this video'}
-                        </p>
-                        <Button onClick={() => navigate('/analyze')}>
-                          {selectedVideo.access_level === 'inner_circle' 
-                            ? 'Join Inner Circle'
-                            : 'Get Swing Analysis - $37'}
-                        </Button>
-                      </div>
-                    )}
+                    <video
+                      ref={setVideoRef}
+                      src={selectedVideo.video_url}
+                      controls
+                      className="w-full h-full"
+                    />
                   </div>
 
                   {selectedVideo.description && (
                     <p className="mt-4 text-muted-foreground">{selectedVideo.description}</p>
                   )}
+
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {selectedVideo.four_b_category && categoryInfo[selectedVideo.four_b_category] && (
+                      <Badge className={`${categoryInfo[selectedVideo.four_b_category].color} text-white`}>
+                        {categoryInfo[selectedVideo.four_b_category].icon}
+                        <span className="ml-1">{categoryInfo[selectedVideo.four_b_category].label}</span>
+                      </Badge>
+                    )}
+                    {selectedVideo.problems_addressed?.map(problem => (
+                      <Badge key={problem} variant="outline">
+                        {problem.replace(/_/g, ' ')}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="lg:col-span-1">
