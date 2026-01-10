@@ -32,8 +32,8 @@ const features = [
   },
   {
     icon: Calendar,
-    title: 'Monthly Live Calls',
-    description: 'Group Q&A sessions with Coach Rick. Get your swing questions answered in real-time.',
+    title: 'Weekly Live Calls',
+    description: 'Every Monday at 7pm CST. Group Q&A sessions with Coach Rick. Get your swing questions answered in real-time.',
   },
   {
     icon: ChartBar,
@@ -90,7 +90,7 @@ const faqs = [
   },
   {
     question: "How do the live calls work?",
-    answer: "We do group Zoom calls once a month (usually the first Saturday). You can submit swings beforehand or ask questions live. Calls are recorded if you can't make it.",
+    answer: "We do group Zoom calls every Monday at 7pm CST. You can submit swings beforehand or ask questions live. Calls are recorded if you can't make it.",
   },
   {
     question: "How quickly will Coach Rick respond?",
@@ -111,7 +111,7 @@ const comparisonData = [
   { feature: 'Video Library Access', single: 'Limited', complete: '30 days', inner: 'Full access' },
   { feature: 'Drill Prescription', single: '1 drill', complete: '30-day plan', inner: 'Ongoing plans' },
   { feature: 'Direct Access to Coach Rick', single: false, complete: false, inner: true },
-  { feature: 'Monthly Live Calls', single: false, complete: false, inner: true },
+  { feature: 'Weekly Live Calls', single: false, complete: false, inner: true },
   { feature: 'Private Community', single: false, complete: false, inner: true },
 ];
 
@@ -360,9 +360,12 @@ export default function InnerCircle() {
                       Loading...
                     </>
                   ) : (
-                    'Join Inner Circle Now'
+                    <>Join Inner Circle — $297/month</>
                   )}
                 </Button>
+                <p className="text-xs text-primary-foreground/60">
+                  Calls held every Monday at 7pm CST unless otherwise notified
+                </p>
               </div>
 
               <div className="flex items-center gap-3 justify-center p-4 bg-background/10 rounded-lg">
