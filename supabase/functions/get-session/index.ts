@@ -46,10 +46,24 @@ serve(async (req) => {
       console.error("Swings fetch error:", swingsError);
     }
 
+    // Generate signed URLs for each swing video
+    const swingsWithSignedUrls = await Promise.all(
+      (swings || []).map(async (swing) => {
+        if (swing.video_storage_path) {
+          const { data: signedUrl } = await supabase.storage
+            .from("swing-videos")
+            .createSignedUrl(swing.video_storage_path, 3600); // 1 hour expiration
+          
+          return { ...swing, video_url: signedUrl?.signedUrl || null };
+        }
+        return swing;
+      })
+    );
+
     return new Response(
       JSON.stringify({
         session,
-        swings: swings || [],
+        swings: swingsWithSignedUrls,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
