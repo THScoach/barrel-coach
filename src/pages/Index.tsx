@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowDown, Video, Brain, FileText, Check, ChevronDown } from 'lucide-react';
+import { ArrowDown, Check } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import {
@@ -10,12 +10,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { HowItWorksSection } from '@/components/landing/HowItWorksSection';
+import { FourBSystemSection } from '@/components/landing/FourBSystemSection';
+import { ProductComparisonSection } from '@/components/landing/ProductComparisonSection';
+import { MLBTechnologySection } from '@/components/landing/MLBTechnologySection';
 import rickCoaching1 from '@/assets/rick-coaching-1.jpg';
 import rickBenintendi from '@/assets/rick-benintendi.jpg';
-import fourBSystemDiagram from '@/assets/4b-system-diagram.png';
-import howItWorksImg from '@/assets/how-it-works.png';
-import productComparisonImg from '@/assets/product-comparison.png';
-import mlbTechnologyImg from '@/assets/mlb-technology.png';
 
 // MLB Team logos placeholder - would be replaced with actual images
 const mlbPlayers = [
@@ -150,39 +150,10 @@ export default function Index() {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 bg-surface">
-        <div className="container">
-          <div className="max-w-4xl mx-auto">
-            <img 
-              src={howItWorksImg} 
-              alt="How It Works - Step 1: Upload Your Swing (Record from phone, front or side view, takes 2 minutes), Step 2: Get Analyzed (Coach Rick reviews personally, 4B System scores your swing, identifies your number 1 problem), Step 3: Fix Your Weakness (Get personalized drill prescription, watch video demonstrations, track your progress)" 
-              className="w-full h-auto"
-            />
-          </div>
-
-          <div className="text-center mt-8">
-            <Button asChild variant="hero" size="lg">
-              <Link to="/analyze">GET MY SWING SCORE — $37</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+      <HowItWorksSection />
 
       {/* The 4B System Section */}
-      <section className="py-20 bg-background">
-        <div className="container">
-          <div className="max-w-4xl mx-auto">
-            <img 
-              src={fourBSystemDiagram} 
-              alt="The 4B Hitting System - Brain (Timing, Sync, Pattern Recognition: Pitch recognition, timing windows, plate discipline), Body (Ground-Up Sequencing, Force Creation: Pelvis rotation, hip-shoulder separation, kinetic chain), Bat (Barrel Control, Transfer Efficiency: Bat path, barrel release timing, attack angle), Ball (Contact Quality, Exit Velocity: Exit velocity, launch angle, hard contact rate)" 
-              className="w-full h-auto"
-            />
-            <p className="text-center mt-8 text-lg font-medium">
-              Most coaches guess. <span className="text-accent">We measure.</span> Then we fix the weakest link.
-            </p>
-          </div>
-        </div>
-      </section>
+      <FourBSystemSection />
 
       {/* Meet Your Coach Section */}
       <section className="py-20 bg-surface">
@@ -273,61 +244,10 @@ export default function Index() {
       </section>
 
       {/* Pricing Section - Product Comparison */}
-      <section className="py-20 bg-surface">
-        <div className="container">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
-            CHOOSE YOUR ANALYSIS
-          </h2>
-
-          <div className="max-w-4xl mx-auto mb-12">
-            <img 
-              src={productComparisonImg} 
-              alt="Product Comparison: Single Swing Score $37 (1 swing, 1 drill prescription, 48 hours, quick fix), Complete Review $97 Most Popular (5 swings, 30-day drill plan, 48 hours, serious improvement), In-Person Assessment $299 (Full session, custom program, same day, elite players)" 
-              className="w-full h-auto"
-            />
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-            <Button asChild variant="hero" size="lg">
-              <Link to="/analyze">GET MY SWING SCORE — $37</Link>
-            </Button>
-            <Button asChild variant="accent-outline" size="lg">
-              <Link to="/assessment">BOOK IN-PERSON ASSESSMENT — $299</Link>
-            </Button>
-          </div>
-
-          <div className="text-center pt-8 border-t border-border max-w-xl mx-auto">
-            <p className="text-muted-foreground mb-4">Want ongoing coaching from Rick?</p>
-            <Button asChild variant="accent-outline" size="lg">
-              <Link to="/inner-circle">JOIN RICK'S INNER CIRCLE — $297/month →</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+      <ProductComparisonSection />
 
       {/* MLB-Level Technology Section */}
-      <section className="py-20 bg-background">
-        <div className="container">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
-              WHY COACH RICK?
-            </h2>
-            <p className="text-center text-muted-foreground mb-8">
-              He helped build the technology. Now he uses it to analyze your swing.
-            </p>
-            <img 
-              src={mlbTechnologyImg} 
-              alt="MLB-Level Technology - Rick helped BUILD these systems. Now he uses them to analyze YOUR swing. Biomechanics: Reboot Motion 3D Motion Capture, Blast Motion Bat Sensors, HitTrax Ball Flight Tracking. Brain Vision: S2 Cognition MLB Evaluation System, Timing and Pattern Recognition Testing. Data Analysis: Rapsodo Pitch Tracking, Diamond Kinetics Swing Metrics, Uplift Performance Tracking." 
-              className="w-full h-auto"
-            />
-            <div className="text-center mt-8">
-              <Button asChild variant="accent-outline" size="lg">
-                <Link to="/about">LEARN MORE ABOUT RICK →</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
+      <MLBTechnologySection />
 
       {/* FAQ Section */}
       <section className="py-20 bg-background">
