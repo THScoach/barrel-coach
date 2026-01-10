@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.create-in-person-session]
 verify_jwt = false
+
+[functions.research-player]
+verify_jwt = false
