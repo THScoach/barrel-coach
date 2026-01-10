@@ -1,70 +1,73 @@
 import { Link } from 'react-router-dom';
 import { Logo } from './Logo';
+import { Mail, Twitter } from 'lucide-react';
 
 export function Footer() {
   return (
-    <footer className="bg-primary text-primary-foreground">
-      <div className="container py-12">
-        <div className="grid gap-8 md:grid-cols-4">
+    <footer className="bg-slate-950 border-t border-slate-800/50">
+      <div className="container py-16">
+        <div className="grid gap-12 md:grid-cols-4">
           {/* Logo & Tagline */}
           <div className="md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <Logo size="sm" linkTo="/" />
+            <Logo size="sm" linkTo="/" />
+            <p className="text-slate-400 mt-4 text-sm">Unlock Your Swing DNA</p>
+            <div className="flex gap-3 mt-6">
+              <a 
+                href="https://twitter.com/catchingbarrels" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-700 transition-all"
+              >
+                <Twitter className="w-5 h-5" />
+              </a>
+              <a 
+                href="mailto:support@catchingbarrels.com" 
+                className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-700 transition-all"
+              >
+                <Mail className="w-5 h-5" />
+              </a>
             </div>
-            <p className="text-sm text-primary-foreground/70">
-              Unlock Your Swing DNA
-            </p>
           </div>
 
           {/* Products */}
           <div>
-            <h4 className="font-semibold mb-4">Products</h4>
-            <ul className="space-y-2 text-sm text-primary-foreground/70">
+            <h4 className="font-semibold text-white mb-4">Products</h4>
+            <ul className="space-y-3">
               <li>
-                <Link to="/analyze" className="hover:text-accent transition-colors">
-                  Single Swing Score™
-                </Link>
+                <Link to="/analyze" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Single Swing Score™</Link>
               </li>
               <li>
-                <Link to="/analyze" className="hover:text-accent transition-colors">
-                  Complete Review
-                </Link>
+                <Link to="/analyze" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Complete Review</Link>
               </li>
               <li>
-                <Link to="/inner-circle" className="hover:text-accent transition-colors">
-                  Inner Circle
-                </Link>
+                <Link to="/inner-circle" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Inner Circle</Link>
               </li>
               <li>
-                <Link to="/assessment" className="hover:text-accent transition-colors">
-                  In-Person Assessment
-                </Link>
+                <Link to="/assessment" className="text-slate-400 hover:text-red-500 transition-colors text-sm">In-Person Assessment</Link>
               </li>
             </ul>
           </div>
 
           {/* Company */}
           <div>
-            <h4 className="font-semibold mb-4">Company</h4>
-            <ul className="space-y-2 text-sm text-primary-foreground/70">
+            <h4 className="font-semibold text-white mb-4">Company</h4>
+            <ul className="space-y-3">
               <li>
-                <Link to="/about" className="hover:text-accent transition-colors">
-                  About Rick
-                </Link>
+                <Link to="/about" className="text-slate-400 hover:text-red-500 transition-colors text-sm">About Rick</Link>
+              </li>
+              <li>
+                <Link to="/library" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Video Vault</Link>
               </li>
             </ul>
           </div>
 
           {/* Contact */}
           <div>
-            <h4 className="font-semibold mb-4">Contact</h4>
-            <ul className="space-y-2 text-sm text-primary-foreground/70">
+            <h4 className="font-semibold text-white mb-4">Contact</h4>
+            <ul className="space-y-3">
               <li>
-                <a 
-                  href="mailto:support@catchingbarrels.com" 
-                  className="hover:text-accent transition-colors"
-                >
-                  support@catchingbarrels.com
+                <a href="mailto:support@catchingbarrels.com" className="text-slate-400 hover:text-red-500 transition-colors text-sm flex items-center gap-2">
+                  <Mail className="w-4 h-4" /> support@catchingbarrels.com
                 </a>
               </li>
               <li>
@@ -72,9 +75,9 @@ export function Footer() {
                   href="https://twitter.com/catchingbarrels" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="hover:text-accent transition-colors"
+                  className="text-slate-400 hover:text-red-500 transition-colors text-sm flex items-center gap-2"
                 >
-                  @catchingbarrels
+                  <Twitter className="w-4 h-4" /> @catchingbarrels
                 </a>
               </li>
             </ul>
@@ -82,13 +85,11 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-12 pt-8 border-t border-primary-foreground/10 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-primary-foreground/50">
-            © 2025 Catching Barrels. All rights reserved.
-          </p>
-          <div className="flex gap-6 text-sm text-primary-foreground/50">
-            <a href="#" className="hover:text-accent transition-colors">Terms</a>
-            <a href="#" className="hover:text-accent transition-colors">Privacy</a>
+        <div className="mt-12 pt-8 border-t border-slate-800/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-slate-500">© 2025 Catching Barrels. All rights reserved.</p>
+          <div className="flex gap-6 text-sm text-slate-500">
+            <a href="#" className="hover:text-red-500 transition-colors">Terms</a>
+            <a href="#" className="hover:text-red-500 transition-colors">Privacy</a>
           </div>
         </div>
       </div>
