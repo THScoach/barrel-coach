@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/Header';
@@ -43,6 +44,10 @@ const techPartners = [
 ];
 
 export default function About() {
+  useEffect(() => {
+    document.title = 'Rick Strickland - MLB Hitting Coach, Baltimore Orioles | Catching Barrels';
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />

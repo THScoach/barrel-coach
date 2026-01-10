@@ -32,6 +32,11 @@ export default function Analyze() {
   const [results, setResults] = useState<AnalysisResults | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Set page title
+  useEffect(() => {
+    document.title = 'Swing Analysis Pricing - $37 Single Swing | Catching Barrels';
+  }, []);
+
   // Handle returning from Stripe checkout
   useEffect(() => {
     const urlSessionId = searchParams.get('session_id');

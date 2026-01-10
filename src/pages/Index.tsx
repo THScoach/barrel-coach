@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowDown, Video, Brain, FileText, Check, ChevronDown } from 'lucide-react';
@@ -52,6 +53,10 @@ const faqItems = [
 ];
 
 export default function Index() {
+  useEffect(() => {
+    document.title = 'Baseball Swing Analysis by MLB Hitting Coach | Catching Barrels';
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
