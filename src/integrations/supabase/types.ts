@@ -559,6 +559,7 @@ export type Database = {
           video_url: string
         }[]
       }
+      trigger_process_sms: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
