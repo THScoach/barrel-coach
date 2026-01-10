@@ -223,11 +223,11 @@ export default function Index() {
 
           {/* Featured player */}
           <div className="max-w-3xl mx-auto mb-12">
-            <div className="rounded-xl overflow-hidden aspect-video">
+            <div className="rounded-xl overflow-hidden aspect-[16/10]">
               <img 
                 src={rickBenintendi} 
                 alt="Rick Strickland with Andrew Benintendi" 
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover object-top"
               />
             </div>
             <p className="text-center mt-4 text-muted-foreground">
