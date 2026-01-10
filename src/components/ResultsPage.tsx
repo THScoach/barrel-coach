@@ -95,53 +95,81 @@ export function ResultsPage({ results, userAccessLevel = 'paid' }: ResultsPagePr
       )}
 
       {/* Main Problem */}
-      <Card className="p-6 mb-8 border-destructive/30">
-        <h2 className="text-lg font-bold mb-4">YOUR PROBLEM</h2>
-        
-        <ScoreBar 
-          label={results.mainProblem.category.toUpperCase()}
-          score={results.scores[results.mainProblem.category]}
-          description="How you swing the bat"
-          isWeakest
-        />
-        
-        <div className="mt-6">
-          <h3 className="font-bold text-lg mb-2">{results.mainProblem.name}</h3>
-          <p className="text-muted-foreground mb-4">
-            {results.mainProblem.description}
-          </p>
+      {results.mainProblem && (
+        <Card className="p-6 mb-8 border-destructive/30">
+          <h2 className="text-lg font-bold mb-4">YOUR PROBLEM</h2>
           
-          <div className="space-y-2">
-            <p className="font-medium text-sm">What this costs you:</p>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              {results.mainProblem.consequences.map((consequence, i) => (
-                <li key={i}>• {consequence}</li>
-              ))}
-            </ul>
+          <ScoreBar 
+            label={results.mainProblem.category?.toUpperCase() || 'ISSUE'}
+            score={results.scores?.[results.mainProblem.category] || 0}
+            description="How you swing the bat"
+            isWeakest
+          />
+          
+          <div className="mt-6">
+            <h3 className="font-bold text-lg mb-2">
+              {typeof results.mainProblem.name === 'string' 
+                ? results.mainProblem.name 
+                : (results.mainProblem.name as any)?.name || 'Problem Identified'}
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              {typeof results.mainProblem.description === 'string' 
+                ? results.mainProblem.description 
+                : String(results.mainProblem.description || '')}
+            </p>
+            
+            {results.mainProblem.consequences && results.mainProblem.consequences.length > 0 && (
+              <div className="space-y-2">
+                <p className="font-medium text-sm">What this costs you:</p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  {results.mainProblem.consequences.map((consequence, i) => (
+                    <li key={i}>• {typeof consequence === 'string' ? consequence : String(consequence)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* How to Fix It */}
-      <Card className="p-6 mb-8 border-success/30 bg-success/5">
-        <h2 className="text-lg font-bold mb-4">HOW TO FIX IT</h2>
-        
-        <div className="p-4 rounded-lg bg-background border border-border">
-          <div className="flex items-start justify-between mb-3">
-            <h3 className="font-bold">{results.drill.name}</h3>
-            <span className="text-sm text-muted-foreground">
-              {results.drill.sets} sets × {results.drill.reps} reps
-            </span>
+      {results.drill && (
+        <Card className="p-6 mb-8 border-success/30 bg-success/5">
+          <h2 className="text-lg font-bold mb-4">HOW TO FIX IT</h2>
+          
+          <div className="p-4 rounded-lg bg-background border border-border">
+            <div className="flex items-start justify-between mb-3">
+              <h3 className="font-bold">
+                {typeof results.drill.name === 'string' 
+                  ? results.drill.name 
+                  : (results.drill.name as any)?.name || 'Recommended Drill'}
+              </h3>
+              {results.drill.sets && results.drill.reps && (
+                <span className="text-sm text-muted-foreground">
+                  {results.drill.sets} sets × {results.drill.reps} reps
+                </span>
+              )}
+            </div>
+            {results.drill.instructions && (
+              <p className="text-sm text-muted-foreground mb-3">
+                {typeof results.drill.instructions === 'string' 
+                  ? results.drill.instructions 
+                  : String(results.drill.instructions)}
+              </p>
+            )}
+            {results.drill.whyItWorks && (
+              <p className="text-sm">
+                <span className="font-medium">Why this works:</span>{' '}
+                <span className="text-muted-foreground">
+                  {typeof results.drill.whyItWorks === 'string' 
+                    ? results.drill.whyItWorks 
+                    : String(results.drill.whyItWorks)}
+                </span>
+              </p>
+            )}
           </div>
-          <p className="text-sm text-muted-foreground mb-3">
-            {results.drill.instructions}
-          </p>
-          <p className="text-sm">
-            <span className="font-medium">Why this works:</span>{' '}
-            <span className="text-muted-foreground">{results.drill.whyItWorks}</span>
-          </p>
-        </div>
         </Card>
+      )}
 
       {/* Personalized Video Recommendations */}
       <VideoRecommendations 
