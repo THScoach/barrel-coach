@@ -265,6 +265,119 @@ export type Database = {
           },
         ]
       }
+      hittrax_sessions: {
+        Row: {
+          avg_distance: number | null
+          avg_exit_velo: number | null
+          avg_launch_angle: number | null
+          ball_score: number | null
+          balls_in_play: number | null
+          barrel_hits: number | null
+          barrel_pct: number | null
+          contact_rate: number | null
+          created_at: string | null
+          fly_ball_count: number | null
+          fouls: number | null
+          ground_ball_count: number | null
+          hit_types_breakdown: Json | null
+          id: string
+          max_distance: number | null
+          max_exit_velo: number | null
+          min_exit_velo: number | null
+          misses: number | null
+          optimal_la_count: number | null
+          player_id: string | null
+          points_per_swing: number | null
+          quality_hit_pct: number | null
+          quality_hits: number | null
+          results_breakdown: Json | null
+          session_date: string
+          source_file_path: string | null
+          total_points: number | null
+          total_swings: number
+          updated_at: string | null
+          velo_100_plus: number | null
+          velo_90_plus: number | null
+          velo_95_plus: number | null
+        }
+        Insert: {
+          avg_distance?: number | null
+          avg_exit_velo?: number | null
+          avg_launch_angle?: number | null
+          ball_score?: number | null
+          balls_in_play?: number | null
+          barrel_hits?: number | null
+          barrel_pct?: number | null
+          contact_rate?: number | null
+          created_at?: string | null
+          fly_ball_count?: number | null
+          fouls?: number | null
+          ground_ball_count?: number | null
+          hit_types_breakdown?: Json | null
+          id?: string
+          max_distance?: number | null
+          max_exit_velo?: number | null
+          min_exit_velo?: number | null
+          misses?: number | null
+          optimal_la_count?: number | null
+          player_id?: string | null
+          points_per_swing?: number | null
+          quality_hit_pct?: number | null
+          quality_hits?: number | null
+          results_breakdown?: Json | null
+          session_date: string
+          source_file_path?: string | null
+          total_points?: number | null
+          total_swings: number
+          updated_at?: string | null
+          velo_100_plus?: number | null
+          velo_90_plus?: number | null
+          velo_95_plus?: number | null
+        }
+        Update: {
+          avg_distance?: number | null
+          avg_exit_velo?: number | null
+          avg_launch_angle?: number | null
+          ball_score?: number | null
+          balls_in_play?: number | null
+          barrel_hits?: number | null
+          barrel_pct?: number | null
+          contact_rate?: number | null
+          created_at?: string | null
+          fly_ball_count?: number | null
+          fouls?: number | null
+          ground_ball_count?: number | null
+          hit_types_breakdown?: Json | null
+          id?: string
+          max_distance?: number | null
+          max_exit_velo?: number | null
+          min_exit_velo?: number | null
+          misses?: number | null
+          optimal_la_count?: number | null
+          player_id?: string | null
+          points_per_swing?: number | null
+          quality_hit_pct?: number | null
+          quality_hits?: number | null
+          results_breakdown?: Json | null
+          session_date?: string
+          source_file_path?: string | null
+          total_points?: number | null
+          total_swings?: number
+          updated_at?: string | null
+          velo_100_plus?: number | null
+          velo_90_plus?: number | null
+          velo_95_plus?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hittrax_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string
@@ -490,6 +603,8 @@ export type Database = {
           is_beta_tester: boolean | null
           is_public: boolean | null
           is_validation_study: boolean | null
+          latest_ball_score: number | null
+          latest_hittrax_session_id: string | null
           level: string | null
           name: string
           notes: string | null
@@ -517,6 +632,8 @@ export type Database = {
           is_beta_tester?: boolean | null
           is_public?: boolean | null
           is_validation_study?: boolean | null
+          latest_ball_score?: number | null
+          latest_hittrax_session_id?: string | null
           level?: string | null
           name: string
           notes?: string | null
@@ -544,6 +661,8 @@ export type Database = {
           is_beta_tester?: boolean | null
           is_public?: boolean | null
           is_validation_study?: boolean | null
+          latest_ball_score?: number | null
+          latest_hittrax_session_id?: string | null
           level?: string | null
           name?: string
           notes?: string | null
@@ -555,7 +674,15 @@ export type Database = {
           updated_at?: string | null
           weight_lbs?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "players_latest_hittrax_session_id_fkey"
+            columns: ["latest_hittrax_session_id"]
+            isOneToOne: false
+            referencedRelation: "hittrax_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       problem_tags: {
         Row: {

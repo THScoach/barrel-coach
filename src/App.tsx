@@ -22,6 +22,7 @@ import AdminPlayerProfile from "./pages/AdminPlayerProfile";
 import AdminImportKommodo from "./pages/AdminImportKommodo";
 import AdminSMS from "./pages/AdminSMS";
 import AdminRebootAnalysis from "./pages/AdminRebootAnalysis";
+import AdminHitTraxImport from "./pages/AdminHitTraxImport";
 import Library from "./pages/Library";
 import Results from "./pages/Results";
 import Login from "./pages/Login";
@@ -97,6 +98,11 @@ const App = () => (
               <Route path="/admin/reboot-analysis" element={
                 <ProtectedAdminRoute>
                   <AdminRebootAnalysis />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/hittrax-import" element={
+                <ProtectedAdminRoute>
+                  <AdminHitTraxImport />
                 </ProtectedAdminRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
