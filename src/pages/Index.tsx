@@ -79,23 +79,31 @@ export default function Index() {
         
         <div className="container relative z-10">
           <div className="max-w-3xl mx-auto text-center">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
               <span className="block text-white">UNLOCK YOUR</span>
               <span className="text-accent">SWING DNA</span>
             </h1>
+            <p className="text-xl md:text-2xl text-white font-medium mb-2">
+              Hit harder. Make contact more often. Get recruited.
+            </p>
             <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto">
               Get your swing analyzed by an MLB Hitting Coach. 
               Find your #1 problem. Get the drill to fix it.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
               <Button asChild variant="hero" size="xl">
-                <Link to="/analyze">GET YOUR SWING ANALYZED — $37</Link>
+                <Link to="/analyze">GET MY SWING SCORE — $37</Link>
               </Button>
               <Button variant="ghost" size="xl" className="text-white/70 hover:text-white">
                 See How It Works <ArrowDown className="ml-2 w-5 h-5" />
               </Button>
             </div>
+
+            {/* Turnaround Time */}
+            <p className="text-sm text-accent font-medium mb-8">
+              ⚡ Video analysis + drill plan delivered in under 60 seconds
+            </p>
 
             <div className="pt-8 border-t border-white/10">
               <p className="text-sm text-white/60 mb-4">
@@ -114,6 +122,33 @@ export default function Index() {
         </div>
       </section>
 
+      {/* Credibility Bar */}
+      <section className="bg-card border-b border-border py-4">
+        <div className="container">
+          <div className="flex flex-wrap justify-center items-center gap-6 md:gap-12 text-center">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-accent">400+</span>
+              <span className="text-sm text-muted-foreground">College Commits</span>
+            </div>
+            <div className="hidden md:block w-px h-6 bg-border" />
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-accent">78+</span>
+              <span className="text-sm text-muted-foreground">Pro Players</span>
+            </div>
+            <div className="hidden md:block w-px h-6 bg-border" />
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-accent">3</span>
+              <span className="text-sm text-muted-foreground">MLB Award Winners</span>
+            </div>
+            <div className="hidden md:block w-px h-6 bg-border" />
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-accent">1,000+</span>
+              <span className="text-sm text-muted-foreground">Swings Analyzed</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* How It Works Section */}
       <section id="how-it-works" className="py-20 bg-surface">
         <div className="container">
@@ -127,7 +162,7 @@ export default function Index() {
 
           <div className="text-center mt-8">
             <Button asChild variant="hero" size="lg">
-              <Link to="/analyze">GET STARTED — $37</Link>
+              <Link to="/analyze">GET MY SWING SCORE — $37</Link>
             </Button>
           </div>
         </div>
@@ -254,10 +289,10 @@ export default function Index() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
             <Button asChild variant="hero" size="lg">
-              <Link to="/analyze">GET YOUR SWING ANALYZED</Link>
+              <Link to="/analyze">GET MY SWING SCORE — $37</Link>
             </Button>
             <Button asChild variant="accent-outline" size="lg">
-              <Link to="/assessment">BOOK IN-PERSON SESSION</Link>
+              <Link to="/assessment">BOOK IN-PERSON ASSESSMENT — $299</Link>
             </Button>
           </div>
 
@@ -325,11 +360,14 @@ export default function Index() {
       {/* Final CTA */}
       <section className="py-20 bg-primary text-primary-foreground">
         <div className="container text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">
             Ready to unlock your swing potential?
           </h2>
+          <p className="text-lg text-white/80 mb-6">
+            Upload your swing. Get your score. Know exactly what to fix at your next practice.
+          </p>
           <Button asChild variant="hero" size="xl">
-            <Link to="/analyze">GET YOUR SWING ANALYZED — $37</Link>
+            <Link to="/analyze">GET MY SWING SCORE — $37</Link>
           </Button>
         </div>
       </section>
