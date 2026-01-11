@@ -483,7 +483,7 @@ export default function AdminNewSession() {
               <DialogTitle className="text-white">Record Video</DialogTitle>
             </DialogHeader>
             <VideoRecorder
-              onRecordingComplete={(blob) => {
+              onVideoRecorded={(blob) => {
                 const file = new File([blob], 'swing-recording.webm', { type: 'video/webm' });
                 setVideoFile(file);
                 setShowRecorder(false);

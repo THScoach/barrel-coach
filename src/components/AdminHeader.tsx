@@ -17,13 +17,7 @@ export function AdminHeader() {
   const navLinks = [
     { to: "/admin", label: "Dashboard" },
     { to: "/admin/players", label: "Players" },
-    { to: "/admin/analyzer", label: "Analyzer" },
-    { to: "/admin/reboot-analysis", label: "Reboot" },
-    { to: "/admin/hittrax-import", label: "HitTrax" },
-    { to: "/admin/videos", label: "Videos" },
-    { to: "/admin/messages", label: "Messages" },
-    { to: "/admin/sms", label: "SMS" },
-    { to: "/admin/import-kommodo", label: "Import" },
+    { to: "/admin/videos", label: "Library" },
   ];
 
   const isActive = (path: string) => {

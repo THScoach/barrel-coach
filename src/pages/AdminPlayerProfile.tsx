@@ -718,7 +718,7 @@ export default function AdminPlayerProfile() {
                                 <Target className="h-4 w-4 text-orange-400" />
                               </div>
                               <div>
-                                <p className="font-medium text-white">{getBrandDisplayName(session.source)}</p>
+                                <p className="font-medium text-white">{getBrandDisplayName(session.source as import("@/lib/csv-detector").LaunchMonitorBrand)}</p>
                                 <p className="text-sm text-slate-400">{formatDate(session.session_date)}</p>
                               </div>
                             </div>
@@ -820,30 +820,35 @@ export default function AdminPlayerProfile() {
       {/* Modals */}
       <PlayerResearchModal 
         open={showResearchModal}
-        onClose={() => setShowResearchModal(false)}
-        onDataReceived={handleResearchData}
+        onOpenChange={(open) => setShowResearchModal(open)}
+        onPlayerFound={handleResearchData}
       />
 
       {showDataUpload && id && (
         <UnifiedDataUploadModal
           open={showDataUpload}
-          onClose={() => setShowDataUpload(false)}
+          onOpenChange={(open) => setShowDataUpload(open)}
           playerId={id}
+          playerName={player?.first_name ? `${player.first_name} ${player.last_name || ''}`.trim() : 'Player'}
           onSuccess={refetchDataSessions}
         />
       )}
 
       {selectedLaunchMonitorSession && (
         <LaunchMonitorSessionDetail
+          open={!!selectedLaunchMonitorSession}
+          onOpenChange={(open) => !open && setSelectedLaunchMonitorSession(null)}
           session={selectedLaunchMonitorSession}
-          onClose={() => setSelectedLaunchMonitorSession(null)}
+          onDelete={refetchDataSessions}
         />
       )}
 
       {selectedRebootSession && (
         <RebootSessionDetail
+          open={!!selectedRebootSession}
+          onOpenChange={(open) => !open && setSelectedRebootSession(null)}
           session={selectedRebootSession}
-          onClose={() => setSelectedRebootSession(null)}
+          onDelete={refetchDataSessions}
         />
       )}
     </div>
