@@ -44,7 +44,7 @@ import PlayerDrills from "./pages/player/PlayerDrills";
 import PlayerMessages from "./pages/player/PlayerMessages";
 import PlayerProfile from "./pages/player/PlayerProfile";
 import PlayerNewSession from "./pages/player/PlayerNewSession";
-
+import PlayerWeeklyCheckin from "./pages/player/PlayerWeeklyCheckin";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -78,6 +78,7 @@ const App = () => (
                 <Route path="messages" element={<PlayerMessages />} />
                 <Route path="profile" element={<PlayerProfile />} />
                 <Route path="new-session" element={<PlayerNewSession />} />
+                <Route path="weekly-checkin" element={<PlayerWeeklyCheckin />} />
               </Route>
 
               {/* Admin Routes */}
