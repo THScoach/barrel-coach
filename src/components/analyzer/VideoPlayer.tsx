@@ -5,20 +5,29 @@ import {
   Play, Pause, SkipBack, SkipForward, Maximize, 
   ChevronLeft, ChevronRight, Volume2, VolumeX
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface VideoPlayerProps {
   src: string;
 }
 
-const PLAYBACK_SPEEDS = [0.25, 0.5, 1];
+const PLAYBACK_SPEEDS = [0.1, 0.25, 0.5, 1];
+const FPS_OPTIONS = [30, 60, 120, 240, 300];
 
 export function VideoPlayer({ src }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(0.25);
+  const [isMuted, setIsMuted] = useState(true);
+  const [fps, setFps] = useState(240); // Default to 240fps for high-speed footage
 
   useEffect(() => {
     const video = videoRef.current;
@@ -49,9 +58,10 @@ export function VideoPlayer({ src }: VideoPlayerProps) {
   useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
-    setPlaybackSpeed(1);
+    setPlaybackSpeed(0.25);
     if (videoRef.current) {
-      videoRef.current.playbackRate = 1;
+      videoRef.current.playbackRate = 0.25;
+      videoRef.current.muted = true;
     }
   }, [src]);
 
@@ -74,13 +84,15 @@ export function VideoPlayer({ src }: VideoPlayerProps) {
     setPlaybackSpeed(speed);
   };
 
+  // Frame step using selected FPS for accurate stepping
   const stepFrame = (direction: 'forward' | 'backward') => {
     const video = videoRef.current;
     if (!video) return;
     
     video.pause();
-    // Assuming ~30fps, each frame is ~0.033 seconds
-    const frameTime = 1 / 30;
+    
+    // Calculate frame time based on selected FPS
+    const frameTime = 1 / fps;
     const newTime = direction === 'forward' 
       ? Math.min(video.currentTime + frameTime, duration)
       : Math.max(video.currentTime - frameTime, 0);
@@ -128,9 +140,13 @@ export function VideoPlayer({ src }: VideoPlayerProps) {
   const formatTime = (time: number) => {
     const mins = Math.floor(time / 60);
     const secs = Math.floor(time % 60);
-    const ms = Math.floor((time % 1) * 100);
-    return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+    const ms = Math.floor((time % 1) * 1000);
+    return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
   };
+
+  // Calculate current frame number
+  const currentFrame = Math.floor(currentTime * fps);
+  const totalFrames = Math.floor(duration * fps);
 
   return (
     <div className="space-y-3">
@@ -140,31 +156,33 @@ export function VideoPlayer({ src }: VideoPlayerProps) {
         src={src}
         className="w-full aspect-video bg-black rounded-lg"
         onClick={togglePlay}
+        muted={isMuted}
+        playsInline
       />
+
+      {/* Frame Counter */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+        <span className="font-mono">Frame {currentFrame} / {totalFrames}</span>
+        <span className="font-mono">{formatTime(currentTime)} / {formatTime(duration)}</span>
+      </div>
 
       {/* Timeline Scrubber */}
       <div className="flex items-center gap-3">
-        <span className="text-xs text-muted-foreground w-14 text-right font-mono">
-          {formatTime(currentTime)}
-        </span>
         <Slider
           value={[currentTime]}
           min={0}
           max={duration || 1}
-          step={0.01}
+          step={1 / fps} // Step by frame
           onValueChange={handleSeek}
           className="flex-1"
         />
-        <span className="text-xs text-muted-foreground w-14 font-mono">
-          {formatTime(duration)}
-        </span>
       </div>
 
       {/* Controls */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         {/* Playback Controls */}
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => skip(-5)} title="Back 5s">
+          <Button variant="ghost" size="icon" onClick={() => skip(-1)} title="Back 1s">
             <SkipBack className="h-4 w-4" />
           </Button>
           <Button variant="ghost" size="icon" onClick={() => stepFrame('backward')} title="Previous Frame">
@@ -176,7 +194,7 @@ export function VideoPlayer({ src }: VideoPlayerProps) {
           <Button variant="ghost" size="icon" onClick={() => stepFrame('forward')} title="Next Frame">
             <ChevronRight className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => skip(5)} title="Forward 5s">
+          <Button variant="ghost" size="icon" onClick={() => skip(1)} title="Forward 1s">
             <SkipForward className="h-4 w-4" />
           </Button>
         </div>
@@ -194,6 +212,23 @@ export function VideoPlayer({ src }: VideoPlayerProps) {
               {speed}x
             </Button>
           ))}
+        </div>
+
+        {/* FPS Selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">FPS:</span>
+          <Select value={fps.toString()} onValueChange={(v) => setFps(Number(v))}>
+            <SelectTrigger className="w-20 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FPS_OPTIONS.map((fpsOption) => (
+                <SelectItem key={fpsOption} value={fpsOption.toString()}>
+                  {fpsOption}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Right Controls */}
