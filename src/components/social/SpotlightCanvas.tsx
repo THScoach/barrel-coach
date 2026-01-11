@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 
 interface SpotlightCanvasProps {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -8,19 +8,23 @@ interface SpotlightCanvasProps {
   enabled: boolean;
 }
 
+export interface SpotlightCanvasRef {
+  getCanvas: () => HTMLCanvasElement | null;
+}
+
 /**
  * Canvas overlay that applies SAM3 mask effects to video playback
  * - Spotlight mode: Keeps subject at 100%, dims background
  * - Highlight mode: Adds glow/emphasis to masked region
  * - Mute mode: Dims the masked region (inverse spotlight)
  */
-export function SpotlightCanvas({
+export const SpotlightCanvas = forwardRef<SpotlightCanvasRef, SpotlightCanvasProps>(function SpotlightCanvas({
   videoRef,
   maskUrl,
   mode,
   intensity = 0.7,
   enabled,
-}: SpotlightCanvasProps) {
+}, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskImageRef = useRef<HTMLImageElement | null>(null);
   const animationRef = useRef<number>(0);
@@ -99,6 +103,11 @@ export function SpotlightCanvas({
     };
   }, [enabled, renderFrame]);
 
+  // Expose canvas ref for export
+  useImperativeHandle(ref, () => ({
+    getCanvas: () => canvasRef.current,
+  }), []);
+
   if (!enabled) return null;
 
   return (
@@ -108,7 +117,7 @@ export function SpotlightCanvas({
       style={{ mixBlendMode: "normal" }}
     />
   );
-}
+});
 
 function applyMaskEffect(
   ctx: CanvasRenderingContext2D,
