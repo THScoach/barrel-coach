@@ -89,37 +89,51 @@ export default function AdminHitTraxImport() {
     
     setIsProcessing(true);
     
-    try {
-      const allRows: HitTraxRow[] = [];
-      let fileWarnings: string[] = [];
-      
-      for (const file of uploadedFiles) {
-        try {
-          const text = await file.text();
-          const rows = parseHitTraxCSV(text);
-          
-          if (rows.length === 0) {
-            fileWarnings.push(`${file.name}: No valid data found`);
-            console.warn(`File ${file.name}: No valid data - check column headers`);
-          } else {
-            console.log(`File ${file.name}: Parsed ${rows.length} swings`);
-            allRows.push(...rows);
-          }
-        } catch (fileError) {
-          console.warn(`Error parsing ${file.name}:`, fileError);
-          fileWarnings.push(`${file.name}: Parse error - skipped`);
+    const allRows: HitTraxRow[] = [];
+    const fileWarnings: string[] = [];
+    
+    for (const file of uploadedFiles) {
+      try {
+        console.log(`[HitTrax] Reading file: ${file.name} (${file.size} bytes)`);
+        const text = await file.text();
+        
+        if (!text || text.trim().length === 0) {
+          fileWarnings.push(`${file.name}: File is empty`);
+          console.warn(`[HitTrax] File ${file.name}: Empty file`);
+          continue;
         }
+        
+        // Log first few lines for debugging
+        const previewLines = text.split('\n').slice(0, 3);
+        console.log(`[HitTrax] File ${file.name} preview:`, previewLines);
+        
+        const rows = parseHitTraxCSV(text);
+        
+        if (rows.length === 0) {
+          fileWarnings.push(`${file.name}: No valid swing data found`);
+          console.warn(`[HitTrax] File ${file.name}: No valid data - check column headers`);
+        } else {
+          console.log(`[HitTrax] File ${file.name}: Parsed ${rows.length} swings successfully`);
+          allRows.push(...rows);
+        }
+      } catch (fileError) {
+        const errorMessage = fileError instanceof Error ? fileError.message : String(fileError);
+        console.error(`[HitTrax] Error parsing ${file.name}:`, errorMessage, fileError);
+        fileWarnings.push(`${file.name}: ${errorMessage}`);
       }
-      
-      if (allRows.length === 0) {
-        const message = fileWarnings.length > 0 
-          ? `No valid swing data found. Check CSV column headers match HitTrax format.`
-          : "No valid swing data found in the uploaded files";
-        toast.error(message);
-        setIsProcessing(false);
-        return;
-      }
-      
+    }
+    
+    if (allRows.length === 0) {
+      const warningDetails = fileWarnings.length > 0 
+        ? ` Issues: ${fileWarnings.join('; ')}`
+        : '';
+      toast.error(`No valid swing data found.${warningDetails}`, { duration: 6000 });
+      console.error('[HitTrax] No valid data found. Warnings:', fileWarnings);
+      setIsProcessing(false);
+      return;
+    }
+    
+    try {
       // Sort by swing number
       allRows.sort((a, b) => a.swingNumber - b.swingNumber);
       
@@ -131,13 +145,14 @@ export default function AdminHitTraxImport() {
       
       // Show appropriate success message
       if (fileWarnings.length > 0) {
-        toast.warning(`Processed ${allRows.length} swings from ${uploadedFiles.length - fileWarnings.length} file(s). Some files had issues.`);
+        toast.warning(`Processed ${allRows.length} swings from ${uploadedFiles.length - fileWarnings.length} file(s). Some files had issues.`, { duration: 5000 });
       } else {
         toast.success(`Processed ${allRows.length} swings from ${uploadedFiles.length} file(s)`);
       }
-    } catch (error) {
-      console.error("Error processing files:", error);
-      toast.error("Failed to process CSV files. Check file format and try again.");
+    } catch (statsError) {
+      const errorMessage = statsError instanceof Error ? statsError.message : String(statsError);
+      console.error('[HitTrax] Error calculating stats:', errorMessage, statsError);
+      toast.error(`Failed to calculate stats: ${errorMessage}`);
     } finally {
       setIsProcessing(false);
     }
