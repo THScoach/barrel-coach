@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,12 @@ import { Loader2, Trash2, Target } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrandDisplayName, LaunchMonitorBrand } from "@/lib/csv-detector";
-import { getScoreGrade } from "@/lib/launch-monitor-parser";
+import { LaunchMonitorBoxScore } from "@/components/LaunchMonitorBoxScore";
+import { 
+  calculateEnhancedStats, 
+  EnhancedLaunchMonitorStats,
+  PlayerLevel
+} from "@/lib/launch-monitor-metrics";
 
 interface LaunchMonitorSession {
   id: string;
@@ -43,6 +49,9 @@ interface LaunchMonitorSession {
   ball_score: number | null;
   results_breakdown: Record<string, number> | null;
   hit_types_breakdown: Record<string, number> | null;
+  raw_swings?: Array<{ exitVelo: number; launchAngle: number; distance?: number }>;
+  // Player context for level-based thresholds
+  player_level?: string;
 }
 
 interface LaunchMonitorSessionDetailProps {
@@ -50,33 +59,19 @@ interface LaunchMonitorSessionDetailProps {
   onOpenChange: (open: boolean) => void;
   session: LaunchMonitorSession | null;
   onDelete: () => void;
+  playerLevel?: string;
 }
 
 export function LaunchMonitorSessionDetail({
   open,
   onOpenChange,
   session,
-  onDelete
+  onDelete,
+  playerLevel = 'high_school'
 }: LaunchMonitorSessionDetailProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   
   if (!session) return null;
-  
-  const getScoreColor = (score: number | null) => {
-    if (score === null) return "text-muted-foreground";
-    if (score >= 60) return "text-green-500";
-    if (score >= 50) return "text-yellow-500";
-    if (score >= 40) return "text-orange-500";
-    return "text-red-500";
-  };
-  
-  const getScoreBgColor = (score: number | null) => {
-    if (score === null) return "bg-muted";
-    if (score >= 60) return "bg-green-500";
-    if (score >= 50) return "bg-yellow-500";
-    if (score >= 40) return "bg-orange-500";
-    return "bg-red-500";
-  };
   
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -109,132 +104,129 @@ export function LaunchMonitorSessionDetail({
       setIsDeleting(false);
     }
   };
-  
-  const ballScore = session.ball_score;
+
+  // Build enhanced stats from stored session data
+  // If we have raw_swings, use them for detailed calculation
+  // Otherwise, construct synthetic swings from aggregates
+  const buildEnhancedStats = (): EnhancedLaunchMonitorStats => {
+    const rawSwings = session.raw_swings as Array<{ exitVelo: number; launchAngle: number; distance?: number }> | undefined;
+    
+    if (rawSwings && rawSwings.length > 0) {
+      return calculateEnhancedStats(rawSwings, playerLevel);
+    }
+
+    // Fallback: construct stats from stored aggregates
+    // This won't have full score drivers but will display what we have
+    const totalSwings = session.total_swings;
+    const ballsInPlay = session.balls_in_play ?? totalSwings - (session.misses ?? 0);
+    const avgExitVelo = session.avg_exit_velo ?? 0;
+    const maxExitVelo = session.max_exit_velo ?? 0;
+    const avgLaunchAngle = session.avg_launch_angle ?? 0;
+    const avgDistance = session.avg_distance ?? 0;
+    const maxDistance = session.max_distance ?? 0;
+    const barrelCount = session.barrel_hits ?? 0;
+    const barrelRate = session.barrel_pct ?? 0;
+    const ballScore = session.ball_score ?? 50;
+    const contactRate = session.contact_rate ?? 0;
+    
+    // Estimate hard-hit from velo_95_plus if available
+    const hardHitCount = session.velo_95_plus ?? 0;
+    const hardHitRate = ballsInPlay > 0 ? (hardHitCount / ballsInPlay) * 100 : 0;
+    
+    // Construct LA distribution from stored counts
+    const groundBall = session.ground_ball_count ?? 0;
+    const flyBall = session.fly_ball_count ?? 0;
+    const optimalLa = session.optimal_la_count ?? 0;
+    // Estimate line drives as optimal LA count (roughly)
+    const lineDrive = optimalLa;
+    const popUp = Math.max(0, ballsInPlay - groundBall - flyBall - lineDrive);
+    
+    const laDistribution = {
+      groundBall,
+      lineDrive,
+      flyBall,
+      popUp,
+      groundBallPct: ballsInPlay > 0 ? Math.round((groundBall / ballsInPlay) * 1000) / 10 : 0,
+      lineDrivePct: ballsInPlay > 0 ? Math.round((lineDrive / ballsInPlay) * 1000) / 10 : 0,
+      flyBallPct: ballsInPlay > 0 ? Math.round((flyBall / ballsInPlay) * 1000) / 10 : 0,
+      popUpPct: ballsInPlay > 0 ? Math.round((popUp / ballsInPlay) * 1000) / 10 : 0,
+    };
+
+    // Get thresholds for the level
+    const { getLevelThresholds, calculateScoreDrivers } = require('@/lib/launch-monitor-metrics');
+    const thresholds = getLevelThresholds(playerLevel);
+    const level = (playerLevel?.toLowerCase().replace(/[\s_-]/g, '_') || 'high_school') as PlayerLevel;
+    
+    const sweetSpotCount = optimalLa;
+    const sweetSpotPct = ballsInPlay > 0 ? (sweetSpotCount / ballsInPlay) * 100 : 0;
+    const optimalLaPct = sweetSpotPct;
+
+    const scoreComponents = calculateScoreDrivers(
+      avgExitVelo,
+      contactRate,
+      barrelRate,
+      avgLaunchAngle,
+      optimalLaPct,
+      hardHitRate,
+      level
+    );
+
+    return {
+      totalSwings,
+      ballsInPlay,
+      contactRate: Math.round(contactRate * 10) / 10,
+      avgExitVelo: Math.round(avgExitVelo * 10) / 10,
+      maxExitVelo: Math.round(maxExitVelo * 10) / 10,
+      avgLaunchAngle: Math.round(avgLaunchAngle * 10) / 10,
+      avgDistance: Math.round(avgDistance),
+      maxDistance: Math.round(maxDistance),
+      ballScore,
+      level,
+      thresholds,
+      barrelCount,
+      barrelRate: Math.round(barrelRate * 10) / 10,
+      hardHitCount,
+      hardHitRate: Math.round(hardHitRate * 10) / 10,
+      laDistribution,
+      scoreComponents,
+      sweetSpotCount,
+      sweetSpotPct: Math.round(sweetSpotPct * 10) / 10,
+    };
+  };
+
+  const enhancedStats = buildEnhancedStats();
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-slate-950 border-slate-800">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-white">
             <Target className="h-5 w-5 text-blue-500" />
             Launch Monitor Session
           </DialogTitle>
-          <div className="flex items-center gap-2">
-            <p className="text-sm text-muted-foreground">{formatDate(session.session_date)}</p>
-            <Badge variant="outline">{getBrandDisplayName(session.source as LaunchMonitorBrand)}</Badge>
-          </div>
+          <DialogDescription className="flex items-center gap-2">
+            <span>{formatDate(session.session_date)}</span>
+            <Badge variant="outline" className="border-slate-700">
+              {getBrandDisplayName(session.source as LaunchMonitorBrand)}
+            </Badge>
+          </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-6">
-          {/* Ball Score */}
-          <div className={`p-4 rounded-lg text-center text-white ${getScoreBgColor(ballScore)}`}>
-            <div className="text-sm opacity-90">Ball Score</div>
-            <div className="text-4xl font-bold">{ballScore ?? '--'}</div>
-            <div className="text-sm opacity-90">
-              {ballScore ? getScoreGrade(ballScore) : 'No data'}
-            </div>
-          </div>
-          
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm text-muted-foreground">CONTACT</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Swings:</span>
-                  <span className="font-medium">{session.total_swings}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Misses:</span>
-                  <span className="font-medium">
-                    {session.misses ?? 0} ({session.total_swings > 0 ? Math.round(((session.misses ?? 0) / session.total_swings) * 100) : 0}%)
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Contact Rate:</span>
-                  <span className="font-medium">{session.contact_rate ?? '--'}%</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm text-muted-foreground">EXIT VELOCITY</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Average:</span>
-                  <span className="font-medium">{session.avg_exit_velo ?? '--'} mph</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Max:</span>
-                  <span className="font-medium">{session.max_exit_velo ?? '--'} mph</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">100+ mph:</span>
-                  <span className="font-medium">{session.velo_100_plus ?? 0} swings</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm text-muted-foreground">LAUNCH ANGLE</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Average:</span>
-                  <span className="font-medium">{session.avg_launch_angle ?? '--'}°</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Optimal (10-25°):</span>
-                  <span className="font-medium">{session.optimal_la_count ?? 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Ground Balls:</span>
-                  <span className="font-medium">{session.ground_ball_count ?? 0}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm text-muted-foreground">QUALITY METRICS</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Quality Hit %:</span>
-                  <span className="font-medium">{session.quality_hit_pct ?? '--'}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Barrel %:</span>
-                  <span className="font-medium">{session.barrel_pct ?? '--'}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Points/Swing:</span>
-                  <span className="font-medium">{session.points_per_swing ?? '--'}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="space-y-4">
+          {/* ESPN-Style Box Score */}
+          <LaunchMonitorBoxScore 
+            stats={enhancedStats} 
+            showPeerComparison={true}
+          />
           
           {/* Results Breakdown */}
           {session.results_breakdown && Object.keys(session.results_breakdown).length > 0 && (
             <div className="space-y-2">
-              <h4 className="font-medium text-sm text-muted-foreground">RESULTS BREAKDOWN</h4>
+              <h4 className="font-medium text-sm text-slate-400">RESULTS BREAKDOWN</h4>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(session.results_breakdown).map(([result, count]) => (
-                  <Badge key={result} variant="secondary">
+                  <Badge key={result} variant="secondary" className="bg-slate-800 text-slate-300">
                     {result}: {count}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {/* Hit Types Breakdown */}
-          {session.hit_types_breakdown && Object.keys(session.hit_types_breakdown).length > 0 && (
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm text-muted-foreground">HIT TYPES</h4>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(session.hit_types_breakdown).map(([type, count]) => (
-                  <Badge key={type} variant="outline">
-                    {type}: {count}
                   </Badge>
                 ))}
               </div>
