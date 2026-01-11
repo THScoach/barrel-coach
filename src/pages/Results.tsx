@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Brain, Activity, Zap, Target, Play, MessageCircle, ArrowRight, AlertTriangle } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { FourBScoreCard } from "@/components/FourBScoreCard";
-
+import { TrainingSwingVisualizer } from "@/components/TrainingSwingVisualizer";
+import { LeakType } from "@/lib/reboot-parser";
 interface SessionData {
   id: string;
   player_name: string;
@@ -27,6 +28,7 @@ interface AnalysisData {
   coach_notes: string | null;
   motor_profile: string | null;
   recommended_drill_ids: string[] | null;
+  leak_type?: string | null;
 }
 
 interface DrillVideo {
@@ -36,6 +38,35 @@ interface DrillVideo {
   video_url: string;
   thumbnail_url: string | null;
   duration_seconds: number | null;
+}
+
+// Map primary problem string to LeakType for legacy data
+function mapProblemToLeak(problem: string): LeakType {
+  const normalized = problem.toLowerCase().replace(/[\s_-]+/g, '_');
+  
+  if (normalized.includes('early') && normalized.includes('back')) {
+    return LeakType.EARLY_BACK_LEG_RELEASE;
+  }
+  if (normalized.includes('late') && normalized.includes('lead')) {
+    return LeakType.LATE_LEAD_LEG_ACCEPTANCE;
+  }
+  if (normalized.includes('vertical') || normalized.includes('push')) {
+    return LeakType.VERTICAL_PUSH;
+  }
+  if (normalized.includes('glide') || normalized.includes('drift')) {
+    return LeakType.GLIDE_WITHOUT_CAPTURE;
+  }
+  if (normalized.includes('late') && (normalized.includes('engine') || normalized.includes('timing'))) {
+    return LeakType.LATE_ENGINE;
+  }
+  if (normalized.includes('core') || normalized.includes('disconnect') || normalized.includes('sequence')) {
+    return LeakType.CORE_DISCONNECT;
+  }
+  if (normalized.includes('clean') || normalized.includes('good')) {
+    return LeakType.CLEAN_TRANSFER;
+  }
+  
+  return LeakType.UNKNOWN;
 }
 
 export default function Results() {
@@ -150,7 +181,18 @@ export default function Results() {
           </h1>
         </div>
 
-        {/* 4B Score Card */}
+        {/* Training Visualizer - Shows WHAT caused the issue */}
+        {analysis?.primary_problem && (
+          <div className="mb-6">
+            <TrainingSwingVisualizer
+              leakType={(analysis.leak_type as LeakType) || mapProblemToLeak(analysis.primary_problem)}
+              swingCount={isCompleteReview ? 5 : 1}
+              hasContactEvent={true}
+            />
+          </div>
+        )}
+
+        {/* 4B Score Card - Shows HOW the swing grades */}
         <div className="mb-8">
           <FourBScoreCard
             brainScore={session.four_b_brain}

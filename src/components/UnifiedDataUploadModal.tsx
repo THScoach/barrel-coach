@@ -25,7 +25,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { detectCsvType, parseCSV, getBrandDisplayName, CsvType, LaunchMonitorBrand } from "@/lib/csv-detector";
 import { parseLaunchMonitorData, calculateLaunchMonitorStats, LaunchMonitorSessionStats } from "@/lib/launch-monitor-parser";
-import { calculateRebootScores, RebootScores, processRebootIK, processRebootME, RebootIKMetrics, RebootMEMetrics } from "@/lib/reboot-parser";
+import { calculateRebootScores, RebootScores, processRebootIK, processRebootME, RebootIKMetrics, RebootMEMetrics, LeakType } from "@/lib/reboot-parser";
+import { TrainingSwingVisualizer } from "@/components/TrainingSwingVisualizer";
 
 interface DetectedFile {
   file: File;
@@ -565,6 +566,17 @@ export function UnifiedDataUploadModal({
                   <span className="font-medium">{rebootScores.properSequencePct}%</span>
                 </div>
               </div>
+              
+              {/* Training Visualizer - Show the leak */}
+              {rebootScores.leak && rebootScores.leak.type !== LeakType.UNKNOWN && (
+                <div className="border-t border-purple-200 dark:border-purple-800 pt-3">
+                  <TrainingSwingVisualizer
+                    leakType={rebootScores.leak.type}
+                    swingCount={rebootScores.swingCount || 0}
+                    hasContactEvent={rebootScores.dataQuality?.hasContactEvent ?? true}
+                  />
+                </div>
+              )}
               
               <div className="text-sm text-center text-muted-foreground">
                 Weakest Link: <span className="font-medium capitalize text-orange-500">{rebootScores.weakestLink}</span>
