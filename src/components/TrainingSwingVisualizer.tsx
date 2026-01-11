@@ -225,10 +225,47 @@ function getJointColor(
   }
 }
 
+// Compute centroid of highlighted joints for pulse ring placement
+function computePulseCentroid(
+  highlightedJoints: Set<string>,
+  primaryCause: string
+): { x: number; y: number } {
+  // Priority: use leg joints when available
+  const legJoints = ['rear_hip', 'rear_knee', 'rear_ankle', 'lead_hip', 'lead_knee', 'lead_ankle'];
+  const relevantJoints = Array.from(highlightedJoints).filter(j => 
+    legJoints.includes(j) && SKELETON_POSITIONS[j as keyof typeof SKELETON_POSITIONS]
+  );
+  
+  // Fallback to all highlighted joints if no leg joints
+  const jointsToUse = relevantJoints.length > 0 
+    ? relevantJoints 
+    : Array.from(highlightedJoints).filter(j => SKELETON_POSITIONS[j as keyof typeof SKELETON_POSITIONS]);
+  
+  if (jointsToUse.length === 0) {
+    // Default fallback based on primaryCause
+    if (primaryCause === 'rear_leg') return { x: 115, y: 175 };
+    if (primaryCause === 'lead_leg') return { x: 155, y: 175 };
+    return { x: 135, y: 150 }; // center
+  }
+  
+  // Calculate centroid
+  let sumX = 0, sumY = 0;
+  for (const joint of jointsToUse) {
+    const pos = SKELETON_POSITIONS[joint as keyof typeof SKELETON_POSITIONS];
+    sumX += pos.x;
+    sumY += pos.y;
+  }
+  
+  return {
+    x: sumX / jointsToUse.length,
+    y: sumY / jointsToUse.length,
+  };
+}
+
 export function TrainingSwingVisualizer({
   leakType,
-  swingCount = 0,
-  hasContactEvent = false,
+  swingCount,
+  hasContactEvent,
   className = '',
 }: TrainingSwingVisualizerProps) {
   const [isAnimating, setIsAnimating] = useState(false);
@@ -237,6 +274,7 @@ export function TrainingSwingVisualizer({
   const translation = getTrainingTranslation(leakType);
   const confidence = hasConfidentAnalysis(swingCount, hasContactEvent, leakType);
   const highlightedJoints = getHighlightedJoints(translation);
+  const pulseCentroid = computePulseCentroid(highlightedJoints, translation.primaryCause);
   
   // Auto-play animation on mount
   useEffect(() => {
@@ -394,13 +432,12 @@ export function TrainingSwingVisualizer({
             strokeWidth="3"
           />
           
-          {/* Freeze indicator */}
+          {/* Freeze indicator - pulse ring centered on highlighted joints */}
           {showHighlight && translation.primaryCause !== 'none' && (
             <g>
-              {/* Pulse ring around issue area */}
               <circle
-                cx={translation.primaryCause === 'rear_leg' ? 115 : 155}
-                cy={175}
+                cx={pulseCentroid.x}
+                cy={pulseCentroid.y}
                 r="30"
                 fill="none"
                 stroke={translation.causeColor === 'red' ? 'hsl(0 84% 60% / 0.3)' : 'hsl(45 93% 58% / 0.3)'}
