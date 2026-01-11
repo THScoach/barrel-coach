@@ -230,6 +230,8 @@ export function UnifiedDataUploadModal({
   };
   
   const saveToDatabase = async () => {
+    console.log('[UnifiedDataUploadModal] saveToDatabase called with playerId:', playerId);
+    
     if (!launchMonitorStats && !rebootScores) {
       toast.error("Please process files first");
       return;
@@ -239,6 +241,7 @@ export function UnifiedDataUploadModal({
     
     try {
       // Save launch monitor session
+      console.log('[UnifiedDataUploadModal] Saving with player_id:', playerId);
       if (launchMonitorStats) {
         const { data: sessionData, error: lmError } = await supabase
           .from("launch_monitor_sessions")
