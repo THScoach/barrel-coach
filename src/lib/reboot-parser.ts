@@ -1,6 +1,126 @@
-// Reboot Motion CSV Parser and 4B Bio Engine (KRS - Kinetic Report Scoring)
-// Coach Rick's complete scoring system for Catching Barrels
+/**
+ * 4B Bio Engine - Corrected Version
+ * =============================================
+ * Coach Rick's KRS (Kinetic Report Scoring) System
+ * 
+ * FIXES APPLIED:
+ * 1. Removed erroneous * 1000 from velocity calculations
+ * 2. Uses time_from_max_hand for contact detection
+ * 3. Filters to swing phase only (time_from_max_hand <= 0)
+ * 4. Handles missing Bat KE gracefully
+ * 5. Skips CV-based scores when swing count < 3
+ * 6. Adds data quality flags
+ * 7. Detects leak types for visualization
+ */
 
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export enum LeakType {
+  CLEAN_TRANSFER = 'clean_transfer',
+  EARLY_BACK_LEG_RELEASE = 'early_back_leg_release',
+  LATE_LEAD_LEG_ACCEPTANCE = 'late_lead_leg_acceptance',
+  VERTICAL_PUSH = 'vertical_push',
+  GLIDE_WITHOUT_CAPTURE = 'glide_without_capture',
+  LATE_ENGINE = 'late_engine',
+  CORE_DISCONNECT = 'core_disconnect',
+  UNKNOWN = 'unknown',
+}
+
+export interface DataQualityFlags {
+  swingCount: number;
+  hasContactEvent: boolean;
+  hasBatKE: boolean;
+  batKECoverage: number;
+  cvScoresValid: boolean;
+  incompleteSwings: string[];
+  warnings: string[];
+}
+
+export interface SwingMetrics {
+  movementId: string;
+  
+  // Velocities (deg/s)
+  pelvisVelocity: number;
+  torsoVelocity: number;
+  
+  // Separation (degrees)
+  xFactor: number;
+  xFactorStretchRate: number;
+  
+  // Timing (ms)
+  pelvisPeakTime: number;
+  torsoPeakTime: number;
+  contactTime: number;
+  pelvisTiming: number;
+  
+  // Kinetic Energy (Joules)
+  legsKE: number;
+  torsoKE: number;
+  armsKE: number;
+  batKE: number;
+  totalKE: number;
+  
+  // Angles at contact (degrees)
+  leadKneeAtContact: number;
+  leadElbowAtContact: number;
+  rearElbowAtContact: number;
+  
+  // Extension rates (deg/s)
+  rearElbowExtRate: number;
+  
+  // Derived
+  properSequence: boolean;
+  batEfficiency: number;
+  
+  // Energy timing
+  legsKEPeakTime: number;
+  armsKEPeakTime: number;
+}
+
+export interface FourBScores {
+  // Scores (20-80 scale)
+  brain: number;
+  body: number;
+  bat: number;
+  ball: number;
+  catchBarrelScore: number;
+  
+  // Grades
+  grades: {
+    brain: string;
+    body: string;
+    bat: string;
+    ball: string;
+    overall: string;
+  };
+  
+  // Flow components
+  components: {
+    groundFlow: number;
+    coreFlow: number;
+    upperFlow: number;
+  };
+  
+  // Raw metrics
+  rawMetrics: Record<string, number>;
+  
+  // Leak detection
+  leak: {
+    type: LeakType;
+    caption: string;
+    trainingMeaning: string;
+  };
+  
+  // Data quality
+  dataQuality: DataQualityFlags;
+  
+  // Per-swing data
+  swings: SwingMetrics[];
+}
+
+// Legacy interface for backward compatibility
 export interface RebootScores {
   brainScore: number;
   bodyScore: number;
@@ -48,6 +168,16 @@ export interface RebootScores {
   
   weakestLink: 'brain' | 'body' | 'bat' | 'ball';
   
+  // Leak detection
+  leak?: {
+    type: LeakType;
+    caption: string;
+    trainingMeaning: string;
+  };
+  
+  // Data quality
+  dataQuality?: DataQualityFlags;
+  
   // Detailed metrics
   ikMetrics?: RebootIKMetrics;
   meMetrics?: RebootMEMetrics;
@@ -93,31 +223,11 @@ export interface RebootMEMetrics {
   swingCount: number;
 }
 
-// Per-swing metrics for detailed analysis
-interface SwingMetrics {
-  pelvisVelocity: number;
-  torsoVelocity: number;
-  xFactor: number;
-  xFactorStretchRate: number;
-  legsKE: number;
-  batKE: number;
-  armsKE: number;
-  totalKE: number;
-  leadKneeAtContact: number;
-  rearElbowExtRate: number;
-  leadElbowAtContact: number;
-  rearElbowAtContact: number;
-  pelvisPeakTime: number;
-  torsoPeakTime: number;
-  contactTime: number;
-  properSequence: boolean;
-}
-
 // ============================================================================
-// THRESHOLDS - Coach Rick's KRS Thresholds
+// CONSTANTS
 // ============================================================================
 
-const THRESHOLDS = {
+export const THRESHOLDS = {
   // Ground Flow (BODY)
   pelvisVelocity: { min: 400, max: 900 },      // deg/s
   legsKE: { min: 100, max: 500 },              // Joules
@@ -136,7 +246,7 @@ const THRESHOLDS = {
   rearElbowExtRate: { min: 200, max: 600 },    // deg/s
   batEfficiency: { min: 25, max: 65 },         // percentage
   
-  // Consistency (BRAIN) - INVERTED (lower CV = higher score)
+  // Consistency (BRAIN) - INVERTED
   cvPelvis: { min: 5, max: 40 },               // percentage
   cvTorso: { min: 5, max: 40 },                // percentage
   cvXFactor: { min: 10, max: 80 },             // percentage
@@ -147,34 +257,70 @@ const THRESHOLDS = {
   cvRearElbow: { min: 5, max: 30 },            // percentage
 };
 
-// ============================================================================
-// COMPOSITE FORMULA WEIGHTS
-// ============================================================================
-
-const WEIGHTS = {
+export const WEIGHTS = {
   body: 0.35,
   bat: 0.30,
   brain: 0.20,
   ball: 0.15,
 };
 
-// ============================================================================
-// GRADE LABELS (20-80 Scout Scale)
-// ============================================================================
+export const MIN_SWINGS_FOR_CV = 3;
 
-const GRADE_LABELS = {
-  70: 'PLUS-PLUS',
-  60: 'PLUS',
-  55: 'ABOVE AVG',
-  45: 'AVERAGE',
-  40: 'BELOW AVG',
-  30: 'FRINGE',
-  20: 'POOR',
+export const LEAK_MESSAGES: Record<LeakType, { caption: string; training: string }> = {
+  [LeakType.CLEAN_TRANSFER]: {
+    caption: 'Energy transferred cleanly.',
+    training: 'Keep doing what you\'re doing.',
+  },
+  [LeakType.EARLY_BACK_LEG_RELEASE]: {
+    caption: 'You left the ground too early.',
+    training: 'Stay connected to the ground longer.',
+  },
+  [LeakType.LATE_LEAD_LEG_ACCEPTANCE]: {
+    caption: 'You didn\'t catch force on the front side.',
+    training: 'Learn to accept force earlier.',
+  },
+  [LeakType.VERTICAL_PUSH]: {
+    caption: 'You pushed up instead of into the ground.',
+    training: 'Redirect force into the ground.',
+  },
+  [LeakType.GLIDE_WITHOUT_CAPTURE]: {
+    caption: 'You moved without stopping.',
+    training: 'Learn when to stop and transfer.',
+  },
+  [LeakType.LATE_ENGINE]: {
+    caption: 'Your legs produced power — it just showed up late.',
+    training: 'Stay connected to the ground longer.',
+  },
+  [LeakType.CORE_DISCONNECT]: {
+    caption: 'Your upper body fired before your lower body.',
+    training: 'Let the hips lead the hands.',
+  },
+  [LeakType.UNKNOWN]: {
+    caption: '',
+    training: '',
+  },
 };
 
-/**
- * Get grade label for a 20-80 score
- */
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+export function calculateCV(values: number[]): number {
+  if (values.length < 2) return 0;
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  if (mean === 0) return 0;
+  const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+  return (Math.sqrt(variance) / Math.abs(mean)) * 100;
+}
+
+export function to2080Scale(value: number, min: number, max: number, invert = false): number {
+  if (max === min) return 50;
+  let normalized = (value - min) / (max - min);
+  if (invert) normalized = 1 - normalized;
+  normalized = Math.max(0, Math.min(1, normalized));
+  return Math.round(20 + normalized * 60);
+}
+
 export function getGrade(score: number): string {
   if (score >= 70) return 'Plus-Plus';
   if (score >= 60) return 'Plus';
@@ -185,9 +331,6 @@ export function getGrade(score: number): string {
   return 'Poor';
 }
 
-/**
- * Get consistency grade based on CV
- */
 export function getConsistencyGrade(cv: number): string {
   if (cv < 6) return 'Elite';
   if (cv < 10) return 'Plus';
@@ -197,46 +340,10 @@ export function getConsistencyGrade(cv: number): string {
 }
 
 /**
- * Convert raw metric to 20-80 scale
+ * Calculate velocities from position values
+ * NOTE: No * 1000 multiplier - time is already in seconds
  */
-function to2080Scale(value: number, min: number, max: number, invert = false): number {
-  let normalized = (value - min) / (max - min);
-  if (invert) normalized = 1 - normalized;
-  normalized = Math.max(0, Math.min(1, normalized)); // Clamp 0-1
-  return Math.round(20 + normalized * 60); // Map to 20-80
-}
-
-/**
- * Calculate mean of array
- */
-function mean(arr: number[]): number {
-  return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-}
-
-/**
- * Calculate standard deviation
- */
-function std(arr: number[]): number {
-  if (!arr.length) return 0;
-  const m = mean(arr);
-  return Math.sqrt(arr.reduce((acc, val) => acc + Math.pow(val - m, 2), 0) / arr.length);
-}
-
-/**
- * Calculate coefficient of variation (CV) as percentage
- * Lower CV = more consistent
- */
-function coefficientOfVariation(arr: number[]): number {
-  if (arr.length === 0) return 0;
-  const m = mean(arr);
-  if (m === 0) return 0;
-  return (std(arr) / Math.abs(m)) * 100;
-}
-
-/**
- * Calculate velocities from position/angle data
- */
-function calculateVelocities(values: number[], times: number[]): number[] {
+export function calculateVelocities(values: number[], times: number[]): number[] {
   const velocities: number[] = [];
   for (let i = 1; i < values.length; i++) {
     const dt = times[i] - times[i - 1];
@@ -249,34 +356,21 @@ function calculateVelocities(values: number[], times: number[]): number[] {
   return velocities;
 }
 
-/**
- * Calculate angular velocity from angle data (fixed dt)
- */
-function calculateAngularVelocity(angles: number[], dt: number = 0.008333): number[] {
-  const velocities: number[] = [];
-  for (let i = 1; i < angles.length; i++) {
-    velocities.push((angles[i] - angles[i - 1]) / dt);
-  }
-  return velocities;
+export function percentile(values: number[], p: number): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const idx = Math.floor(sorted.length * p / 100);
+  return sorted[Math.min(idx, sorted.length - 1)];
 }
 
-/**
- * Find column value with flexible matching
- */
-function findColumn(row: Record<string, any>, patterns: string[]): number | null {
-  for (const key of Object.keys(row)) {
-    const lowerKey = key.toLowerCase();
-    if (patterns.some(p => lowerKey.includes(p))) {
-      const val = parseFloat(row[key]);
-      return isNaN(val) ? null : val;
-    }
-  }
-  return null;
+export function radToDeg(rad: number): number {
+  return rad * (180 / Math.PI);
 }
 
-/**
- * Group array by key
- */
+export function avg(arr: number[]): number {
+  return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+}
+
 function groupBy<T>(array: T[], key: keyof T): Record<string, T[]> {
   return array.reduce((result, item) => {
     const groupKey = String(item[key] ?? 'unknown');
@@ -288,309 +382,172 @@ function groupBy<T>(array: T[], key: keyof T): Record<string, T[]> {
   }, {} as Record<string, T[]>);
 }
 
-/**
- * Process Reboot IK data and extract key metrics per swing
- */
-export function processRebootIK(ikData: Record<string, any>[], dominantHand: 'L' | 'R' = 'R'): RebootIKMetrics {
-  // Try to group by org_movement_id first, then movement_id
-  let swings = groupBy(ikData, 'org_movement_id' as keyof Record<string, any>);
-  
-  // If org_movement_id grouping failed, try movement_id
-  const validSwings = Object.entries(swings).filter(([id]) => 
-    id !== 'n/a' && id !== 'undefined' && id !== 'unknown' && id !== 'null'
-  );
-  
-  if (validSwings.length === 0) {
-    swings = groupBy(ikData, 'movement_id' as keyof Record<string, any>);
-  }
-  
-  const leadKneeCol = dominantHand === 'R' ? 'left_knee' : 'right_knee';
-  const rearKneeCol = dominantHand === 'R' ? 'right_knee' : 'left_knee';
-  const leadElbowCol = dominantHand === 'R' ? 'left_elbow' : 'right_elbow';
-  const rearElbowCol = dominantHand === 'R' ? 'right_elbow' : 'left_elbow';
-  const leadHipCol = dominantHand === 'R' ? 'left_hip_flex' : 'right_hip_flex';
-  
-  const processedSwings: {
-    pelvisRotMax: number;
-    torsoRotMax: number;
-    xFactorMax: number;
-    leadHipFlexMax: number;
-    leadKneeFlexMax: number;
-    leadShoulderElevMax: number;
-    rearShoulderElevMax: number;
-    leadElbowMax: number;
-    rearElbowMax: number;
-  }[] = [];
-  
-  for (const [movementId, rows] of Object.entries(swings)) {
-    if (movementId === 'n/a' || movementId === 'undefined' || movementId === 'unknown' || movementId === 'null') continue;
-    
-    // Convert radians to degrees if needed (Reboot uses radians)
-    const toDegrees = (val: number) => Math.abs(val) > 10 ? val : val * (180 / Math.PI);
-    
-    const pelvisRotValues = rows.map(r => toDegrees(parseFloat(r.pelvis_rot) || 0));
-    const torsoRotValues = rows.map(r => toDegrees(parseFloat(r.torso_rot) || 0));
-    
-    // Calculate X-Factor (torso - pelvis separation)
-    const xFactorValues = rows.map(r => 
-      Math.abs(toDegrees(parseFloat(r.torso_rot) || 0) - toDegrees(parseFloat(r.pelvis_rot) || 0))
-    );
-    
-    const leadHipFlexValues = rows.map(r => Math.abs(toDegrees(parseFloat(r[leadHipCol]) || 0)));
-    const leadKneeFlexValues = rows.map(r => Math.abs(toDegrees(parseFloat(r[leadKneeCol]) || 0)));
-    const leadShoulderElevValues = rows.map(r => Math.abs(toDegrees(parseFloat(r.left_shoulder_elev) || 0)));
-    const rearShoulderElevValues = rows.map(r => Math.abs(toDegrees(parseFloat(r.right_shoulder_elev) || 0)));
-    const leadElbowValues = rows.map(r => Math.abs(toDegrees(parseFloat(r[leadElbowCol]) || 0)));
-    const rearElbowValues = rows.map(r => Math.abs(toDegrees(parseFloat(r[rearElbowCol]) || 0)));
-    
-    processedSwings.push({
-      pelvisRotMax: Math.max(...pelvisRotValues.map(Math.abs), 0),
-      torsoRotMax: Math.max(...torsoRotValues.map(Math.abs), 0),
-      xFactorMax: Math.max(...xFactorValues, 0),
-      leadHipFlexMax: Math.max(...leadHipFlexValues, 0),
-      leadKneeFlexMax: Math.max(...leadKneeFlexValues, 0),
-      leadShoulderElevMax: Math.max(...leadShoulderElevValues, 0),
-      rearShoulderElevMax: Math.max(...rearShoulderElevValues, 0),
-      leadElbowMax: Math.max(...leadElbowValues, 0),
-      rearElbowMax: Math.max(...rearElbowValues, 0),
-    });
-  }
-  
-  // If no swing groupings found, process all data as one swing
-  if (processedSwings.length === 0 && ikData.length > 0) {
-    const toDegrees = (val: number) => Math.abs(val) > 10 ? val : val * (180 / Math.PI);
-    
-    const pelvisRotValues = ikData.map(r => toDegrees(parseFloat(r.pelvis_rot) || 0));
-    const torsoRotValues = ikData.map(r => toDegrees(parseFloat(r.torso_rot) || 0));
-    const xFactorValues = ikData.map(r => 
-      Math.abs(toDegrees(parseFloat(r.torso_rot) || 0) - toDegrees(parseFloat(r.pelvis_rot) || 0))
-    );
-    
-    processedSwings.push({
-      pelvisRotMax: Math.max(...pelvisRotValues.map(Math.abs), 0),
-      torsoRotMax: Math.max(...torsoRotValues.map(Math.abs), 0),
-      xFactorMax: Math.max(...xFactorValues, 0),
-      leadHipFlexMax: Math.max(...ikData.map(r => Math.abs(toDegrees(parseFloat(r[leadHipCol]) || 0))), 0),
-      leadKneeFlexMax: Math.max(...ikData.map(r => Math.abs(toDegrees(parseFloat(r[leadKneeCol]) || 0))), 0),
-      leadShoulderElevMax: Math.max(...ikData.map(r => Math.abs(toDegrees(parseFloat(r.left_shoulder_elev) || 0))), 0),
-      rearShoulderElevMax: Math.max(...ikData.map(r => Math.abs(toDegrees(parseFloat(r.right_shoulder_elev) || 0))), 0),
-      leadElbowMax: Math.max(...ikData.map(r => Math.abs(toDegrees(parseFloat(r[leadElbowCol]) || 0))), 0),
-      rearElbowMax: Math.max(...ikData.map(r => Math.abs(toDegrees(parseFloat(r[rearElbowCol]) || 0))), 0),
-    });
-  }
-  
-  return {
-    avgPelvisRot: mean(processedSwings.map(s => s.pelvisRotMax)),
-    avgTorsoRot: mean(processedSwings.map(s => s.torsoRotMax)),
-    avgXFactor: mean(processedSwings.map(s => s.xFactorMax)),
-    avgLeadHipFlex: mean(processedSwings.map(s => s.leadHipFlexMax)),
-    avgLeadKneeFlex: mean(processedSwings.map(s => s.leadKneeFlexMax)),
-    avgLeadShoulderElev: mean(processedSwings.map(s => s.leadShoulderElevMax)),
-    avgRearShoulderElev: mean(processedSwings.map(s => s.rearShoulderElevMax)),
-    avgLeadElbow: mean(processedSwings.map(s => s.leadElbowMax)),
-    avgRearElbow: mean(processedSwings.map(s => s.rearElbowMax)),
-    swingCount: processedSwings.length,
-  };
+// ============================================================================
+// CSV PARSING TYPES
+// ============================================================================
+
+interface IKRow {
+  time: string;
+  org_movement_id: string;
+  time_from_max_hand?: string;
+  pelvis_rot: string;
+  torso_rot: string;
+  left_knee: string;
+  right_knee: string;
+  left_elbow: string;
+  right_elbow: string;
+  [key: string]: string | undefined;
 }
 
-/**
- * Process Reboot ME data and extract key metrics per swing
- */
-export function processRebootME(meData: Record<string, any>[]): RebootMEMetrics {
-  // Try to group by org_movement_id first, then movement_id
-  let swings = groupBy(meData, 'org_movement_id' as keyof Record<string, any>);
-  
-  const validSwings = Object.entries(swings).filter(([id]) => 
-    id !== 'n/a' && id !== 'undefined' && id !== 'unknown' && id !== 'null'
-  );
-  
-  if (validSwings.length === 0) {
-    swings = groupBy(meData, 'movement_id' as keyof Record<string, any>);
-  }
-  
-  const processedSwings: {
-    totalKEMax: number;
-    batKEMax: number;
-    torsoKEMax: number;
-    armsKEMax: number;
-    legsKEMax: number;
-    energyEfficiency: number;
-  }[] = [];
-  
-  for (const [movementId, rows] of Object.entries(swings)) {
-    if (movementId === 'n/a' || movementId === 'undefined' || movementId === 'unknown' || movementId === 'null') continue;
-    
-    // Find max kinetic energies
-    const totalKE = rows.map(r => parseFloat(r.total_kinetic_energy) || 0);
-    const batKE = rows.map(r => parseFloat(r.bat_kinetic_energy) || 0);
-    const torsoKE = rows.map(r => parseFloat(r.torso_kinetic_energy) || 0);
-    const larmsKE = rows.map(r => parseFloat(r.larm_kinetic_energy) || 0);
-    const rarmsKE = rows.map(r => parseFloat(r.rarm_kinetic_energy) || 0);
-    const armsKE = rows.map(r => (parseFloat(r.larm_kinetic_energy) || 0) + (parseFloat(r.rarm_kinetic_energy) || 0));
-    const legsKE = rows.map(r => parseFloat(r.legs_kinetic_energy) || 0);
-    
-    const totalMax = Math.max(...totalKE, 1); // Avoid division by zero
-    const batMax = Math.max(...batKE, 0);
-    const armsMax = Math.max(...armsKE, 0);
-    
-    processedSwings.push({
-      totalKEMax: totalMax,
-      batKEMax: batMax,
-      torsoKEMax: Math.max(...torsoKE, 0),
-      armsKEMax: armsMax,
-      legsKEMax: Math.max(...legsKE, 0),
-      energyEfficiency: totalMax > 0 ? (batMax / totalMax) * 100 : 0,
-    });
-  }
-  
-  // If no swing groupings found, process all data as one swing
-  if (processedSwings.length === 0 && meData.length > 0) {
-    const totalKE = meData.map(r => parseFloat(r.total_kinetic_energy) || 0);
-    const batKE = meData.map(r => parseFloat(r.bat_kinetic_energy) || 0);
-    const totalMax = Math.max(...totalKE, 1);
-    const batMax = Math.max(...batKE, 0);
-    
-    processedSwings.push({
-      totalKEMax: totalMax,
-      batKEMax: batMax,
-      torsoKEMax: Math.max(...meData.map(r => parseFloat(r.torso_kinetic_energy) || 0), 0),
-      armsKEMax: Math.max(...meData.map(r => (parseFloat(r.larm_kinetic_energy) || 0) + (parseFloat(r.rarm_kinetic_energy) || 0)), 0),
-      legsKEMax: Math.max(...meData.map(r => parseFloat(r.legs_kinetic_energy) || 0), 0),
-      energyEfficiency: totalMax > 0 ? (batMax / totalMax) * 100 : 0,
-    });
-  }
-  
-  return {
-    avgTotalEnergy: mean(processedSwings.map(s => s.totalKEMax)),
-    avgBatEnergy: mean(processedSwings.map(s => s.batKEMax)),
-    avgTorsoEnergy: mean(processedSwings.map(s => s.torsoKEMax)),
-    avgArmsEnergy: mean(processedSwings.map(s => s.armsKEMax)),
-    avgLegsEnergy: mean(processedSwings.map(s => s.legsKEMax)),
-    avgEnergyEfficiency: mean(processedSwings.map(s => s.energyEfficiency)),
-    swingCount: processedSwings.length,
-  };
+interface MERow {
+  time: string;
+  org_movement_id: string;
+  time_from_max_hand?: string;
+  bat_kinetic_energy: string;
+  arms_kinetic_energy: string;
+  legs_kinetic_energy: string;
+  torso_kinetic_energy: string;
+  total_kinetic_energy: string;
+  [key: string]: string | undefined;
 }
 
-/**
- * Extract per-swing metrics for detailed analysis
- */
-function extractSwingMetrics(
-  ikData: Record<string, any>[],
-  meData: Record<string, any>[],
+// ============================================================================
+// IK FILE PROCESSING
+// ============================================================================
+
+export function processIKFile(
+  rows: IKRow[],
   dominantHand: 'L' | 'R' = 'R'
-): SwingMetrics[] {
-  const leadElbowCol = dominantHand === 'R' ? 'left_elbow' : 'right_elbow';
-  const rearElbowCol = dominantHand === 'R' ? 'right_elbow' : 'left_elbow';
-  const leadKneeCol = dominantHand === 'R' ? 'left_knee' : 'right_knee';
+): Map<string, Partial<SwingMetrics>> {
+  // Group by movement_id
+  const swingGroups = new Map<string, IKRow[]>();
   
-  const toDegrees = (val: number) => Math.abs(val) > 10 ? val : val * (180 / Math.PI);
-  
-  // Group IK and ME data by movement ID
-  let ikSwings = groupBy(ikData, 'org_movement_id' as keyof Record<string, any>);
-  let meSwings = groupBy(meData, 'org_movement_id' as keyof Record<string, any>);
-  
-  // Fallback to movement_id if org_movement_id didn't work
-  const validIKSwings = Object.entries(ikSwings).filter(([id]) => 
-    id !== 'n/a' && id !== 'undefined' && id !== 'unknown' && id !== 'null'
-  );
-  if (validIKSwings.length === 0) {
-    ikSwings = groupBy(ikData, 'movement_id' as keyof Record<string, any>);
+  for (const row of rows) {
+    const movementId = row.org_movement_id;
+    if (!movementId || movementId.toLowerCase() === 'n/a') continue;
+    
+    if (!swingGroups.has(movementId)) {
+      swingGroups.set(movementId, []);
+    }
+    swingGroups.get(movementId)!.push(row);
   }
   
-  const validMESwings = Object.entries(meSwings).filter(([id]) => 
-    id !== 'n/a' && id !== 'undefined' && id !== 'unknown' && id !== 'null'
-  );
-  if (validMESwings.length === 0) {
-    meSwings = groupBy(meData, 'movement_id' as keyof Record<string, any>);
-  }
+  const swingMetrics = new Map<string, Partial<SwingMetrics>>();
   
-  const swingMetrics: SwingMetrics[] = [];
-  
-  for (const [movementId, ikRows] of Object.entries(ikSwings)) {
-    if (movementId === 'n/a' || movementId === 'undefined' || movementId === 'unknown' || movementId === 'null') continue;
+  for (const [movementId, frames] of swingGroups) {
+    // Sort by time
+    frames.sort((a, b) => parseFloat(a.time || '0') - parseFloat(b.time || '0'));
     
-    const meRows = meSwings[movementId] || [];
+    if (frames.length < 10) continue;
     
-    // Parse time and rotations
-    const timeValues = ikRows.map(r => parseFloat(r.time) || 0);
-    const pelvisRotations = ikRows.map(r => toDegrees(parseFloat(r.pelvis_rot) || 0));
-    const torsoRotations = ikRows.map(r => toDegrees(parseFloat(r.torso_rot) || 0));
+    // Check for contact marker
+    const hasContactMarker = frames[0].time_from_max_hand !== undefined;
     
-    // Calculate velocities
-    const pelvisVelocities = timeValues.length > 1 
-      ? calculateVelocities(pelvisRotations, timeValues)
-      : calculateAngularVelocity(pelvisRotations);
-    const torsoVelocities = timeValues.length > 1
-      ? calculateVelocities(torsoRotations, timeValues)
-      : calculateAngularVelocity(torsoRotations);
+    const times = frames.map(f => parseFloat(f.time || '0'));
     
-    // Peak velocities (convert to deg/s * 1000 for better scale)
-    const pelvisPeakVel = pelvisVelocities.length ? Math.max(...pelvisVelocities.map(Math.abs)) * 1000 : 0;
-    const torsoPeakVel = torsoVelocities.length ? Math.max(...torsoVelocities.map(Math.abs)) * 1000 : 0;
+    // Filter to swing phase
+    let swingPhaseFrames: IKRow[];
+    let swingPhaseTimes: number[];
+    let contactIdx: number;
     
-    // X-Factor
-    const xFactors = ikRows.map(r => 
-      Math.abs(toDegrees(parseFloat(r.torso_rot) || 0) - toDegrees(parseFloat(r.pelvis_rot) || 0))
-    );
-    const xFactorMax = Math.max(...xFactors, 0);
+    if (hasContactMarker) {
+      const contactTimes = frames.map(f => parseFloat(f.time_from_max_hand || '0'));
+      contactIdx = contactTimes.reduce((minIdx, ct, i) => 
+        Math.abs(ct) < Math.abs(contactTimes[minIdx]) ? i : minIdx, 0);
+      
+      swingPhaseFrames = frames.filter((_, i) => contactTimes[i] <= 0.01);
+      swingPhaseTimes = times.filter((_, i) => contactTimes[i] <= 0.01);
+    } else {
+      // Fallback: first 0.5 seconds
+      swingPhaseFrames = frames.filter(f => parseFloat(f.time || '0') <= 0.5);
+      swingPhaseTimes = swingPhaseFrames.map(f => parseFloat(f.time || '0'));
+      contactIdx = swingPhaseFrames.length - 1;
+    }
+    
+    if (swingPhaseFrames.length < 5) {
+      swingPhaseFrames = frames.slice(0, Math.min(100, frames.length));
+      swingPhaseTimes = times.slice(0, Math.min(100, times.length));
+      contactIdx = swingPhaseFrames.length - 1;
+    }
+    
+    // Parse rotations (radians)
+    const pelvisRots = swingPhaseFrames.map(f => parseFloat(f.pelvis_rot || '0'));
+    const torsoRots = swingPhaseFrames.map(f => parseFloat(f.torso_rot || '0'));
+    
+    // Calculate velocities in deg/s (NO * 1000!)
+    const pelvisVelsRad = calculateVelocities(pelvisRots, swingPhaseTimes);
+    const torsoVelsRad = calculateVelocities(torsoRots, swingPhaseTimes);
+    
+    const pelvisVelsDeg = pelvisVelsRad.map(radToDeg);
+    const torsoVelsDeg = torsoVelsRad.map(radToDeg);
+    
+    // Peak velocities
+    const pelvisPeakVel = pelvisVelsDeg.length 
+      ? Math.max(...pelvisVelsDeg.map(Math.abs)) : 0;
+    const torsoPeakVel = torsoVelsDeg.length 
+      ? Math.max(...torsoVelsDeg.map(Math.abs)) : 0;
+    
+    // X-Factor (swing phase only)
+    const xFactors = swingPhaseFrames.map((_, i) => 
+      Math.abs(radToDeg(torsoRots[i]) - radToDeg(pelvisRots[i])));
+    const xFactorMax = xFactors.length ? Math.max(...xFactors) : 0;
     
     // X-Factor stretch rate
-    const xFactorVelocities = timeValues.length > 1
-      ? calculateVelocities(xFactors, timeValues)
-      : calculateAngularVelocity(xFactors);
-    const xFactorStretchRate = xFactorVelocities.length ? Math.max(...xFactorVelocities.map(Math.abs)) * 1000 : 0;
+    const xFactorVels = calculateVelocities(xFactors, swingPhaseTimes);
+    const xFactorStretchRate = xFactorVels.length 
+      ? Math.max(...xFactorVels.map(Math.abs)) : 0;
     
-    // Contact frame estimation (last frame or use event column if available)
-    const contactIdx = ikRows.length - 1;
-    const contactTime = timeValues[contactIdx] * 1000; // Convert to ms
+    // Contact time
+    const contactTime = swingPhaseTimes[Math.min(contactIdx, swingPhaseTimes.length - 1)] * 1000;
     
-    // Lead knee at contact
-    const leadKneeAtContact = Math.abs(toDegrees(parseFloat(ikRows[contactIdx]?.[leadKneeCol]) || 0));
+    // Peak timing
+    const pelvisPeakIdx = pelvisVelsDeg.length 
+      ? pelvisVelsDeg.reduce((maxIdx, v, i) => 
+          Math.abs(v) > Math.abs(pelvisVelsDeg[maxIdx]) ? i : maxIdx, 0) : 0;
+    const pelvisPeakTime = swingPhaseTimes[pelvisPeakIdx] * 1000;
     
-    // Lead/rear elbow at contact
-    const leadElbowAtContact = Math.abs(toDegrees(parseFloat(ikRows[contactIdx]?.[leadElbowCol]) || 0));
-    const rearElbowAtContact = Math.abs(toDegrees(parseFloat(ikRows[contactIdx]?.[rearElbowCol]) || 0));
+    const torsoPeakIdx = torsoVelsDeg.length 
+      ? torsoVelsDeg.reduce((maxIdx, v, i) => 
+          Math.abs(v) > Math.abs(torsoVelsDeg[maxIdx]) ? i : maxIdx, 0) : 0;
+    const torsoPeakTime = swingPhaseTimes[torsoPeakIdx] * 1000;
     
-    // Pelvis peak time
-    const pelvisPeakIdx = pelvisVelocities.indexOf(Math.max(...pelvisVelocities.map(Math.abs)));
-    const pelvisPeakTime = (timeValues[pelvisPeakIdx] || 0) * 1000;
-    
-    // Torso peak time
-    const torsoPeakIdx = torsoVelocities.indexOf(Math.max(...torsoVelocities.map(Math.abs)));
-    const torsoPeakTime = (timeValues[torsoPeakIdx] || 0) * 1000;
-    
-    // Proper sequence (pelvis fires before torso)
+    // Proper sequence
     const properSequence = pelvisPeakTime < torsoPeakTime;
     
+    // Pelvis timing
+    const pelvisTiming = contactTime - pelvisPeakTime;
+    
+    // Joint angles at contact
+    const contactFrame = swingPhaseFrames[Math.min(contactIdx, swingPhaseFrames.length - 1)];
+    
+    const leadKneeCol = dominantHand === 'R' ? 'left_knee' : 'right_knee';
+    const leadElbowCol = dominantHand === 'R' ? 'left_elbow' : 'right_elbow';
+    const rearElbowCol = dominantHand === 'R' ? 'right_elbow' : 'left_elbow';
+    
+    const leadKnee = Math.abs(radToDeg(parseFloat(contactFrame[leadKneeCol] || '0')));
+    const leadElbow = Math.abs(radToDeg(parseFloat(contactFrame[leadElbowCol] || '0')));
+    const rearElbow = Math.abs(radToDeg(parseFloat(contactFrame[rearElbowCol] || '0')));
+    
     // Rear elbow extension rate
-    const rearElbowAngles = ikRows.map(r => toDegrees(parseFloat(r[rearElbowCol]) || 0));
-    const rearElbowVelocities = timeValues.length > 1
-      ? calculateVelocities(rearElbowAngles, timeValues)
-      : calculateAngularVelocity(rearElbowAngles);
-    const rearElbowExtRate = rearElbowVelocities.length ? Math.max(...rearElbowVelocities) * 1000 : 0;
+    const rearElbowAngles = swingPhaseFrames.map(f => parseFloat(f[rearElbowCol] || '0'));
+    const rearElbowVels = calculateVelocities(rearElbowAngles, swingPhaseTimes);
+    const rearElbowExtRate = rearElbowVels.length 
+      ? Math.max(...rearElbowVels) * (180 / Math.PI) : 0;
     
-    // ME data for this swing
-    const batKEs = meRows.map(r => parseFloat(r.bat_kinetic_energy) || 0);
-    const armsKEs = meRows.map(r => (parseFloat(r.larm_kinetic_energy) || 0) + (parseFloat(r.rarm_kinetic_energy) || 0));
-    const legsKEs = meRows.map(r => parseFloat(r.legs_kinetic_energy) || 0);
-    const totalKEs = meRows.map(r => parseFloat(r.total_kinetic_energy) || 0);
-    
-    swingMetrics.push({
+    swingMetrics.set(movementId, {
+      movementId,
       pelvisVelocity: pelvisPeakVel,
       torsoVelocity: torsoPeakVel,
       xFactor: xFactorMax,
       xFactorStretchRate,
-      legsKE: Math.max(...legsKEs, 0),
-      batKE: Math.max(...batKEs, 0),
-      armsKE: Math.max(...armsKEs, 0),
-      totalKE: Math.max(...totalKEs, 1),
-      leadKneeAtContact,
-      rearElbowExtRate,
-      leadElbowAtContact,
-      rearElbowAtContact,
       pelvisPeakTime,
       torsoPeakTime,
       contactTime,
+      pelvisTiming,
+      leadKneeAtContact: leadKnee,
+      leadElbowAtContact: leadElbow,
+      rearElbowAtContact: rearElbow,
+      rearElbowExtRate,
       properSequence,
     });
   }
@@ -598,203 +555,637 @@ function extractSwingMetrics(
   return swingMetrics;
 }
 
+// ============================================================================
+// ME FILE PROCESSING
+// ============================================================================
+
+export function processMEFile(rows: MERow[]): Map<string, {
+  batKE: number;
+  armsKE: number;
+  legsKE: number;
+  torsoKE: number;
+  totalKE: number;
+  batEfficiency: number;
+  legsPeakTime: number;
+  armsPeakTime: number;
+  hasBatKE: boolean;
+}> {
+  // Group by movement_id
+  const swingGroups = new Map<string, MERow[]>();
+  
+  for (const row of rows) {
+    const movementId = row.org_movement_id;
+    if (!movementId || movementId.toLowerCase() === 'n/a') continue;
+    
+    if (!swingGroups.has(movementId)) {
+      swingGroups.set(movementId, []);
+    }
+    swingGroups.get(movementId)!.push(row);
+  }
+  
+  const swingMetrics = new Map();
+  
+  for (const [movementId, frames] of swingGroups) {
+    frames.sort((a, b) => parseFloat(a.time || '0') - parseFloat(b.time || '0'));
+    
+    if (frames.length < 5) continue;
+    
+    const times = frames.map(f => parseFloat(f.time || '0'));
+    const hasContactMarker = frames[0].time_from_max_hand !== undefined;
+    
+    // Filter to swing phase
+    let validIndices: number[];
+    if (hasContactMarker) {
+      const contactTimes = frames.map(f => parseFloat(f.time_from_max_hand || '0'));
+      validIndices = contactTimes.map((ct, i) => ct <= 0.01 ? i : -1).filter(i => i >= 0);
+    } else {
+      validIndices = times.map((t, i) => t <= 0.5 ? i : -1).filter(i => i >= 0);
+    }
+    
+    if (!validIndices.length) {
+      validIndices = Array.from({ length: Math.min(100, frames.length) }, (_, i) => i);
+    }
+    
+    // Extract KE values with filtering
+    const batKEs: number[] = [];
+    const armsKEs: number[] = [];
+    const legsKEs: number[] = [];
+    const torsoKEs: number[] = [];
+    const totalKEs: number[] = [];
+    
+    for (const i of validIndices) {
+      const f = frames[i];
+      const batKE = parseFloat(f.bat_kinetic_energy || '0');
+      const totalKE = parseFloat(f.total_kinetic_energy || '0');
+      
+      // Filter outliers
+      if (batKE >= 0 && batKE <= totalKE && batKE < 1000) {
+        batKEs.push(batKE);
+      }
+      
+      armsKEs.push(parseFloat(f.arms_kinetic_energy || '0'));
+      legsKEs.push(parseFloat(f.legs_kinetic_energy || '0'));
+      torsoKEs.push(parseFloat(f.torso_kinetic_energy || '0'));
+      totalKEs.push(totalKE);
+    }
+    
+    // Use 95th percentile
+    const batKE95 = batKEs.length ? percentile(batKEs, 95) : 0;
+    const armsKE95 = percentile(armsKEs, 95);
+    const legsKE95 = percentile(legsKEs, 95);
+    const torsoKE95 = percentile(torsoKEs, 95);
+    const totalKE95 = percentile(totalKEs, 95);
+    
+    const batEfficiency = totalKE95 > 0 ? (batKE95 / totalKE95) * 100 : 0;
+    
+    // Find peak timing
+    const legsPeakIdx = legsKEs.length 
+      ? legsKEs.reduce((maxIdx, v, i) => v > legsKEs[maxIdx] ? i : maxIdx, 0) : 0;
+    const armsPeakIdx = armsKEs.length 
+      ? armsKEs.reduce((maxIdx, v, i) => v > armsKEs[maxIdx] ? i : maxIdx, 0) : 0;
+    
+    const legsPeakTime = validIndices.length ? times[validIndices[legsPeakIdx]] * 1000 : 0;
+    const armsPeakTime = validIndices.length ? times[validIndices[armsPeakIdx]] * 1000 : 0;
+    
+    const hasBatKE = batKEs.length > 0 && Math.max(...batKEs) > 1;
+    
+    swingMetrics.set(movementId, {
+      batKE: batKE95,
+      armsKE: armsKE95,
+      legsKE: legsKE95,
+      torsoKE: torsoKE95,
+      totalKE: totalKE95,
+      batEfficiency,
+      legsPeakTime,
+      armsPeakTime,
+      hasBatKE,
+    });
+  }
+  
+  return swingMetrics;
+}
+
+// ============================================================================
+// LEAK DETECTION
+// ============================================================================
+
+export function detectLeakType(swings: SwingMetrics[]): {
+  type: LeakType;
+  caption: string;
+  trainingMeaning: string;
+} {
+  if (!swings.length) {
+    return { type: LeakType.UNKNOWN, caption: '', trainingMeaning: '' };
+  }
+  
+  const avgPelvisTiming = avg(swings.map(s => s.pelvisTiming));
+  const avgProperSeq = swings.filter(s => s.properSequence).length / swings.length;
+  
+  const lateEnginePct = swings.filter(s => 
+    s.legsKEPeakTime > s.contactTime).length / swings.length;
+  
+  const earlyArmsPct = swings.filter(s => 
+    s.armsKEPeakTime < s.pelvisPeakTime).length / swings.length;
+  
+  // Determine primary leak
+  if (lateEnginePct > 0.5) {
+    const msg = LEAK_MESSAGES[LeakType.LATE_ENGINE];
+    return { type: LeakType.LATE_ENGINE, caption: msg.caption, trainingMeaning: msg.training };
+  }
+  
+  if (avgProperSeq < 0.4) {
+    const msg = LEAK_MESSAGES[LeakType.CORE_DISCONNECT];
+    return { type: LeakType.CORE_DISCONNECT, caption: msg.caption, trainingMeaning: msg.training };
+  }
+  
+  if (earlyArmsPct > 0.5) {
+    const msg = LEAK_MESSAGES[LeakType.EARLY_BACK_LEG_RELEASE];
+    return { type: LeakType.EARLY_BACK_LEG_RELEASE, caption: msg.caption, trainingMeaning: msg.training };
+  }
+  
+  if (avgPelvisTiming < 30) {
+    const msg = LEAK_MESSAGES[LeakType.LATE_LEAD_LEG_ACCEPTANCE];
+    return { type: LeakType.LATE_LEAD_LEG_ACCEPTANCE, caption: msg.caption, trainingMeaning: msg.training };
+  }
+  
+  if (avgPelvisTiming > 200) {
+    const msg = LEAK_MESSAGES[LeakType.GLIDE_WITHOUT_CAPTURE];
+    return { type: LeakType.GLIDE_WITHOUT_CAPTURE, caption: msg.caption, trainingMeaning: msg.training };
+  }
+  
+  if (avgProperSeq > 0.8 && avgPelvisTiming >= 50 && avgPelvisTiming <= 150) {
+    const msg = LEAK_MESSAGES[LeakType.CLEAN_TRANSFER];
+    return { type: LeakType.CLEAN_TRANSFER, caption: msg.caption, trainingMeaning: msg.training };
+  }
+  
+  return { type: LeakType.UNKNOWN, caption: '', trainingMeaning: '' };
+}
+
+// ============================================================================
+// MAIN SCORING FUNCTION
+// ============================================================================
+
+export function calculate4BScores(
+  ikRows: IKRow[],
+  meRows: MERow[],
+  dominantHand: 'L' | 'R' = 'R'
+): FourBScores {
+  // Initialize result
+  const result: FourBScores = {
+    brain: 50,
+    body: 50,
+    bat: 50,
+    ball: 50,
+    catchBarrelScore: 50,
+    grades: {
+      brain: 'Average',
+      body: 'Average',
+      bat: 'Average',
+      ball: 'Average',
+      overall: 'Average',
+    },
+    components: {
+      groundFlow: 50,
+      coreFlow: 50,
+      upperFlow: 50,
+    },
+    rawMetrics: {},
+    leak: {
+      type: LeakType.UNKNOWN,
+      caption: '',
+      trainingMeaning: '',
+    },
+    dataQuality: {
+      swingCount: 0,
+      hasContactEvent: false,
+      hasBatKE: false,
+      batKECoverage: 0,
+      cvScoresValid: false,
+      incompleteSwings: [],
+      warnings: [],
+    },
+    swings: [],
+  };
+  
+  // Process files
+  const ikMetrics = processIKFile(ikRows as IKRow[], dominantHand);
+  const meMetrics = processMEFile(meRows as MERow[]);
+  
+  // Merge swing data
+  const swings: SwingMetrics[] = [];
+  let swingsWithBatKE = 0;
+  
+  for (const [movementId, ikData] of ikMetrics) {
+    const meData = meMetrics.get(movementId) || {
+      batKE: 0, armsKE: 0, legsKE: 0, torsoKE: 0, totalKE: 0,
+      batEfficiency: 0, legsPeakTime: 0, armsPeakTime: 0, hasBatKE: false,
+    };
+    
+    const swing: SwingMetrics = {
+      movementId,
+      pelvisVelocity: ikData.pelvisVelocity || 0,
+      torsoVelocity: ikData.torsoVelocity || 0,
+      xFactor: ikData.xFactor || 0,
+      xFactorStretchRate: ikData.xFactorStretchRate || 0,
+      pelvisPeakTime: ikData.pelvisPeakTime || 0,
+      torsoPeakTime: ikData.torsoPeakTime || 0,
+      contactTime: ikData.contactTime || 0,
+      pelvisTiming: ikData.pelvisTiming || 0,
+      legsKE: meData.legsKE,
+      torsoKE: meData.torsoKE,
+      armsKE: meData.armsKE,
+      batKE: meData.batKE,
+      totalKE: meData.totalKE,
+      leadKneeAtContact: ikData.leadKneeAtContact || 0,
+      leadElbowAtContact: ikData.leadElbowAtContact || 0,
+      rearElbowAtContact: ikData.rearElbowAtContact || 0,
+      rearElbowExtRate: ikData.rearElbowExtRate || 0,
+      properSequence: ikData.properSequence || false,
+      batEfficiency: meData.batEfficiency,
+      legsKEPeakTime: meData.legsPeakTime,
+      armsKEPeakTime: meData.armsPeakTime,
+    };
+    
+    if (meData.hasBatKE) swingsWithBatKE++;
+    swings.push(swing);
+  }
+  
+  if (!swings.length) {
+    result.dataQuality.warnings.push('No valid swings found in files');
+    return result;
+  }
+  
+  // Data quality flags
+  result.dataQuality.swingCount = swings.length;
+  result.dataQuality.hasBatKE = swingsWithBatKE > 0;
+  result.dataQuality.batKECoverage = swingsWithBatKE / swings.length;
+  result.dataQuality.cvScoresValid = swings.length >= MIN_SWINGS_FOR_CV;
+  
+  if (!result.dataQuality.hasBatKE) {
+    result.dataQuality.warnings.push('Bat KE data missing - BAT score uses partial components');
+  }
+  
+  if (!result.dataQuality.cvScoresValid) {
+    result.dataQuality.warnings.push(
+      `Need ${MIN_SWINGS_FOR_CV}+ swings for consistency scores - BRAIN/BALL scores set to average`
+    );
+  }
+  
+  result.swings = swings;
+  
+  // Extract values
+  const pelvisVels = swings.map(s => s.pelvisVelocity);
+  const torsoVels = swings.map(s => s.torsoVelocity);
+  const xFactors = swings.map(s => s.xFactor);
+  const xFactorRates = swings.map(s => s.xFactorStretchRate);
+  const legsKEs = swings.map(s => s.legsKE);
+  const armsKEs = swings.map(s => s.armsKE);
+  const batKEs = swings.map(s => s.batKE);
+  const batEffs = swings.map(s => s.batEfficiency);
+  const leadKnees = swings.map(s => s.leadKneeAtContact);
+  const rearElbowRates = swings.map(s => s.rearElbowExtRate);
+  const leadElbows = swings.map(s => s.leadElbowAtContact);
+  const rearElbows = swings.map(s => s.rearElbowAtContact);
+  const pelvisTimings = swings.map(s => s.pelvisTiming);
+  const properSeqCount = swings.filter(s => s.properSequence).length;
+  
+  // Calculate averages
+  const avgPelvisVel = avg(pelvisVels);
+  const avgTorsoVel = avg(torsoVels);
+  const avgXFactor = avg(xFactors);
+  const avgXFactorRate = avg(xFactorRates);
+  const avgLegsKE = avg(legsKEs);
+  const avgArmsKE = avg(armsKEs);
+  const avgBatKE = avg(batKEs);
+  const avgBatEff = avg(batEffs);
+  const avgLeadKnee = avg(leadKnees);
+  const avgRearElbowRate = avg(rearElbowRates);
+  const avgPelvisTiming = avg(pelvisTimings);
+  const properSeqPct = (properSeqCount / swings.length) * 100;
+  
+  // Store raw metrics
+  result.rawMetrics = {
+    avgPelvisVelocity: Math.round(avgPelvisVel * 10) / 10,
+    avgTorsoVelocity: Math.round(avgTorsoVel * 10) / 10,
+    avgXFactor: Math.round(avgXFactor * 10) / 10,
+    avgXFactorRate: Math.round(avgXFactorRate * 10) / 10,
+    avgLegsKE: Math.round(avgLegsKE * 10) / 10,
+    avgArmsKE: Math.round(avgArmsKE * 10) / 10,
+    avgBatKE: Math.round(avgBatKE * 10) / 10,
+    avgBatEfficiency: Math.round(avgBatEff * 10) / 10,
+    avgLeadKnee: Math.round(avgLeadKnee * 10) / 10,
+    avgPelvisTiming: Math.round(avgPelvisTiming * 10) / 10,
+    properSequencePct: Math.round(properSeqPct * 10) / 10,
+    swingCount: swings.length,
+  };
+  
+  // ========== GROUND FLOW ==========
+  const groundFlowComponents = [
+    to2080Scale(avgPelvisVel, THRESHOLDS.pelvisVelocity.min, THRESHOLDS.pelvisVelocity.max),
+    to2080Scale(avgLegsKE, THRESHOLDS.legsKE.min, THRESHOLDS.legsKE.max),
+    to2080Scale(avgPelvisTiming, THRESHOLDS.pelvisTiming.min, THRESHOLDS.pelvisTiming.max),
+    to2080Scale(avgLeadKnee, THRESHOLDS.leadKneeAtContact.min, THRESHOLDS.leadKneeAtContact.max),
+  ];
+  const groundFlow = Math.round(avg(groundFlowComponents));
+  
+  // ========== CORE FLOW ==========
+  const coreFlowComponents = [
+    to2080Scale(avgTorsoVel, THRESHOLDS.torsoVelocity.min, THRESHOLDS.torsoVelocity.max),
+    to2080Scale(avgXFactor, THRESHOLDS.xFactorMax.min, THRESHOLDS.xFactorMax.max),
+    to2080Scale(avgXFactorRate, THRESHOLDS.xFactorStretchRate.min, THRESHOLDS.xFactorStretchRate.max),
+    to2080Scale(properSeqPct, THRESHOLDS.properSequencePct.min, THRESHOLDS.properSequencePct.max),
+  ];
+  const coreFlow = Math.round(avg(coreFlowComponents));
+  
+  // ========== BODY ==========
+  const bodyScore = Math.round((groundFlow + coreFlow) / 2);
+  
+  // ========== BAT (Upper Flow) ==========
+  let upperFlowComponents: number[];
+  if (result.dataQuality.hasBatKE) {
+    upperFlowComponents = [
+      to2080Scale(avgBatKE, THRESHOLDS.batKE.min, THRESHOLDS.batKE.max),
+      to2080Scale(avgArmsKE, THRESHOLDS.armsKE.min, THRESHOLDS.armsKE.max),
+      to2080Scale(avgRearElbowRate, THRESHOLDS.rearElbowExtRate.min, THRESHOLDS.rearElbowExtRate.max),
+      to2080Scale(avgBatEff, THRESHOLDS.batEfficiency.min, THRESHOLDS.batEfficiency.max),
+    ];
+  } else {
+    upperFlowComponents = [
+      to2080Scale(avgArmsKE, THRESHOLDS.armsKE.min, THRESHOLDS.armsKE.max),
+      to2080Scale(avgRearElbowRate, THRESHOLDS.rearElbowExtRate.min, THRESHOLDS.rearElbowExtRate.max),
+    ];
+  }
+  const batScore = Math.round(avg(upperFlowComponents));
+  
+  // ========== BRAIN (Consistency) ==========
+  let brainScore = 50;
+  if (result.dataQuality.cvScoresValid) {
+    const cvPelvis = calculateCV(pelvisVels);
+    const cvTorso = calculateCV(torsoVels);
+    const cvXFactor = calculateCV(xFactors);
+    const cvOutput = result.dataQuality.hasBatKE ? calculateCV(batKEs) : calculateCV(armsKEs);
+    
+    result.rawMetrics.cvPelvis = Math.round(cvPelvis * 10) / 10;
+    result.rawMetrics.cvTorso = Math.round(cvTorso * 10) / 10;
+    result.rawMetrics.cvXFactor = Math.round(cvXFactor * 10) / 10;
+    result.rawMetrics.cvOutput = Math.round(cvOutput * 10) / 10;
+    
+    const brainComponents = [
+      to2080Scale(cvPelvis, THRESHOLDS.cvPelvis.min, THRESHOLDS.cvPelvis.max, true),
+      to2080Scale(cvTorso, THRESHOLDS.cvTorso.min, THRESHOLDS.cvTorso.max, true),
+      to2080Scale(cvXFactor, THRESHOLDS.cvXFactor.min, THRESHOLDS.cvXFactor.max, true),
+      to2080Scale(cvOutput, THRESHOLDS.cvOutput.min, THRESHOLDS.cvOutput.max, true),
+    ];
+    brainScore = Math.round(avg(brainComponents));
+  }
+  
+  // ========== BALL (Contact Consistency) ==========
+  let ballScore = 50;
+  if (result.dataQuality.cvScoresValid) {
+    const cvLeadElbow = calculateCV(leadElbows);
+    const cvRearElbow = calculateCV(rearElbows);
+    
+    result.rawMetrics.cvLeadElbow = Math.round(cvLeadElbow * 10) / 10;
+    result.rawMetrics.cvRearElbow = Math.round(cvRearElbow * 10) / 10;
+    
+    const ballComponents = [
+      to2080Scale(cvLeadElbow, THRESHOLDS.cvLeadElbow.min, THRESHOLDS.cvLeadElbow.max, true),
+      to2080Scale(cvRearElbow, THRESHOLDS.cvRearElbow.min, THRESHOLDS.cvRearElbow.max, true),
+    ];
+    ballScore = Math.round(avg(ballComponents));
+  }
+  
+  // ========== CATCH BARREL SCORE ==========
+  const catchBarrelScore = Math.round(
+    bodyScore * WEIGHTS.body +
+    batScore * WEIGHTS.bat +
+    brainScore * WEIGHTS.brain +
+    ballScore * WEIGHTS.ball
+  );
+  
+  // ========== LEAK DETECTION ==========
+  const leak = detectLeakType(swings);
+  
+  // ========== POPULATE RESULT ==========
+  result.brain = brainScore;
+  result.body = bodyScore;
+  result.bat = batScore;
+  result.ball = ballScore;
+  result.catchBarrelScore = catchBarrelScore;
+  
+  result.grades = {
+    brain: getGrade(brainScore),
+    body: getGrade(bodyScore),
+    bat: getGrade(batScore),
+    ball: getGrade(ballScore),
+    overall: getGrade(catchBarrelScore),
+  };
+  
+  result.components = {
+    groundFlow,
+    coreFlow,
+    upperFlow: batScore,
+  };
+  
+  result.leak = leak;
+  
+  return result;
+}
+
+// ============================================================================
+// LEGACY WRAPPER FUNCTIONS
+// ============================================================================
+
 /**
- * Calculate Reboot Motion 4B scores using Coach Rick's KRS logic
+ * Legacy processRebootIK function for backward compatibility
+ */
+export function processRebootIK(ikData: Record<string, any>[], dominantHand: 'L' | 'R' = 'R'): RebootIKMetrics {
+  const leadKneeCol = dominantHand === 'R' ? 'left_knee' : 'right_knee';
+  const leadElbowCol = dominantHand === 'R' ? 'left_elbow' : 'right_elbow';
+  const rearElbowCol = dominantHand === 'R' ? 'right_elbow' : 'left_elbow';
+  const leadHipCol = dominantHand === 'R' ? 'left_hip_flex' : 'right_hip_flex';
+  
+  const toDegrees = (val: number) => Math.abs(val) > 10 ? val : val * (180 / Math.PI);
+  
+  // Group by movement_id
+  const swings = groupBy(ikData, 'org_movement_id' as keyof Record<string, any>);
+  
+  const processedSwings: any[] = [];
+  
+  for (const [movementId, rows] of Object.entries(swings)) {
+    if (movementId === 'n/a' || movementId === 'undefined' || movementId === 'unknown' || movementId === 'null') continue;
+    
+    const pelvisRotValues = rows.map((r: any) => toDegrees(parseFloat(r.pelvis_rot) || 0));
+    const torsoRotValues = rows.map((r: any) => toDegrees(parseFloat(r.torso_rot) || 0));
+    const xFactorValues = rows.map((r: any) => 
+      Math.abs(toDegrees(parseFloat(r.torso_rot) || 0) - toDegrees(parseFloat(r.pelvis_rot) || 0))
+    );
+    
+    processedSwings.push({
+      pelvisRotMax: Math.max(...pelvisRotValues.map(Math.abs), 0),
+      torsoRotMax: Math.max(...torsoRotValues.map(Math.abs), 0),
+      xFactorMax: Math.max(...xFactorValues, 0),
+      leadHipFlexMax: Math.max(...rows.map((r: any) => Math.abs(toDegrees(parseFloat(r[leadHipCol]) || 0))), 0),
+      leadKneeFlexMax: Math.max(...rows.map((r: any) => Math.abs(toDegrees(parseFloat(r[leadKneeCol]) || 0))), 0),
+      leadShoulderElevMax: Math.max(...rows.map((r: any) => Math.abs(toDegrees(parseFloat(r.left_shoulder_elev) || 0))), 0),
+      rearShoulderElevMax: Math.max(...rows.map((r: any) => Math.abs(toDegrees(parseFloat(r.right_shoulder_elev) || 0))), 0),
+      leadElbowMax: Math.max(...rows.map((r: any) => Math.abs(toDegrees(parseFloat(r[leadElbowCol]) || 0))), 0),
+      rearElbowMax: Math.max(...rows.map((r: any) => Math.abs(toDegrees(parseFloat(r[rearElbowCol]) || 0))), 0),
+    });
+  }
+  
+  return {
+    avgPelvisRot: avg(processedSwings.map(s => s.pelvisRotMax)),
+    avgTorsoRot: avg(processedSwings.map(s => s.torsoRotMax)),
+    avgXFactor: avg(processedSwings.map(s => s.xFactorMax)),
+    avgLeadHipFlex: avg(processedSwings.map(s => s.leadHipFlexMax)),
+    avgLeadKneeFlex: avg(processedSwings.map(s => s.leadKneeFlexMax)),
+    avgLeadShoulderElev: avg(processedSwings.map(s => s.leadShoulderElevMax)),
+    avgRearShoulderElev: avg(processedSwings.map(s => s.rearShoulderElevMax)),
+    avgLeadElbow: avg(processedSwings.map(s => s.leadElbowMax)),
+    avgRearElbow: avg(processedSwings.map(s => s.rearElbowMax)),
+    swingCount: processedSwings.length,
+  };
+}
+
+/**
+ * Legacy processRebootME function for backward compatibility
+ */
+export function processRebootME(meData: Record<string, any>[]): RebootMEMetrics {
+  const swings = groupBy(meData, 'org_movement_id' as keyof Record<string, any>);
+  
+  const processedSwings: any[] = [];
+  
+  for (const [movementId, rows] of Object.entries(swings)) {
+    if (movementId === 'n/a' || movementId === 'undefined' || movementId === 'unknown' || movementId === 'null') continue;
+    
+    const totalKE = rows.map((r: any) => parseFloat(r.total_kinetic_energy) || 0);
+    const batKE = rows.map((r: any) => parseFloat(r.bat_kinetic_energy) || 0);
+    const totalMax = Math.max(...totalKE, 1);
+    const batMax = Math.max(...batKE, 0);
+    
+    processedSwings.push({
+      totalKEMax: totalMax,
+      batKEMax: batMax,
+      torsoKEMax: Math.max(...rows.map((r: any) => parseFloat(r.torso_kinetic_energy) || 0), 0),
+      armsKEMax: Math.max(...rows.map((r: any) => (parseFloat(r.larm_kinetic_energy) || 0) + (parseFloat(r.rarm_kinetic_energy) || 0)), 0),
+      legsKEMax: Math.max(...rows.map((r: any) => parseFloat(r.legs_kinetic_energy) || 0), 0),
+      energyEfficiency: totalMax > 0 ? (batMax / totalMax) * 100 : 0,
+    });
+  }
+  
+  return {
+    avgTotalEnergy: avg(processedSwings.map(s => s.totalKEMax)),
+    avgBatEnergy: avg(processedSwings.map(s => s.batKEMax)),
+    avgTorsoEnergy: avg(processedSwings.map(s => s.torsoKEMax)),
+    avgArmsEnergy: avg(processedSwings.map(s => s.armsKEMax)),
+    avgLegsEnergy: avg(processedSwings.map(s => s.legsKEMax)),
+    avgEnergyEfficiency: avg(processedSwings.map(s => s.energyEfficiency)),
+    swingCount: processedSwings.length,
+  };
+}
+
+/**
+ * Calculate Reboot scores using the new corrected 4B Bio Engine
+ * This is the main function called by the upload modal
  */
 export function calculateRebootScores(
   ikData: Record<string, any>[],
   meData: Record<string, any>[],
   dominantHand: 'L' | 'R' = 'R'
 ): RebootScores {
-  // Process extracted metrics
-  const ikMetrics = ikData.length > 0 ? processRebootIK(ikData, dominantHand) : undefined;
-  const meMetrics = meData.length > 0 ? processRebootME(meData) : undefined;
+  // Use the new corrected scoring function
+  const scores = calculate4BScores(ikData as any, meData as any, dominantHand);
   
-  // Extract per-swing metrics for CV calculations
-  const swingMetrics = extractSwingMetrics(ikData, meData, dominantHand);
+  // Determine weakest link
+  const scoreMap = {
+    brain: scores.brain,
+    body: scores.body,
+    bat: scores.bat,
+    ball: scores.ball,
+  };
+  const weakestLink = (Object.entries(scoreMap).reduce((min, [k, v]) => 
+    v < min[1] ? [k, v] : min, ['brain', 100])[0]) as 'brain' | 'body' | 'bat' | 'ball';
   
-  // If we have swing data, use it for CV calculations
-  let pelvisVelocities: number[] = [];
-  let torsoVelocities: number[] = [];
-  let xFactors: number[] = [];
-  let batKEs: number[] = [];
-  let leadElbows: number[] = [];
-  let rearElbows: number[] = [];
-  let properSequences = 0;
-  
-  if (swingMetrics.length > 0) {
-    pelvisVelocities = swingMetrics.map(s => s.pelvisVelocity);
-    torsoVelocities = swingMetrics.map(s => s.torsoVelocity);
-    xFactors = swingMetrics.map(s => s.xFactor);
-    batKEs = swingMetrics.map(s => s.batKE);
-    leadElbows = swingMetrics.map(s => s.leadElbowAtContact);
-    rearElbows = swingMetrics.map(s => s.rearElbowAtContact);
-    properSequences = swingMetrics.filter(s => s.properSequence).length;
-  } else {
-    // Fallback: extract from raw data
-    const toDegrees = (val: number) => Math.abs(val) > 10 ? val : val * (180 / Math.PI);
-    
-    for (const row of ikData) {
-      const pelvis = toDegrees(parseFloat(row.pelvis_rot) || 0);
-      const torso = toDegrees(parseFloat(row.torso_rot) || 0);
-      if (pelvis !== 0) pelvisVelocities.push(pelvis);
-      if (torso !== 0) torsoVelocities.push(torso);
-      const xf = Math.abs(torso - pelvis);
-      if (xf !== 0) xFactors.push(xf);
-    }
-    
-    for (const row of meData) {
-      const batKE = parseFloat(row.bat_kinetic_energy) || 0;
-      if (batKE !== 0) batKEs.push(batKE);
-    }
-  }
-  
-  // ========== CALCULATE AVERAGES ==========
-  const avgPelvisVel = mean(pelvisVelocities);
-  const avgTorsoVel = mean(torsoVelocities);
-  const avgXFactor = mean(xFactors);
-  const avgLegsKE = meMetrics?.avgLegsEnergy || 0;
-  const avgBatKE = meMetrics?.avgBatEnergy || 0;
-  const avgArmsKE = meMetrics?.avgArmsEnergy || 0;
-  const avgBatEfficiency = meMetrics?.avgEnergyEfficiency || 0;
-  const avgLeadKnee = ikMetrics?.avgLeadKneeFlex || 0;
-  const avgRearElbowExtRate = swingMetrics.length > 0 ? mean(swingMetrics.map(s => s.rearElbowExtRate)) : 0;
-  const avgXFactorStretchRate = swingMetrics.length > 0 ? mean(swingMetrics.map(s => s.xFactorStretchRate)) : 0;
-  const properSequencePct = swingMetrics.length > 0 ? (properSequences / swingMetrics.length) * 100 : 50;
-  
-  // ========== CVs (Consistency) ==========
-  const cvPelvis = coefficientOfVariation(pelvisVelocities);
-  const cvTorso = coefficientOfVariation(torsoVelocities);
-  const cvXFactor = coefficientOfVariation(xFactors);
-  const cvOutput = coefficientOfVariation(batKEs);
-  const cvLeadElbow = coefficientOfVariation(leadElbows);
-  const cvRearElbow = coefficientOfVariation(rearElbows);
-  const avgCV = (cvPelvis + cvTorso) / 2;
-  
-  // ========== GROUND FLOW (BODY component 1) ==========
-  const groundFlowComponents = [
-    to2080Scale(avgPelvisVel, THRESHOLDS.pelvisVelocity.min, THRESHOLDS.pelvisVelocity.max),
-    to2080Scale(avgLegsKE, THRESHOLDS.legsKE.min, THRESHOLDS.legsKE.max),
-    to2080Scale(avgLeadKnee, THRESHOLDS.leadKneeAtContact.min, THRESHOLDS.leadKneeAtContact.max),
-  ];
-  const groundFlowScore = Math.round(mean(groundFlowComponents));
-  
-  // ========== CORE FLOW (BODY component 2) ==========
-  const coreFlowComponents = [
-    to2080Scale(avgTorsoVel, THRESHOLDS.torsoVelocity.min, THRESHOLDS.torsoVelocity.max),
-    to2080Scale(avgXFactor, THRESHOLDS.xFactorMax.min, THRESHOLDS.xFactorMax.max),
-    to2080Scale(avgXFactorStretchRate, THRESHOLDS.xFactorStretchRate.min, THRESHOLDS.xFactorStretchRate.max),
-    to2080Scale(properSequencePct, THRESHOLDS.properSequencePct.min, THRESHOLDS.properSequencePct.max),
-  ];
-  const coreFlowScore = Math.round(mean(coreFlowComponents));
-  
-  // ========== BODY SCORE ==========
-  const bodyScore = Math.round((groundFlowScore + coreFlowScore) / 2);
-  
-  // ========== UPPER FLOW (BAT) ==========
-  const upperFlowComponents = [
-    to2080Scale(avgBatKE, THRESHOLDS.batKE.min, THRESHOLDS.batKE.max),
-    to2080Scale(avgArmsKE, THRESHOLDS.armsKE.min, THRESHOLDS.armsKE.max),
-    to2080Scale(avgRearElbowExtRate, THRESHOLDS.rearElbowExtRate.min, THRESHOLDS.rearElbowExtRate.max),
-    to2080Scale(avgBatEfficiency, THRESHOLDS.batEfficiency.min, THRESHOLDS.batEfficiency.max),
-  ];
-  const batScore = Math.round(mean(upperFlowComponents));
-  const upperFlowScore = batScore;
-  
-  // ========== BRAIN (Consistency - INVERTED) ==========
-  const brainComponents = [
-    to2080Scale(cvPelvis, THRESHOLDS.cvPelvis.min, THRESHOLDS.cvPelvis.max, true),
-    to2080Scale(cvTorso, THRESHOLDS.cvTorso.min, THRESHOLDS.cvTorso.max, true),
-    to2080Scale(cvXFactor, THRESHOLDS.cvXFactor.min, THRESHOLDS.cvXFactor.max, true),
-    to2080Scale(cvOutput, THRESHOLDS.cvOutput.min, THRESHOLDS.cvOutput.max, true),
-  ];
-  const brainScore = Math.round(mean(brainComponents));
-  
-  // ========== BALL (Contact Consistency - INVERTED) ==========
-  const ballComponents = [
-    to2080Scale(cvLeadElbow, THRESHOLDS.cvLeadElbow.min, THRESHOLDS.cvLeadElbow.max, true),
-    to2080Scale(cvRearElbow, THRESHOLDS.cvRearElbow.min, THRESHOLDS.cvRearElbow.max, true),
-  ];
-  const ballScore = Math.round(mean(ballComponents));
-  
-  // ========== CATCH BARREL SCORE (Composite) ==========
-  const catchBarrelScore = Math.round(
-    (bodyScore * WEIGHTS.body) +
-    (batScore * WEIGHTS.bat) +
-    (brainScore * WEIGHTS.brain) +
-    (ballScore * WEIGHTS.ball)
-  );
-  
-  // ========== WEAKEST LINK ==========
-  const scores = { brain: brainScore, body: bodyScore, bat: batScore, ball: ballScore };
-  const weakestLink = (Object.entries(scores).reduce((a, b) => (a[1] < b[1] ? a : b))[0]) as 'brain' | 'body' | 'bat' | 'ball';
-  
-  // Calculate swing count
-  const swingCount = Math.max(
-    swingMetrics.length,
-    ikMetrics?.swingCount || 0, 
-    meMetrics?.swingCount || 0
-  );
-  
+  // Convert to legacy format
   return {
-    brainScore,
-    bodyScore,
-    batScore,
-    ballScore,
-    catchBarrelScore,
+    brainScore: scores.brain,
+    bodyScore: scores.body,
+    batScore: scores.bat,
+    ballScore: scores.ball,
+    catchBarrelScore: scores.catchBarrelScore,
     
-    grades: {
-      brain: getGrade(brainScore),
-      body: getGrade(bodyScore),
-      bat: getGrade(batScore),
-      ball: getGrade(ballScore),
-      overall: getGrade(catchBarrelScore),
-    },
+    grades: scores.grades,
     
     // Legacy aliases
-    compositeScore: catchBarrelScore,
-    grade: getGrade(catchBarrelScore),
+    compositeScore: scores.catchBarrelScore,
+    grade: scores.grades.overall,
     
-    groundFlowScore,
-    coreFlowScore,
-    upperFlowScore,
+    // Flow component scores
+    groundFlowScore: scores.components.groundFlow,
+    coreFlowScore: scores.components.coreFlow,
+    upperFlowScore: scores.components.upperFlow,
     
-    pelvisVelocity: Math.round(avgPelvisVel),
-    torsoVelocity: Math.round(avgTorsoVel),
-    xFactor: Math.round(avgXFactor * 10) / 10,
-    xFactorStretchRate: Math.round(avgXFactorStretchRate),
-    batKE: Math.round(avgBatKE),
-    armsKE: Math.round(avgArmsKE),
-    legsKE: Math.round(avgLegsKE),
-    transferEfficiency: Math.round(avgBatEfficiency * 10) / 10,
-    properSequencePct: Math.round(properSequencePct),
+    // Raw biomechanical metrics
+    pelvisVelocity: scores.rawMetrics.avgPelvisVelocity || 0,
+    torsoVelocity: scores.rawMetrics.avgTorsoVelocity || 0,
+    xFactor: scores.rawMetrics.avgXFactor || 0,
+    xFactorStretchRate: scores.rawMetrics.avgXFactorRate || 0,
+    batKE: scores.rawMetrics.avgBatKE || 0,
+    armsKE: scores.rawMetrics.avgArmsKE || 0,
+    legsKE: scores.rawMetrics.avgLegsKE || 0,
+    transferEfficiency: scores.rawMetrics.avgBatEfficiency || 0,
+    properSequencePct: scores.rawMetrics.properSequencePct || 0,
     
-    consistencyCV: Math.round(avgCV * 10) / 10,
-    consistencyGrade: getConsistencyGrade(avgCV),
-    cvPelvis: Math.round(cvPelvis * 10) / 10,
-    cvTorso: Math.round(cvTorso * 10) / 10,
-    cvXFactor: Math.round(cvXFactor * 10) / 10,
-    cvOutput: Math.round(cvOutput * 10) / 10,
-    cvLeadElbow: Math.round(cvLeadElbow * 10) / 10,
-    cvRearElbow: Math.round(cvRearElbow * 10) / 10,
+    // Consistency metrics (CV)
+    consistencyCV: scores.rawMetrics.cvPelvis || 0,
+    consistencyGrade: getConsistencyGrade(scores.rawMetrics.cvPelvis || 15),
+    cvPelvis: scores.rawMetrics.cvPelvis || 0,
+    cvTorso: scores.rawMetrics.cvTorso || 0,
+    cvXFactor: scores.rawMetrics.cvXFactor || 0,
+    cvOutput: scores.rawMetrics.cvOutput || 0,
+    cvLeadElbow: scores.rawMetrics.cvLeadElbow || 0,
+    cvRearElbow: scores.rawMetrics.cvRearElbow || 0,
     
     weakestLink,
     
-    ikMetrics,
-    meMetrics,
-    swingCount: swingCount > 0 ? swingCount : undefined,
+    // New fields
+    leak: scores.leak,
+    dataQuality: scores.dataQuality,
     
+    swingCount: scores.dataQuality.swingCount,
+    
+    // Raw metrics for display
     rawMetrics: {
-      avgPelvisVelocity: avgPelvisVel,
-      avgTorsoVelocity: avgTorsoVel,
-      avgXFactor,
-      avgBatKE,
-      avgBatEfficiency,
-      cvPelvis,
-      cvTorso,
-      cvXFactor,
-      cvOutput,
-      properSequencePct,
+      avgPelvisVelocity: scores.rawMetrics.avgPelvisVelocity || 0,
+      avgTorsoVelocity: scores.rawMetrics.avgTorsoVelocity || 0,
+      avgXFactor: scores.rawMetrics.avgXFactor || 0,
+      avgBatKE: scores.rawMetrics.avgBatKE || 0,
+      avgBatEfficiency: scores.rawMetrics.avgBatEfficiency || 0,
+      cvPelvis: scores.rawMetrics.cvPelvis || 0,
+      cvTorso: scores.rawMetrics.cvTorso || 0,
+      cvXFactor: scores.rawMetrics.cvXFactor || 0,
+      cvOutput: scores.rawMetrics.cvOutput || 0,
+      properSequencePct: scores.rawMetrics.properSequencePct || 0,
     },
   };
+}
+
+/**
+ * Detect file type from CSV headers
+ */
+export function detectRebootFileType(headers: string[]): 'reboot-ik' | 'reboot-me' | null {
+  const lowerHeaders = headers.map(h => h.toLowerCase());
+  
+  // IK file markers
+  const ikMarkers = ['pelvis_rot', 'torso_rot', 'left_shoulder_plane', 'left_knee', 'right_knee'];
+  const isIK = ikMarkers.some(marker => lowerHeaders.includes(marker));
+  
+  // ME file markers
+  const meMarkers = ['total_kinetic_energy', 'bat_kinetic_energy', 'legs_kinetic_energy', 'torso_kinetic_energy'];
+  const isME = meMarkers.some(marker => lowerHeaders.includes(marker));
+  
+  if (isIK) return 'reboot-ik';
+  if (isME) return 'reboot-me';
+  return null;
 }
