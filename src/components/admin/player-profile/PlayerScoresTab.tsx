@@ -9,14 +9,11 @@ import {
   TrendingUp, 
   TrendingDown, 
   Minus, 
-  Brain, 
-  Activity, 
-  Zap, 
-  Target,
-  Trophy,
   ChevronRight,
   BarChart3,
-  Loader2
+  Loader2,
+  Flame,
+  Target as TargetIcon
 } from "lucide-react";
 import { 
   LineChart, 
@@ -25,8 +22,7 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer,
-  Legend
+  ResponsiveContainer
 } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +43,7 @@ interface ScoreRecord {
   reboot_session_id: string | null;
 }
 
-type TimeRange = '7d' | '30d' | '90d' | 'all';
+type SessionRange = 5 | 10 | 30 | 'all';
 
 const SCORE_COLORS = {
   overall: "#f97316",
@@ -60,7 +56,7 @@ const SCORE_COLORS = {
 export function PlayerScoresTab({ playerId }: PlayerScoresTabProps) {
   const [scores, setScores] = useState<ScoreRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<TimeRange>('30d');
+  const [sessionRange, setSessionRange] = useState<SessionRange>(10);
   const [showBrain, setShowBrain] = useState(false);
   const [showBody, setShowBody] = useState(false);
   const [showBat, setShowBat] = useState(false);
@@ -88,39 +84,98 @@ export function PlayerScoresTab({ playerId }: PlayerScoresTabProps) {
     }
   };
 
-  // Filter scores by time range
+  // Filter scores by session count
   const filteredScores = useMemo(() => {
-    if (timeRange === 'all') return scores;
-    
-    const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
-    const cutoff = subDays(new Date(), days);
-    
-    return scores.filter(s => isAfter(new Date(s.created_at), cutoff));
-  }, [scores, timeRange]);
+    if (sessionRange === 'all') return scores;
+    return scores.slice(0, sessionRange);
+  }, [scores, sessionRange]);
 
-  // Get current (most recent) and previous scores
-  const currentScore = filteredScores[0];
-  const previousScore = filteredScores[1];
+  // Stats calculations
+  const stats = useMemo(() => {
+    if (scores.length === 0) return null;
 
-  // Calculate deltas
-  const getDelta = (current: number | null | undefined, previous: number | null | undefined) => {
-    if (current == null || previous == null) return null;
-    return current - previous;
-  };
+    const validScores = scores.filter(s => s.composite_score != null);
+    if (validScores.length === 0) return null;
 
-  const overallDelta = getDelta(currentScore?.composite_score, previousScore?.composite_score);
-  const brainDelta = getDelta(currentScore?.brain_score, previousScore?.brain_score);
-  const bodyDelta = getDelta(currentScore?.body_score, previousScore?.body_score);
-  const batDelta = getDelta(currentScore?.bat_score, previousScore?.bat_score);
-  const ballDelta = getDelta(currentScore?.ball_score, previousScore?.ball_score);
+    const current = validScores[0];
+    const previous = validScores[1];
 
-  // Prepare chart data (reverse for chronological order)
+    // Season averages
+    const avgOverall = Math.round(validScores.reduce((sum, s) => sum + (s.composite_score ?? 0), 0) / validScores.length);
+    const avgBrain = Math.round(validScores.filter(s => s.brain_score != null).reduce((sum, s) => sum + (s.brain_score ?? 0), 0) / validScores.filter(s => s.brain_score != null).length) || null;
+    const avgBody = Math.round(validScores.filter(s => s.body_score != null).reduce((sum, s) => sum + (s.body_score ?? 0), 0) / validScores.filter(s => s.body_score != null).length) || null;
+    const avgBat = Math.round(validScores.filter(s => s.bat_score != null).reduce((sum, s) => sum + (s.bat_score ?? 0), 0) / validScores.filter(s => s.bat_score != null).length) || null;
+    const avgBall = Math.round(validScores.filter(s => s.ball_score != null).reduce((sum, s) => sum + (s.ball_score ?? 0), 0) / validScores.filter(s => s.ball_score != null).length) || null;
+
+    // Best scores
+    const bestOverall = Math.max(...validScores.map(s => s.composite_score ?? 0));
+    const bestBrain = Math.max(...validScores.filter(s => s.brain_score != null).map(s => s.brain_score ?? 0));
+    const bestBody = Math.max(...validScores.filter(s => s.body_score != null).map(s => s.body_score ?? 0));
+    const bestBat = Math.max(...validScores.filter(s => s.bat_score != null).map(s => s.bat_score ?? 0));
+    const bestBall = Math.max(...validScores.filter(s => s.ball_score != null).map(s => s.ball_score ?? 0));
+
+    // Deltas vs previous
+    const deltaOverall = current && previous ? (current.composite_score ?? 0) - (previous.composite_score ?? 0) : null;
+    const deltaBrain = current?.brain_score != null && previous?.brain_score != null ? current.brain_score - previous.brain_score : null;
+    const deltaBody = current?.body_score != null && previous?.body_score != null ? current.body_score - previous.body_score : null;
+    const deltaBat = current?.bat_score != null && previous?.bat_score != null ? current.bat_score - previous.bat_score : null;
+    const deltaBall = current?.ball_score != null && previous?.ball_score != null ? current.ball_score - previous.ball_score : null;
+
+    // Last 5 average
+    const last5 = validScores.slice(0, 5);
+    const last5Avg = Math.round(last5.reduce((sum, s) => sum + (s.composite_score ?? 0), 0) / last5.length);
+
+    // Best 3-session stretch
+    let best3Avg = 0;
+    for (let i = 0; i <= validScores.length - 3; i++) {
+      const avg = (
+        (validScores[i].composite_score ?? 0) +
+        (validScores[i + 1].composite_score ?? 0) +
+        (validScores[i + 2].composite_score ?? 0)
+      ) / 3;
+      if (avg > best3Avg) best3Avg = avg;
+    }
+    best3Avg = Math.round(best3Avg);
+
+    // Consistency (std dev)
+    const mean = avgOverall;
+    const variance = validScores.reduce((sum, s) => sum + Math.pow((s.composite_score ?? 0) - mean, 2), 0) / validScores.length;
+    const stdDev = Math.sqrt(variance);
+    const consistencyLabel = stdDev < 3 ? 'Steady' : stdDev < 6 ? 'Normal' : 'Volatile';
+
+    // Trend (last 5 vs season)
+    const trendDiff = last5Avg - avgOverall;
+    const trendLabel = trendDiff >= 3 ? 'Trending Up' : trendDiff <= -3 ? 'Trending Down' : 'Stable';
+
+    return {
+      current: {
+        overall: current?.composite_score ?? null,
+        brain: current?.brain_score ?? null,
+        body: current?.body_score ?? null,
+        bat: current?.bat_score ?? null,
+        ball: current?.ball_score ?? null,
+        grade: current?.grade ?? null,
+      },
+      avg: { overall: avgOverall, brain: avgBrain, body: avgBody, bat: avgBat, ball: avgBall },
+      best: { overall: bestOverall, brain: bestBrain || null, body: bestBody || null, bat: bestBat || null, ball: bestBall || null },
+      delta: { overall: deltaOverall, brain: deltaBrain, body: deltaBody, bat: deltaBat, ball: deltaBall },
+      form: {
+        last5Avg,
+        best3Avg,
+        consistencyLabel,
+        trendLabel,
+        trendDiff,
+        totalSessions: scores.length,
+      },
+    };
+  }, [scores]);
+
+  // Chart data
   const chartData = useMemo(() => {
     return [...filteredScores]
       .reverse()
-      .slice(-20) // Last 20 sessions max
       .map(s => ({
-        date: format(new Date(s.created_at), 'MMM d'),
+        date: format(new Date(s.created_at), 'M/d'),
         fullDate: format(new Date(s.created_at), 'MMM d, yyyy'),
         overall: s.composite_score,
         brain: s.brain_score,
@@ -130,447 +185,461 @@ export function PlayerScoresTab({ playerId }: PlayerScoresTabProps) {
       }));
   }, [filteredScores]);
 
-  // Sparkline data (last 10 sessions)
-  const sparklineData = useMemo(() => {
-    return [...scores].reverse().slice(-10).map(s => s.composite_score ?? 0);
-  }, [scores]);
-
-  // Highlights calculations
-  const highlights = useMemo(() => {
-    if (scores.length === 0) return null;
-
-    const validScores = scores.filter(s => s.composite_score != null);
-    if (validScores.length === 0) return null;
-
-    // Best overall score
-    const best = validScores.reduce((max, s) => 
-      (s.composite_score ?? 0) > (max.composite_score ?? 0) ? s : max
-    );
-
-    // Biggest jump
-    let biggestJump = { delta: 0, date: '' };
-    for (let i = 1; i < validScores.length; i++) {
-      const curr = validScores[i - 1].composite_score ?? 0;
-      const prev = validScores[i].composite_score ?? 0;
-      const delta = curr - prev;
-      if (delta > biggestJump.delta) {
-        biggestJump = { delta, date: validScores[i - 1].created_at };
-      }
-    }
-
-    // Average of last 5
-    const last5 = validScores.slice(0, 5);
-    const avg = last5.reduce((sum, s) => sum + (s.composite_score ?? 0), 0) / last5.length;
-
-    return {
-      bestScore: best.composite_score,
-      bestDate: best.created_at,
-      biggestJump: biggestJump.delta,
-      biggestJumpDate: biggestJump.date,
-      consistency: Math.round(avg),
-      totalSessions: scores.length,
-    };
-  }, [scores]);
-
-  // Delta indicator component
-  const DeltaIndicator = ({ delta }: { delta: number | null }) => {
-    if (delta == null) return <span className="text-slate-500 text-xs">—</span>;
-    if (delta > 0) return (
-      <span className="flex items-center text-emerald-400 text-xs font-medium">
-        <TrendingUp className="h-3 w-3 mr-0.5" />+{delta}
+  // Delta component
+  const Delta = ({ value, size = 'sm' }: { value: number | null; size?: 'sm' | 'lg' }) => {
+    if (value == null) return <span className="text-slate-600">—</span>;
+    
+    const isLarge = size === 'lg';
+    const iconSize = isLarge ? 'h-4 w-4' : 'h-3 w-3';
+    const textSize = isLarge ? 'text-sm font-semibold' : 'text-xs';
+    
+    if (value > 0) return (
+      <span className={cn("flex items-center text-emerald-400", textSize)}>
+        <TrendingUp className={cn(iconSize, "mr-0.5")} />+{value}
       </span>
     );
-    if (delta < 0) return (
-      <span className="flex items-center text-red-400 text-xs font-medium">
-        <TrendingDown className="h-3 w-3 mr-0.5" />{delta}
+    if (value < 0) return (
+      <span className={cn("flex items-center text-red-400", textSize)}>
+        <TrendingDown className={cn(iconSize, "mr-0.5")} />{value}
       </span>
     );
     return (
-      <span className="flex items-center text-slate-400 text-xs">
-        <Minus className="h-3 w-3 mr-0.5" />0
+      <span className={cn("flex items-center text-slate-500", textSize)}>
+        <Minus className={cn(iconSize, "mr-0.5")} />0
       </span>
     );
   };
 
-  // Score card component
-  const ScoreCard = ({ 
+  // Stat box component - ESPN style
+  const StatBox = ({ 
     label, 
-    value, 
-    delta, 
-    icon: Icon, 
-    color 
+    current, 
+    avg, 
+    best, 
+    delta,
+    color,
+    isPrimary = false
   }: { 
-    label: string; 
-    value: number | null; 
-    delta: number | null; 
-    icon: typeof Brain; 
+    label: string;
+    current: number | null;
+    avg: number | null;
+    best: number | null;
+    delta: number | null;
     color: string;
+    isPrimary?: boolean;
   }) => (
-    <Card className="bg-slate-900/80 border-slate-800">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-slate-400 text-sm flex items-center gap-1.5">
-            <Icon className="h-4 w-4" style={{ color }} />
-            {label}
-          </span>
-          <DeltaIndicator delta={delta} />
+    <div className={cn(
+      "border border-slate-800 rounded-lg p-3",
+      isPrimary ? "bg-gradient-to-br from-slate-800/80 to-slate-900/80" : "bg-slate-900/60"
+    )}>
+      <div className="flex items-center justify-between mb-2">
+        <span className={cn(
+          "text-xs font-medium uppercase tracking-wide",
+          isPrimary ? "text-orange-400" : "text-slate-500"
+        )} style={{ color: isPrimary ? undefined : color }}>
+          {label}
+        </span>
+        <Delta value={delta} size={isPrimary ? 'lg' : 'sm'} />
+      </div>
+      
+      <div className={cn(
+        "font-bold text-white mb-2",
+        isPrimary ? "text-4xl" : "text-2xl"
+      )}>
+        {current ?? '—'}
+      </div>
+      
+      <div className="flex items-center gap-3 text-xs">
+        <div>
+          <span className="text-slate-500">AVG </span>
+          <span className="text-slate-300 font-medium">{avg ?? '—'}</span>
         </div>
-        <div className="text-2xl font-bold text-white">
-          {value ?? '—'}
+        <div className="text-slate-700">|</div>
+        <div>
+          <span className="text-slate-500">BEST </span>
+          <span className="text-slate-300 font-medium">{best ?? '—'}</span>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 
-  // Custom tooltip for chart
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  // Custom tooltip
+  const CustomTooltip = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
     
     return (
-      <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-lg">
-        <p className="text-slate-300 text-sm font-medium mb-2">{payload[0]?.payload?.fullDate}</p>
-        {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center gap-2 text-sm">
-            <div 
-              className="w-2 h-2 rounded-full" 
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="text-slate-400 capitalize">{entry.dataKey}:</span>
-            <span className="text-white font-medium">{entry.value}</span>
-          </div>
-        ))}
+      <div className="bg-slate-800 border border-slate-700 rounded px-3 py-2 shadow-lg">
+        <p className="text-slate-300 text-xs font-medium mb-1.5">{payload[0]?.payload?.fullDate}</p>
+        <div className="space-y-1">
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center gap-2 text-xs">
+              <div 
+                className="w-2 h-2 rounded-full" 
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-slate-400">{entry.name}:</span>
+              <span className="text-white font-semibold">{entry.value}</span>
+            </div>
+          ))}
+        </div>
       </div>
+    );
+  };
+
+  // Score cell with color coding
+  const ScoreCell = ({ value, prevValue }: { value: number | null; prevValue?: number | null }) => {
+    if (value == null) return <span className="text-slate-600">—</span>;
+    
+    const isUp = prevValue != null && value > prevValue;
+    const isDown = prevValue != null && value < prevValue;
+    
+    return (
+      <span className={cn(
+        "font-medium",
+        isUp && "text-emerald-400",
+        isDown && "text-red-400",
+        !isUp && !isDown && "text-slate-200"
+      )}>
+        {value}
+      </span>
     );
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
       </div>
     );
   }
 
   if (scores.length === 0) {
     return (
-      <Card className="bg-slate-900/80 border-slate-800">
-        <CardContent className="py-16 text-center">
-          <BarChart3 className="h-16 w-16 mx-auto text-slate-600 mb-4" />
-          <h3 className="text-xl font-semibold text-white mb-2">No scores yet</h3>
-          <p className="text-slate-400 max-w-md mx-auto">
-            Run your first session to start tracking progress. Scores will appear here after each assessment.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="border border-slate-800 rounded-lg bg-slate-900/60 py-16 text-center">
+        <BarChart3 className="h-12 w-12 mx-auto text-slate-700 mb-3" />
+        <h3 className="text-lg font-semibold text-white mb-1">No sessions yet</h3>
+        <p className="text-slate-500 text-sm">
+          Run your first swing analysis to start your season.
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Score Cards Row */}
-      <div className="grid grid-cols-5 gap-4">
-        <Card className="bg-gradient-to-br from-orange-600/20 to-red-600/20 border-orange-500/30">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-orange-300 text-sm font-medium">Overall Score</span>
-              <DeltaIndicator delta={overallDelta} />
-            </div>
-            <div className="text-4xl font-bold text-white">
-              {currentScore?.composite_score ?? '—'}
-            </div>
-            {currentScore?.grade && (
-              <Badge className="mt-2 bg-orange-500/20 text-orange-300 border-orange-500/50">
-                {currentScore.grade}
-              </Badge>
-            )}
-          </CardContent>
-        </Card>
-        
-        <ScoreCard 
-          label="Brain" 
-          value={currentScore?.brain_score ?? null} 
-          delta={brainDelta} 
-          icon={Brain} 
-          color={SCORE_COLORS.brain} 
+    <div className="space-y-4">
+      {/* Season Snapshot - Box Score Style */}
+      <div className="grid grid-cols-5 gap-3">
+        <StatBox
+          label="Overall 4B"
+          current={stats?.current.overall ?? null}
+          avg={stats?.avg.overall ?? null}
+          best={stats?.best.overall ?? null}
+          delta={stats?.delta.overall ?? null}
+          color={SCORE_COLORS.overall}
+          isPrimary
         />
-        <ScoreCard 
-          label="Body" 
-          value={currentScore?.body_score ?? null} 
-          delta={bodyDelta} 
-          icon={Activity} 
-          color={SCORE_COLORS.body} 
+        <StatBox
+          label="Brain"
+          current={stats?.current.brain ?? null}
+          avg={stats?.avg.brain ?? null}
+          best={stats?.best.brain ?? null}
+          delta={stats?.delta.brain ?? null}
+          color={SCORE_COLORS.brain}
         />
-        <ScoreCard 
-          label="Bat" 
-          value={currentScore?.bat_score ?? null} 
-          delta={batDelta} 
-          icon={Zap} 
-          color={SCORE_COLORS.bat} 
+        <StatBox
+          label="Body"
+          current={stats?.current.body ?? null}
+          avg={stats?.avg.body ?? null}
+          best={stats?.best.body ?? null}
+          delta={stats?.delta.body ?? null}
+          color={SCORE_COLORS.body}
         />
-        <ScoreCard 
-          label="Ball" 
-          value={currentScore?.ball_score ?? null} 
-          delta={ballDelta} 
-          icon={Target} 
-          color={SCORE_COLORS.ball} 
+        <StatBox
+          label="Bat"
+          current={stats?.current.bat ?? null}
+          avg={stats?.avg.bat ?? null}
+          best={stats?.best.bat ?? null}
+          delta={stats?.delta.bat ?? null}
+          color={SCORE_COLORS.bat}
+        />
+        <StatBox
+          label="Ball"
+          current={stats?.current.ball ?? null}
+          avg={stats?.avg.ball ?? null}
+          best={stats?.best.ball ?? null}
+          delta={stats?.delta.ball ?? null}
+          color={SCORE_COLORS.ball}
         />
       </div>
 
-      {/* Main Chart + Highlights Row */}
-      <div className="grid grid-cols-4 gap-6">
-        {/* Chart Area */}
-        <Card className="col-span-3 bg-slate-900/80 border-slate-800">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-white text-base">Score Trend</CardTitle>
-              <div className="flex items-center gap-2">
-                {/* Toggle buttons for sub-scores */}
-                <div className="flex gap-1 mr-4">
-                  <Button
-                    variant={showBrain ? "default" : "outline"}
-                    size="sm"
-                    className={cn("h-7 px-2 text-xs", showBrain && "bg-purple-600 hover:bg-purple-700")}
-                    onClick={() => setShowBrain(!showBrain)}
+      {/* Chart + Form Section */}
+      <div className="grid grid-cols-4 gap-4">
+        {/* Trend Chart */}
+        <div className="col-span-3 border border-slate-800 rounded-lg bg-slate-900/60 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-white uppercase tracking-wide">Score Trend</h3>
+            
+            <div className="flex items-center gap-3">
+              {/* Sub-score toggles */}
+              <div className="flex gap-1">
+                {[
+                  { key: 'brain', label: 'Brain', color: SCORE_COLORS.brain, active: showBrain, toggle: setShowBrain },
+                  { key: 'body', label: 'Body', color: SCORE_COLORS.body, active: showBody, toggle: setShowBody },
+                  { key: 'bat', label: 'Bat', color: SCORE_COLORS.bat, active: showBat, toggle: setShowBat },
+                  { key: 'ball', label: 'Ball', color: SCORE_COLORS.ball, active: showBall, toggle: setShowBall },
+                ].map(({ key, label, color, active, toggle }) => (
+                  <button
+                    key={key}
+                    onClick={() => toggle(!active)}
+                    className={cn(
+                      "px-2 py-1 text-xs font-medium rounded transition-colors",
+                      active 
+                        ? "text-white" 
+                        : "text-slate-500 hover:text-slate-300"
+                    )}
+                    style={{ backgroundColor: active ? color : 'transparent' }}
                   >
-                    Brain
-                  </Button>
-                  <Button
-                    variant={showBody ? "default" : "outline"}
-                    size="sm"
-                    className={cn("h-7 px-2 text-xs", showBody && "bg-blue-600 hover:bg-blue-700")}
-                    onClick={() => setShowBody(!showBody)}
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Session range */}
+              <div className="flex bg-slate-800 rounded p-0.5">
+                {([5, 10, 30, 'all'] as SessionRange[]).map(range => (
+                  <button
+                    key={range}
+                    onClick={() => setSessionRange(range)}
+                    className={cn(
+                      "px-2 py-1 text-xs font-medium rounded transition-colors",
+                      sessionRange === range 
+                        ? "bg-slate-700 text-white" 
+                        : "text-slate-500 hover:text-slate-300"
+                    )}
                   >
-                    Body
-                  </Button>
-                  <Button
-                    variant={showBat ? "default" : "outline"}
-                    size="sm"
-                    className={cn("h-7 px-2 text-xs", showBat && "bg-emerald-600 hover:bg-emerald-700")}
-                    onClick={() => setShowBat(!showBat)}
-                  >
-                    Bat
-                  </Button>
-                  <Button
-                    variant={showBall ? "default" : "outline"}
-                    size="sm"
-                    className={cn("h-7 px-2 text-xs", showBall && "bg-amber-600 hover:bg-amber-700")}
-                    onClick={() => setShowBall(!showBall)}
-                  >
-                    Ball
-                  </Button>
-                </div>
-                
-                {/* Time range filter */}
-                <div className="flex rounded-lg bg-slate-800 p-0.5">
-                  {(['7d', '30d', '90d', 'all'] as TimeRange[]).map(range => (
-                    <Button
-                      key={range}
-                      variant="ghost"
-                      size="sm"
-                      className={cn(
-                        "h-7 px-3 text-xs rounded-md",
-                        timeRange === range 
-                          ? "bg-slate-700 text-white" 
-                          : "text-slate-400 hover:text-white"
-                      )}
-                      onClick={() => setTimeRange(range)}
-                    >
-                      {range.toUpperCase()}
-                    </Button>
-                  ))}
-                </div>
+                    {range === 'all' ? 'ALL' : range}
+                  </button>
+                ))}
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#64748b" 
-                    fontSize={12}
-                    tickLine={false}
-                  />
-                  <YAxis 
-                    stroke="#64748b" 
-                    fontSize={12}
-                    domain={[20, 80]}
-                    tickLine={false}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend />
-                  
-                  {/* Always show overall */}
+          </div>
+
+          {chartData.length > 1 ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#475569" 
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis 
+                  stroke="#475569" 
+                  fontSize={11}
+                  domain={[20, 80]}
+                  tickLine={false}
+                  axisLine={false}
+                  width={30}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                
+                <Line 
+                  type="monotone" 
+                  dataKey="overall" 
+                  stroke={SCORE_COLORS.overall}
+                  strokeWidth={2.5}
+                  dot={{ fill: SCORE_COLORS.overall, strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, strokeWidth: 0 }}
+                  name="Overall"
+                />
+                
+                {showBrain && (
                   <Line 
                     type="monotone" 
-                    dataKey="overall" 
-                    stroke={SCORE_COLORS.overall}
-                    strokeWidth={3}
-                    dot={{ fill: SCORE_COLORS.overall, strokeWidth: 0, r: 4 }}
-                    activeDot={{ r: 6, strokeWidth: 0 }}
-                    name="Overall"
+                    dataKey="brain" 
+                    stroke={SCORE_COLORS.brain}
+                    strokeWidth={1.5}
+                    dot={false}
+                    name="Brain"
                   />
-                  
-                  {showBrain && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="brain" 
-                      stroke={SCORE_COLORS.brain}
-                      strokeWidth={2}
-                      dot={{ fill: SCORE_COLORS.brain, strokeWidth: 0, r: 3 }}
-                      name="Brain"
-                    />
-                  )}
-                  {showBody && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="body" 
-                      stroke={SCORE_COLORS.body}
-                      strokeWidth={2}
-                      dot={{ fill: SCORE_COLORS.body, strokeWidth: 0, r: 3 }}
-                      name="Body"
-                    />
-                  )}
-                  {showBat && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="bat" 
-                      stroke={SCORE_COLORS.bat}
-                      strokeWidth={2}
-                      dot={{ fill: SCORE_COLORS.bat, strokeWidth: 0, r: 3 }}
-                      name="Bat"
-                    />
-                  )}
-                  {showBall && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="ball" 
-                      stroke={SCORE_COLORS.ball}
-                      strokeWidth={2}
-                      dot={{ fill: SCORE_COLORS.ball, strokeWidth: 0, r: 3 }}
-                      name="Ball"
-                    />
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[280px] flex items-center justify-center text-slate-500">
-                No data in selected time range
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Highlights Panel */}
-        <Card className="bg-slate-900/80 border-slate-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-white text-base flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-amber-500" />
-              Highlights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {highlights ? (
-              <>
-                <div className="p-3 rounded-lg bg-slate-800/50">
-                  <p className="text-slate-400 text-xs mb-1">Best Overall Score</p>
-                  <p className="text-2xl font-bold text-white">{highlights.bestScore}</p>
-                  <p className="text-slate-500 text-xs">
-                    {format(new Date(highlights.bestDate), 'MMM d, yyyy')}
-                  </p>
-                </div>
-                
-                {highlights.biggestJump > 0 && (
-                  <div className="p-3 rounded-lg bg-slate-800/50">
-                    <p className="text-slate-400 text-xs mb-1">Biggest Jump</p>
-                    <p className="text-xl font-bold text-emerald-400">+{highlights.biggestJump}</p>
-                    <p className="text-slate-500 text-xs">
-                      {format(new Date(highlights.biggestJumpDate), 'MMM d, yyyy')}
-                    </p>
-                  </div>
                 )}
-                
-                <div className="p-3 rounded-lg bg-slate-800/50">
-                  <p className="text-slate-400 text-xs mb-1">Consistency (Last 5)</p>
-                  <p className="text-xl font-bold text-white">{highlights.consistency}</p>
-                  <p className="text-slate-500 text-xs">avg score</p>
-                </div>
-                
-                <div className="p-3 rounded-lg bg-slate-800/50">
-                  <p className="text-slate-400 text-xs mb-1">Total Sessions</p>
-                  <p className="text-xl font-bold text-white">{highlights.totalSessions}</p>
-                </div>
-              </>
-            ) : (
-              <p className="text-slate-500 text-sm">No highlights yet</p>
-            )}
-          </CardContent>
-        </Card>
+                {showBody && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="body" 
+                    stroke={SCORE_COLORS.body}
+                    strokeWidth={1.5}
+                    dot={false}
+                    name="Body"
+                  />
+                )}
+                {showBat && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="bat" 
+                    stroke={SCORE_COLORS.bat}
+                    strokeWidth={1.5}
+                    dot={false}
+                    name="Bat"
+                  />
+                )}
+                {showBall && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="ball" 
+                    stroke={SCORE_COLORS.ball}
+                    strokeWidth={1.5}
+                    dot={false}
+                    name="Ball"
+                  />
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[240px] flex items-center justify-center text-slate-600 text-sm">
+              Need more sessions to show trend
+            </div>
+          )}
+        </div>
+
+        {/* Form & Consistency Panel */}
+        <div className="border border-slate-800 rounded-lg bg-slate-900/60 p-4">
+          <h3 className="text-sm font-semibold text-white uppercase tracking-wide mb-4">Form</h3>
+          
+          <div className="space-y-3">
+            {/* Trend indicator */}
+            <div className="flex items-center justify-between p-2 rounded bg-slate-800/50">
+              <span className="text-slate-400 text-xs">Status</span>
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "text-xs font-medium border-0",
+                  stats?.form.trendLabel === 'Trending Up' && "bg-emerald-500/20 text-emerald-400",
+                  stats?.form.trendLabel === 'Trending Down' && "bg-red-500/20 text-red-400",
+                  stats?.form.trendLabel === 'Stable' && "bg-slate-500/20 text-slate-400"
+                )}
+              >
+                {stats?.form.trendLabel === 'Trending Up' && <TrendingUp className="h-3 w-3 mr-1" />}
+                {stats?.form.trendLabel === 'Trending Down' && <TrendingDown className="h-3 w-3 mr-1" />}
+                {stats?.form.trendLabel}
+              </Badge>
+            </div>
+
+            {/* Last 5 Avg */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-800">
+              <span className="text-slate-400 text-xs">Last 5 Avg</span>
+              <span className="text-white font-semibold">{stats?.form.last5Avg ?? '—'}</span>
+            </div>
+
+            {/* Best Stretch */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-800">
+              <span className="text-slate-400 text-xs flex items-center gap-1">
+                <Flame className="h-3 w-3 text-orange-500" />
+                Best 3-Game Avg
+              </span>
+              <span className="text-white font-semibold">{stats?.form.best3Avg ?? '—'}</span>
+            </div>
+
+            {/* Consistency */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-800">
+              <span className="text-slate-400 text-xs flex items-center gap-1">
+                <TargetIcon className="h-3 w-3 text-blue-500" />
+                Consistency
+              </span>
+              <span className={cn(
+                "text-xs font-medium",
+                stats?.form.consistencyLabel === 'Steady' && "text-emerald-400",
+                stats?.form.consistencyLabel === 'Normal' && "text-slate-300",
+                stats?.form.consistencyLabel === 'Volatile' && "text-amber-400"
+              )}>
+                {stats?.form.consistencyLabel ?? '—'}
+              </span>
+            </div>
+
+            {/* Total Sessions */}
+            <div className="flex items-center justify-between py-2">
+              <span className="text-slate-400 text-xs">Total Sessions</span>
+              <span className="text-white font-semibold">{stats?.form.totalSessions ?? 0}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Recent Sessions Table */}
-      <Card className="bg-slate-900/80 border-slate-800">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-white text-base">Recent Sessions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-slate-800 hover:bg-transparent">
-                <TableHead className="text-slate-400">Date</TableHead>
-                <TableHead className="text-slate-400">Overall</TableHead>
-                <TableHead className="text-slate-400">Δ</TableHead>
-                <TableHead className="text-slate-400">Brain</TableHead>
-                <TableHead className="text-slate-400">Body</TableHead>
-                <TableHead className="text-slate-400">Bat</TableHead>
-                <TableHead className="text-slate-400">Ball</TableHead>
-                <TableHead className="text-slate-400">Weakest</TableHead>
-                <TableHead className="text-slate-400"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredScores.slice(0, 10).map((score, index) => {
-                const prevScore = filteredScores[index + 1];
-                const delta = getDelta(score.composite_score, prevScore?.composite_score);
-                
-                return (
-                  <TableRow key={score.id} className="border-slate-800 hover:bg-slate-800/50">
-                    <TableCell className="text-slate-300">
-                      {format(new Date(score.created_at), 'MMM d, yyyy')}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-white font-semibold text-lg">
-                        {score.composite_score ?? '—'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <DeltaIndicator delta={delta} />
-                    </TableCell>
-                    <TableCell className="text-slate-300">{score.brain_score ?? '—'}</TableCell>
-                    <TableCell className="text-slate-300">{score.body_score ?? '—'}</TableCell>
-                    <TableCell className="text-slate-300">{score.bat_score ?? '—'}</TableCell>
-                    <TableCell className="text-slate-300">{score.ball_score ?? '—'}</TableCell>
-                    <TableCell>
-                      {score.weakest_link && (
-                        <Badge variant="outline" className="border-slate-700 text-slate-400 capitalize">
-                          {score.weakest_link}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
-                        View <ChevronRight className="h-4 w-4 ml-1" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* Game Log Table */}
+      <div className="border border-slate-800 rounded-lg bg-slate-900/60 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-800">
+          <h3 className="text-sm font-semibold text-white uppercase tracking-wide">Game Log</h3>
+        </div>
+        
+        <Table>
+          <TableHeader>
+            <TableRow className="border-slate-800 hover:bg-transparent">
+              <TableHead className="text-slate-500 text-xs uppercase">Date</TableHead>
+              <TableHead className="text-slate-500 text-xs uppercase">Session</TableHead>
+              <TableHead className="text-slate-500 text-xs uppercase text-center">Overall</TableHead>
+              <TableHead className="text-slate-500 text-xs uppercase text-center">Brain</TableHead>
+              <TableHead className="text-slate-500 text-xs uppercase text-center">Body</TableHead>
+              <TableHead className="text-slate-500 text-xs uppercase text-center">Bat</TableHead>
+              <TableHead className="text-slate-500 text-xs uppercase text-center">Ball</TableHead>
+              <TableHead className="text-slate-500 text-xs uppercase text-center">Δ</TableHead>
+              <TableHead className="text-slate-500 text-xs uppercase w-16"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredScores.slice(0, 15).map((score, index) => {
+              const prevScore = filteredScores[index + 1];
+              const delta = score.composite_score != null && prevScore?.composite_score != null 
+                ? score.composite_score - prevScore.composite_score 
+                : null;
+              
+              return (
+                <TableRow 
+                  key={score.id} 
+                  className="border-slate-800/50 hover:bg-slate-800/30"
+                >
+                  <TableCell className="text-slate-400 text-sm py-2">
+                    {format(new Date(score.created_at), 'M/d/yy')}
+                  </TableCell>
+                  <TableCell className="text-slate-300 text-sm py-2">
+                    Session {scores.length - scores.indexOf(score)}
+                  </TableCell>
+                  <TableCell className="text-center py-2">
+                    <span className="text-white font-bold text-base">
+                      {score.composite_score ?? '—'}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-center py-2">
+                    <ScoreCell value={score.brain_score} prevValue={prevScore?.brain_score} />
+                  </TableCell>
+                  <TableCell className="text-center py-2">
+                    <ScoreCell value={score.body_score} prevValue={prevScore?.body_score} />
+                  </TableCell>
+                  <TableCell className="text-center py-2">
+                    <ScoreCell value={score.bat_score} prevValue={prevScore?.bat_score} />
+                  </TableCell>
+                  <TableCell className="text-center py-2">
+                    <ScoreCell value={score.ball_score} prevValue={prevScore?.ball_score} />
+                  </TableCell>
+                  <TableCell className="text-center py-2">
+                    <Delta value={delta} />
+                  </TableCell>
+                  <TableCell className="text-right py-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 px-2 text-slate-500 hover:text-white hover:bg-slate-800"
+                    >
+                      View <ChevronRight className="h-3 w-3 ml-0.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
