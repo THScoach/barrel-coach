@@ -1,277 +1,322 @@
-import { useState, useRef, useCallback } from 'react';
-import { Upload, X, CheckCircle, HelpCircle, Loader2, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { Upload, X, CheckCircle, HelpCircle, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { UploadedVideo } from "@/types/analysis";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface VideoUploaderProps {
+  /**
+   * Minimum swings needed to proceed (ex: product requirement)
+   * We’ll encourage 5+, but we won’t block above and beyond this.
+   */
   swingsRequired: number;
-  swingsMaxAllowed?: number; // Default to swingsRequired if not provided
+
+  /**
+   * A session can hold multiple swings (up to 15).
+   * Default = 15 unless you override.
+   */
+  swingsMaxAllowed?: number;
+
+  /**
+   * Session already created upstream (Analyze.tsx).
+   * All swings uploaded here attach to this session.
+   */
   sessionId: string;
+
+  /**
+   * Called when user hits Continue and minimum requirement is met.
+   */
   onComplete: () => void;
+
+  /**
+   * If you’re creating checkout, etc.
+   */
   isCheckoutLoading?: boolean;
 }
 
-interface VideoSlot {
-  id: string;
-  file: File;
-  previewUrl: string;
-  status: 'uploading' | 'uploaded' | 'error';
-}
+type Slot = UploadedVideo | null;
 
-export function VideoUploader({ 
-  swingsRequired, 
-  swingsMaxAllowed,
-  sessionId, 
-  onComplete, 
-  isCheckoutLoading 
+const DEFAULT_MAX_SWINGS = 15;
+const ENCOURAGED_MIN_SWINGS = 5;
+
+// Keep this strict. If we add Gumlet later, the validation stays.
+const ACCEPTED_TYPES = ["video/mp4", "video/quicktime"]; // .mp4, .mov
+const MAX_SIZE_BYTES = 250 * 1024 * 1024; // 250MB (more realistic for modern phones)
+
+export function VideoUploader({
+  swingsRequired,
+  swingsMaxAllowed = DEFAULT_MAX_SWINGS,
+  sessionId,
+  onComplete,
+  isCheckoutLoading,
 }: VideoUploaderProps) {
-  // Use fixed slots - max allowed or required (for backwards compatibility)
-  const maxSlots = swingsMaxAllowed ?? Math.max(swingsRequired, 15);
-  const minRequired = swingsRequired;
-  
-  // Fixed slots array: null = empty slot, VideoSlot = has video
-  const [videoSlots, setVideoSlots] = useState<(VideoSlot | null)[]>(
-    Array(maxSlots).fill(null)
-  );
+  // Fixed-length slots so indexes never race or shift.
+  const [slots, setSlots] = useState<Slot[]>(() => Array.from({ length: swingsMaxAllowed }, () => null));
   const [dragOver, setDragOver] = useState(false);
   const [showGuidelines, setShowGuidelines] = useState(false);
-  const [uploadingSlots, setUploadingSlots] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const uploadedCount = videoSlots.filter(v => v?.status === 'uploaded').length;
-  const filledCount = videoSlots.filter(v => v !== null).length;
-  const isMinReached = uploadedCount >= minRequired;
+  // Track in-flight upload controllers so removing a slot cancels that upload.
+  const uploadControllersRef = useRef<Map<number, AbortController>>(new Map());
 
-  const validateVideo = async (file: File): Promise<{ valid: boolean; error?: string }> => {
-    if (!['video/mp4', 'video/quicktime'].includes(file.type)) {
-      return { valid: false, error: 'Please upload a .mp4 or .mov file' };
+  // Derived counts
+  const uploadedCount = useMemo(() => slots.filter((v) => v?.status === "uploaded").length, [slots]);
+
+  const filledCount = useMemo(() => slots.filter(Boolean).length, [slots]);
+
+  const remainingCapacity = useMemo(() => Math.max(0, swingsMaxAllowed - filledCount), [swingsMaxAllowed, filledCount]);
+
+  const canContinue = uploadedCount >= swingsRequired;
+
+  const headline = useMemo(() => {
+    // Coach Rick simple: required + max
+    if (swingsRequired <= 1) return "UPLOAD YOUR SWING";
+    return `UPLOAD YOUR SWINGS`;
+  }, [swingsRequired]);
+
+  const subline = useMemo(() => {
+    // Encourage 5+, but do not block.
+    if (swingsMaxAllowed <= 1) return "One swing, one session.";
+    if (swingsRequired >= ENCOURAGED_MIN_SWINGS) {
+      return `Same session. Upload ${swingsRequired}–${swingsMaxAllowed} swings.`;
     }
-    if (file.size > 100 * 1024 * 1024) {
-      return { valid: false, error: 'Video is too large (max 100MB)' };
+    return `Same session. Minimum ${swingsRequired}. I want 5+ if you can. (Max ${swingsMaxAllowed})`;
+  }, [swingsRequired, swingsMaxAllowed]);
+
+  const getFirstEmptySlotIndex = useCallback((currentSlots: Slot[]) => {
+    return currentSlots.findIndex((s) => s === null);
+  }, []);
+
+  const validateVideo = useCallback(async (file: File): Promise<{ valid: boolean; error?: string }> => {
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      return { valid: false, error: "Upload a .mp4 or .mov." };
+    }
+    if (file.size > MAX_SIZE_BYTES) {
+      return { valid: false, error: "That file is too big. Keep it under 250MB." };
     }
     return { valid: true };
-  };
+  }, []);
 
-  const uploadVideoToBackend = async (file: File, swingIndex: number): Promise<boolean> => {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('sessionId', sessionId);
-      formData.append('swingIndex', swingIndex.toString());
+  const uploadVideoToBackend = useCallback(
+    async (file: File, swingIndex: number): Promise<boolean> => {
+      const controller = new AbortController();
+      uploadControllersRef.current.set(swingIndex, controller);
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-swing`,
-        {
-          method: 'POST',
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("sessionId", sessionId);
+        formData.append("swingIndex", swingIndex.toString()); // stable slot index
+
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-swing`, {
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            // NOTE: this is how your codebase currently does it.
+            // If your Edge Function expects user JWT instead, we’ll adjust later.
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: formData,
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          let msg = "Upload failed";
+          try {
+            const errorData = await response.json();
+            msg = errorData?.error || msg;
+          } catch {
+            // ignore
+          }
+          throw new Error(msg);
         }
-      );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
+        return true;
+      } catch (error: any) {
+        if (error?.name === "AbortError") return false;
+        console.error("Upload error:", error);
+        return false;
+      } finally {
+        uploadControllersRef.current.delete(swingIndex);
       }
+    },
+    [sessionId],
+  );
 
-      return true;
-    } catch (error) {
-      console.error('Upload error:', error);
-      return false;
-    }
-  };
+  const removeSlot = useCallback((slotIndex: number) => {
+    setSlots((prev) => {
+      const current = prev[slotIndex];
+      if (current?.previewUrl) URL.revokeObjectURL(current.previewUrl);
+      const copy = [...prev];
+      copy[slotIndex] = null;
+      return copy;
+    });
 
-  const handleFileSelect = useCallback(async (files: FileList | null) => {
-    if (!files) return;
+    // Abort upload if it’s in flight
+    const ctrl = uploadControllersRef.current.get(slotIndex);
+    if (ctrl) ctrl.abort();
+    uploadControllersRef.current.delete(slotIndex);
+  }, []);
 
-    const filesToProcess = Array.from(files);
-    
-    for (const file of filesToProcess) {
-      const validation = await validateVideo(file);
-      
-      if (!validation.valid) {
-        toast.error(validation.error);
-        continue;
-      }
-
-      // Find first empty slot
-      const emptySlotIndex = videoSlots.findIndex(v => v === null);
-      if (emptySlotIndex === -1) {
-        toast.error('All swing slots are full');
-        break;
-      }
-
-      const id = crypto.randomUUID();
-      const previewUrl = URL.createObjectURL(file);
-      
-      // Add video in uploading state to the specific slot
-      const newVideo: VideoSlot = {
-        id,
-        file,
-        previewUrl,
-        status: 'uploading',
-      };
-
-      // Update slot immediately
-      setVideoSlots(prev => {
-        const next = [...prev];
-        next[emptySlotIndex] = newVideo;
-        return next;
+  // Cleanup all blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      slots.forEach((v) => {
+        if (v?.previewUrl) URL.revokeObjectURL(v.previewUrl);
       });
-      setUploadingSlots(prev => new Set(prev).add(emptySlotIndex));
+      uploadControllersRef.current.forEach((ctrl) => ctrl.abort());
+      uploadControllersRef.current.clear();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-      // Upload to backend using the SLOT INDEX as swingIndex
-      const success = await uploadVideoToBackend(file, emptySlotIndex);
+  const addFilesToSlots = useCallback(
+    async (files: FileList | null) => {
+      if (!files) return;
 
-      // Update video status in the same slot
-      setVideoSlots(prev => {
-        const next = [...prev];
-        const current = next[emptySlotIndex];
-        if (current && current.id === id) {
-          next[emptySlotIndex] = { ...current, status: success ? 'uploaded' : 'error' };
+      const fileArray = Array.from(files);
+      if (fileArray.length === 0) return;
+
+      // Capacity guard
+      if (remainingCapacity <= 0) {
+        toast.error(`Session is full. Max ${swingsMaxAllowed} swings.`);
+        return;
+      }
+
+      // Only process up to remaining capacity
+      const filesToProcess = fileArray.slice(0, remainingCapacity);
+
+      // Sequential upload = fewer weird failures
+      for (const file of filesToProcess) {
+        const validation = await validateVideo(file);
+        if (!validation.valid) {
+          toast.error(validation.error);
+          continue;
         }
-        return next;
-      });
-      setUploadingSlots(prev => {
-        const next = new Set(prev);
-        next.delete(emptySlotIndex);
-        return next;
-      });
 
-      if (!success) {
-        toast.error(`Failed to upload swing ${emptySlotIndex + 1}`);
+        // Allocate a slot index at the moment we’re about to use it
+        let slotIndex = -1;
+        setSlots((prev) => {
+          const idx = getFirstEmptySlotIndex(prev);
+          slotIndex = idx;
+          if (idx === -1) return prev;
+
+          const id = crypto.randomUUID();
+          const previewUrl = URL.createObjectURL(file);
+
+          const next = [...prev];
+          next[idx] = {
+            id,
+            index: idx,
+            file,
+            previewUrl,
+            duration: 0,
+            status: "uploading",
+          };
+          return next;
+        });
+
+        // If no slot, break
+        if (slotIndex === -1) break;
+
+        // Upload
+        const success = await uploadVideoToBackend(file, slotIndex);
+
+        // Update status
+        setSlots((prev) => {
+          const v = prev[slotIndex];
+          if (!v) return prev; // removed mid-upload
+          const next = [...prev];
+          next[slotIndex] = { ...v, status: success ? "uploaded" : "error" };
+          return next;
+        });
+
+        if (!success) {
+          toast.error(`Swing ${slotIndex + 1} didn’t upload. Try again.`);
+        }
       }
+
+      // Reset input so selecting the same file again triggers change
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    },
+    [remainingCapacity, swingsMaxAllowed, validateVideo, uploadVideoToBackend, getFirstEmptySlotIndex],
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      addFilesToSlots(e.dataTransfer.files);
+    },
+    [addFilesToSlots],
+  );
+
+  const handleContinue = useCallback(() => {
+    if (!canContinue) {
+      toast.error(`I need at least ${swingsRequired} uploaded swing${swingsRequired === 1 ? "" : "s"}.`);
+      return;
     }
-  }, [videoSlots, sessionId, maxSlots]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    handleFileSelect(e.dataTransfer.files);
-  }, [handleFileSelect]);
-
-  // Remove video: set slot back to null (NO splice/reindexing!)
-  const removeVideo = (slotIndex: number) => {
-    setVideoSlots(prev => {
-      const next = [...prev];
-      // Revoke the object URL to prevent memory leaks
-      const video = next[slotIndex];
-      if (video?.previewUrl) {
-        URL.revokeObjectURL(video.previewUrl);
-      }
-      next[slotIndex] = null;
-      return next;
-    });
-  };
-
-  // Retry failed upload
-  const retryUpload = async (slotIndex: number) => {
-    const video = videoSlots[slotIndex];
-    if (!video || video.status !== 'error') return;
-
-    setVideoSlots(prev => {
-      const next = [...prev];
-      if (next[slotIndex]) {
-        next[slotIndex] = { ...next[slotIndex]!, status: 'uploading' };
-      }
-      return next;
-    });
-    setUploadingSlots(prev => new Set(prev).add(slotIndex));
-
-    const success = await uploadVideoToBackend(video.file, slotIndex);
-
-    setVideoSlots(prev => {
-      const next = [...prev];
-      const current = next[slotIndex];
-      if (current) {
-        next[slotIndex] = { ...current, status: success ? 'uploaded' : 'error' };
-      }
-      return next;
-    });
-    setUploadingSlots(prev => {
-      const next = new Set(prev);
-      next.delete(slotIndex);
-      return next;
-    });
-
-    if (!success) {
-      toast.error(`Failed to upload swing ${slotIndex + 1}`);
-    }
-  };
-
-  const handleContinue = () => {
-    if (isMinReached) {
-      onComplete();
-    }
-  };
-
-  // Calculate visible slots: show at least minRequired, or up to filledCount + 3 (max maxSlots)
-  const visibleSlotCount = Math.min(maxSlots, Math.max(minRequired, filledCount + 3));
+    onComplete();
+  }, [canContinue, swingsRequired, onComplete]);
 
   return (
-    <div className="animate-fade-in max-w-2xl mx-auto">
+    <div className="animate-fade-in max-w-3xl mx-auto">
       <div className="text-center mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold mb-2">
-          UPLOAD YOUR SWINGS
-        </h1>
-        <p className="text-muted-foreground">
-          Upload at least {minRequired} swings (up to {maxSlots} allowed)
-        </p>
-        <p className="text-sm text-muted-foreground mt-1">
-          💡 More swings = more accurate analysis
-        </p>
+        <h1 className="text-2xl md:text-3xl font-bold mb-2">{headline}</h1>
+        <p className="text-muted-foreground">{subline}</p>
       </div>
 
-      {/* Multi-swing progress grid */}
+      {/* Slots grid (always show, up to maxAllowed) */}
       <div className="mb-6">
         <div className="grid grid-cols-5 gap-2">
-          {Array.from({ length: visibleSlotCount }).map((_, i) => {
-            const video = videoSlots[i];
-            const isUploading = uploadingSlots.has(i);
-            return (
-              <VideoThumbnail
-                key={i}
-                index={i}
-                video={video}
-                isUploading={isUploading}
-                isRequired={i < minRequired}
-                onRemove={() => removeVideo(i)}
-                onRetry={() => retryUpload(i)}
-                onClick={() => !video && fileInputRef.current?.click()}
-              />
-            );
-          })}
+          {Array.from({ length: swingsMaxAllowed }).map((_, i) => (
+            <VideoThumbnail
+              key={i}
+              index={i}
+              video={slots[i] ?? undefined}
+              onRemove={() => removeSlot(i)}
+              onClick={() => !slots[i] && fileInputRef.current?.click()}
+            />
+          ))}
         </div>
-        
+
         <div className="mt-4">
           <div className="flex items-center justify-between text-sm mb-2">
             <span className="text-muted-foreground">
-              {uploadedCount} of {minRequired}+ uploaded
-              {uploadedCount >= minRequired && (
-                <span className="text-success ml-2">✓ Ready for analysis</span>
-              )}
+              Uploaded: {uploadedCount} / {swingsRequired} required
+            </span>
+            <span className="text-muted-foreground">
+              {filledCount} / {swingsMaxAllowed} in session
             </span>
           </div>
           <div className="progress-bar">
-            <div 
-              className="progress-bar-fill" 
-              style={{ width: `${Math.min(100, (uploadedCount / minRequired) * 100)}%` }}
+            <div
+              className="progress-bar-fill"
+              style={{ width: `${Math.min(100, (uploadedCount / Math.max(1, swingsRequired)) * 100)}%` }}
             />
           </div>
+
+          {/* Coach Rick nudge */}
+          {uploadedCount < ENCOURAGED_MIN_SWINGS && swingsMaxAllowed > 1 && (
+            <div className="mt-3 p-3 rounded-lg bg-accent/5 border border-accent/20">
+              <p className="text-sm">
+                <span className="font-medium">Coach Rick:</span> I can score 1 swing… but I trust it when I’ve got{" "}
+                <b>5+</b>. Give me your best reps.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Upload zone */}
-      {filledCount < maxSlots && (
+      {filledCount < swingsMaxAllowed && (
         <div
-          className={cn(
-            'upload-zone p-8 md:p-12 text-center cursor-pointer',
-            dragOver && 'drag-over'
-          )}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          className={cn("upload-zone p-8 md:p-12 text-center cursor-pointer", dragOver && "drag-over")}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
@@ -280,45 +325,28 @@ export function VideoUploader({
             ref={fileInputRef}
             type="file"
             accept="video/mp4,video/quicktime"
-            multiple
+            multiple={swingsMaxAllowed > 1}
             className="hidden"
-            onChange={(e) => handleFileSelect(e.target.files)}
+            onChange={(e) => addFilesToSlots(e.target.files)}
           />
-          
+
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center">
               <Upload className="w-8 h-8 text-accent" />
             </div>
             <div>
-              <p className="font-medium mb-1">
-                Drop videos here
-              </p>
-              <p className="text-sm text-muted-foreground">
-                or click to select
-              </p>
+              <p className="font-medium mb-1">Drop your swing video{swingsMaxAllowed > 1 ? "s" : ""} here</p>
+              <p className="text-sm text-muted-foreground">or click to select</p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              .mp4 or .mov • Max 100MB each
-            </p>
+            <p className="text-xs text-muted-foreground">.mp4 or .mov • Max 250MB • Up to {swingsMaxAllowed} swings</p>
           </div>
         </div>
       )}
 
-      {/* Tip box */}
-      <div className="mt-6 p-4 rounded-lg bg-accent/5 border border-accent/20">
-        <p className="text-sm">
-          <span className="font-medium">🎯 COACH RICK SAYS:</span>{' '}
-          "Give me 5-10 of your best game-speed swings. No warm-ups, no flips. I want to see your real engine."
-        </p>
-      </div>
-
       {/* Guidelines button */}
       <Dialog open={showGuidelines} onOpenChange={setShowGuidelines}>
         <DialogTrigger asChild>
-          <Button 
-            variant="ghost" 
-            className="mt-4 w-full gap-2 text-muted-foreground"
-          >
+          <Button variant="ghost" className="mt-4 w-full gap-2 text-muted-foreground">
             <HelpCircle className="w-4 h-4" />
             HOW TO RECORD YOUR SWING
           </Button>
@@ -326,11 +354,11 @@ export function VideoUploader({
         <RecordingGuidelinesModal onClose={() => setShowGuidelines(false)} />
       </Dialog>
 
-      <Button 
-        variant="accent" 
-        size="lg" 
+      <Button
+        variant="accent"
+        size="lg"
         className="w-full mt-6"
-        disabled={!isMinReached || isCheckoutLoading}
+        disabled={!canContinue || isCheckoutLoading}
         onClick={handleContinue}
       >
         {isCheckoutLoading ? (
@@ -338,8 +366,10 @@ export function VideoUploader({
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             Creating checkout...
           </>
+        ) : canContinue ? (
+          "CONTINUE →"
         ) : (
-          <>CHECKOUT & ANALYZE {uploadedCount} SWING{uploadedCount !== 1 ? 'S' : ''} →</>
+          `UPLOAD ${Math.max(0, swingsRequired - uploadedCount)} MORE TO CONTINUE →`
         )}
       </Button>
     </div>
@@ -348,65 +378,47 @@ export function VideoUploader({
 
 interface VideoThumbnailProps {
   index: number;
-  video: VideoSlot | null;
-  isUploading?: boolean;
-  isRequired?: boolean;
+  video?: UploadedVideo;
   onRemove: () => void;
-  onRetry: () => void;
   onClick: () => void;
 }
 
-function VideoThumbnail({ index, video, isUploading, isRequired, onRemove, onRetry, onClick }: VideoThumbnailProps) {
+function VideoThumbnail({ index, video, onRemove, onClick }: VideoThumbnailProps) {
   if (!video) {
     return (
       <button
         onClick={onClick}
-        className={cn(
-          "aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-colors",
-          isRequired 
-            ? "border-accent/50 hover:border-accent bg-accent/5" 
-            : "border-border hover:border-accent/50"
-        )}
+        className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-accent/50 flex flex-col items-center justify-center gap-1 transition-colors"
       >
         <span className="text-2xl text-muted-foreground">+</span>
-        <span className="text-xs text-muted-foreground">
-          {isRequired ? `Swing ${index + 1}` : 'Optional'}
-        </span>
+        <span className="text-xs text-muted-foreground">Swing {index + 1}</span>
       </button>
     );
   }
 
-  const isError = video.status === 'error';
+  const isUploading = video.status === "uploading";
 
   return (
     <div className="relative aspect-square rounded-lg overflow-hidden bg-primary/10">
-      <video 
-        src={video.previewUrl} 
-        className="w-full h-full object-cover"
-      />
+      <video src={video.previewUrl} className="w-full h-full object-cover" muted playsInline />
       {!isUploading && (
         <button
-          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
           className="absolute top-1 right-1 w-5 h-5 rounded-full bg-background/80 flex items-center justify-center hover:bg-background transition-colors"
+          title="Remove"
         >
           <X className="w-3 h-3" />
         </button>
       )}
-      {/* Retry button for errors */}
-      {isError && !isUploading && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onRetry(); }}
-          className="absolute top-1 left-1 w-5 h-5 rounded-full bg-destructive/80 flex items-center justify-center hover:bg-destructive transition-colors"
-          title="Retry upload"
-        >
-          <RefreshCw className="w-3 h-3 text-white" />
-        </button>
-      )}
+
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
         <div className="flex items-center gap-1">
-          {isUploading || video.status === 'uploading' ? (
+          {isUploading ? (
             <Loader2 className="w-3 h-3 text-accent animate-spin" />
-          ) : video.status === 'uploaded' ? (
+          ) : video.status === "uploaded" ? (
             <CheckCircle className="w-3 h-3 text-success" />
           ) : (
             <X className="w-3 h-3 text-destructive" />
@@ -422,9 +434,7 @@ function RecordingGuidelinesModal({ onClose }: { onClose: () => void }) {
   return (
     <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          📹 HOW TO RECORD YOUR SWING
-        </DialogTitle>
+        <DialogTitle className="flex items-center gap-2">📹 HOW TO RECORD YOUR SWING</DialogTitle>
       </DialogHeader>
 
       <div className="space-y-6">
@@ -436,7 +446,7 @@ function RecordingGuidelinesModal({ onClose }: { onClose: () => void }) {
               <p className="text-2xl">│</p>
               <p>🧍 ←── Hitter</p>
               <p className="text-2xl">│</p>
-              <p>📱 ←── Camera (10-15 ft away, hip height)</p>
+              <p>📱 ←── Camera (10–15 ft away, hip height)</p>
             </div>
           </div>
         </div>
@@ -444,23 +454,22 @@ function RecordingGuidelinesModal({ onClose }: { onClose: () => void }) {
         <div>
           <p className="font-medium text-success mb-2">✅ DO THIS:</p>
           <ul className="text-sm space-y-1 text-muted-foreground">
-            <li>• Side angle (perpendicular to batter)</li>
+            <li>• Side angle (perpendicular to hitter)</li>
             <li>• Camera at hip/waist height</li>
-            <li>• 10-15 feet away</li>
+            <li>• 10–15 feet away</li>
             <li>• Full body visible (head to feet)</li>
-            <li>• Landscape mode (horizontal)</li>
-            <li>• 120fps or higher for best analysis</li>
+            <li>• Landscape mode</li>
+            <li>• 60fps+ if your phone supports it</li>
           </ul>
         </div>
 
         <div>
-          <p className="font-medium text-destructive mb-2">❌ DON'T DO THIS:</p>
+          <p className="font-medium text-destructive mb-2">❌ DON’T DO THIS:</p>
           <ul className="text-sm space-y-1 text-muted-foreground">
-            <li>• Behind home plate angle</li>
-            <li>• Portrait mode (vertical)</li>
+            <li>• Behind-home-plate angle</li>
+            <li>• Portrait mode</li>
             <li>• Too far away or too close</li>
             <li>• Multiple swings in one video</li>
-            <li>• Warm-up or soft swings</li>
           </ul>
         </div>
 
