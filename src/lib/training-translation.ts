@@ -86,6 +86,14 @@ export const TRAINING_TRANSLATIONS: Record<LeakType, TrainingTranslation> = {
     causeColor: 'red',
   },
 
+  [LeakType.NO_BAT_DELIVERY]: {
+    primaryCause: 'core',
+    caption: "Your body made energy — but it never reached the barrel.",
+    trainingFocus: "Connect the chain. Ground → core → hands → barrel.",
+    highlightJoints: ['rear_hip', 'lead_hip', 'core'],
+    causeColor: 'red',
+  },
+
   [LeakType.UNKNOWN]: {
     primaryCause: 'none',
     caption: "I can't trust this yet. We need more clean swings.",
