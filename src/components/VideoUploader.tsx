@@ -24,6 +24,8 @@ type Slot = SlotData | null;
 
 const DEFAULT_MAX_SWINGS = 15;
 const ENCOURAGED_MIN_SWINGS = 5;
+const MAX_CONCURRENT_UPLOADS = 2;
+const MAX_RETRY_ATTEMPTS = 1;
 const ACCEPTED_TYPES = ["video/mp4", "video/quicktime"];
 const MAX_SIZE_BYTES = 250 * 1024 * 1024;
 
@@ -44,6 +46,8 @@ export function VideoUploader({
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadControllersRef = useRef<Map<number, XMLHttpRequest>>(new Map());
+  const retryCountRef = useRef<Map<number, number>>(new Map());
+  const isProcessingQueueRef = useRef(false);
 
   // Derived counts
   const uploadedCount = useMemo(() => slots.filter((v) => v?.status === "uploaded").length, [slots]);
@@ -241,50 +245,97 @@ export function VideoUploader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Process upload queue
+  // Process upload queue with concurrency limit + retry
   const processUploadQueue = useCallback(async () => {
-    const queuedSlots = slots
-      .map((slot, index) => ({ slot, index }))
-      .filter(({ slot }) => slot?.status === "queued");
+    // Prevent multiple queue processors running simultaneously
+    if (isProcessingQueueRef.current) return;
+    isProcessingQueueRef.current = true;
 
-    for (const { slot, index } of queuedSlots) {
-      if (!slot?.file) continue;
-      
-      // Mark as uploading
-      setSlots((prev) => {
-        const v = prev[index];
-        if (!v || v.status !== "queued") return prev;
-        const next = [...prev];
-        next[index] = { ...v, status: "uploading", uploadProgress: 0 };
-        return next;
-      });
+    try {
+      while (true) {
+        // Get current state snapshot
+        const currentSlots = slots;
+        const uploadingCount = currentSlots.filter((s) => s?.status === "uploading").length;
+        
+        // Find queued slots that can start
+        const queuedSlots = currentSlots
+          .map((slot, index) => ({ slot, index }))
+          .filter(({ slot }) => slot?.status === "queued");
 
-      const success = await uploadVideoToBackend(slot.file, index);
+        // Check if we can start more uploads
+        const availableSlots = MAX_CONCURRENT_UPLOADS - uploadingCount;
+        if (availableSlots <= 0 || queuedSlots.length === 0) {
+          break;
+        }
 
-      // Only set error status here - success status is already set in xhr.onload
-      // This prevents race condition and ensures storageUrl is set atomically with status
-      if (!success) {
-        setSlots((prev) => {
-          const v = prev[index];
-          if (!v) return prev;
-          const next = [...prev];
-          next[index] = { ...v, status: "error", uploadProgress: 0 };
-          return next;
-        });
+        // Start up to MAX_CONCURRENT_UPLOADS at once
+        const toStart = queuedSlots.slice(0, availableSlots);
+        
+        await Promise.all(
+          toStart.map(async ({ slot, index }) => {
+            if (!slot?.file) return;
+            
+            // Mark as uploading
+            setSlots((prev) => {
+              const v = prev[index];
+              if (!v || v.status !== "queued") return prev;
+              const next = [...prev];
+              next[index] = { ...v, status: "uploading", uploadProgress: 0 };
+              return next;
+            });
+
+            const success = await uploadVideoToBackend(slot.file, index);
+
+            if (!success) {
+              // Check retry count
+              const currentRetries = retryCountRef.current.get(index) || 0;
+              
+              if (currentRetries < MAX_RETRY_ATTEMPTS) {
+                // Retry: set back to queued
+                retryCountRef.current.set(index, currentRetries + 1);
+                console.log(`Retrying upload for swing ${index + 1} (attempt ${currentRetries + 2})`);
+                
+                setSlots((prev) => {
+                  const v = prev[index];
+                  if (!v) return prev;
+                  const next = [...prev];
+                  next[index] = { ...v, status: "queued", uploadProgress: 0 };
+                  return next;
+                });
+              } else {
+                // Max retries reached, mark as error
+                setSlots((prev) => {
+                  const v = prev[index];
+                  if (!v) return prev;
+                  const next = [...prev];
+                  next[index] = { ...v, status: "error", uploadProgress: 0 };
+                  return next;
+                });
+                toast.error(`Swing ${index + 1} didn't upload after retries. Try again.`);
+                retryCountRef.current.delete(index);
+              }
+            } else {
+              // Success - clear retry count
+              retryCountRef.current.delete(index);
+            }
+          })
+        );
+        
+        // Small delay to allow state to settle before next iteration
+        await new Promise((r) => setTimeout(r, 100));
       }
-
-      if (!success) {
-        toast.error(`Swing ${index + 1} didn't upload. Try again.`);
-      }
+    } finally {
+      isProcessingQueueRef.current = false;
     }
   }, [slots, uploadVideoToBackend]);
 
-  // Start processing queue when new queued items appear
+  // Start processing queue when new queued items appear or uploading finishes
   useEffect(() => {
     const hasQueued = slots.some((s) => s?.status === "queued");
-    const hasUploading = slots.some((s) => s?.status === "uploading");
+    const uploadingCount = slots.filter((s) => s?.status === "uploading").length;
     
-    if (hasQueued && !hasUploading) {
+    // Start processing if we have queued items and capacity
+    if (hasQueued && uploadingCount < MAX_CONCURRENT_UPLOADS) {
       processUploadQueue();
     }
   }, [slots, processUploadQueue]);
