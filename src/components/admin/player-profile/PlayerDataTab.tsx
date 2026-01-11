@@ -62,89 +62,27 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
   const [playersTableId, setPlayersTableId] = useState<string | null>(null);
   const [mappingError, setMappingError] = useState<string | null>(null);
 
-  // Resolve or create the players_id mapping
+  // Resolve or create the players_id mapping using the RPC function
   const resolvePlayersId = async (): Promise<string | null> => {
     try {
-      // Step 1: Check if player_profiles already has players_id set
-      const { data: profile, error: profileError } = await supabase
-        .from('player_profiles')
-        .select('players_id, first_name, last_name, level, bats, phone, email, age, current_team, organization')
-        .eq('id', playerId)
-        .maybeSingle();
+      // Call the ensure_player_linked RPC function
+      // It checks if players_id exists, creates a new players record if not, and returns the players_id
+      const { data: linkedPlayerId, error } = await supabase
+        .rpc('ensure_player_linked', { p_profile_id: playerId });
       
-      if (profileError) {
-        console.error('Error fetching player profile:', profileError);
-        setMappingError('Failed to load player profile');
+      if (error) {
+        console.error('Error ensuring player linked:', error);
+        setMappingError(`Cannot link player: ${error.message}`);
         return null;
       }
       
-      if (!profile) {
-        setMappingError('Player profile not found');
+      if (!linkedPlayerId) {
+        setMappingError('Failed to link player profile to players table');
         return null;
       }
       
-      // If players_id already exists, use it
-      if (profile.players_id) {
-        setPlayersTableId(profile.players_id);
-        return profile.players_id;
-      }
-      
-      // Step 2: Create a new players record
-      const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unknown Player';
-      
-      // Convert bats to valid handedness format
-      let validHandedness: string | null = null;
-      if (profile.bats === 'L' || profile.bats === 'Left' || profile.bats === 'left') {
-        validHandedness = 'left';
-      } else if (profile.bats === 'R' || profile.bats === 'Right' || profile.bats === 'right') {
-        validHandedness = 'right';
-      } else if (profile.bats === 'S' || profile.bats === 'Switch' || profile.bats === 'switch') {
-        validHandedness = 'switch';
-      }
-      
-      // Convert level to valid format
-      let validLevel: string | null = null;
-      const levelLower = (profile.level || '').toLowerCase();
-      if (levelLower === 'youth') validLevel = 'youth';
-      else if (levelLower === 'high_school' || levelLower === 'hs' || levelLower === 'high school') validLevel = 'high_school';
-      else if (levelLower === 'college') validLevel = 'college';
-      else if (levelLower === 'pro' || levelLower === 'milb') validLevel = 'pro';
-      else if (levelLower === 'mlb') validLevel = 'mlb';
-      
-      const { data: newPlayer, error: createError } = await supabase
-        .from('players')
-        .insert({
-          name: fullName,
-          level: validLevel,
-          handedness: validHandedness,
-          team: profile.current_team || profile.organization || null,
-          phone: profile.phone || null,
-          email: profile.email || null,
-          age: profile.age || null,
-          notes: `Auto-created from player_profiles.id: ${playerId}`
-        })
-        .select('id')
-        .single();
-      
-      if (createError) {
-        console.error('Error creating players record:', createError);
-        setMappingError(`Cannot create linked player record: ${createError.message}`);
-        return null;
-      }
-      
-      // Step 3: Update player_profiles with the new players_id
-      const { error: updateError } = await supabase
-        .from('player_profiles')
-        .update({ players_id: newPlayer.id })
-        .eq('id', playerId);
-      
-      if (updateError) {
-        console.error('Error updating player_profiles with players_id:', updateError);
-        // The players record was created, so we can still use it
-      }
-      
-      setPlayersTableId(newPlayer.id);
-      return newPlayer.id;
+      setPlayersTableId(linkedPlayerId);
+      return linkedPlayerId;
     } catch (error: any) {
       console.error('Error resolving players_id:', error);
       setMappingError(error.message || 'Unknown error resolving player mapping');
