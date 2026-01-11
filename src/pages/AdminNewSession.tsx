@@ -190,26 +190,30 @@ export default function AdminNewSession() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-950">
       <AdminHeader />
       
       <main className="container py-6 max-w-3xl">
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" onClick={() => navigate('/admin/analyzer')}>
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/admin/analyzer')}
+            className="text-slate-400 hover:text-white hover:bg-slate-800"
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">New Assessment Session</h1>
-            <p className="text-muted-foreground">Create a session for an in-person player</p>
+            <h1 className="text-2xl font-bold text-white">New Assessment Session</h1>
+            <p className="text-slate-400">Create a session for an in-person player</p>
           </div>
         </div>
 
         <div className="space-y-6">
           {/* Player Information */}
-          <Card>
+          <Card className="bg-slate-900/80 border-slate-800">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-white">
                 <User className="h-5 w-5" />
                 Player Information
               </CardTitle>
@@ -217,101 +221,104 @@ export default function AdminNewSession() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name *</Label>
+                  <Label htmlFor="firstName" className="text-slate-300">First Name *</Label>
                   <Input
                     id="firstName"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="John"
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
+                  <Label htmlFor="lastName" className="text-slate-300">Last Name</Label>
                   <Input
                     id="lastName"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Smith"
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                   />
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone *</Label>
+                  <Label htmlFor="phone" className="text-slate-300">Phone *</Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                     <Input
                       id="phone"
                       value={phone}
                       onChange={handlePhoneChange}
                       placeholder="(555) 123-4567"
-                      className="pl-10"
+                      className="pl-10 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-slate-300">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                     <Input
                       id="email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="john@email.com"
-                      className="pl-10"
+                      className="pl-10 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes (age, team, position, etc.)</Label>
+                <Label htmlFor="notes" className="text-slate-300">Notes (age, team, position, etc.)</Label>
                 <Textarea
                   id="notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="14yo, travel ball, 3B/OF..."
                   rows={2}
+                  className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                 />
               </div>
             </CardContent>
           </Card>
 
           {/* Product & Payment */}
-          <Card>
+          <Card className="bg-slate-900/80 border-slate-800">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-white">
                 <DollarSign className="h-5 w-5" />
                 Product & Payment
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3">
-                <Label>Product Type</Label>
+                <Label className="text-slate-300">Product Type</Label>
                 <RadioGroup value={productType} onValueChange={setProductType}>
                   {PRODUCTS.map((product) => (
-                    <div key={product.id} className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer">
-                      <RadioGroupItem value={product.id} id={product.id} />
-                      <Label htmlFor={product.id} className="flex-1 cursor-pointer">
+                    <div key={product.id} className="flex items-center space-x-3 p-3 rounded-lg border border-slate-700 hover:bg-slate-800/50 cursor-pointer">
+                      <RadioGroupItem value={product.id} id={product.id} className="border-slate-600" />
+                      <Label htmlFor={product.id} className="flex-1 cursor-pointer text-white">
                         <span className="font-medium">{product.name}</span>
-                        <span className="ml-2 text-primary font-bold">${product.price}</span>
+                        <span className="ml-2 text-red-400 font-bold">${product.price}</span>
                       </Label>
                     </div>
                   ))}
-                  <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer">
-                    <RadioGroupItem value="custom" id="custom" />
-                    <Label htmlFor="custom" className="cursor-pointer">Custom Amount</Label>
+                  <div className="flex items-center space-x-3 p-3 rounded-lg border border-slate-700 hover:bg-slate-800/50 cursor-pointer">
+                    <RadioGroupItem value="custom" id="custom" className="border-slate-600" />
+                    <Label htmlFor="custom" className="cursor-pointer text-white">Custom Amount</Label>
                     {isCustomPrice && (
                       <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground">$</span>
+                        <span className="text-slate-400">$</span>
                         <Input
                           type="number"
                           value={customAmount}
                           onChange={(e) => setCustomAmount(e.target.value)}
                           placeholder="0"
-                          className="w-24"
+                          className="w-24 bg-slate-800/50 border-slate-700 text-white"
                         />
                       </div>
                     )}
@@ -320,14 +327,14 @@ export default function AdminNewSession() {
               </div>
 
               <div className="space-y-3">
-                <Label>Payment Status</Label>
+                <Label className="text-slate-300">Payment Status</Label>
                 <RadioGroup value={paymentOption} onValueChange={setPaymentOption}>
                   {PAYMENT_OPTIONS.map((option) => (
-                    <div key={option.id} className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer">
-                      <RadioGroupItem value={option.id} id={option.id} />
-                      <Label htmlFor={option.id} className="flex-1 cursor-pointer">
+                    <div key={option.id} className="flex items-center space-x-3 p-3 rounded-lg border border-slate-700 hover:bg-slate-800/50 cursor-pointer">
+                      <RadioGroupItem value={option.id} id={option.id} className="border-slate-600" />
+                      <Label htmlFor={option.id} className="flex-1 cursor-pointer text-white">
                         <span className="font-medium">{option.name}</span>
-                        <span className="ml-2 text-muted-foreground text-sm">— {option.description}</span>
+                        <span className="ml-2 text-slate-400 text-sm">— {option.description}</span>
                       </Label>
                     </div>
                   ))}
@@ -335,8 +342,8 @@ export default function AdminNewSession() {
               </div>
 
               {paymentOption === 'already_paid' && (
-                <div className="space-y-3 pl-6 border-l-2 border-primary/20">
-                  <Label>Payment Method Used</Label>
+                <div className="space-y-3 pl-6 border-l-2 border-red-500/20">
+                  <Label className="text-slate-300">Payment Method Used</Label>
                   <div className="flex flex-wrap gap-2">
                     {PAYMENT_METHODS.map((method) => (
                       <Button
@@ -344,7 +351,11 @@ export default function AdminNewSession() {
                         variant={paymentMethod === method ? "default" : "outline"}
                         size="sm"
                         onClick={() => setPaymentMethod(method)}
-                        className="capitalize"
+                        className={`capitalize ${
+                          paymentMethod === method 
+                            ? 'bg-red-600 hover:bg-red-700' 
+                            : 'border-slate-700 text-slate-300 hover:bg-slate-800'
+                        }`}
                       >
                         {method}
                       </Button>
@@ -356,9 +367,9 @@ export default function AdminNewSession() {
           </Card>
 
           {/* Video Upload */}
-          <Card>
+          <Card className="bg-slate-900/80 border-slate-800">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-white">
                 <Video className="h-5 w-5" />
                 Video Upload
               </CardTitle>
@@ -378,7 +389,7 @@ export default function AdminNewSession() {
                   variant="outline"
                   size="lg"
                   onClick={() => setShowRecorder(true)}
-                  className="flex-1"
+                  className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
                 >
                   <Camera className="h-5 w-5 mr-2" />
                   Record Video
@@ -387,7 +398,7 @@ export default function AdminNewSession() {
                   variant="outline"
                   size="lg"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex-1"
+                  className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
                 >
                   <Upload className="h-5 w-5 mr-2" />
                   Upload File
@@ -396,16 +407,16 @@ export default function AdminNewSession() {
               
               {/* Show selected video */}
               {videoFile && (
-                <div className="border rounded-lg p-4 text-center bg-muted/50">
-                  <Video className="h-8 w-8 mx-auto text-primary mb-2" />
-                  <p className="font-medium">{videoFile.name}</p>
-                  <p className="text-sm text-muted-foreground">
+                <div className="border border-slate-700 rounded-lg p-4 text-center bg-slate-800/50">
+                  <Video className="h-8 w-8 mx-auto text-red-400 mb-2" />
+                  <p className="font-medium text-white">{videoFile.name}</p>
+                  <p className="text-sm text-slate-400">
                     {(videoFile.size / 1024 / 1024).toFixed(1)} MB
                   </p>
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="mt-2"
+                    className="mt-2 text-slate-400 hover:text-white hover:bg-slate-700"
                     onClick={() => setVideoFile(null)}
                   >
                     Remove
@@ -414,13 +425,13 @@ export default function AdminNewSession() {
               )}
 
               <div className="flex items-center gap-4">
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-muted-foreground">or</span>
-                <div className="flex-1 h-px bg-border" />
+                <div className="flex-1 h-px bg-slate-700" />
+                <span className="text-xs text-slate-500">or</span>
+                <div className="flex-1 h-px bg-slate-700" />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="onform" className="flex items-center gap-2">
+                <Label htmlFor="onform" className="flex items-center gap-2 text-slate-300">
                   <LinkIcon className="h-4 w-4" />
                   OnForm Link (optional)
                 </Label>
@@ -430,8 +441,13 @@ export default function AdminNewSession() {
                     value={onformUrl}
                     onChange={(e) => setOnformUrl(e.target.value)}
                     placeholder="https://web.onform.com/..."
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                   />
-                  <Button variant="outline" disabled={!onformUrl}>
+                  <Button 
+                    variant="outline" 
+                    disabled={!onformUrl}
+                    className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                  >
                     Import
                   </Button>
                 </div>
@@ -442,7 +458,7 @@ export default function AdminNewSession() {
           {/* Create Button */}
           <Button 
             size="lg" 
-            className="w-full" 
+            className="w-full bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600" 
             onClick={handleCreate}
             disabled={creating || uploadingVideo}
           >
@@ -462,18 +478,17 @@ export default function AdminNewSession() {
 
         {/* Video Recorder Dialog */}
         <Dialog open={showRecorder} onOpenChange={setShowRecorder}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="max-w-2xl bg-slate-900 border-slate-800">
             <DialogHeader>
-              <DialogTitle>Record Swing Video</DialogTitle>
+              <DialogTitle className="text-white">Record Video</DialogTitle>
             </DialogHeader>
             <VideoRecorder
-              onVideoRecorded={(blob) => {
-                const file = new File([blob], `swing-${Date.now()}.webm`, { type: 'video/webm' });
+              onRecordingComplete={(blob) => {
+                const file = new File([blob], 'swing-recording.webm', { type: 'video/webm' });
                 setVideoFile(file);
                 setShowRecorder(false);
-                toast.success('Video recorded!');
+                toast.success('Video recorded successfully!');
               }}
-              onCancel={() => setShowRecorder(false)}
             />
           </DialogContent>
         </Dialog>

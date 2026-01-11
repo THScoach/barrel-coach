@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { AdminHeader } from "@/components/AdminHeader";
-import { Footer } from "@/components/Footer";
 import { MessageSquare, Clock, Send, Edit2, Save, X, RefreshCw } from "lucide-react";
 
 interface SMSTemplate {
@@ -219,41 +218,46 @@ const AdminSMS = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-950">
       <AdminHeader />
       
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">SMS Management</h1>
-            <p className="text-muted-foreground">Manage automated SMS workflows</p>
+            <h1 className="text-3xl font-bold text-white">SMS Management</h1>
+            <p className="text-slate-400">Manage automated SMS workflows</p>
           </div>
-          <Button onClick={fetchData} variant="outline" size="sm">
+          <Button 
+            onClick={fetchData} 
+            variant="outline" 
+            size="sm"
+            className="border-slate-700 text-slate-300 hover:bg-slate-800"
+          >
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
         </div>
 
         <Tabs defaultValue="templates" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="templates">Templates</TabsTrigger>
-            <TabsTrigger value="logs">Logs ({logs.length})</TabsTrigger>
-            <TabsTrigger value="scheduled">Scheduled ({scheduled.filter(s => s.status === 'pending').length})</TabsTrigger>
-            <TabsTrigger value="send">Manual Send</TabsTrigger>
+          <TabsList className="bg-slate-900/80 border border-slate-800">
+            <TabsTrigger value="templates" className="data-[state=active]:bg-slate-800">Templates</TabsTrigger>
+            <TabsTrigger value="logs" className="data-[state=active]:bg-slate-800">Logs ({logs.length})</TabsTrigger>
+            <TabsTrigger value="scheduled" className="data-[state=active]:bg-slate-800">Scheduled ({scheduled.filter(s => s.status === 'pending').length})</TabsTrigger>
+            <TabsTrigger value="send" className="data-[state=active]:bg-slate-800">Manual Send</TabsTrigger>
           </TabsList>
 
           <TabsContent value="templates">
             <div className="space-y-4">
               {templates.map(template => (
-                <Card key={template.id}>
+                <Card key={template.id} className="bg-slate-900/80 border-slate-800">
                   <CardContent className="pt-6">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <Badge variant={template.is_active ? "default" : "secondary"}>
+                          <Badge variant={template.is_active ? "default" : "secondary"} className={template.is_active ? "bg-green-500/20 text-green-400" : "bg-slate-700 text-slate-400"}>
                             {template.trigger_name}
                           </Badge>
-                          <Badge variant="outline">
+                          <Badge variant="outline" className="border-slate-700 text-slate-400">
                             <Clock className="w-3 h-3 mr-1" />
                             {formatDelay(template.delay_minutes)}
                           </Badge>
@@ -265,27 +269,28 @@ const AdminSMS = () => {
                               value={editForm.message_body}
                               onChange={(e) => setEditForm({ ...editForm, message_body: e.target.value })}
                               rows={4}
+                              className="bg-slate-800/50 border-slate-700 text-white"
                             />
                             <div className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground">Delay (minutes):</span>
+                              <span className="text-sm text-slate-400">Delay (minutes):</span>
                               <Input
                                 type="number"
                                 value={editForm.delay_minutes}
                                 onChange={(e) => setEditForm({ ...editForm, delay_minutes: parseInt(e.target.value) || 0 })}
-                                className="w-24"
+                                className="w-24 bg-slate-800/50 border-slate-700 text-white"
                               />
                             </div>
                             <div className="flex gap-2">
-                              <Button size="sm" onClick={handleSaveEdit}>
+                              <Button size="sm" onClick={handleSaveEdit} className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600">
                                 <Save className="w-4 h-4 mr-1" /> Save
                               </Button>
-                              <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                              <Button size="sm" variant="outline" onClick={() => setEditingId(null)} className="border-slate-700 text-slate-300 hover:bg-slate-800">
                                 <X className="w-4 h-4 mr-1" /> Cancel
                               </Button>
                             </div>
                           </div>
                         ) : (
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                          <p className="text-sm text-slate-400 whitespace-pre-wrap">
                             {template.message_body}
                           </p>
                         )}
@@ -293,7 +298,7 @@ const AdminSMS = () => {
                       
                       <div className="flex items-center gap-3">
                         {editingId !== template.id && (
-                          <Button size="sm" variant="ghost" onClick={() => handleEdit(template)}>
+                          <Button size="sm" variant="ghost" onClick={() => handleEdit(template)} className="text-slate-400 hover:text-white hover:bg-slate-800">
                             <Edit2 className="w-4 h-4" />
                           </Button>
                         )}
@@ -310,28 +315,28 @@ const AdminSMS = () => {
           </TabsContent>
 
           <TabsContent value="logs">
-            <Card>
+            <Card className="bg-slate-900/80 border-slate-800">
               <CardContent className="pt-6">
                 <div className="space-y-3">
                   {logs.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">No SMS logs yet</p>
+                    <p className="text-center text-slate-400 py-8">No SMS logs yet</p>
                   ) : (
                     logs.map(log => (
-                      <div key={log.id} className="border-b pb-3 last:border-0">
+                      <div key={log.id} className="border-b border-slate-700 pb-3 last:border-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium">{log.phone_number}</span>
-                          <Badge variant="outline" className="text-xs">
+                          <MessageSquare className="w-4 h-4 text-slate-500" />
+                          <span className="font-medium text-white">{log.phone_number}</span>
+                          <Badge variant="outline" className="text-xs border-slate-700 text-slate-400">
                             {log.trigger_name}
                           </Badge>
-                          <Badge variant={log.status === 'sent' ? 'default' : 'destructive'} className="text-xs">
+                          <Badge variant={log.status === 'sent' ? 'default' : 'destructive'} className={`text-xs ${log.status === 'sent' ? 'bg-green-500/20 text-green-400' : ''}`}>
                             {log.status}
                           </Badge>
-                          <span className="text-xs text-muted-foreground ml-auto">
+                          <span className="text-xs text-slate-500 ml-auto">
                             {formatDate(log.created_at)}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2 ml-6">
+                        <p className="text-sm text-slate-400 line-clamp-2 ml-6">
                           {log.message_sent}
                         </p>
                       </div>
@@ -344,36 +349,37 @@ const AdminSMS = () => {
 
           <TabsContent value="scheduled">
             <div className="flex justify-end mb-4">
-              <Button onClick={handleProcessScheduled} variant="outline">
+              <Button onClick={handleProcessScheduled} variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Process Now
               </Button>
             </div>
-            <Card>
+            <Card className="bg-slate-900/80 border-slate-800">
               <CardContent className="pt-6">
                 <div className="space-y-3">
                   {scheduled.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">No scheduled messages</p>
+                    <p className="text-center text-slate-400 py-8">No scheduled messages</p>
                   ) : (
                     scheduled.map(item => (
-                      <div key={item.id} className="border-b pb-3 last:border-0">
+                      <div key={item.id} className="border-b border-slate-700 pb-3 last:border-0">
                         <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-muted-foreground" />
-                          <Badge variant="outline">{item.trigger_name}</Badge>
+                          <Clock className="w-4 h-4 text-slate-500" />
+                          <Badge variant="outline" className="border-slate-700 text-slate-400">{item.trigger_name}</Badge>
                           <Badge 
                             variant={
                               item.status === 'pending' ? 'default' : 
                               item.status === 'sent' ? 'secondary' : 
                               item.status === 'cancelled' ? 'outline' : 'destructive'
                             }
+                            className={item.status === 'pending' ? 'bg-blue-500/20 text-blue-400' : item.status === 'sent' ? 'bg-green-500/20 text-green-400' : ''}
                           >
                             {item.status}
                           </Badge>
-                          <span className="text-sm text-muted-foreground ml-auto">
+                          <span className="text-sm text-slate-400 ml-auto">
                             Scheduled: {formatDate(item.scheduled_for)}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground ml-6 mt-1">
+                        <p className="text-xs text-slate-500 ml-6 mt-1">
                           Session: {item.session_id.slice(0, 8)}...
                         </p>
                       </div>
@@ -385,17 +391,17 @@ const AdminSMS = () => {
           </TabsContent>
 
           <TabsContent value="send">
-            <Card>
+            <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
-                <CardTitle>Send Manual SMS</CardTitle>
+                <CardTitle className="text-white">Send Manual SMS</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Select Session</label>
+                  <label className="text-sm font-medium mb-2 block text-slate-300">Select Session</label>
                   <select
                     value={selectedSessionId}
                     onChange={(e) => setSelectedSessionId(e.target.value)}
-                    className="w-full p-2 border rounded-md bg-background"
+                    className="w-full p-2 border border-slate-700 rounded-md bg-slate-800/50 text-white"
                   >
                     <option value="">Choose a session...</option>
                     {sessions.map(session => (
@@ -407,14 +413,14 @@ const AdminSMS = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Use Template</label>
+                  <label className="text-sm font-medium mb-2 block text-slate-300">Use Template</label>
                   <select
                     value={selectedTrigger}
                     onChange={(e) => {
                       setSelectedTrigger(e.target.value);
                       if (e.target.value) setCustomMessage("");
                     }}
-                    className="w-full p-2 border rounded-md bg-background"
+                    className="w-full p-2 border border-slate-700 rounded-md bg-slate-800/50 text-white"
                   >
                     <option value="">Choose a template (or enter custom below)...</option>
                     {templates.map(template => (
@@ -426,7 +432,7 @@ const AdminSMS = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Or Custom Message</label>
+                  <label className="text-sm font-medium mb-2 block text-slate-300">Or Custom Message</label>
                   <Textarea
                     value={customMessage}
                     onChange={(e) => {
@@ -436,13 +442,14 @@ const AdminSMS = () => {
                     placeholder="Enter a custom message..."
                     rows={3}
                     disabled={!!selectedTrigger}
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                   />
                 </div>
 
                 <Button 
                   onClick={handleManualSend} 
                   disabled={sending || !selectedSessionId || (!selectedTrigger && !customMessage)}
-                  className="w-full"
+                  className="w-full bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
                 >
                   <Send className="w-4 h-4 mr-2" />
                   {sending ? "Sending..." : "Send SMS"}
@@ -452,8 +459,6 @@ const AdminSMS = () => {
           </TabsContent>
         </Tabs>
       </main>
-
-      <Footer />
     </div>
   );
 };
