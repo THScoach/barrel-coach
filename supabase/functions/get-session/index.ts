@@ -12,6 +12,42 @@ serve(async (req) => {
   }
 
   try {
+    // ============================================================
+    // SECURITY: Verify JWT authentication before returning session data
+    // ============================================================
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - missing auth token" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
+    }
+
+    // Create authenticated client to verify token
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Verify the JWT token
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - invalid token" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
+    }
+
+    const userId = claimsData.claims.sub;
+
+    // Check if user is admin
+    const { data: isAdminData } = await supabaseAuth.rpc("is_admin");
+    const isAdmin = isAdminData === true;
+
+    // Service role client for data access
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -33,6 +69,16 @@ serve(async (req) => {
 
     if (sessionError || !session) {
       throw new Error("Session not found");
+    }
+
+    // ============================================================
+    // SECURITY: Only allow access if user is admin OR owns the session
+    // ============================================================
+    if (!isAdmin && session.user_id !== userId) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden - you don't own this session" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
+      );
     }
 
     // Fetch swings
@@ -60,6 +106,8 @@ serve(async (req) => {
       })
     );
 
+    // For admins, return full session data
+    // For session owners, also return full data (they own it)
     return new Response(
       JSON.stringify({
         session,
