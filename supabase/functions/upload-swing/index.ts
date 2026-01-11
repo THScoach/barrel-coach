@@ -72,7 +72,7 @@ serve(async (req) => {
     // Validate session exists
     const { data: session, error: sessionError } = await admin
       .from("sessions")
-      .select("id, player_email, swings_max_allowed, swings_required")
+      .select("id, player_email, swings_max_allowed, swings_required, user_id")
       .eq("id", sessionId)
       .single();
 
@@ -80,13 +80,25 @@ serve(async (req) => {
       throw new Error("Session not found");
     }
 
-    // ✅ Ownership check (basic + strong)
-    // If your app uses shared links, you can loosen this later.
-    if ((session.player_email || "").toLowerCase() !== user.email.toLowerCase()) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
+    // ✅ SECURITY LOCK 4: Ownership check - prefer user_id, fallback to email match
+    // Primary: Check if session.user_id matches the authenticated user
+    // Fallback: Check email match (for legacy sessions without user_id)
+    const isOwnerByUserId = session.user_id && session.user_id === user.id;
+    const isOwnerByEmail = (session.player_email || "").toLowerCase() === user.email.toLowerCase();
+    
+    if (!isOwnerByUserId && !isOwnerByEmail) {
+      return new Response(JSON.stringify({ error: "Forbidden - you don't own this session" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 403,
       });
+    }
+    
+    // If session doesn't have user_id yet, set it now (claim the session)
+    if (!session.user_id && isOwnerByEmail) {
+      await admin
+        .from("sessions")
+        .update({ user_id: user.id })
+        .eq("id", sessionId);
     }
 
     const swingsMaxAllowed = session.swings_max_allowed ?? 15;
