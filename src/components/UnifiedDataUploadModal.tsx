@@ -18,13 +18,14 @@ import {
   Save,
   AlertCircle,
   Activity,
-  Target
+  Target,
+  Zap
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { detectCsvType, parseCSV, getBrandDisplayName, CsvType, LaunchMonitorBrand } from "@/lib/csv-detector";
 import { parseLaunchMonitorData, calculateLaunchMonitorStats, LaunchMonitorSessionStats } from "@/lib/launch-monitor-parser";
-import { calculateRebootScores, RebootScores } from "@/lib/reboot-parser";
+import { calculateRebootScores, RebootScores, processRebootIK, processRebootME, RebootIKMetrics, RebootMEMetrics } from "@/lib/reboot-parser";
 
 interface DetectedFile {
   file: File;
@@ -301,9 +302,9 @@ export function UnifiedDataUploadModal({
   const getFileIcon = (csvType: CsvType) => {
     switch (csvType) {
       case 'launch-monitor': return <Target className="h-4 w-4 text-blue-500" />;
-      case 'reboot-ik':
-      case 'reboot-me': return <Activity className="h-4 w-4 text-purple-500" />;
-      default: return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+      case 'reboot-ik': return <Activity className="h-4 w-4 text-purple-500" />;
+      case 'reboot-me': return <Zap className="h-4 w-4 text-yellow-500" />;
+      default: return <AlertCircle className="h-4 w-4 text-amber-500" />;
     }
   };
   
@@ -312,9 +313,9 @@ export function UnifiedDataUploadModal({
       case 'launch-monitor':
         return `${getBrandDisplayName(detected.brand || 'generic')} (${detected.swingCount} swings)`;
       case 'reboot-ik':
-        return `Reboot IK (${detected.rowCount} rows)`;
+        return `Reboot Motion - Inverse Kinematics (${detected.rowCount} rows)`;
       case 'reboot-me':
-        return `Reboot ME (${detected.rowCount} rows)`;
+        return `Reboot Motion - Momentum Energy (${detected.rowCount} rows)`;
       default:
         return 'Unknown format';
     }
@@ -385,19 +386,25 @@ export function UnifiedDataUploadModal({
                   <div className="flex items-center gap-2">
                     {getFileIcon(detected.csvType)}
                     <div>
-                      <span className="text-sm">{detected.file.name}</span>
-                      <div className="flex items-center gap-1">
+                      <span className="text-sm font-medium">{detected.file.name}</span>
+                      <div className="flex items-center gap-2">
                         {detected.csvType !== 'unknown' ? (
                           <>
                             <CheckCircle className="h-3 w-3 text-green-500" />
                             <span className="text-xs text-muted-foreground">
                               {getFileLabel(detected)}
                             </span>
+                            {detected.csvType === 'reboot-ik' && (
+                              <Badge variant="secondary" className="text-[10px] px-1 py-0">Body Analysis</Badge>
+                            )}
+                            {detected.csvType === 'reboot-me' && (
+                              <Badge variant="secondary" className="text-[10px] px-1 py-0">Energy Transfer</Badge>
+                            )}
                           </>
                         ) : (
                           <>
-                            <AlertCircle className="h-3 w-3 text-yellow-500" />
-                            <span className="text-xs text-yellow-600">Unknown format</span>
+                            <AlertCircle className="h-3 w-3 text-amber-500" />
+                            <span className="text-xs text-amber-600">Unknown format</span>
                           </>
                         )}
                       </div>
@@ -472,9 +479,14 @@ export function UnifiedDataUploadModal({
           {/* Reboot Results Preview */}
           {rebootScores && (
             <div className="space-y-3 p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
-              <div className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-purple-500" />
-                <span className="font-medium">Reboot Motion Data</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-purple-500" />
+                  <span className="font-medium">Reboot Motion Data</span>
+                </div>
+                {rebootScores.swingCount && (
+                  <Badge variant="outline">{rebootScores.swingCount} swings</Badge>
+                )}
               </div>
               <div className="grid grid-cols-4 gap-2 text-center">
                 <div>
@@ -502,8 +514,38 @@ export function UnifiedDataUploadModal({
                   </div>
                 </div>
               </div>
+              
+              {/* Detailed Metrics */}
+              <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t border-purple-200 dark:border-purple-800">
+                {rebootScores.ikMetrics && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Avg X-Factor:</span>
+                      <span className="font-medium">{rebootScores.ikMetrics.avgXFactor.toFixed(1)}°</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Avg Pelvis Rot:</span>
+                      <span className="font-medium">{rebootScores.ikMetrics.avgPelvisRot.toFixed(1)}°</span>
+                    </div>
+                  </>
+                )}
+                {rebootScores.meMetrics && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Energy Efficiency:</span>
+                      <span className="font-medium">{rebootScores.meMetrics.avgEnergyEfficiency.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Avg Bat Energy:</span>
+                      <span className="font-medium">{rebootScores.meMetrics.avgBatEnergy.toFixed(0)} J</span>
+                    </div>
+                  </>
+                )}
+              </div>
+              
               <div className="text-sm text-center text-muted-foreground">
-                Weakest Link: <span className="font-medium capitalize">{rebootScores.weakestLink}</span>
+                Weakest Link: <span className="font-medium capitalize text-orange-500">{rebootScores.weakestLink}</span> • 
+                Grade: <span className="font-medium">{rebootScores.grade}</span>
               </div>
             </div>
           )}
