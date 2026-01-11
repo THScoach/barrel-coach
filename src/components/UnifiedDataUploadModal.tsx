@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { detectCsvType, parseCSV, getBrandDisplayName, CsvType, LaunchMonitorBrand } from "@/lib/csv-detector";
+import { detectCsvType, parseCSV, getBrandDisplayName, getCsvTypeDisplayName, CsvType, LaunchMonitorBrand, DetectionResult } from "@/lib/csv-detector";
 import { parseLaunchMonitorData, calculateLaunchMonitorStats, LaunchMonitorSessionStats } from "@/lib/launch-monitor-parser";
 import { calculateRebootScores, RebootScores, processRebootIK, processRebootME, RebootIKMetrics, RebootMEMetrics, LeakType } from "@/lib/reboot-parser";
 import { TrainingSwingVisualizer } from "@/components/TrainingSwingVisualizer";
@@ -32,8 +32,11 @@ interface DetectedFile {
   file: File;
   csvType: CsvType;
   brand?: LaunchMonitorBrand;
-  swingCount?: number;
-  rowCount?: number;
+  swingCount?: number;  // Only for launch monitor with actual swing data
+  rowCount?: number;    // Row count (NOT swing count for biomechanics)
+  frameCount?: number;  // For reboot - number of motion frames
+  confidence?: 'high' | 'medium' | 'low';
+  debugHeaders?: string[];  // First 10 headers for debugging
 }
 
 interface UnifiedDataUploadModalProps {
@@ -87,20 +90,47 @@ export function UnifiedDataUploadModal({
       try {
         const text = await file.text();
         const { headers, rows } = parseCSV(text);
-        const detection = detectCsvType(headers);
+        
+        // Pass filename to detection for hints
+        const detection = detectCsvType(headers, file.name);
+        
+        // Determine appropriate counts based on file type
+        let swingCount: number | undefined;
+        let frameCount: number | undefined;
+        
+        if (detection.csvType === 'launch-monitor') {
+          // For launch monitor, row count = swing count
+          swingCount = rows.length;
+        } else if (detection.csvType === 'reboot-ik' || detection.csvType === 'reboot-me') {
+          // For reboot, rows are frames NOT swings
+          frameCount = rows.length;
+          // Try to count unique movement IDs if available
+          const movementIdCol = headers.find(h => 
+            h.toLowerCase().includes('movement_id') || 
+            h.toLowerCase().includes('org_movement_id')
+          );
+          if (movementIdCol) {
+            const uniqueMovements = new Set(rows.map(r => r[movementIdCol]).filter(Boolean));
+            swingCount = uniqueMovements.size;
+          }
+        }
         
         newDetectedFiles.push({
           file,
           csvType: detection.csvType,
           brand: detection.brand,
-          swingCount: detection.csvType === 'launch-monitor' ? rows.length : undefined,
-          rowCount: rows.length
+          swingCount,
+          rowCount: rows.length,
+          frameCount,
+          confidence: detection.confidence,
+          debugHeaders: detection.debugInfo?.firstHeaders
         });
       } catch (error) {
         console.error(`Error parsing ${file.name}:`, error);
         newDetectedFiles.push({
           file,
-          csvType: 'unknown'
+          csvType: 'unknown',
+          confidence: 'low'
         });
       }
     }
@@ -139,7 +169,14 @@ export function UnifiedDataUploadModal({
         for (const detected of launchMonitorFiles) {
           const text = await detected.file.text();
           const { headers, rows } = parseCSV(text);
-          const detection = detectCsvType(headers);
+          // Pass filename for better detection
+          const detection = detectCsvType(headers, detected.file.name);
+          
+          // Double-check this is actually launch monitor data
+          if (detection.csvType !== 'launch-monitor') {
+            console.warn(`File ${detected.file.name} was misclassified, skipping launch monitor processing`);
+            continue;
+          }
           
           if (detection.columnMap) {
             const swings = parseLaunchMonitorData(rows, detection.columnMap);
@@ -314,11 +351,15 @@ export function UnifiedDataUploadModal({
   const getFileLabel = (detected: DetectedFile) => {
     switch (detected.csvType) {
       case 'launch-monitor':
-        return `${getBrandDisplayName(detected.brand || 'generic')} (${detected.swingCount} swings)`;
-      case 'reboot-ik':
-        return `Reboot Motion - Inverse Kinematics (${detected.rowCount} rows)`;
-      case 'reboot-me':
-        return `Reboot Motion - Momentum Energy (${detected.rowCount} rows)`;
+        return `${getBrandDisplayName(detected.brand || 'generic')} (${detected.swingCount || detected.rowCount} swings)`;
+      case 'reboot-ik': {
+        const swingInfo = detected.swingCount ? `${detected.swingCount} swings, ` : '';
+        return `Reboot Motion — Inverse Kinematics (${swingInfo}${detected.frameCount || detected.rowCount} frames)`;
+      }
+      case 'reboot-me': {
+        const swingInfo = detected.swingCount ? `${detected.swingCount} swings, ` : '';
+        return `Reboot Motion — Momentum/Energy (${swingInfo}${detected.frameCount || detected.rowCount} frames)`;
+      }
       default:
         return 'Unknown format';
     }
@@ -397,18 +438,28 @@ export function UnifiedDataUploadModal({
                             <span className="text-xs text-muted-foreground">
                               {getFileLabel(detected)}
                             </span>
+                            {detected.confidence === 'low' && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 text-amber-600 border-amber-400">Low Confidence</Badge>
+                            )}
                             {detected.csvType === 'reboot-ik' && (
-                              <Badge variant="secondary" className="text-[10px] px-1 py-0">Body Analysis</Badge>
+                              <Badge variant="secondary" className="text-[10px] px-1 py-0 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">Body Analysis</Badge>
                             )}
                             {detected.csvType === 'reboot-me' && (
-                              <Badge variant="secondary" className="text-[10px] px-1 py-0">Energy Transfer</Badge>
+                              <Badge variant="secondary" className="text-[10px] px-1 py-0 bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">Energy Transfer</Badge>
                             )}
                           </>
                         ) : (
-                          <>
-                            <AlertCircle className="h-3 w-3 text-amber-500" />
-                            <span className="text-xs text-amber-600">Unknown format</span>
-                          </>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1">
+                              <AlertCircle className="h-3 w-3 text-amber-500" />
+                              <span className="text-xs text-amber-600">Unknown format — check headers</span>
+                            </div>
+                            {detected.debugHeaders && detected.debugHeaders.length > 0 && (
+                              <div className="text-[10px] text-muted-foreground font-mono bg-muted/50 p-1 rounded max-w-xs overflow-x-auto">
+                                Headers: {detected.debugHeaders.slice(0, 5).join(', ')}...
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -475,6 +526,49 @@ export function UnifiedDataUploadModal({
                   <span className="text-muted-foreground">Max Exit Velo:</span>
                   <span className="font-medium">{launchMonitorStats.maxExitVelo} mph</span>
                 </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Reboot Partial Data Preview (only IK or only ME uploaded) */}
+          {(ikData || meData) && !rebootScores && (
+            <div className="space-y-3 p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-amber-500" />
+                <span className="font-medium">Reboot Motion Data</span>
+                <Badge variant="outline" className="text-amber-600 border-amber-400">Partial</Badge>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {ikData && (
+                  <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Activity className="h-4 w-4 text-purple-500" />
+                      <span className="font-medium text-purple-700 dark:text-purple-300">Inverse Kinematics</span>
+                    </div>
+                    <div className="text-muted-foreground">
+                      <div>Frames: {ikData.length.toLocaleString()}</div>
+                      <div className="text-xs">Body movement data</div>
+                    </div>
+                  </div>
+                )}
+                
+                {meData && (
+                  <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Zap className="h-4 w-4 text-yellow-500" />
+                      <span className="font-medium text-yellow-700 dark:text-yellow-300">Momentum/Energy</span>
+                    </div>
+                    <div className="text-muted-foreground">
+                      <div>Frames: {meData.length.toLocaleString()}</div>
+                      <div className="text-xs">Energy transfer data</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="text-sm text-amber-600 dark:text-amber-400 text-center bg-amber-100 dark:bg-amber-900/30 p-2 rounded">
+                ⚠️ Upload both IK and ME files to calculate 4B scores
               </div>
             </div>
           )}
