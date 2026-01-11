@@ -32,64 +32,64 @@ export interface TrainingTranslation {
 export const TRAINING_TRANSLATIONS: Record<LeakType, TrainingTranslation> = {
   [LeakType.CLEAN_TRANSFER]: {
     primaryCause: 'none',
-    caption: "That's it. You stayed connected and got it out on time.",
-    trainingFocus: 'Keep doing that.',
+    caption: "That's clean. Your legs did their job and the barrel got paid.",
+    trainingFocus: "Don't mess with it — keep that same move.",
     highlightJoints: [],
     causeColor: 'green',
   },
 
   [LeakType.EARLY_BACK_LEG_RELEASE]: {
     primaryCause: 'rear_leg',
-    caption: 'You left the ground too early with your back leg.',
-    trainingFocus: 'Stay in the ground longer.',
+    caption: "Your back leg bailed early. You quit the ground before the swing was finished.",
+    trainingFocus: "Stay on that back leg longer — finish the turn first.",
     highlightJoints: ['rear_hip', 'rear_knee', 'rear_ankle'],
     causeColor: 'red',
   },
 
   [LeakType.LATE_LEAD_LEG_ACCEPTANCE]: {
     primaryCause: 'lead_leg',
-    caption: "Your front leg didn't catch it in time.",
-    trainingFocus: 'Catch it earlier on the front side.',
+    caption: "Your front leg showed up late. It didn't catch the force in time.",
+    trainingFocus: "Get the front side down sooner — catch it, then swing.",
     highlightJoints: ['lead_hip', 'lead_knee', 'lead_ankle'],
     causeColor: 'yellow',
   },
 
   [LeakType.VERTICAL_PUSH]: {
-    primaryCause: 'ground',
-    caption: 'You pushed up instead of into the ground.',
-    trainingFocus: 'Push into the ground, not straight up.',
+    primaryCause: 'legs',
+    caption: "You popped up. That's up-force, not ground-force.",
+    trainingFocus: "Drive into the ground — no jumping.",
     highlightJoints: ['rear_knee', 'rear_ankle', 'lead_knee', 'lead_ankle'],
     causeColor: 'red',
   },
 
   [LeakType.GLIDE_WITHOUT_CAPTURE]: {
     primaryCause: 'lead_leg',
-    caption: "You moved forward but never stopped it.",
-    trainingFocus: 'Brake it, then fire.',
+    caption: "You glided forward but you never slammed the brakes.",
+    trainingFocus: "Brake the move — stop forward, then rotate.",
     highlightJoints: ['lead_hip', 'lead_knee'],
     causeColor: 'yellow',
   },
 
   [LeakType.LATE_ENGINE]: {
-    primaryCause: 'ground',
-    caption: 'Your legs made power — it just showed up late.',
-    trainingFocus: 'Get to the ground earlier.',
+    primaryCause: 'timing',
+    caption: "You made power — it just showed up late. The swing already left without it.",
+    trainingFocus: "Turn the ground on earlier — power first, then barrel.",
     highlightJoints: ['rear_hip', 'rear_knee', 'lead_knee'],
     causeColor: 'yellow',
   },
 
   [LeakType.CORE_DISCONNECT]: {
     primaryCause: 'core',
-    caption: 'Your upper half went before your legs.',
-    trainingFocus: 'Let the legs start the swing.',
+    caption: "Your top half took off before your legs started it.",
+    trainingFocus: "Legs lead. Then the core. Then the hands.",
     highlightJoints: ['rear_hip', 'lead_hip', 'core'],
     causeColor: 'red',
   },
 
   [LeakType.UNKNOWN]: {
     primaryCause: 'none',
-    caption: "I can't see this one clean yet.",
-    trainingFocus: 'Give me more swings.',
+    caption: "I can't trust this yet. We need more clean swings.",
+    trainingFocus: "Upload more swings so the pattern shows up.",
     highlightJoints: [],
     causeColor: 'yellow',
   },
