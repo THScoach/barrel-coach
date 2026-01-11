@@ -6,6 +6,7 @@ import { FourBSystemSection } from "@/components/landing/FourBSystemSection";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { MLBTechnologySection } from "@/components/landing/MLBTechnologySection";
 import { ProductComparisonSection } from "@/components/landing/ProductComparisonSection";
+import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Play, Target, Zap, Award, Users } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -122,6 +123,9 @@ export default function Index() {
       <div id="pricing">
         <ProductComparisonSection />
       </div>
+
+      {/* ===== TESTIMONIALS ===== */}
+      <TestimonialsSection />
 
       {/* ===== INNER CIRCLE CTA ===== */}
       <section className="py-20 bg-gradient-to-b from-slate-900 to-slate-950">
