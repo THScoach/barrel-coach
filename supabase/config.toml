@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.fetch-reboot-sessions]
 verify_jwt = false
+
+[functions.sam3-segment]
+verify_jwt = false
