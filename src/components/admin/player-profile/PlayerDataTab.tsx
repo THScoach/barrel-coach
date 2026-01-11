@@ -26,6 +26,8 @@ import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { getBrandDisplayName } from "@/lib/csv-detector";
 import { LaunchMonitorBrand } from "@/lib/csv-detector";
 import { toast } from "sonner";
+import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
+import { RebootSessionDetail } from "@/components/RebootSessionDetail";
 
 interface PlayerDataTabProps {
   playerId: string; // This is player_profiles.id
@@ -61,6 +63,11 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
   // playersTableId is the stable ID from the `players` table (FK target for data tables)
   const [playersTableId, setPlayersTableId] = useState<string | null>(null);
   const [mappingError, setMappingError] = useState<string | null>(null);
+  
+  // Session detail modals
+  const [selectedLaunchMonitorSession, setSelectedLaunchMonitorSession] = useState<any>(null);
+  const [selectedRebootSession, setSelectedRebootSession] = useState<any>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Resolve or create the players_id mapping using the RPC function
   const resolvePlayersId = async (): Promise<string | null> => {
@@ -199,7 +206,43 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
     }
   };
 
-  const filteredSessions = filter === 'all' 
+  // Handle viewing session details
+  const handleViewSession = async (session: DataSession) => {
+    setLoadingDetail(true);
+    try {
+      if (session.type === 'hittrax' && playersTableId) {
+        const { data, error } = await supabase
+          .from('launch_monitor_sessions')
+          .select('*')
+          .eq('id', session.id)
+          .single();
+        
+        if (error) throw error;
+        setSelectedLaunchMonitorSession(data);
+      } else if (session.type === 'reboot' && playersTableId) {
+        const { data, error } = await supabase
+          .from('reboot_uploads')
+          .select('*')
+          .eq('id', session.id)
+          .single();
+        
+        if (error) throw error;
+        setSelectedRebootSession(data);
+      } else if (session.type === 'analyzer') {
+        // TODO: Open analyzer session detail
+        toast.info('Analyzer session detail coming soon');
+      } else {
+        toast.info('Session detail view not available for this type');
+      }
+    } catch (error: any) {
+      console.error('Error loading session detail:', error);
+      toast.error('Failed to load session details');
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const filteredSessions = filter === 'all'
     ? sessions 
     : sessions.filter(s => s.type === filter);
 
@@ -365,7 +408,13 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-slate-400 hover:text-white"
+                          onClick={() => handleViewSession(session)}
+                          disabled={loadingDetail}
+                        >
                           View <ChevronRight className="h-4 w-4 ml-1" />
                         </Button>
                         <DropdownMenu>
@@ -432,6 +481,28 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Launch Monitor Session Detail Modal */}
+      <LaunchMonitorSessionDetail
+        open={!!selectedLaunchMonitorSession}
+        onOpenChange={(open) => !open && setSelectedLaunchMonitorSession(null)}
+        session={selectedLaunchMonitorSession}
+        onDelete={() => {
+          setSelectedLaunchMonitorSession(null);
+          if (playersTableId) loadSessions(playersTableId);
+        }}
+      />
+
+      {/* Reboot Session Detail Modal */}
+      <RebootSessionDetail
+        open={!!selectedRebootSession}
+        onOpenChange={(open) => !open && setSelectedRebootSession(null)}
+        session={selectedRebootSession}
+        onDelete={() => {
+          setSelectedRebootSession(null);
+          if (playersTableId) loadSessions(playersTableId);
+        }}
+      />
     </div>
   );
 }
