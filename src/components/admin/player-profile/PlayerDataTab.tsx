@@ -21,14 +21,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { Upload, BarChart3, Target, Activity, Zap, Video, ChevronRight, Database, MoreVertical, Trash2 } from "lucide-react";
+import { Upload, BarChart3, Target, Activity, Zap, Video, ChevronRight, Database, MoreVertical, Trash2, AlertCircle } from "lucide-react";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { getBrandDisplayName } from "@/lib/csv-detector";
 import { LaunchMonitorBrand } from "@/lib/csv-detector";
 import { toast } from "sonner";
 
 interface PlayerDataTabProps {
-  playerId: string;
+  playerId: string; // This is player_profiles.id
   playerName: string;
 }
 
@@ -57,57 +57,123 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
   const [loading, setLoading] = useState(true);
   const [deleteSession, setDeleteSession] = useState<DataSession | null>(null);
   const [deleting, setDeleting] = useState(false);
-  // playersTableId is the ID in the `players` table (different from player_profiles)
+  
+  // playersTableId is the stable ID from the `players` table (FK target for data tables)
   const [playersTableId, setPlayersTableId] = useState<string | null>(null);
+  const [mappingError, setMappingError] = useState<string | null>(null);
 
-  // Lookup or create the corresponding players table record
-  const lookupOrCreatePlayersRecord = async () => {
-    // First try to find existing players record by name
-    const { data: existingPlayer } = await supabase
-      .from('players')
-      .select('id')
-      .ilike('name', playerName)
-      .maybeSingle();
-    
-    if (existingPlayer) {
-      setPlayersTableId(existingPlayer.id);
-      return existingPlayer.id;
+  // Resolve or create the players_id mapping
+  const resolvePlayersId = async (): Promise<string | null> => {
+    try {
+      // Step 1: Check if player_profiles already has players_id set
+      const { data: profile, error: profileError } = await supabase
+        .from('player_profiles')
+        .select('players_id, first_name, last_name, level, bats, phone, email, age, current_team, organization')
+        .eq('id', playerId)
+        .maybeSingle();
+      
+      if (profileError) {
+        console.error('Error fetching player profile:', profileError);
+        setMappingError('Failed to load player profile');
+        return null;
+      }
+      
+      if (!profile) {
+        setMappingError('Player profile not found');
+        return null;
+      }
+      
+      // If players_id already exists, use it
+      if (profile.players_id) {
+        setPlayersTableId(profile.players_id);
+        return profile.players_id;
+      }
+      
+      // Step 2: Create a new players record
+      const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unknown Player';
+      
+      // Convert bats to valid handedness format
+      let validHandedness: string | null = null;
+      if (profile.bats === 'L' || profile.bats === 'Left' || profile.bats === 'left') {
+        validHandedness = 'left';
+      } else if (profile.bats === 'R' || profile.bats === 'Right' || profile.bats === 'right') {
+        validHandedness = 'right';
+      } else if (profile.bats === 'S' || profile.bats === 'Switch' || profile.bats === 'switch') {
+        validHandedness = 'switch';
+      }
+      
+      // Convert level to valid format
+      let validLevel: string | null = null;
+      const levelLower = (profile.level || '').toLowerCase();
+      if (levelLower === 'youth') validLevel = 'youth';
+      else if (levelLower === 'high_school' || levelLower === 'hs' || levelLower === 'high school') validLevel = 'high_school';
+      else if (levelLower === 'college') validLevel = 'college';
+      else if (levelLower === 'pro' || levelLower === 'milb') validLevel = 'pro';
+      else if (levelLower === 'mlb') validLevel = 'mlb';
+      
+      const { data: newPlayer, error: createError } = await supabase
+        .from('players')
+        .insert({
+          name: fullName,
+          level: validLevel,
+          handedness: validHandedness,
+          team: profile.current_team || profile.organization || null,
+          phone: profile.phone || null,
+          email: profile.email || null,
+          age: profile.age || null,
+          notes: `Auto-created from player_profiles.id: ${playerId}`
+        })
+        .select('id')
+        .single();
+      
+      if (createError) {
+        console.error('Error creating players record:', createError);
+        setMappingError(`Cannot create linked player record: ${createError.message}`);
+        return null;
+      }
+      
+      // Step 3: Update player_profiles with the new players_id
+      const { error: updateError } = await supabase
+        .from('player_profiles')
+        .update({ players_id: newPlayer.id })
+        .eq('id', playerId);
+      
+      if (updateError) {
+        console.error('Error updating player_profiles with players_id:', updateError);
+        // The players record was created, so we can still use it
+      }
+      
+      setPlayersTableId(newPlayer.id);
+      return newPlayer.id;
+    } catch (error: any) {
+      console.error('Error resolving players_id:', error);
+      setMappingError(error.message || 'Unknown error resolving player mapping');
+      return null;
     }
-    
-    // If not found, create a new players record
-    const { data: newPlayer, error: createError } = await supabase
-      .from('players')
-      .insert({ name: playerName })
-      .select('id')
-      .single();
-    
-    if (createError) {
-      console.error('Error creating players record:', createError);
-      // Fallback: use the profile ID (will fail on FK but at least shows data)
-      setPlayersTableId(playerId);
-      return playerId;
-    }
-    
-    setPlayersTableId(newPlayer.id);
-    return newPlayer.id;
   };
 
   useEffect(() => {
     const init = async () => {
-      const pId = await lookupOrCreatePlayersRecord();
-      loadSessions(pId);
+      setMappingError(null);
+      const pId = await resolvePlayersId();
+      if (pId) {
+        loadSessions(pId);
+      } else {
+        setLoading(false);
+      }
     };
     init();
-  }, [playerId, playerName]);
+  }, [playerId]);
 
-  const loadSessions = async (pId?: string) => {
-    const resolvedId = pId || playersTableId || playerId;
+  const loadSessions = async (pId: string) => {
     setLoading(true);
     
     const [sessionsRes, launchRes, rebootRes] = await Promise.all([
-      supabase.from('sessions').select('*').eq('player_id', playerId), // sessions uses player_profiles
-      supabase.from('launch_monitor_sessions').select('*').eq('player_id', resolvedId),
-      supabase.from('reboot_uploads').select('*').eq('player_id', resolvedId),
+      // sessions table uses player_profiles.id (via player_id FK to player_profiles)
+      supabase.from('sessions').select('*').eq('player_id', playerId),
+      // launch_monitor_sessions and reboot_uploads use players.id
+      supabase.from('launch_monitor_sessions').select('*').eq('player_id', pId),
+      supabase.from('reboot_uploads').select('*').eq('player_id', pId),
     ]);
 
     const allSessions: DataSession[] = [
@@ -179,10 +245,12 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
 
       toast.success('Session deleted');
       setDeleteSession(null);
-      loadSessions(playersTableId || undefined);
-    } catch (error) {
+      if (playersTableId) {
+        loadSessions(playersTableId);
+      }
+    } catch (error: any) {
       console.error('Error deleting session:', error);
-      toast.error('Failed to delete session');
+      toast.error(error?.message || 'Failed to delete session');
     } finally {
       setDeleting(false);
     }
@@ -226,6 +294,24 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
 
   const counts = getCounts();
 
+  // Show error state if mapping failed
+  if (mappingError) {
+    return (
+      <Card className="bg-red-900/20 border-red-800">
+        <CardContent className="py-8">
+          <div className="flex items-center gap-3 text-red-400">
+            <AlertCircle className="h-6 w-6" />
+            <div>
+              <p className="font-semibold">Player Mapping Error</p>
+              <p className="text-sm text-red-400/80">{mappingError}</p>
+              <p className="text-xs text-red-400/60 mt-1">Cannot save session data without a valid player mapping.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="flex gap-6">
       {/* Left Sidebar: Source Filter */}
@@ -259,8 +345,15 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
             {filterButtons.find(b => b.value === filter)?.label || 'All Data'}
           </h3>
           <Button 
-            onClick={() => setUploadModalOpen(true)}
+            onClick={() => {
+              if (!playersTableId) {
+                toast.error("Player mapping missing: cannot upload data");
+                return;
+              }
+              setUploadModalOpen(true);
+            }}
             className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+            disabled={!playersTableId}
           >
             <Upload className="h-4 w-4 mr-2" /> Upload Data
           </Button>
@@ -358,17 +451,19 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
         )}
       </div>
 
-      {/* Upload Modal */}
-      <UnifiedDataUploadModal
-        open={uploadModalOpen}
-        onOpenChange={setUploadModalOpen}
-        playerId={playersTableId || playerId}
-        playerName={playerName}
-        onSuccess={() => {
-          loadSessions(playersTableId || undefined);
-          setUploadModalOpen(false);
-        }}
-      />
+      {/* Upload Modal - only render if we have a valid players_id */}
+      {playersTableId && (
+        <UnifiedDataUploadModal
+          open={uploadModalOpen}
+          onOpenChange={setUploadModalOpen}
+          playerId={playersTableId}
+          playerName={playerName}
+          onSuccess={() => {
+            loadSessions(playersTableId);
+            setUploadModalOpen(false);
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteSession} onOpenChange={(open) => !open && setDeleteSession(null)}>
