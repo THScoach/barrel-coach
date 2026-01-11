@@ -20,43 +20,45 @@ import {
   ArrowRight,
   ChevronDown,
   Sparkles,
+  TrendingUp,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
+// MASTER PROMPT v1.0 — Guided Coaching Features
 const features = [
   {
-    icon: Video,
-    title: "Full Video Library",
-    description: "200+ exclusive drill videos organized by the 4B System. New content added weekly.",
-    gradient: "from-purple-500 to-violet-600",
-    glow: "shadow-purple-500/25",
-    iconBg: "bg-purple-500/20",
-    iconColor: "text-purple-400",
-  },
-  {
-    icon: Calendar,
-    title: "Weekly Live Calls",
-    description: "Every Monday at 7pm CST. Group Q&A sessions with Coach Rick. Get your swing questions answered in real-time.",
+    icon: TrendingUp,
+    title: "Ongoing Data Uploads",
+    description: "Submit your swing videos and data anytime. Track your progress across the 4B System.",
     gradient: "from-blue-500 to-cyan-600",
     glow: "shadow-blue-500/25",
     iconBg: "bg-blue-500/20",
     iconColor: "text-blue-400",
   },
   {
+    icon: Calendar,
+    title: "Weekly AI Check-Ins",
+    description: "Every week, Rick's system reviews your progress, identifies trends, and keeps you on track.",
+    gradient: "from-purple-500 to-violet-600",
+    glow: "shadow-purple-500/25",
+    iconBg: "bg-purple-500/20",
+    iconColor: "text-purple-400",
+  },
+  {
     icon: ChartBar,
-    title: "Unlimited Swing Reviews",
-    description: "Submit swings anytime. Get 4B analysis and personalized drill prescriptions.",
+    title: "Trend Tracking",
+    description: "See your 4B scores over time. Know if you're improving or sliding backward.",
     gradient: "from-emerald-500 to-green-600",
     glow: "shadow-emerald-500/25",
     iconBg: "bg-emerald-500/20",
     iconColor: "text-emerald-400",
   },
   {
-    icon: MessageCircle,
-    title: "Direct Access",
-    description: "Text Coach Rick directly with questions. Priority response within 24 hours.",
+    icon: Shield,
+    title: "Clear Benchmarks",
+    description: "Understand where you stand. Age-appropriate targets that matter.",
     gradient: "from-orange-500 to-amber-600",
     glow: "shadow-orange-500/25",
     iconBg: "bg-orange-500/20",
@@ -64,17 +66,17 @@ const features = [
   },
   {
     icon: Users,
-    title: "Private Community",
-    description: "Connect with other serious players and coaches. Share wins, get feedback.",
+    title: "Accountability",
+    description: "No more guessing. The system keeps you honest about your work.",
     gradient: "from-pink-500 to-rose-600",
     glow: "shadow-pink-500/25",
     iconBg: "bg-pink-500/20",
     iconColor: "text-pink-400",
   },
   {
-    icon: Percent,
-    title: "Member Discounts",
-    description: "20% off in-person assessments, camps, and any future products.",
+    icon: Zap,
+    title: "Direction When Stuck",
+    description: "When you hit a wall, Rick's system tells you what to focus on next.",
     gradient: "from-yellow-500 to-orange-600",
     glow: "shadow-yellow-500/25",
     iconBg: "bg-yellow-500/20",
@@ -82,12 +84,13 @@ const features = [
   },
 ];
 
+// MASTER PROMPT v1.0 — Guided Coaching is for...
 const whoIsThisFor = [
-  "You're serious about making varsity, college, or pro ball",
-  "You want ongoing coaching, not just a one-time analysis",
+  "You want ongoing structure, not just a one-time analysis",
+  "You're serious about consistency and accountability",
+  "You want to track your progress over time",
+  "You need clear benchmarks to measure against",
   "You're willing to put in the work between sessions",
-  "You want direct access when you have questions",
-  "You're a coach looking to level up your knowledge",
 ];
 
 const testimonials = [
@@ -134,13 +137,14 @@ const faqs = [
   },
 ];
 
+// MASTER PROMPT v1.0 — Product comparison (Guided Coaching at $99/mo)
 const comparisonData = [
-  { feature: "4B Swing Analysis", single: "1 swing", complete: "5 swings", inner: "Unlimited" },
-  { feature: "Video Library Access", single: "Limited", complete: "30 days", inner: "Full access" },
-  { feature: "Drill Prescription", single: "1 drill", complete: "30-day plan", inner: "Ongoing plans" },
-  { feature: "Direct Access to Coach Rick", single: false, complete: false, inner: true },
-  { feature: "Weekly Live Calls", single: false, complete: false, inner: true },
-  { feature: "Private Community", single: false, complete: false, inner: true },
+  { feature: "Free Diagnostic Snapshot", single: true, complete: true, inner: true },
+  { feature: "Weekly AI-Guided Check-Ins", single: false, complete: false, inner: true },
+  { feature: "Ongoing Data Uploads", single: false, complete: false, inner: true },
+  { feature: "Trend Tracking & Benchmarks", single: false, complete: false, inner: true },
+  { feature: "In-Person Assessment", single: false, complete: true, inner: "20% off" },
+  { feature: "90-Day Transformation", single: "Apply", complete: "Apply", inner: "Priority" },
 ];
 
 export default function InnerCircle() {
@@ -195,40 +199,39 @@ export default function InnerCircle() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-4xl mx-auto animate-fade-in">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 mb-8 backdrop-blur-sm">
-              <Crown className="w-5 h-5 text-yellow-400" />
-              <span className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Premium Membership</span>
-              <Sparkles className="w-4 h-4 text-yellow-400" />
+            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 mb-8 backdrop-blur-sm">
+              <TrendingUp className="w-5 h-5 text-blue-400" />
+              <span className="text-sm font-bold text-blue-400 uppercase tracking-wider">Ongoing Structure</span>
             </div>
 
             <h1 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tight leading-tight">
-              JOIN THE{" "}
+              GUIDED{" "}
               <span className="relative">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400">
-                  INNER CIRCLE
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400">
+                  COACHING
                 </span>
-                <span className="absolute -inset-1 bg-gradient-to-r from-yellow-400/20 to-orange-400/20 blur-xl -z-10" />
+                <span className="absolute -inset-1 bg-gradient-to-r from-blue-400/20 to-cyan-400/20 blur-xl -z-10" />
               </span>
             </h1>
 
             <p className="text-xl md:text-2xl text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Get unlimited access to Coach Rick, 200+ drill videos, weekly live calls, and a private community of serious players.
+              This is where clarity becomes consistency. Weekly check-ins, trend tracking, and accountability — all in Rick's voice.
             </p>
 
             {/* Price Card */}
             <div className="relative inline-block">
               {/* Outer glow */}
-              <div className="absolute -inset-2 bg-gradient-to-r from-yellow-500 via-orange-500 to-yellow-500 rounded-3xl blur-lg opacity-40 animate-pulse" />
+              <div className="absolute -inset-2 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500 rounded-3xl blur-lg opacity-40 animate-pulse" />
               
               {/* Card */}
-              <div className="relative bg-gradient-to-b from-slate-900 to-slate-900/95 border-2 border-yellow-500/40 rounded-3xl p-10 backdrop-blur-xl shadow-2xl shadow-yellow-500/20">
-                {/* Crown badge */}
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full">
-                  <span className="text-xs font-bold text-black uppercase tracking-wider">Most Popular</span>
+              <div className="relative bg-gradient-to-b from-slate-900 to-slate-900/95 border-2 border-blue-500/40 rounded-3xl p-10 backdrop-blur-xl shadow-2xl shadow-blue-500/20">
+                {/* Badge */}
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">Ongoing Structure</span>
                 </div>
 
                 <div className="flex items-baseline justify-center gap-2 mb-3 mt-2">
-                  <span className="text-6xl md:text-7xl font-black text-white">$297</span>
+                  <span className="text-6xl md:text-7xl font-black text-white">$99</span>
                   <span className="text-2xl text-slate-400 font-medium">/month</span>
                 </div>
                 <p className="text-slate-400 mb-8 text-lg">Cancel anytime. No contracts.</p>
