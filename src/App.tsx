@@ -19,6 +19,7 @@ import Library from "./pages/Library";
 import Results from "./pages/Results";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Beta from "./pages/Beta";
 import NotFound from "./pages/NotFound";
 
 // Admin pages
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="/results/:sessionId" element={<Results />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+              <Route path="/beta" element={<Beta />} />
 
               {/* Player Portal Routes */}
               <Route path="/player" element={<PlayerLayout />}>
