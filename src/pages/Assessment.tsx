@@ -102,12 +102,14 @@ export default function Assessment() {
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
               In-Person Assessment
             </h1>
-            <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
-              90 minutes of hands-on coaching, video analysis, and personalized drill work. 
-              Leave with a complete game plan.
+            <p className="text-xl text-slate-300 mb-4 max-w-2xl mx-auto">
+              One session. Real answers.
+            </p>
+            <p className="text-lg text-slate-400 mb-8 max-w-2xl mx-auto">
+              90 minutes with me, face-to-face. Full 4B evaluation, video analysis, and a training plan you can actually use.
             </p>
             <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 max-w-md mx-auto">
-              <p className="text-5xl font-bold text-white mb-2">$299</p>
+              <p className="text-5xl font-bold text-white mb-2">$399</p>
               <p className="text-slate-400 mb-6">One-time investment</p>
               <Input
                 type="email"
@@ -223,13 +225,13 @@ export default function Assessment() {
       {/* Final CTA */}
       <section className="py-20 bg-gradient-to-r from-red-900/30 to-orange-900/30 border-t border-slate-800">
         <div className="max-w-xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Ready to Transform Your Swing?</h2>
+          <h2 className="text-3xl font-bold text-white mb-4">Ready for the Truth?</h2>
           <p className="text-slate-300 mb-8">Book your 90-minute session today.</p>
           <Button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-full font-semibold"
           >
-            Book for $299 <ArrowRight className="ml-2 h-4 w-4" />
+            Book for $399 <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
       </section>
