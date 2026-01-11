@@ -142,12 +142,22 @@ export function VideoUploader({
 
               const ok = xhr.status >= 200 && xhr.status < 300;
               if (ok) {
-                // Ensure UI ends at 100%
+                // Parse response and store videoUrl/storagePath
+                const data = xhr.response as Record<string, unknown>;
+                const videoUrl = (data?.videoUrl as string) ?? null;
+                const videoStoragePath = (data?.videoStoragePath as string) ?? null;
+
                 setSlots((prev) => {
                   const v = prev[swingIndex];
                   if (!v) return prev;
                   const next = [...prev];
-                  next[swingIndex] = { ...v, uploadProgress: 100 };
+                  next[swingIndex] = { 
+                    ...v, 
+                    uploadProgress: 100,
+                    storageUrl: videoStoragePath ?? undefined,
+                    // Store signed URL for immediate preview (expires in 1hr)
+                    previewUrl: videoUrl ?? v.previewUrl,
+                  };
                   return next;
                 });
                 resolve(true);
