@@ -383,6 +383,104 @@ export type Database = {
           },
         ]
       }
+      game_weekly_reports: {
+        Row: {
+          ab: number | null
+          bb: number | null
+          best_moment: string | null
+          biggest_struggle: string | null
+          body_fatigue: number | null
+          chat_transcript: Json | null
+          coach_summary: string | null
+          completed_at: string | null
+          created_at: string | null
+          doubles: number | null
+          games: number | null
+          hits: number | null
+          home_runs: number | null
+          id: string
+          k: number | null
+          next_week_goal: string | null
+          pa: number | null
+          player_id: string
+          source: string | null
+          status: string | null
+          training_tags: string[] | null
+          trend_label: string | null
+          triples: number | null
+          updated_at: string | null
+          week_end: string
+          week_start: string
+          xbh: number | null
+        }
+        Insert: {
+          ab?: number | null
+          bb?: number | null
+          best_moment?: string | null
+          biggest_struggle?: string | null
+          body_fatigue?: number | null
+          chat_transcript?: Json | null
+          coach_summary?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          doubles?: number | null
+          games?: number | null
+          hits?: number | null
+          home_runs?: number | null
+          id?: string
+          k?: number | null
+          next_week_goal?: string | null
+          pa?: number | null
+          player_id: string
+          source?: string | null
+          status?: string | null
+          training_tags?: string[] | null
+          trend_label?: string | null
+          triples?: number | null
+          updated_at?: string | null
+          week_end: string
+          week_start: string
+          xbh?: number | null
+        }
+        Update: {
+          ab?: number | null
+          bb?: number | null
+          best_moment?: string | null
+          biggest_struggle?: string | null
+          body_fatigue?: number | null
+          chat_transcript?: Json | null
+          coach_summary?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          doubles?: number | null
+          games?: number | null
+          hits?: number | null
+          home_runs?: number | null
+          id?: string
+          k?: number | null
+          next_week_goal?: string | null
+          pa?: number | null
+          player_id?: string
+          source?: string | null
+          status?: string | null
+          training_tags?: string[] | null
+          trend_label?: string | null
+          triples?: number | null
+          updated_at?: string | null
+          week_end?: string
+          week_start?: string
+          xbh?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_weekly_reports_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hittrax_sessions: {
         Row: {
           avg_distance: number | null
@@ -892,6 +990,7 @@ export type Database = {
           height_inches: number | null
           id: string
           is_beta_tester: boolean | null
+          is_in_season: boolean | null
           is_public: boolean | null
           is_validation_study: boolean | null
           latest_ball_score: number | null
@@ -925,6 +1024,7 @@ export type Database = {
           height_inches?: number | null
           id?: string
           is_beta_tester?: boolean | null
+          is_in_season?: boolean | null
           is_public?: boolean | null
           is_validation_study?: boolean | null
           latest_ball_score?: number | null
@@ -958,6 +1058,7 @@ export type Database = {
           height_inches?: number | null
           id?: string
           is_beta_tester?: boolean | null
+          is_in_season?: boolean | null
           is_public?: boolean | null
           is_validation_study?: boolean | null
           latest_ball_score?: number | null
