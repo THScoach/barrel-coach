@@ -2062,10 +2062,20 @@ export type Database = {
       }
     }
     Functions: {
+      backfill_players_from_profiles: {
+        Args: { limit_count?: number }
+        Returns: {
+          created_player_id: string
+          linked: boolean
+          player_name: string
+          profile_id: string
+        }[]
+      }
       calculate_session_aggregates: {
         Args: { p_session_id: string }
         Returns: undefined
       }
+      ensure_player_linked: { Args: { p_profile_id: string }; Returns: string }
       get_recommended_videos: {
         Args: { p_limit?: number; p_session_id: string }
         Returns: {
