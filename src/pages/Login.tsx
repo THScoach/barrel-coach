@@ -4,7 +4,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, LogIn, AlertCircle } from "lucide-react";
 import { Logo } from "@/components/Logo";
@@ -14,7 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { signIn, isAdmin } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,18 +23,12 @@ export default function Login() {
 
     try {
       const { error: signInError } = await signIn(email, password);
-      
       if (signInError) {
         setError(signInError.message);
         setLoading(false);
         return;
       }
-
-      // Wait a moment for the auth state to update
-      setTimeout(() => {
-        // The ProtectedAdminRoute will handle the redirect if not admin
-        navigate("/admin");
-      }, 500);
+      setTimeout(() => navigate("/admin"), 500);
     } catch (err) {
       setError("An unexpected error occurred");
       setLoading(false);
@@ -43,53 +36,63 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <Logo size="lg" linkTo="" />
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background effects */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl" />
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+        {/* Card */}
+        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 shadow-2xl">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-6">
+              <Logo size="lg" linkTo="" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>
+            <p className="text-slate-400">Sign in to access your dashboard</p>
           </div>
-          <CardTitle className="text-2xl">Admin Login</CardTitle>
-          <CardDescription>
-            Sign in to access the admin dashboard
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="bg-red-500/10 border-red-500/50 text-red-400">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            
+
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-slate-300">Email</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
+                className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-red-500 focus:ring-red-500/20"
+                placeholder="you@example.com"
               />
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-slate-300">Password</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
+                className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-red-500 focus:ring-red-500/20"
+                placeholder="••••••••"
               />
             </div>
-            
-            <Button type="submit" className="w-full" disabled={loading}>
+
+            <Button type="submit" disabled={loading} className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3">
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -103,21 +106,21 @@ export default function Login() {
               )}
             </Button>
           </form>
-          
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            Need an account?{" "}
-            <Link to="/signup" className="text-primary hover:underline">
-              Create one
-            </Link>
-          </div>
-          
-          <div className="mt-4 text-center">
-            <Link to="/" className="text-sm text-muted-foreground hover:underline">
+
+          {/* Footer links */}
+          <div className="mt-8 space-y-4 text-center">
+            <p className="text-slate-400 text-sm">
+              Don't have an account?{" "}
+              <Link to="/signup" className="text-red-400 hover:text-red-300 font-medium">
+                Create one
+              </Link>
+            </p>
+            <Link to="/" className="text-sm text-slate-500 hover:text-slate-300 block">
               ← Back to home
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
