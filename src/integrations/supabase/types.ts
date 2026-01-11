@@ -52,6 +52,84 @@ export type Database = {
           },
         ]
       }
+      batted_ball_events: {
+        Row: {
+          bb_type: string | null
+          contact_score: number | null
+          created_at: string
+          distance: number | null
+          event_date: string
+          exit_velocity: number | null
+          hang_time: number | null
+          hit_type: string | null
+          id: string
+          is_barrel: boolean | null
+          is_hard_hit: boolean | null
+          is_sweet_spot: boolean | null
+          launch_angle: number | null
+          player_id: string | null
+          result: string | null
+          session_id: string | null
+          source: string
+          spray_angle: number | null
+        }
+        Insert: {
+          bb_type?: string | null
+          contact_score?: number | null
+          created_at?: string
+          distance?: number | null
+          event_date: string
+          exit_velocity?: number | null
+          hang_time?: number | null
+          hit_type?: string | null
+          id?: string
+          is_barrel?: boolean | null
+          is_hard_hit?: boolean | null
+          is_sweet_spot?: boolean | null
+          launch_angle?: number | null
+          player_id?: string | null
+          result?: string | null
+          session_id?: string | null
+          source: string
+          spray_angle?: number | null
+        }
+        Update: {
+          bb_type?: string | null
+          contact_score?: number | null
+          created_at?: string
+          distance?: number | null
+          event_date?: string
+          exit_velocity?: number | null
+          hang_time?: number | null
+          hit_type?: string | null
+          id?: string
+          is_barrel?: boolean | null
+          is_hard_hit?: boolean | null
+          is_sweet_spot?: boolean | null
+          launch_angle?: number | null
+          player_id?: string | null
+          result?: string | null
+          session_id?: string | null
+          source?: string
+          spray_angle?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batted_ball_events_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batted_ball_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "launch_monitor_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_logs: {
         Row: {
           created_at: string | null
@@ -757,6 +835,56 @@ export type Database = {
           },
         ]
       }
+      player_external_profiles: {
+        Row: {
+          created_at: string
+          external_player_id: string | null
+          id: string
+          last_scraped_at: string | null
+          parsed_json: Json | null
+          player_id: string | null
+          profile_url: string | null
+          raw_json: Json | null
+          scrape_status: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_player_id?: string | null
+          id?: string
+          last_scraped_at?: string | null
+          parsed_json?: Json | null
+          player_id?: string | null
+          profile_url?: string | null
+          raw_json?: Json | null
+          scrape_status?: string | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_player_id?: string | null
+          id?: string
+          last_scraped_at?: string | null
+          parsed_json?: Json | null
+          player_id?: string | null
+          profile_url?: string | null
+          raw_json?: Json | null
+          scrape_status?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_external_profiles_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_notes: {
         Row: {
           created_at: string | null
@@ -981,11 +1109,13 @@ export type Database = {
           account_type: string | null
           activated_at: string | null
           age: number | null
+          bbref_id: string | null
           beta_expires_at: string | null
           beta_notes: string | null
           can_login: boolean | null
           created_at: string | null
           email: string | null
+          fangraphs_id: string | null
           handedness: string | null
           height_inches: number | null
           id: string
@@ -1000,6 +1130,7 @@ export type Database = {
           latest_composite_score: number | null
           latest_hittrax_session_id: string | null
           level: string | null
+          mlb_id: string | null
           name: string
           notes: string | null
           phone: string | null
@@ -1015,11 +1146,13 @@ export type Database = {
           account_type?: string | null
           activated_at?: string | null
           age?: number | null
+          bbref_id?: string | null
           beta_expires_at?: string | null
           beta_notes?: string | null
           can_login?: boolean | null
           created_at?: string | null
           email?: string | null
+          fangraphs_id?: string | null
           handedness?: string | null
           height_inches?: number | null
           id?: string
@@ -1034,6 +1167,7 @@ export type Database = {
           latest_composite_score?: number | null
           latest_hittrax_session_id?: string | null
           level?: string | null
+          mlb_id?: string | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -1049,11 +1183,13 @@ export type Database = {
           account_type?: string | null
           activated_at?: string | null
           age?: number | null
+          bbref_id?: string | null
           beta_expires_at?: string | null
           beta_notes?: string | null
           can_login?: boolean | null
           created_at?: string | null
           email?: string | null
+          fangraphs_id?: string | null
           handedness?: string | null
           height_inches?: number | null
           id?: string
@@ -1068,6 +1204,7 @@ export type Database = {
           latest_composite_score?: number | null
           latest_hittrax_session_id?: string | null
           level?: string | null
+          mlb_id?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -1888,7 +2025,30 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      practice_summary_30d: {
+        Row: {
+          avg_contact_score: number | null
+          avg_ev: number | null
+          avg_la: number | null
+          barrel_pct: number | null
+          fb_pct: number | null
+          gb_pct: number | null
+          hard_hit_pct: number | null
+          ld_pct: number | null
+          player_id: string | null
+          sweet_spot_pct: number | null
+          total_events: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batted_ball_events_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       calculate_session_aggregates: {
