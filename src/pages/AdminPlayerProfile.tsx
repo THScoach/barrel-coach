@@ -34,7 +34,7 @@ import { toast } from "sonner";
 import { 
   ArrowLeft, Save, User, Phone, Building, 
   FileText, Plus, Loader2, Sparkles, Settings,
-  MessageSquare, MoreHorizontal
+  MessageSquare, MoreHorizontal, Zap
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { PlayerResearchModal } from "@/components/PlayerResearchModal";
@@ -84,6 +84,36 @@ export default function AdminPlayerProfile() {
 
   const [showResearchModal, setShowResearchModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isSendingBetaInvite, setIsSendingBetaInvite] = useState(false);
+
+  const handleSendBetaInvite = async () => {
+    if (!id || isNew) return;
+    
+    setIsSendingBetaInvite(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error("Not authenticated");
+        return;
+      }
+
+      const response = await supabase.functions.invoke("send-beta-invite", {
+        body: { playerId: id, betaDays: 60 },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to send invite");
+      }
+
+      toast.success("🔥 Beta invite sent!");
+      queryClient.invalidateQueries({ queryKey: ['player-profile', id] });
+    } catch (error: any) {
+      console.error("Beta invite error:", error);
+      toast.error(error.message || "Failed to send beta invite");
+    } finally {
+      setIsSendingBetaInvite(false);
+    }
+  };
 
   const { data: player, isLoading } = useQuery({
     queryKey: ['player-profile', id],
@@ -561,6 +591,14 @@ export default function AdminPlayerProfile() {
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   New Session
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={handleSendBetaInvite}
+                  disabled={isSendingBetaInvite}
+                  className="text-yellow-400 focus:bg-slate-800 focus:text-yellow-400"
+                >
+                  <Zap className="h-4 w-4 mr-2" />
+                  {isSendingBetaInvite ? "Sending..." : "Invite to Beta (60 days)"}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-slate-300 focus:bg-slate-800 focus:text-white">
                   Archive
