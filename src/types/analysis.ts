@@ -26,7 +26,7 @@ export type SessionStatus =
   | 'complete' 
   | 'failed';
 
-export type UploadStatus = 'pending' | 'uploading' | 'uploaded' | 'error';
+export type UploadStatus = 'queued' | 'pending' | 'uploading' | 'uploaded' | 'error';
 
 export interface Product {
   id: ProductType;
