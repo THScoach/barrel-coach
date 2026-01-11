@@ -1,17 +1,18 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface CheckinMessage {
-  role: 'coach' | 'player';
+interface Message {
+  role: 'user' | 'assistant';
   content: string;
-  timestamp: string;
+  timestamp?: string;
 }
 
-interface WeeklyData {
+interface ExtractedData {
   games?: number;
   pa?: number;
   ab?: number;
@@ -28,84 +29,170 @@ interface WeeklyData {
   next_week_goal?: string;
 }
 
-const QUESTION_FLOW = [
-  { key: 'games', question: "How many games did you play this week?", type: 'number' },
-  { key: 'pa_ab', question: "How many plate appearances or at-bats did you get?", type: 'composite' },
-  { key: 'production', question: "How many hits? Any doubles, triples, or homers?", type: 'composite' },
-  { key: 'outcomes', question: "Walks and punchouts — roughly how many?", type: 'composite' },
-  { key: 'best_moment', question: "What was your BEST swing or moment this week? Could be a hit, could just be a swing that felt right.", type: 'text' },
-  { key: 'biggest_struggle', question: "What gave you the most trouble this week?", type: 'text' },
-  { key: 'training', question: "What kind of work did you actually get in? Tee, flips, machine, live, strength — whatever you did.", type: 'text' },
-  { key: 'body_fatigue', question: "Body check real quick. Any pain or fatigue? 0 = fresh, 10 = beat up.", type: 'number' },
-  { key: 'next_week_goal', question: "What's one thing you want better this coming week?", type: 'text' },
+interface CheckinState {
+  currentQuestion: number;
+  extractedData: ExtractedData;
+  isComplete: boolean;
+  reportId?: string;
+}
+
+const QUESTION_KEYS = [
+  'games',
+  'pa_ab', 
+  'production',
+  'outcomes',
+  'best_moment',
+  'biggest_struggle',
+  'training',
+  'body_fatigue',
+  'next_week_goal'
 ];
 
-function parseNumbers(text: string): number[] {
-  const matches = text.match(/\d+/g);
-  return matches ? matches.map(Number) : [];
-}
+// Coach Rick's system prompt for the weekly check-in
+const WEEKLY_CHECKIN_SYSTEM_PROMPT = `You are Coach Rick, conducting a weekly check-in with one of your baseball players. You've coached at the MLB level and trained 400+ college commits. Your job is to collect their weekly game data through NATURAL conversation.
+
+YOUR VOICE:
+- First-person, direct, conversational
+- Short sentences. No fluff.
+- Baseball language, never tech talk
+- Sound like a coach in the cage, not a survey bot
+- Phrases like: "Alright", "Got it", "Good stuff", "Let's see..."
+
+THE FLOW (follow this order):
+1. GAMES - "How many games did you play this week?"
+2. OPPORTUNITY - "How many plate appearances or at-bats?"
+3. PRODUCTION - "How many hits? Any doubles, triples, or homers?"
+4. OUTCOMES - "Walks and punchouts — roughly how many of each?"
+5. BEST MOMENT - "What was your BEST swing or moment this week? Doesn't have to be a hit."
+6. STRUGGLE - "What gave you the most trouble this week?"
+7. TRAINING - "What kind of work did you actually get in? Tee, flips, machine, live, strength?"
+8. BODY CHECK - "Body check. Any pain or fatigue? 0 = fresh, 10 = beat up."
+9. NEXT WEEK - "What's one thing you want better this coming week?"
+
+CRITICAL RULES:
+1. Ask ONE question at a time
+2. After each answer, give a SHORT acknowledgment (1-5 words max) then ask the next question
+3. If player asks YOU a question mid-flow, answer briefly then say "Alright, back to the check-in..." and continue
+4. If fatigue is 7+, respond: "Alright, good you told me that. We'll factor that in."
+5. Keep moving through questions - don't get stuck
+6. After the last question, generate a 2-3 bullet summary
+
+RESPONSE FORMAT:
+- Never use bullet points mid-conversation
+- Keep responses under 40 words
+- Use line breaks sparingly
+
+CONTEXT PROVIDED:
+- Current question number (0-8, or 9+ means complete)
+- Player's previous answers so far
+- Any prior weeks' data for context
+
+When generating the FINAL SUMMARY after question 9:
+Format: "Alright, here's what I see:\n\n• [bullet 1]\n• [bullet 2]\n• [bullet 3]\n\n[One sentence focus for the week]"`;
 
 function inferTrainingTags(text: string): string[] {
   const tags: string[] = [];
   const lower = text.toLowerCase();
   
   if (lower.includes('tee')) tags.push('tee');
-  if (lower.includes('flip') || lower.includes('soft toss')) tags.push('flips');
-  if (lower.includes('machine') || lower.includes('bp')) tags.push('machine');
-  if (lower.includes('live') || lower.includes('bullpen')) tags.push('live');
-  if (lower.includes('strength') || lower.includes('lift') || lower.includes('gym')) tags.push('strength');
-  if (lower.includes('vr') || lower.includes('oculus')) tags.push('vr');
-  if (lower.includes('video') || lower.includes('film')) tags.push('video_review');
+  if (lower.includes('flip') || lower.includes('soft toss') || lower.includes('front toss')) tags.push('flips');
+  if (lower.includes('machine') || lower.includes('bp') || lower.includes('batting practice')) tags.push('machine');
+  if (lower.includes('live') || lower.includes('bullpen') || lower.includes('scrimmage')) tags.push('live');
+  if (lower.includes('strength') || lower.includes('lift') || lower.includes('gym') || lower.includes('weight')) tags.push('strength');
+  if (lower.includes('vr') || lower.includes('oculus') || lower.includes('virtual')) tags.push('vr');
+  if (lower.includes('video') || lower.includes('film') || lower.includes('watch')) tags.push('video_review');
+  if (lower.includes('plyo') || lower.includes('overload') || lower.includes('underload')) tags.push('plyo_balls');
   
-  return tags;
+  return tags.length > 0 ? tags : ['general'];
 }
 
-function generateCoachResponse(questionKey: string, playerResponse: string, extractedData: WeeklyData): string {
-  const responses: Record<string, string[]> = {
-    games: ["Got it.", "Alright.", "Okay."],
-    pa_ab: ["Alright, keep going.", "Got it.", "Okay."],
-    production: ["Good.", "That tracks.", "Alright."],
-    outcomes: ["Alright.", "Okay.", "Got it."],
-    best_moment: [
-      "Good stuff. Hold onto that feel.",
-      "Nice. That's what we're looking for.",
-      "Alright, that's the kind of swing we want.",
-    ],
-    biggest_struggle: [
-      "Okay, we'll address that.",
-      "Noted. We'll work on it.",
-      "Alright, I hear you.",
-    ],
-    training: ["Good work.", "Solid.", "Alright."],
-    body_fatigue: extractedData.body_fatigue && extractedData.body_fatigue >= 7 
-      ? ["Watch the workload. Don't push through if you're that beat up.", "Okay, take it easy. Recovery matters."]
-      : ["Good.", "Alright.", "Got it."],
-    next_week_goal: ["Locked in. Let's get after it.", "Good focus.", "Alright, we'll work toward that."],
-  };
-
-  const options = responses[questionKey] || ["Alright."];
-  return options[Math.floor(Math.random() * options.length)];
+function parseNumbers(text: string): number[] {
+  const matches = text.match(/\d+/g);
+  return matches ? matches.map(Number) : [];
 }
 
-function generateSummary(data: WeeklyData): string {
+function extractDataFromResponse(questionKey: string, content: string, currentData: ExtractedData): ExtractedData {
+  const data = { ...currentData };
+  const numbers = parseNumbers(content);
+  
+  switch (questionKey) {
+    case 'games':
+      if (numbers.length > 0) data.games = numbers[0];
+      break;
+    case 'pa_ab':
+      if (numbers.length >= 2) {
+        data.pa = numbers[0];
+        data.ab = numbers[1];
+      } else if (numbers.length === 1) {
+        data.ab = numbers[0];
+        data.pa = numbers[0];
+      }
+      break;
+    case 'production':
+      if (numbers.length > 0) data.hits = numbers[0];
+      if (numbers.length > 1) data.doubles = numbers[1];
+      if (numbers.length > 2) data.triples = numbers[2];
+      if (numbers.length > 3) data.home_runs = numbers[3];
+      // Check for "homer" or "home run" mentions
+      if (content.toLowerCase().includes('homer') || content.toLowerCase().includes('home run')) {
+        if (!data.home_runs && numbers.length > 0) {
+          data.home_runs = numbers[numbers.length - 1] || 1;
+        }
+      }
+      break;
+    case 'outcomes':
+      if (numbers.length > 0) data.bb = numbers[0];
+      if (numbers.length > 1) data.k = numbers[1];
+      break;
+    case 'best_moment':
+      data.best_moment = content.trim();
+      break;
+    case 'biggest_struggle':
+      data.biggest_struggle = content.trim();
+      break;
+    case 'training':
+      data.training_tags = inferTrainingTags(content);
+      break;
+    case 'body_fatigue':
+      if (numbers.length > 0) {
+        data.body_fatigue = Math.min(10, Math.max(0, numbers[0]));
+      }
+      break;
+    case 'next_week_goal':
+      data.next_week_goal = content.trim();
+      break;
+  }
+  
+  return data;
+}
+
+function generateSummary(data: ExtractedData): string {
   const bullets: string[] = [];
   
+  // Performance summary
   if (data.games) {
     const ab = data.ab || 0;
     const hits = data.hits || 0;
     const avg = ab > 0 ? (hits / ab).toFixed(3).slice(1) : '.000';
-    bullets.push(`${data.games} games, ${ab} AB, hitting ${avg}`);
+    bullets.push(`${data.games} games, ${hits}-for-${ab} (${avg})`);
   }
   
+  // XBH summary
   const xbh = (data.doubles || 0) + (data.triples || 0) + (data.home_runs || 0);
   if (xbh > 0) {
-    bullets.push(`${xbh} extra base hits`);
+    const parts = [];
+    if (data.doubles) parts.push(`${data.doubles} 2B`);
+    if (data.triples) parts.push(`${data.triples} 3B`);
+    if (data.home_runs) parts.push(`${data.home_runs} HR`);
+    bullets.push(parts.join(', '));
   }
   
-  if (data.best_moment) {
-    bullets.push(`Best: "${data.best_moment.substring(0, 50)}${data.best_moment.length > 50 ? '...' : ''}"`);
+  // Plate discipline
+  if ((data.bb || 0) > 0 || (data.k || 0) > 0) {
+    bullets.push(`${data.bb || 0} BB, ${data.k || 0} K`);
   }
   
+  // Focus for next week
   if (data.next_week_goal) {
     bullets.push(`Focus: ${data.next_week_goal}`);
   }
@@ -113,30 +200,18 @@ function generateSummary(data: WeeklyData): string {
   return bullets.join('\n• ');
 }
 
-function calculateTrend(data: WeeklyData, previousReports: any[]): 'up' | 'flat' | 'down' {
-  if (previousReports.length === 0) return 'flat';
-  
-  const prev = previousReports[0];
-  const currentAB = data.ab || 0;
-  const currentHits = data.hits || 0;
-  const prevAB = prev.ab || 0;
-  const prevHits = prev.hits || 0;
-  
-  const currentAvg = currentAB > 0 ? currentHits / currentAB : 0;
-  const prevAvg = prevAB > 0 ? prevHits / prevAB : 0;
-  
-  if (currentAvg > prevAvg + 0.050) return 'up';
-  if (currentAvg < prevAvg - 0.050) return 'down';
-  return 'flat';
-}
-
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { playerId, messages, currentStep } = await req.json();
+    const { 
+      playerId, 
+      message, 
+      messages = [], 
+      state 
+    } = await req.json();
 
     if (!playerId) {
       return new Response(
@@ -147,6 +222,12 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get current week boundaries (Sunday to Saturday)
@@ -160,7 +241,16 @@ Deno.serve(async (req) => {
     weekEnd.setDate(weekStart.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
 
-    // Check if report exists for this week
+    // Get player info
+    const { data: player } = await supabase
+      .from('players')
+      .select('name, is_in_season')
+      .eq('id', playerId)
+      .single();
+
+    const playerName = player?.name?.split(' ')[0] || 'player';
+
+    // Check for existing report this week
     const { data: existingReport } = await supabase
       .from('game_weekly_reports')
       .select('*')
@@ -168,167 +258,251 @@ Deno.serve(async (req) => {
       .eq('week_start', weekStart.toISOString().split('T')[0])
       .single();
 
-    // Parse messages to extract data
-    const extractedData: WeeklyData = existingReport ? {
-      games: existingReport.games,
-      pa: existingReport.pa,
-      ab: existingReport.ab,
-      hits: existingReport.hits,
-      doubles: existingReport.doubles,
-      triples: existingReport.triples,
-      home_runs: existingReport.home_runs,
-      bb: existingReport.bb,
-      k: existingReport.k,
-      best_moment: existingReport.best_moment,
-      biggest_struggle: existingReport.biggest_struggle,
-      training_tags: existingReport.training_tags,
-      body_fatigue: existingReport.body_fatigue,
-      next_week_goal: existingReport.next_week_goal,
-    } : {};
+    // Get previous reports for context
+    const { data: previousReports } = await supabase
+      .from('game_weekly_reports')
+      .select('*')
+      .eq('player_id', playerId)
+      .lt('week_start', weekStart.toISOString().split('T')[0])
+      .order('week_start', { ascending: false })
+      .limit(3);
 
-    // Process the latest player message if provided
-    const playerMessages = (messages || []).filter((m: CheckinMessage) => m.role === 'player');
-    const latestPlayerMessage = playerMessages[playerMessages.length - 1];
-    
-    let responseMessage = '';
-    let nextStep = currentStep || 0;
-    let isComplete = false;
+    // Initialize or restore state
+    let currentState: CheckinState = state || {
+      currentQuestion: 0,
+      extractedData: existingReport ? {
+        games: existingReport.games,
+        pa: existingReport.pa,
+        ab: existingReport.ab,
+        hits: existingReport.hits,
+        doubles: existingReport.doubles,
+        triples: existingReport.triples,
+        home_runs: existingReport.home_runs,
+        bb: existingReport.bb,
+        k: existingReport.k,
+        best_moment: existingReport.best_moment,
+        biggest_struggle: existingReport.biggest_struggle,
+        training_tags: existingReport.training_tags,
+        body_fatigue: existingReport.body_fatigue,
+        next_week_goal: existingReport.next_week_goal,
+      } : {},
+      isComplete: existingReport?.status === 'completed',
+      reportId: existingReport?.id
+    };
 
-    if (latestPlayerMessage && currentStep !== undefined) {
-      const questionKey = QUESTION_FLOW[currentStep]?.key;
-      const content = latestPlayerMessage.content;
+    // If this is the start (no message yet)
+    if (!message && messages.length === 0) {
+      const startMessage = `Alright ${playerName}, quick weekly check-in. Just tell me what you can — doesn't have to be perfect.\n\nHow many games did you play this week?`;
       
-      // Extract data based on question type
-      switch (questionKey) {
-        case 'games':
-          const gamesNum = parseNumbers(content);
-          if (gamesNum.length > 0) extractedData.games = gamesNum[0];
-          break;
-        case 'pa_ab':
-          const paAbNums = parseNumbers(content);
-          if (paAbNums.length >= 2) {
-            extractedData.pa = paAbNums[0];
-            extractedData.ab = paAbNums[1];
-          } else if (paAbNums.length === 1) {
-            extractedData.ab = paAbNums[0];
-            extractedData.pa = paAbNums[0];
-          }
-          break;
-        case 'production':
-          const prodNums = parseNumbers(content);
-          if (prodNums.length > 0) extractedData.hits = prodNums[0];
-          if (prodNums.length > 1) extractedData.doubles = prodNums[1];
-          if (prodNums.length > 2) extractedData.triples = prodNums[2];
-          if (prodNums.length > 3) extractedData.home_runs = prodNums[3];
-          break;
-        case 'outcomes':
-          const outcomeNums = parseNumbers(content);
-          if (outcomeNums.length > 0) extractedData.bb = outcomeNums[0];
-          if (outcomeNums.length > 1) extractedData.k = outcomeNums[1];
-          break;
-        case 'best_moment':
-          extractedData.best_moment = content;
-          break;
-        case 'biggest_struggle':
-          extractedData.biggest_struggle = content;
-          break;
-        case 'training':
-          extractedData.training_tags = inferTrainingTags(content);
-          break;
-        case 'body_fatigue':
-          const fatigueNum = parseNumbers(content);
-          if (fatigueNum.length > 0) extractedData.body_fatigue = Math.min(10, Math.max(0, fatigueNum[0]));
-          break;
-        case 'next_week_goal':
-          extractedData.next_week_goal = content;
-          break;
+      // Create or update report as in-progress
+      if (!existingReport) {
+        const { data: newReport } = await supabase
+          .from('game_weekly_reports')
+          .insert({
+            player_id: playerId,
+            week_start: weekStart.toISOString().split('T')[0],
+            week_end: weekEnd.toISOString().split('T')[0],
+            status: 'in-progress',
+            source: 'chat_checkin',
+            chat_transcript: [{ role: 'assistant', content: startMessage, timestamp: new Date().toISOString() }]
+          })
+          .select('id')
+          .single();
+        
+        currentState.reportId = newReport?.id;
       }
 
-      // Generate coach response and move to next question
-      responseMessage = generateCoachResponse(questionKey, content, extractedData);
-      nextStep = currentStep + 1;
+      return new Response(
+        JSON.stringify({
+          success: true,
+          response: startMessage,
+          state: currentState,
+          isComplete: false
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-      if (nextStep < QUESTION_FLOW.length) {
-        responseMessage += '\n\n' + QUESTION_FLOW[nextStep].question;
-      } else {
-        isComplete = true;
+    // Extract data from the latest user message
+    if (message && currentState.currentQuestion < QUESTION_KEYS.length) {
+      const questionKey = QUESTION_KEYS[currentState.currentQuestion];
+      currentState.extractedData = extractDataFromResponse(
+        questionKey, 
+        message, 
+        currentState.extractedData
+      );
+      currentState.currentQuestion++;
+    }
+
+    // Build context for AI
+    let contextInfo = `Player: ${playerName}\nCurrent question: ${currentState.currentQuestion} of ${QUESTION_KEYS.length}\n`;
+    contextInfo += `Data collected so far: ${JSON.stringify(currentState.extractedData, null, 2)}\n`;
+    
+    if (previousReports && previousReports.length > 0) {
+      const lastWeek = previousReports[0];
+      contextInfo += `\nLast week: ${lastWeek.games || 0} games, ${lastWeek.hits || 0} hits, ${lastWeek.ab || 0} AB`;
+      if (lastWeek.next_week_goal) {
+        contextInfo += `\nTheir goal last week was: "${lastWeek.next_week_goal}"`;
+      }
+    }
+
+    // Check if we should generate the final summary
+    const shouldComplete = currentState.currentQuestion >= QUESTION_KEYS.length;
+    
+    if (shouldComplete) {
+      contextInfo += `\n\nPLAYER HAS ANSWERED ALL QUESTIONS. Generate the final summary now.`;
+      contextInfo += `\nUse this data for the summary: ${JSON.stringify(currentState.extractedData, null, 2)}`;
+    }
+
+    // Build conversation for AI
+    const conversationMessages: { role: string; content: string }[] = [];
+    
+    // Add all previous messages
+    for (const msg of messages) {
+      conversationMessages.push({
+        role: msg.role === 'assistant' ? 'assistant' : 'user',
+        content: msg.content
+      });
+    }
+    
+    // Add current user message
+    if (message) {
+      conversationMessages.push({ role: 'user', content: message });
+    }
+
+    // Call AI for response
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: WEEKLY_CHECKIN_SYSTEM_PROMPT + `\n\n[CONTEXT]\n${contextInfo}` },
+          ...conversationMessages,
+        ],
+        max_tokens: 300,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again in a moment." }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Service temporarily unavailable." }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw new Error('AI response failed');
+    }
+
+    const aiData = await response.json();
+    const aiResponse = aiData.choices?.[0]?.message?.content || "Let's continue. What else can you tell me?";
+
+    // Mark complete if done
+    if (shouldComplete) {
+      currentState.isComplete = true;
+      
+      // Calculate trend
+      let trendLabel = 'flat';
+      if (previousReports && previousReports.length > 0) {
+        const prev = previousReports[0];
+        const currentAvg = (currentState.extractedData.ab || 0) > 0 
+          ? (currentState.extractedData.hits || 0) / (currentState.extractedData.ab || 1) 
+          : 0;
+        const prevAvg = (prev.ab || 0) > 0 
+          ? (prev.hits || 0) / (prev.ab || 1) 
+          : 0;
         
-        // Get previous reports for trend calculation
-        const { data: previousReports } = await supabase
+        if (currentAvg > prevAvg + 0.050) trendLabel = 'up';
+        else if (currentAvg < prevAvg - 0.050) trendLabel = 'down';
+      }
+
+      // Save completed report
+      const xbh = (currentState.extractedData.doubles || 0) + 
+                  (currentState.extractedData.triples || 0) + 
+                  (currentState.extractedData.home_runs || 0);
+
+      const updatedTranscript = [
+        ...messages,
+        { role: 'user', content: message, timestamp: new Date().toISOString() },
+        { role: 'assistant', content: aiResponse, timestamp: new Date().toISOString() }
+      ];
+
+      const reportData = {
+        games: currentState.extractedData.games,
+        pa: currentState.extractedData.pa,
+        ab: currentState.extractedData.ab,
+        hits: currentState.extractedData.hits,
+        doubles: currentState.extractedData.doubles,
+        triples: currentState.extractedData.triples,
+        home_runs: currentState.extractedData.home_runs,
+        xbh,
+        bb: currentState.extractedData.bb,
+        k: currentState.extractedData.k,
+        best_moment: currentState.extractedData.best_moment,
+        biggest_struggle: currentState.extractedData.biggest_struggle,
+        training_tags: currentState.extractedData.training_tags,
+        body_fatigue: currentState.extractedData.body_fatigue,
+        next_week_goal: currentState.extractedData.next_week_goal,
+        chat_transcript: updatedTranscript,
+        coach_summary: generateSummary(currentState.extractedData),
+        trend_label: trendLabel,
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      };
+
+      if (currentState.reportId) {
+        await supabase
           .from('game_weekly_reports')
-          .select('*')
-          .eq('player_id', playerId)
-          .lt('week_start', weekStart.toISOString().split('T')[0])
-          .order('week_start', { ascending: false })
-          .limit(3);
-
-        const trend = calculateTrend(extractedData, previousReports || []);
-        const summary = generateSummary(extractedData);
-
-        responseMessage = `Alright, here's what I see:\n\n• ${summary}\n\n`;
-        
-        if (trend === 'up') {
-          responseMessage += "You're trending up. Keep doing what you're doing.";
-        } else if (trend === 'down') {
-          responseMessage += "Results are down a bit. Stay patient, trust the process.";
-        } else {
-          responseMessage += "Staying steady. Keep grinding.";
-        }
-
-        // Save completed report
-        const xbh = (extractedData.doubles || 0) + (extractedData.triples || 0) + (extractedData.home_runs || 0);
-        
-        const reportData = {
-          player_id: playerId,
-          week_start: weekStart.toISOString().split('T')[0],
-          week_end: weekEnd.toISOString().split('T')[0],
-          games: extractedData.games,
-          pa: extractedData.pa,
-          ab: extractedData.ab,
-          hits: extractedData.hits,
-          doubles: extractedData.doubles,
-          triples: extractedData.triples,
-          home_runs: extractedData.home_runs,
-          xbh,
-          bb: extractedData.bb,
-          k: extractedData.k,
-          best_moment: extractedData.best_moment,
-          biggest_struggle: extractedData.biggest_struggle,
-          training_tags: extractedData.training_tags,
-          body_fatigue: extractedData.body_fatigue,
-          next_week_goal: extractedData.next_week_goal,
-          chat_transcript: messages,
-          coach_summary: summary,
-          trend_label: trend,
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          source: 'chat_checkin',
-        };
-
-        if (existingReport) {
-          await supabase
-            .from('game_weekly_reports')
-            .update(reportData)
-            .eq('id', existingReport.id);
-        } else {
-          await supabase
-            .from('game_weekly_reports')
-            .insert(reportData);
-        }
+          .update(reportData)
+          .eq('id', currentState.reportId);
+      } else {
+        await supabase
+          .from('game_weekly_reports')
+          .insert({
+            ...reportData,
+            player_id: playerId,
+            week_start: weekStart.toISOString().split('T')[0],
+            week_end: weekEnd.toISOString().split('T')[0],
+            source: 'chat_checkin',
+          });
       }
     } else {
-      // Starting fresh - send intro + first question
-      responseMessage = "Alright, quick weekly check-in. Doesn't have to be perfect — I just need the big picture.\n\n" + QUESTION_FLOW[0].question;
-      nextStep = 0;
+      // Update in-progress transcript
+      const updatedTranscript = [
+        ...messages,
+        ...(message ? [{ role: 'user', content: message, timestamp: new Date().toISOString() }] : []),
+        { role: 'assistant', content: aiResponse, timestamp: new Date().toISOString() }
+      ];
+
+      if (currentState.reportId) {
+        await supabase
+          .from('game_weekly_reports')
+          .update({
+            chat_transcript: updatedTranscript,
+            ...currentState.extractedData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentState.reportId);
+      }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: responseMessage,
-        currentStep: nextStep,
-        isComplete,
-        extractedData,
+        response: aiResponse,
+        state: currentState,
+        isComplete: currentState.isComplete,
+        extractedData: currentState.extractedData
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -13,7 +13,10 @@ import {
   MessageSquare,
   BarChart3,
   Dumbbell,
-  Upload
+  Upload,
+  Calendar,
+  CheckCircle2,
+  Clock
 } from "lucide-react";
 
 interface ActivityItem {
@@ -43,6 +46,9 @@ export default function PlayerHome() {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [latestScores, setLatestScores] = useState<LatestScores | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isInSeason, setIsInSeason] = useState(false);
+  const [weeklyCheckinDue, setWeeklyCheckinDue] = useState(false);
+  const [lastCheckinDate, setLastCheckinDate] = useState<string | null>(null);
 
   useEffect(() => {
     loadPlayerData();
@@ -64,11 +70,39 @@ export default function PlayerHome() {
 
     if (playerData) {
       setPlayer(playerData);
+      setIsInSeason(playerData.is_in_season || false);
       await loadStats(playerData.id);
       await loadRecentActivity(playerData.id);
       await loadLatestScores(playerData.id);
+      
+      // Check weekly check-in status
+      if (playerData.is_in_season) {
+        await checkWeeklyCheckinStatus(playerData.id);
+      }
     }
     setLoading(false);
+  };
+
+  const checkWeeklyCheckinStatus = async (playerId: string) => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - dayOfWeek);
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+
+    const { data: report } = await supabase
+      .from('game_weekly_reports')
+      .select('status, completed_at')
+      .eq('player_id', playerId)
+      .eq('week_start', weekStartStr)
+      .single();
+
+    if (report?.status === 'completed') {
+      setWeeklyCheckinDue(false);
+      setLastCheckinDate(report.completed_at);
+    } else {
+      setWeeklyCheckinDue(true);
+    }
   };
 
   const loadStats = async (playerId: string) => {
@@ -155,6 +189,41 @@ export default function PlayerHome() {
           Here's what's happening with your training.
         </p>
       </div>
+
+      {/* Weekly Check-In Card (for in-season players) */}
+      {isInSeason && (
+        <Card className={weeklyCheckinDue ? "border-accent bg-accent/5" : ""}>
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {weeklyCheckinDue ? (
+                  <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-accent" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-semibold">Weekly Check-In</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {weeklyCheckinDue 
+                      ? "Coach Rick wants to hear from you" 
+                      : "Complete for this week"}
+                  </p>
+                </div>
+              </div>
+              <Button asChild variant={weeklyCheckinDue ? "default" : "outline"}>
+                <Link to="/player/weekly-checkin">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  {weeklyCheckinDue ? "Start" : "View"}
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
