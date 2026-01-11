@@ -57,18 +57,57 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
   const [loading, setLoading] = useState(true);
   const [deleteSession, setDeleteSession] = useState<DataSession | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // playersTableId is the ID in the `players` table (different from player_profiles)
+  const [playersTableId, setPlayersTableId] = useState<string | null>(null);
+
+  // Lookup or create the corresponding players table record
+  const lookupOrCreatePlayersRecord = async () => {
+    // First try to find existing players record by name
+    const { data: existingPlayer } = await supabase
+      .from('players')
+      .select('id')
+      .ilike('name', playerName)
+      .maybeSingle();
+    
+    if (existingPlayer) {
+      setPlayersTableId(existingPlayer.id);
+      return existingPlayer.id;
+    }
+    
+    // If not found, create a new players record
+    const { data: newPlayer, error: createError } = await supabase
+      .from('players')
+      .insert({ name: playerName })
+      .select('id')
+      .single();
+    
+    if (createError) {
+      console.error('Error creating players record:', createError);
+      // Fallback: use the profile ID (will fail on FK but at least shows data)
+      setPlayersTableId(playerId);
+      return playerId;
+    }
+    
+    setPlayersTableId(newPlayer.id);
+    return newPlayer.id;
+  };
 
   useEffect(() => {
-    loadSessions();
-  }, [playerId]);
+    const init = async () => {
+      const pId = await lookupOrCreatePlayersRecord();
+      loadSessions(pId);
+    };
+    init();
+  }, [playerId, playerName]);
 
-  const loadSessions = async () => {
+  const loadSessions = async (pId?: string) => {
+    const resolvedId = pId || playersTableId || playerId;
     setLoading(true);
     
     const [sessionsRes, launchRes, rebootRes] = await Promise.all([
-      supabase.from('sessions').select('*').eq('player_id', playerId),
-      supabase.from('launch_monitor_sessions').select('*').eq('player_id', playerId),
-      supabase.from('reboot_uploads').select('*').eq('player_id', playerId),
+      supabase.from('sessions').select('*').eq('player_id', playerId), // sessions uses player_profiles
+      supabase.from('launch_monitor_sessions').select('*').eq('player_id', resolvedId),
+      supabase.from('reboot_uploads').select('*').eq('player_id', resolvedId),
     ]);
 
     const allSessions: DataSession[] = [
@@ -140,7 +179,7 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
 
       toast.success('Session deleted');
       setDeleteSession(null);
-      loadSessions();
+      loadSessions(playersTableId || undefined);
     } catch (error) {
       console.error('Error deleting session:', error);
       toast.error('Failed to delete session');
@@ -323,10 +362,10 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
       <UnifiedDataUploadModal
         open={uploadModalOpen}
         onOpenChange={setUploadModalOpen}
-        playerId={playerId}
+        playerId={playersTableId || playerId}
         playerName={playerName}
         onSuccess={() => {
-          loadSessions();
+          loadSessions(playersTableId || undefined);
           setUploadModalOpen(false);
         }}
       />
