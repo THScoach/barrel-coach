@@ -105,32 +105,44 @@ export function getTrainingTranslation(leakType: LeakType): TrainingTranslation 
 /**
  * Check if the analysis has sufficient confidence for visualization
  */
+/**
+ * Check if the analysis has sufficient confidence for visualization
+ * 
+ * RULES:
+ * - Only gate when we KNOW the values indicate low confidence
+ * - If swingCount/hasContactEvent are unknown (undefined), don't penalize
+ * - UNKNOWN leakType always gates since we can't show anything useful
+ */
 export function hasConfidentAnalysis(
-  swingCount: number,
-  hasContactEvent: boolean,
+  swingCount: number | undefined,
+  hasContactEvent: boolean | undefined,
   leakType: LeakType
 ): { confident: boolean; message: string } {
-  if (swingCount < 3) {
+  // UNKNOWN leak type = always show "need more"
+  if (leakType === LeakType.UNKNOWN) {
+    return {
+      confident: false,
+      message: "I can't trust this yet. We need more clean swings.",
+    };
+  }
+
+  // Only gate on swingCount if we KNOW it's low (not undefined)
+  if (swingCount !== undefined && swingCount < 3) {
     return {
       confident: false,
       message: "I can't see this one clean yet. Give me more swings.",
     };
   }
 
-  if (!hasContactEvent) {
+  // Only gate on contact if we KNOW it's false (not undefined)
+  if (hasContactEvent === false) {
     return {
       confident: false,
-      message: "I can't see this one clean yet.",
+      message: "Contact unclear — can't see the full pattern yet.",
     };
   }
 
-  if (leakType === LeakType.UNKNOWN) {
-    return {
-      confident: false,
-      message: "I can't see this one clean yet.",
-    };
-  }
-
+  // If we have a known leak type and no disqualifying conditions, show it
   return {
     confident: true,
     message: '',

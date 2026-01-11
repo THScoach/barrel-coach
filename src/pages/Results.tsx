@@ -181,7 +181,7 @@ export default function Results() {
           </h1>
         </div>
 
-        {/* Training Visualizer - Shows WHAT caused the issue */}
+        {/* Training Visualizer - Shows WHAT caused the issue (above 4B Score Card) */}
         {analysis?.primary_problem && (
           <div className="mb-6">
             <TrainingSwingVisualizer
@@ -191,8 +191,7 @@ export default function Results() {
                   ? (analysis.leak_type as LeakType)
                   : mapProblemToLeak(analysis.primary_problem)
               }
-              swingCount={isCompleteReview ? 5 : 1}
-              hasContactEvent={true}
+              // Don't pass fake values - let the component handle undefined gracefully
             />
           </div>
         )}
