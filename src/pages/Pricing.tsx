@@ -1,7 +1,7 @@
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Check, ArrowRight, MessageCircle, Users, Target, Zap } from "lucide-react";
+import { Check, ArrowRight, MessageCircle, Target, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   Accordion,
@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     question: "Do you do drills?",
-    answer: "In the free diagnostic? No. That's coaching. Drills and training plans come with Guided Coaching, In-Person Assessments, or the 90-Day program.",
+    answer: "In the free diagnostic? No. That's coaching. Drills and training plans come with In-Person Assessments or the 90-Day program.",
   },
   {
     question: "What if I'm in-season?",
@@ -49,15 +49,15 @@ export default function Pricing() {
             PICK YOUR PATH
           </h1>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-            Four ways to work with me. Start free. Go deeper when you're ready.
+            Three ways to work with me. Start free. Go deeper when you're ready.
           </p>
         </div>
       </section>
 
       {/* Pricing Cards */}
       <section className="pb-20">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="grid md:grid-cols-3 gap-6">
             
             {/* Free Diagnostic */}
             <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-8 flex flex-col">
@@ -95,42 +95,6 @@ export default function Pricing() {
               </Button>
             </div>
 
-            {/* Guided Coaching */}
-            <div className="bg-slate-900/80 border border-blue-500/30 rounded-2xl p-8 flex flex-col">
-              <div className="mb-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 rounded-full mb-4">
-                  <Users className="w-4 h-4 text-blue-400" />
-                  <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">Ongoing</span>
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">Guided Coaching</h3>
-                <div className="text-4xl font-black text-white mb-2">$99<span className="text-lg text-slate-400 font-normal">/mo</span></div>
-                <p className="text-slate-500 text-sm">Cancel anytime</p>
-              </div>
-              
-              <p className="text-slate-400 text-sm mb-6">
-                Clarity becomes consistency. Weekly check-ins, tracking, accountability.
-              </p>
-
-              <ul className="space-y-3 mb-8 flex-grow">
-                <li className="flex items-start gap-3 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  Weekly AI check-ins in Rick's voice
-                </li>
-                <li className="flex items-start gap-3 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  Ongoing data uploads
-                </li>
-                <li className="flex items-start gap-3 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  Trend tracking + benchmarks
-                </li>
-              </ul>
-
-              <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                <Link to="/inner-circle">Start Coaching</Link>
-              </Button>
-            </div>
-
             {/* In-Person Assessment */}
             <div className="bg-slate-900/80 border-2 border-red-500/50 rounded-2xl p-8 flex flex-col relative">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
@@ -148,7 +112,7 @@ export default function Pricing() {
               </div>
               
               <p className="text-slate-400 text-sm mb-6">
-                90 minutes with Rick. Full evaluation. Real answers.
+                90 minutes with me. Full evaluation. Real answers.
               </p>
 
               <ul className="space-y-3 mb-8 flex-grow">
@@ -179,8 +143,8 @@ export default function Pricing() {
                   <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider">Flagship</span>
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">90-Day Transformation</h3>
-                <div className="text-2xl font-black text-white mb-2">$1,997 – $2,997</div>
-                <p className="text-slate-500 text-sm">By application only</p>
+                <div className="text-2xl font-black text-white mb-1">Starts at $1,299</div>
+                <p className="text-slate-500 text-sm">Founders / Offseason Rate (limited)</p>
               </div>
               
               <p className="text-slate-400 text-sm mb-6">
