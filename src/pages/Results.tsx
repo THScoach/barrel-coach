@@ -20,6 +20,10 @@ interface SessionData {
   weakest_category: string | null;
   product_type: string;
   status: string;
+  // Privacy-safe fields for Training Visualizer
+  swing_count: number | null;
+  has_contact_event: boolean | null;
+  leak_type: string | null;
 }
 
 interface AnalysisData {
@@ -182,16 +186,20 @@ export default function Results() {
         </div>
 
         {/* Training Visualizer - Shows WHAT caused the issue (above 4B Score Card) */}
-        {analysis?.primary_problem && (
+        {(session.leak_type || analysis?.primary_problem) && (
           <div className="mb-6">
             <TrainingSwingVisualizer
               leakType={
-                // Use leak_type directly when available, fallback to mapping for legacy data
-                analysis.leak_type 
-                  ? (analysis.leak_type as LeakType)
-                  : mapProblemToLeak(analysis.primary_problem)
+                // Use session.leak_type from RPC first, fallback to analysis or mapping
+                session.leak_type 
+                  ? mapProblemToLeak(session.leak_type)
+                  : analysis?.primary_problem 
+                    ? mapProblemToLeak(analysis.primary_problem)
+                    : LeakType.UNKNOWN
               }
-              // Don't pass fake values - let the component handle undefined gracefully
+              // Pass real values from RPC - undefined if null (don't block when unknown)
+              swingCount={session.swing_count ?? undefined}
+              hasContactEvent={session.has_contact_event ?? undefined}
             />
           </div>
         )}

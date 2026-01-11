@@ -1326,8 +1326,10 @@ export type Database = {
           four_b_body: number | null
           four_b_brain: number | null
           grade: string | null
+          has_contact_event: boolean | null
           id: string
           is_in_person: boolean | null
+          leak_type: string | null
           paid_at: string | null
           payment_link_id: string | null
           payment_link_url: string | null
@@ -1348,6 +1350,7 @@ export type Database = {
           status: string
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
+          swing_count: number | null
           swings_required: number
           updated_at: string | null
           user_id: string | null
@@ -1372,8 +1375,10 @@ export type Database = {
           four_b_body?: number | null
           four_b_brain?: number | null
           grade?: string | null
+          has_contact_event?: boolean | null
           id?: string
           is_in_person?: boolean | null
+          leak_type?: string | null
           paid_at?: string | null
           payment_link_id?: string | null
           payment_link_url?: string | null
@@ -1394,6 +1399,7 @@ export type Database = {
           status?: string
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
+          swing_count?: number | null
           swings_required?: number
           updated_at?: string | null
           user_id?: string | null
@@ -1418,8 +1424,10 @@ export type Database = {
           four_b_body?: number | null
           four_b_brain?: number | null
           grade?: string | null
+          has_contact_event?: boolean | null
           id?: string
           is_in_person?: boolean | null
+          leak_type?: string | null
           paid_at?: string | null
           payment_link_id?: string | null
           payment_link_url?: string | null
@@ -1440,6 +1448,7 @@ export type Database = {
           status?: string
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
+          swing_count?: number | null
           swings_required?: number
           updated_at?: string | null
           user_id?: string | null
@@ -1806,10 +1815,13 @@ export type Database = {
           four_b_body: number
           four_b_brain: number
           grade: string
+          has_contact_event: boolean
           id: string
+          leak_type: string
           player_name: string
           product_type: string
           status: string
+          swing_count: number
           weakest_category: string
         }[]
       }
