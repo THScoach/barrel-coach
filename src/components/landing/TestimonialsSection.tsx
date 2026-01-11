@@ -1,5 +1,10 @@
-import { Star, Play } from 'lucide-react';
+import { Star, Play, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useRef } from 'react';
+
+const videoTestimonials = [
+  { src: '/videos/testimonial-1.mp4' },
+  { src: '/videos/testimonial-2.mp4' },
+];
 
 const testimonials = [
   {
@@ -33,6 +38,7 @@ const testimonials = [
 ];
 
 export function TestimonialsSection() {
+  const [currentVideo, setCurrentVideo] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -51,6 +57,23 @@ export function TestimonialsSection() {
     setIsPlaying(false);
   };
 
+  const goToVideo = (index: number) => {
+    setIsPlaying(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+    setCurrentVideo(index);
+  };
+
+  const nextVideo = () => {
+    goToVideo((currentVideo + 1) % videoTestimonials.length);
+  };
+
+  const prevVideo = () => {
+    goToVideo((currentVideo - 1 + videoTestimonials.length) % videoTestimonials.length);
+  };
+
   return (
     <section className="bg-slate-900 py-24">
       <div className="container max-w-6xl mx-auto px-4">
@@ -64,26 +87,63 @@ export function TestimonialsSection() {
           </h2>
         </div>
 
-        {/* Video Testimonial */}
+        {/* Video Testimonial Carousel */}
         <div className="mb-16">
-          <div className="relative max-w-3xl mx-auto rounded-2xl overflow-hidden shadow-2xl shadow-red-500/10">
-            <video
-              ref={videoRef}
-              src="/videos/testimonial-1.mp4"
-              className="w-full aspect-video object-cover"
-              onEnded={handleVideoEnded}
-              onClick={handlePlayClick}
-              playsInline
-            />
-            {!isPlaying && (
-              <button
+          <div className="relative max-w-3xl mx-auto">
+            {/* Navigation Arrows */}
+            {videoTestimonials.length > 1 && (
+              <>
+                <button
+                  onClick={prevVideo}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 z-10 w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white hover:bg-slate-700 transition-colors hidden md:flex"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={nextVideo}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 z-10 w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white hover:bg-slate-700 transition-colors hidden md:flex"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </>
+            )}
+
+            {/* Video Player */}
+            <div className="rounded-2xl overflow-hidden shadow-2xl shadow-red-500/10">
+              <video
+                ref={videoRef}
+                key={videoTestimonials[currentVideo].src}
+                src={videoTestimonials[currentVideo].src}
+                className="w-full aspect-video object-cover"
+                onEnded={handleVideoEnded}
                 onClick={handlePlayClick}
-                className="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/30 transition-colors group"
-              >
-                <div className="w-20 h-20 rounded-full bg-red-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
-                  <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
-                </div>
-              </button>
+                playsInline
+              />
+              {!isPlaying && (
+                <button
+                  onClick={handlePlayClick}
+                  className="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/30 transition-colors group"
+                >
+                  <div className="w-20 h-20 rounded-full bg-red-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+                    <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
+                  </div>
+                </button>
+              )}
+            </div>
+
+            {/* Dots Indicator */}
+            {videoTestimonials.length > 1 && (
+              <div className="flex justify-center gap-2 mt-4">
+                {videoTestimonials.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => goToVideo(index)}
+                    className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                      index === currentVideo ? 'bg-red-500' : 'bg-slate-600 hover:bg-slate-500'
+                    }`}
+                  />
+                ))}
+              </div>
             )}
           </div>
           <p className="text-center text-slate-400 mt-4 text-sm">
