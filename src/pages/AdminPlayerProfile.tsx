@@ -104,7 +104,9 @@ export default function AdminPlayerProfile() {
       });
 
       if (response.error) {
-        throw new Error(response.error.message || "Failed to send invite");
+        const details = (response.error as any)?.details;
+        const hint = details ? ` (${details})` : "";
+        throw new Error((response.error.message || "Failed to send invite") + hint);
       }
 
       toast.success("🔥 Beta invite sent!");

@@ -2,6 +2,16 @@
 
 import { ColumnMap, LaunchMonitorBrand } from './csv-detector';
 
+function normStr(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  return String(v).trim().toLowerCase();
+}
+
+function normStrUpper(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  return String(v).trim().toUpperCase();
+}
+
 export interface LaunchMonitorSwing {
   exitVelo: number;
   launchAngle: number;
@@ -52,34 +62,56 @@ export interface LaunchMonitorSessionStats {
  */
 export function parseLaunchMonitorData(rows: Record<string, any>[], columnMap: ColumnMap): LaunchMonitorSwing[] {
   const swings: LaunchMonitorSwing[] = [];
-  
+
+  if (import.meta.env.DEV) {
+    console.log('[LaunchMonitor] Column mapping:', {
+      exitVelo: columnMap.exitVelo,
+      launchAngle: columnMap.launchAngle,
+      distance: columnMap.distance,
+      result: columnMap.result ?? '(none)',
+      hitType: columnMap.hitType ?? '(none)',
+    });
+  }
+
   const getValue = (row: Record<string, any>, colName: string): any => {
     // Try exact match first
     if (row[colName] !== undefined) return row[colName];
-    
+
     // Try case-insensitive match
     const keys = Object.keys(row);
     const match = keys.find(k => k.trim().toLowerCase() === colName.toLowerCase());
     if (match) return row[match];
-    
+
     // Try partial match
     const partial = keys.find(k => k.toLowerCase().includes(colName.toLowerCase()));
     if (partial) return row[partial];
-    
+
     return null;
   };
-  
+
   for (const row of rows) {
+    const rawResult = columnMap.result ? getValue(row, columnMap.result) : '';
+    const rawHitType = columnMap.hitType ? getValue(row, columnMap.hitType) : '';
+    const rawUser = columnMap.user ? getValue(row, columnMap.user) : '';
+
+    if (import.meta.env.DEV && swings.length < 3) {
+      console.log('[LaunchMonitor] Debug row result types:', {
+        resultType: typeof rawResult,
+        result: rawResult,
+      });
+    }
+
     swings.push({
       exitVelo: parseFloat(getValue(row, columnMap.exitVelo)) || 0,
       launchAngle: parseFloat(getValue(row, columnMap.launchAngle)) || 0,
       distance: parseFloat(getValue(row, columnMap.distance)) || 0,
-      result: columnMap.result ? getValue(row, columnMap.result) || '' : '',
-      hitType: columnMap.hitType ? getValue(row, columnMap.hitType) || '' : '',
-      user: columnMap.user ? getValue(row, columnMap.user) || '' : ''
+      // IMPORTANT: ALWAYS coerce to string; never assume result/hitType are strings
+      result: rawResult === null || rawResult === undefined ? '' : String(rawResult),
+      hitType: rawHitType === null || rawHitType === undefined ? '' : String(rawHitType),
+      user: rawUser === null || rawUser === undefined ? '' : String(rawUser),
     });
   }
-  
+
   return swings;
 }
 
@@ -87,40 +119,42 @@ export function parseLaunchMonitorData(rows: Record<string, any>[], columnMap: C
  * Calculate swing points for Quality Hit Game
  */
 function calculateSwingPoints(swing: LaunchMonitorSwing): number {
-  const { exitVelo, launchAngle, result, hitType } = swing;
-  
+  const { exitVelo, launchAngle } = swing;
+  const resultLower = normStr(swing.result);
+  const resultUpper = normStrUpper(swing.result);
+  const hitTypeLower = normStr(swing.hitType);
+
   // Miss = -5 points
   if (exitVelo === 0) {
     return -5;
   }
-  
-  // Foul = 0 points
-  if (result.toLowerCase() === 'foul') {
+
+  // Foul = 0 points (only if result exists)
+  if (resultLower === 'foul') {
     return 0;
   }
-  
+
   let points = 0;
-  
+
   // Exit velocity scoring
   if (exitVelo >= 100) points += 20;
   else if (exitVelo >= 95) points += 15;
   else if (exitVelo >= 90) points += 10;
   else if (exitVelo >= 85) points += 5;
   else points += 2;
-  
+
   // Launch angle scoring
-  if (launchAngle >= 10 && launchAngle <= 25) points += 10;  // Optimal
-  else if (launchAngle >= 8 && launchAngle <= 30) points += 5;  // Acceptable
-  else if (launchAngle < 0) points -= 5;  // Negative LA ground ball
-  
+  if (launchAngle >= 10 && launchAngle <= 25) points += 10; // Optimal
+  else if (launchAngle >= 8 && launchAngle <= 30) points += 5; // Acceptable
+  else if (launchAngle < 0) points -= 5; // Negative LA ground ball
+
   // Result bonus
-  const upperResult = result.toUpperCase();
-  if (upperResult.includes('HR')) points += 25;
-  else if (upperResult.includes('3B')) points += 20;
-  else if (upperResult.includes('2B')) points += 15;
-  else if (upperResult.includes('1B')) points += 10;
-  else if (hitType === 'LD') points += 5;
-  
+  if (resultUpper.includes('HR')) points += 25;
+  else if (resultUpper.includes('3B')) points += 20;
+  else if (resultUpper.includes('2B')) points += 15;
+  else if (resultUpper.includes('1B')) points += 10;
+  else if (hitTypeLower === 'ld') points += 5;
+
   return points;
 }
 
@@ -128,14 +162,14 @@ function calculateSwingPoints(swing: LaunchMonitorSwing): number {
  * Convert points per swing to 20-80 scale Ball Score
  */
 function calculateBallScoreFromPoints(pointsPerSwing: number): number {
-  if (pointsPerSwing >= 35) return 80;  // Plus-Plus
-  if (pointsPerSwing >= 30) return 70;  // Plus
-  if (pointsPerSwing >= 25) return 60;  // Above Average
-  if (pointsPerSwing >= 20) return 55;  // Above Average
-  if (pointsPerSwing >= 15) return 50;  // Average
-  if (pointsPerSwing >= 10) return 45;  // Below Average
-  if (pointsPerSwing >= 5) return 40;   // Fringe
-  return 30;  // Poor
+  if (pointsPerSwing >= 35) return 80; // Plus-Plus
+  if (pointsPerSwing >= 30) return 70; // Plus
+  if (pointsPerSwing >= 25) return 60; // Above Average
+  if (pointsPerSwing >= 20) return 55; // Above Average
+  if (pointsPerSwing >= 15) return 50; // Average
+  if (pointsPerSwing >= 10) return 45; // Below Average
+  if (pointsPerSwing >= 5) return 40; // Fringe
+  return 30; // Poor
 }
 
 /**
@@ -143,16 +177,26 @@ function calculateBallScoreFromPoints(pointsPerSwing: number): number {
  */
 export function calculateLaunchMonitorStats(swings: LaunchMonitorSwing[], brand: LaunchMonitorBrand): LaunchMonitorSessionStats {
   const totalSwings = swings.length;
-  
+
   // Categorize swings
   const misses = swings.filter(s => s.exitVelo === 0).length;
-  const fouls = swings.filter(s => s.result.toLowerCase() === 'foul').length;
-  const ballsInPlay = swings.filter(s => s.exitVelo > 0 && s.result.toLowerCase() !== 'foul');
+
+  // Only treat result as a filter if we actually have result values
+  const hasResult = swings.some(s => normStr(s.result) !== '');
+
+  const fouls = hasResult
+    ? swings.filter(s => normStr(s.result) === 'foul').length
+    : 0;
+
+  const ballsInPlay = hasResult
+    ? swings.filter(s => s.exitVelo > 0 && normStr(s.result) !== 'foul')
+    : swings.filter(s => s.exitVelo > 0);
+
   const ballsInPlayCount = ballsInPlay.length;
-  
+
   // Contact rate
-  const contactRate = totalSwings > 0 
-    ? ((totalSwings - misses) / totalSwings) * 100 
+  const contactRate = totalSwings > 0
+    ? ((totalSwings - misses) / totalSwings) * 100
     : 0;
   
   // Exit velocity stats (only for balls in play)
