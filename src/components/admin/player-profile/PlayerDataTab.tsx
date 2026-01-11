@@ -3,12 +3,29 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { Upload, BarChart3, Target, Activity, Zap, Video, ChevronRight, Database } from "lucide-react";
+import { Upload, BarChart3, Target, Activity, Zap, Video, ChevronRight, Database, MoreVertical, Trash2 } from "lucide-react";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { getBrandDisplayName } from "@/lib/csv-detector";
 import { LaunchMonitorBrand } from "@/lib/csv-detector";
+import { toast } from "sonner";
 
 interface PlayerDataTabProps {
   playerId: string;
@@ -38,6 +55,8 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
   const [sessions, setSessions] = useState<DataSession[]>([]);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [deleteSession, setDeleteSession] = useState<DataSession | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadSessions();
@@ -94,6 +113,40 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
     allSessions.sort((a, b) => b.date.getTime() - a.date.getTime());
     setSessions(allSessions);
     setLoading(false);
+  };
+
+  const handleDeleteSession = async () => {
+    if (!deleteSession) return;
+    
+    setDeleting(true);
+    try {
+      let error: { message: string } | null = null;
+      
+      switch (deleteSession.type) {
+        case 'analyzer':
+          ({ error } = await supabase.from('sessions').delete().eq('id', deleteSession.id));
+          break;
+        case 'hittrax':
+          ({ error } = await supabase.from('launch_monitor_sessions').delete().eq('id', deleteSession.id));
+          break;
+        case 'reboot':
+          ({ error } = await supabase.from('reboot_uploads').delete().eq('id', deleteSession.id));
+          break;
+        default:
+          throw new Error('Unknown session type');
+      }
+
+      if (error) throw error;
+
+      toast.success('Session deleted');
+      setDeleteSession(null);
+      loadSessions();
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      toast.error('Failed to delete session');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const filteredSessions = filter === 'all' 
@@ -235,10 +288,28 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
-                        View <ChevronRight className="h-4 w-4 ml-1" />
-                      </Button>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                          View <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-slate-900 border-slate-700">
+                            <DropdownMenuItem 
+                              onClick={() => setDeleteSession(session)}
+                              className="text-red-400 focus:text-red-300 focus:bg-slate-800"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -259,6 +330,30 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
           setUploadModalOpen(false);
         }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteSession} onOpenChange={(open) => !open && setDeleteSession(null)}>
+        <AlertDialogContent className="bg-slate-900 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Delete this session?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              This cannot be undone. All data associated with this session will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteSession}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
