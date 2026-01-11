@@ -482,70 +482,92 @@ export function UnifiedDataUploadModal({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Activity className="h-5 w-5 text-purple-500" />
-                  <span className="font-medium">Reboot Motion Data</span>
+                  <span className="font-medium">4B Bio Engine Results</span>
                 </div>
                 {rebootScores.swingCount && (
                   <Badge variant="outline">{rebootScores.swingCount} swings</Badge>
                 )}
               </div>
-              <div className="grid grid-cols-4 gap-2 text-center">
+              
+              {/* Catch Barrel Score - Main Number */}
+              <div className="text-center py-2">
+                <div className="text-sm text-muted-foreground">Catch Barrel Score</div>
+                <div className={`text-4xl font-bold ${getScoreColor(rebootScores.catchBarrelScore)}`}>
+                  {rebootScores.catchBarrelScore}
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">{rebootScores.grades.overall}</div>
+              </div>
+              
+              {/* 4B Grid */}
+              <div className="grid grid-cols-4 gap-2 text-center border-t border-purple-200 dark:border-purple-800 pt-3">
                 <div>
                   <div className="text-xs text-muted-foreground">Brain</div>
                   <div className={`text-xl font-bold ${getScoreColor(rebootScores.brainScore)}`}>
                     {rebootScores.brainScore}
                   </div>
+                  <div className="text-[10px] text-muted-foreground">{rebootScores.grades.brain}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Body</div>
                   <div className={`text-xl font-bold ${getScoreColor(rebootScores.bodyScore)}`}>
                     {rebootScores.bodyScore}
                   </div>
+                  <div className="text-[10px] text-muted-foreground">{rebootScores.grades.body}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Bat</div>
                   <div className={`text-xl font-bold ${getScoreColor(rebootScores.batScore)}`}>
                     {rebootScores.batScore}
                   </div>
+                  <div className="text-[10px] text-muted-foreground">{rebootScores.grades.bat}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Composite</div>
-                  <div className={`text-xl font-bold ${getScoreColor(rebootScores.compositeScore)}`}>
-                    {rebootScores.compositeScore}
+                  <div className="text-xs text-muted-foreground">Ball</div>
+                  <div className={`text-xl font-bold ${getScoreColor(rebootScores.ballScore)}`}>
+                    {rebootScores.ballScore}
                   </div>
+                  <div className="text-[10px] text-muted-foreground">{rebootScores.grades.ball}</div>
+                </div>
+              </div>
+              
+              {/* Flow Components */}
+              <div className="grid grid-cols-3 gap-2 text-center border-t border-purple-200 dark:border-purple-800 pt-3">
+                <div>
+                  <div className="text-xs text-muted-foreground">Ground Flow</div>
+                  <div className="text-lg font-semibold">{rebootScores.groundFlowScore}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Core Flow</div>
+                  <div className="text-lg font-semibold">{rebootScores.coreFlowScore}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Upper Flow</div>
+                  <div className="text-lg font-semibold">{rebootScores.upperFlowScore}</div>
                 </div>
               </div>
               
               {/* Detailed Metrics */}
               <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t border-purple-200 dark:border-purple-800">
-                {rebootScores.ikMetrics && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Avg X-Factor:</span>
-                      <span className="font-medium">{rebootScores.ikMetrics.avgXFactor.toFixed(1)}°</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Avg Pelvis Rot:</span>
-                      <span className="font-medium">{rebootScores.ikMetrics.avgPelvisRot.toFixed(1)}°</span>
-                    </div>
-                  </>
-                )}
-                {rebootScores.meMetrics && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Energy Efficiency:</span>
-                      <span className="font-medium">{rebootScores.meMetrics.avgEnergyEfficiency.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Avg Bat Energy:</span>
-                      <span className="font-medium">{rebootScores.meMetrics.avgBatEnergy.toFixed(0)} J</span>
-                    </div>
-                  </>
-                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">X-Factor:</span>
+                  <span className="font-medium">{rebootScores.xFactor}°</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Bat KE:</span>
+                  <span className="font-medium">{rebootScores.batKE} J</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Efficiency:</span>
+                  <span className="font-medium">{rebootScores.transferEfficiency}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Sequence:</span>
+                  <span className="font-medium">{rebootScores.properSequencePct}%</span>
+                </div>
               </div>
               
               <div className="text-sm text-center text-muted-foreground">
-                Weakest Link: <span className="font-medium capitalize text-orange-500">{rebootScores.weakestLink}</span> • 
-                Grade: <span className="font-medium">{rebootScores.grade}</span>
+                Weakest Link: <span className="font-medium capitalize text-orange-500">{rebootScores.weakestLink}</span>
               </div>
             </div>
           )}
