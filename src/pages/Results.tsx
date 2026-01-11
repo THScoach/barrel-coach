@@ -185,24 +185,12 @@ export default function Results() {
           </h1>
         </div>
 
-        {/* Training Visualizer - Shows WHAT caused the issue (above 4B Score Card) */}
-        {(session.leak_type || analysis?.primary_problem) && (
-          <div className="mb-6">
-            <TrainingSwingVisualizer
-              leakType={
-                // Use session.leak_type from RPC first, fallback to analysis or mapping
-                session.leak_type 
-                  ? mapProblemToLeak(session.leak_type)
-                  : analysis?.primary_problem 
-                    ? mapProblemToLeak(analysis.primary_problem)
-                    : LeakType.UNKNOWN
-              }
-              // Pass real values from RPC - undefined if null (don't block when unknown)
-              swingCount={session.swing_count ?? undefined}
-              hasContactEvent={session.has_contact_event ?? undefined}
-            />
-          </div>
-        )}
+        {/* Training Visualizer - Always render, defaults to UNKNOWN when no leak type */}
+        <TrainingSwingVisualizer
+          leakType={mapProblemToLeak(session.leak_type ?? analysis?.primary_problem ?? 'UNKNOWN')}
+          swingCount={session.swing_count ?? undefined}
+          hasContactEvent={session.has_contact_event ?? undefined}
+        />
 
         {/* 4B Score Card - Shows HOW the swing grades */}
         <div className="mb-8">

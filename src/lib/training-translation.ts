@@ -154,13 +154,13 @@ export function getBodyPartDisplayName(cause: TrainingTranslation['primaryCause'
     case 'lead_leg':
       return 'FRONT LEG';
     case 'legs':
-      return 'GROUND';
+      return 'LEGS';
     case 'ground':
       return 'GROUND';
     case 'core':
       return 'SEQUENCE';
     case 'timing':
-      return 'GROUND';
+      return 'LATE LEGS';
     case 'none':
       return '';
     default:
