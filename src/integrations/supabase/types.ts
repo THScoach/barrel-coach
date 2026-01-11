@@ -1351,6 +1351,7 @@ export type Database = {
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
           swing_count: number | null
+          swings_max_allowed: number | null
           swings_required: number
           updated_at: string | null
           user_id: string | null
@@ -1400,6 +1401,7 @@ export type Database = {
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
           swing_count?: number | null
+          swings_max_allowed?: number | null
           swings_required?: number
           updated_at?: string | null
           user_id?: string | null
@@ -1449,6 +1451,7 @@ export type Database = {
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
           swing_count?: number | null
+          swings_max_allowed?: number | null
           swings_required?: number
           updated_at?: string | null
           user_id?: string | null
