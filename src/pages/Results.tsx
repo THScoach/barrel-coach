@@ -3,7 +3,6 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Loader2, Brain, Activity, Zap, Target, Play, MessageCircle, ArrowRight, AlertTriangle } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { FourBScoreCard } from "@/components/FourBScoreCard";
@@ -39,13 +38,6 @@ interface DrillVideo {
   duration_seconds: number | null;
 }
 
-const categoryConfig = {
-  brain: { label: 'Brain', subtitle: 'Timing', icon: Brain, color: 'text-blue-500', bg: 'bg-blue-500' },
-  body: { label: 'Body', subtitle: 'Lower Half', icon: Activity, color: 'text-green-500', bg: 'bg-green-500' },
-  bat: { label: 'Bat', subtitle: 'Mechanics', icon: Zap, color: 'text-red-500', bg: 'bg-red-500' },
-  ball: { label: 'Ball', subtitle: 'Impact', icon: Target, color: 'text-orange-500', bg: 'bg-orange-500' }
-};
-
 export default function Results() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const [session, setSession] = useState<SessionData | null>(null);
@@ -63,7 +55,6 @@ export default function Results() {
       }
 
       try {
-        // Fetch public session data using RPC
         const { data: sessionData, error: sessionError } = await supabase
           .rpc('get_session_public_data', { session_id_param: sessionId });
 
@@ -82,7 +73,6 @@ export default function Results() {
 
         setSession(sess);
 
-        // Fetch analysis data
         const { data: analysisData } = await supabase
           .from('swing_analyses')
           .select('primary_problem, secondary_problems, coach_notes, motor_profile, recommended_drill_ids')
@@ -91,19 +81,15 @@ export default function Results() {
 
         if (analysisData) {
           setAnalysis(analysisData);
-
-          // Fetch recommended drills
           if (analysisData.recommended_drill_ids?.length) {
             const { data: drillsData } = await supabase
               .from('drill_videos')
               .select('id, title, description, video_url, thumbnail_url, duration_seconds')
               .in('id', analysisData.recommended_drill_ids)
               .eq('status', 'published');
-            
             setDrills(drillsData || []);
           }
         }
-
       } catch (err) {
         console.error('Error fetching results:', err);
         setError('Failed to load results');
@@ -115,33 +101,26 @@ export default function Results() {
     fetchResults();
   }, [sessionId]);
 
-  const formatScore = (score: number | null) => {
-    if (score === null) return '—';
-    return (score / 10).toFixed(1);
-  };
-
-  const getScoreColor = (score: number | null) => {
-    if (score === null) return 'text-muted-foreground';
-    if (score >= 70) return 'text-green-500';
-    if (score >= 50) return 'text-yellow-500';
-    return 'text-red-500';
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-red-500 mx-auto mb-4" />
+          <p className="text-slate-400">Loading your results...</p>
+        </div>
       </div>
     );
   }
 
   if (error || !session) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-        <AlertTriangle className="h-12 w-12 text-muted-foreground mb-4" />
-        <h1 className="text-xl font-bold mb-2">{error || 'Results not found'}</h1>
-        <p className="text-muted-foreground mb-6">This link may be invalid or expired.</p>
-        <Button asChild>
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+        <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-6">
+          <AlertTriangle className="h-8 w-8 text-slate-500" />
+        </div>
+        <h1 className="text-xl font-bold text-white mb-2">{error || 'Results not found'}</h1>
+        <p className="text-slate-400 mb-6">This link may be invalid or expired.</p>
+        <Button asChild className="bg-red-500 hover:bg-red-600 text-white">
           <Link to="/">Go Home</Link>
         </Button>
       </div>
@@ -152,47 +131,50 @@ export default function Results() {
   const firstName = session.player_name.split(' ')[0];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-950">
       {/* Header */}
-      <header className="border-b py-4">
-        <div className="container flex items-center justify-center">
+      <header className="border-b border-slate-800 py-4">
+        <div className="max-w-7xl mx-auto px-4 flex items-center justify-center">
           <Logo size="lg" />
         </div>
       </header>
 
-      <main className="container py-8 max-w-3xl mx-auto px-4">
+      <main className="max-w-3xl mx-auto py-8 px-4">
         {/* Hero */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/50 rounded-full text-slate-300 text-sm mb-4">
             Hey {firstName}! 👋
-          </h1>
-          <p className="text-lg text-muted-foreground">
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold text-white">
             Here's your Swing DNA Results
-          </p>
+          </h1>
         </div>
 
         {/* 4B Score Card */}
-        <FourBScoreCard
-          brainScore={session.four_b_brain}
-          bodyScore={session.four_b_body}
-          batScore={session.four_b_bat}
-          ballScore={session.four_b_ball}
-          compositeScore={session.composite_score}
-          grade={session.grade}
-          weakestCategory={session.weakest_category}
-          primaryProblem={analysis?.primary_problem}
-        />
-
+        <div className="mb-8">
+          <FourBScoreCard
+            brainScore={session.four_b_brain}
+            bodyScore={session.four_b_body}
+            batScore={session.four_b_bat}
+            ballScore={session.four_b_ball}
+            compositeScore={session.composite_score}
+            grade={session.grade}
+            weakestCategory={session.weakest_category}
+            primaryProblem={analysis?.primary_problem}
+          />
+        </div>
 
         {/* Coach Notes */}
         {analysis?.coach_notes && (
-          <Card className="mb-8">
+          <Card className="mb-8 bg-slate-900/80 border-slate-800">
             <CardContent className="p-6">
-              <h2 className="font-bold text-lg mb-3 flex items-center gap-2">
-                <MessageCircle className="h-5 w-5 text-primary" />
-                Coach Rick's Notes
-              </h2>
-              <p className="text-muted-foreground whitespace-pre-wrap">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center">
+                  <MessageCircle className="h-5 w-5 text-red-400" />
+                </div>
+                <h2 className="font-bold text-lg text-white">Coach Rick's Notes</h2>
+              </div>
+              <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">
                 {analysis.coach_notes}
               </p>
             </CardContent>
@@ -201,11 +183,18 @@ export default function Results() {
 
         {/* Motor Profile (Complete Review) */}
         {isCompleteReview && analysis?.motor_profile && (
-          <Card className="mb-8">
+          <Card className="mb-8 bg-slate-900/80 border-slate-800">
             <CardContent className="p-6">
-              <h2 className="font-bold text-lg mb-2">Your Motor Profile</h2>
-              <Badge className="text-lg px-4 py-1 capitalize">{analysis.motor_profile}</Badge>
-              <p className="text-sm text-muted-foreground mt-2">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
+                  <Brain className="h-5 w-5 text-blue-400" />
+                </div>
+                <h2 className="font-bold text-lg text-white">Your Motor Profile</h2>
+              </div>
+              <p className="text-xl font-semibold text-white capitalize mb-2">
+                {analysis.motor_profile}
+              </p>
+              <p className="text-sm text-slate-400">
                 Understanding your motor profile helps you train smarter, not harder.
               </p>
             </CardContent>
@@ -214,37 +203,54 @@ export default function Results() {
 
         {/* Recommended Drills */}
         {drills.length > 0 && (
-          <Card className="mb-8">
-            <CardContent className="p-6">
-              <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
-                <Target className="h-5 w-5 text-primary" />
-                Your {drills.length === 1 ? 'Drill' : 'Drills'} to Fix It
-              </h2>
-              <div className="space-y-4">
-                {drills.map(drill => (
-                  <div key={drill.id} className="flex gap-4 p-4 bg-muted/50 rounded-lg">
-                    <div className="relative w-24 h-16 bg-muted rounded overflow-hidden flex-shrink-0">
+          <div className="mb-8">
+            <h2 className="font-bold text-lg text-white mb-4 flex items-center gap-2">
+              <Target className="h-5 w-5 text-red-500" />
+              Your {drills.length === 1 ? 'Drill' : 'Drills'} to Fix It
+            </h2>
+            <div className="space-y-3">
+              {drills.map(drill => (
+                <Card key={drill.id} className="bg-slate-900/80 border-slate-800 hover:border-slate-700 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex gap-4">
                       {drill.thumbnail_url ? (
-                        <img src={drill.thumbnail_url} alt={drill.title} className="w-full h-full object-cover" />
+                        <img src={drill.thumbnail_url} alt={drill.title} className="w-24 h-16 object-cover rounded-lg flex-shrink-0" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Play className="h-6 w-6 text-muted-foreground" />
+                        <div className="w-24 h-16 bg-slate-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Play className="h-6 w-6 text-slate-500" />
                         </div>
                       )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-white">{drill.title}</h3>
+                        {drill.description && (
+                          <p className="text-sm text-slate-400 line-clamp-2">{drill.description}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium">{drill.title}</h3>
-                      {drill.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">{drill.description}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <Button className="w-full mt-4" asChild>
-                <Link to="/library">
-                  Watch Your Drills
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <Button className="w-full mt-4 bg-red-500 hover:bg-red-600 text-white" asChild>
+              <Link to="/library">
+                <Play className="h-4 w-4 mr-2" />
+                Watch Your Drills
+              </Link>
+            </Button>
+          </div>
+        )}
+
+        {/* Upsell (Single Swing only) */}
+        {!isCompleteReview && (
+          <Card className="mb-8 bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/30">
+            <CardContent className="p-6 text-center">
+              <h2 className="font-bold text-xl text-white mb-2">Want the Complete Analysis?</h2>
+              <p className="text-slate-300 mb-6">
+                Get your full motor profile, 3-5 personalized drills, and detailed breakdown of all 4B categories.
+              </p>
+              <Button size="lg" className="bg-red-500 hover:bg-red-600 text-white" asChild>
+                <Link to="/analyze">
+                  Upgrade to Complete Review — $60 more
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
@@ -252,27 +258,18 @@ export default function Results() {
           </Card>
         )}
 
-        {/* Upsell (Single Swing only) */}
-        {!isCompleteReview && (
-          <Card className="mb-8 border-primary/50 bg-primary/5">
-            <CardContent className="p-6 text-center">
-              <h2 className="font-bold text-xl mb-2">Want the Complete Analysis?</h2>
-              <p className="text-muted-foreground mb-4">
-                Get your full motor profile, 3-5 personalized drills, and detailed breakdown of all 4B categories.
-              </p>
-              <Button size="lg" asChild>
-                <Link to="/analyze">
-                  Upgrade to Complete Review — $60 more
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Contact */}
-        <div className="text-center text-muted-foreground">
-          <p>Questions? Text Coach Rick anytime.</p>
-        </div>
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardContent className="p-6 text-center">
+            <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+              <MessageCircle className="h-6 w-6 text-slate-400" />
+            </div>
+            <div>
+              <h3 className="font-medium text-white">Questions?</h3>
+              <p className="text-slate-400">Text Coach Rick anytime.</p>
+            </div>
+          </CardContent>
+        </Card>
       </main>
     </div>
   );
