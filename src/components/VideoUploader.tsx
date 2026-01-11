@@ -142,10 +142,12 @@ export function VideoUploader({
 
               const ok = xhr.status >= 200 && xhr.status < 300;
               if (ok) {
-                // Parse response and store videoUrl/storagePath
+                // Parse response and store stable storagePath + optional signed preview URL
                 const data = xhr.response as Record<string, unknown>;
-                const videoUrl = (data?.videoUrl as string) ?? null;
+                // videoStoragePath is the STABLE path (e.g., "sessionId/3.mp4") - use for storageUrl
                 const videoStoragePath = (data?.videoStoragePath as string) ?? null;
+                // videoUrl is a SIGNED URL that expires - only for immediate preview
+                const signedPreviewUrl = (data?.videoUrl as string) ?? null;
 
                 setSlots((prev) => {
                   const v = prev[swingIndex];
@@ -153,10 +155,12 @@ export function VideoUploader({
                   const next = [...prev];
                   next[swingIndex] = { 
                     ...v, 
+                    status: "uploaded", // Set final status here to avoid race condition
                     uploadProgress: 100,
+                    // STABLE storage path - never expires, use for DB lookups
                     storageUrl: videoStoragePath ?? undefined,
-                    // Store signed URL for immediate preview (expires in 1hr)
-                    previewUrl: videoUrl ?? v.previewUrl,
+                    // Signed URL for immediate preview (expires in 1hr) - falls back to local blob
+                    previewUrl: signedPreviewUrl ?? v.previewUrl,
                   };
                   return next;
                 });
@@ -257,13 +261,17 @@ export function VideoUploader({
 
       const success = await uploadVideoToBackend(slot.file, index);
 
-      setSlots((prev) => {
-        const v = prev[index];
-        if (!v) return prev;
-        const next = [...prev];
-        next[index] = { ...v, status: success ? "uploaded" : "error", uploadProgress: success ? 100 : 0 };
-        return next;
-      });
+      // Only set error status here - success status is already set in xhr.onload
+      // This prevents race condition and ensures storageUrl is set atomically with status
+      if (!success) {
+        setSlots((prev) => {
+          const v = prev[index];
+          if (!v) return prev;
+          const next = [...prev];
+          next[index] = { ...v, status: "error", uploadProgress: 0 };
+          return next;
+        });
+      }
 
       if (!success) {
         toast.error(`Swing ${index + 1} didn't upload. Try again.`);
