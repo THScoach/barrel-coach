@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { Home, BarChart3, Dumbbell, MessageSquare, User, LogOut } from "lucide-react";
+import { Home, TrendingUp, Dumbbell, MessageSquare, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
@@ -12,9 +12,10 @@ export function PlayerLayout() {
     navigate('/login');
   };
 
+  // Core tabs only - Transfer & Schedule hidden for now
   const navItems = [
     { to: '/player', icon: Home, label: 'Home', end: true },
-    { to: '/player/data', icon: BarChart3, label: 'My Data', end: false },
+    { to: '/player/data', icon: TrendingUp, label: 'Scores', end: false },
     { to: '/player/drills', icon: Dumbbell, label: 'Drills', end: false },
     { to: '/player/messages', icon: MessageSquare, label: 'Messages', end: false },
     { to: '/player/profile', icon: User, label: 'Profile', end: false },

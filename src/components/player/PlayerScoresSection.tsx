@@ -1,29 +1,29 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays } from "date-fns";
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  Minus, 
   Loader2,
-  Activity,
-  Target,
-  Zap,
-  BarChart3
+  Upload,
+  MessageCircle,
+  TrendingUp,
+  TrendingDown,
+  Minus
 } from "lucide-react";
 import { 
   LineChart, 
   Line, 
   ResponsiveContainer,
-  Tooltip,
-  XAxis
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 interface PlayerScoresSectionProps {
   playerId: string;
+  playerName?: string;
+  onAskRick?: (context: string) => void;
 }
 
 interface LaunchSession {
@@ -33,6 +33,7 @@ interface LaunchSession {
   max_exit_velo: number | null;
   avg_launch_angle: number | null;
   barrel_pct: number | null;
+  contact_rate: number | null;
   total_swings: number;
   balls_in_play: number | null;
   ground_ball_count: number | null;
@@ -51,9 +52,18 @@ interface FourBScore {
   ball_score: number | null;
 }
 
-export function PlayerScoresSection({ playerId }: PlayerScoresSectionProps) {
+interface PlayerData {
+  latest_composite_score: number | null;
+  latest_ball_score: number | null;
+  latest_bat_score: number | null;
+  latest_body_score: number | null;
+  latest_brain_score: number | null;
+}
+
+export function PlayerScoresSection({ playerId, playerName, onAskRick }: PlayerScoresSectionProps) {
   const [launchSessions, setLaunchSessions] = useState<LaunchSession[]>([]);
   const [fourbScores, setFourbScores] = useState<FourBScore[]>([]);
+  const [playerData, setPlayerData] = useState<PlayerData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -64,7 +74,7 @@ export function PlayerScoresSection({ playerId }: PlayerScoresSectionProps) {
     setLoading(true);
     const thirtyDaysAgo = subDays(new Date(), 30).toISOString().split('T')[0];
 
-    const [launchRes, scoresRes] = await Promise.all([
+    const [launchRes, scoresRes, playerRes] = await Promise.all([
       supabase
         .from('launch_monitor_sessions')
         .select('*')
@@ -77,55 +87,57 @@ export function PlayerScoresSection({ playerId }: PlayerScoresSectionProps) {
         .eq('player_id', playerId)
         .order('created_at', { ascending: false })
         .limit(30),
+      supabase
+        .from('players')
+        .select('latest_composite_score, latest_ball_score, latest_bat_score, latest_body_score, latest_brain_score')
+        .eq('id', playerId)
+        .single(),
     ]);
 
     setLaunchSessions(launchRes.data || []);
     setFourbScores(scoresRes.data || []);
+    setPlayerData(playerRes.data);
     setLoading(false);
   };
 
-  // Aggregate metrics from last 30 days
-  const aggregates = useMemo(() => {
-    if (launchSessions.length === 0 && fourbScores.length === 0) return null;
-
-    // 4B Composite from scores
-    const composites = fourbScores.filter(s => s.composite_score != null).map(s => s.composite_score!);
-    const avgComposite = composites.length > 0 
-      ? Math.round(composites.reduce((a, b) => a + b, 0) / composites.length) 
-      : null;
-
+  // Use cached player data for top tiles when available
+  const topTiles = useMemo(() => {
+    // Try to use cached latest scores from players table first
+    const composite = playerData?.latest_composite_score ?? 
+      (fourbScores[0]?.composite_score ?? null);
+    
     // Launch monitor aggregates
     const barrelPcts = launchSessions.filter(s => s.barrel_pct != null).map(s => s.barrel_pct!);
     const avgBarrel = barrelPcts.length > 0 
-      ? (barrelPcts.reduce((a, b) => a + b, 0) / barrelPcts.length).toFixed(1)
+      ? (barrelPcts.reduce((a, b) => a + b, 0) / barrelPcts.length)
       : null;
 
     const evs = launchSessions.filter(s => s.avg_exit_velo != null).map(s => s.avg_exit_velo!);
     const avgEV = evs.length > 0 
-      ? (evs.reduce((a, b) => a + b, 0) / evs.length).toFixed(1)
+      ? (evs.reduce((a, b) => a + b, 0) / evs.length)
       : null;
 
-    const sweetSpots = launchSessions.filter(s => s.quality_hit_pct != null).map(s => s.quality_hit_pct!);
-    const avgSweetSpot = sweetSpots.length > 0 
-      ? (sweetSpots.reduce((a, b) => a + b, 0) / sweetSpots.length).toFixed(1)
+    const contactRates = launchSessions.filter(s => s.contact_rate != null).map(s => s.contact_rate!);
+    const avgContact = contactRates.length > 0 
+      ? (contactRates.reduce((a, b) => a + b, 0) / contactRates.length)
       : null;
 
     return {
-      composite: avgComposite,
+      composite,
       barrelPct: avgBarrel,
       avgEV,
-      sweetSpotPct: avgSweetSpot,
+      contactRate: avgContact,
     };
-  }, [launchSessions, fourbScores]);
+  }, [launchSessions, fourbScores, playerData]);
 
   // Last session box score
   const lastSession = useMemo(() => {
     if (launchSessions.length === 0) return null;
     const s = launchSessions[0];
     
-    const lineDriveCount = (s.balls_in_play || 0) - (s.ground_ball_count || 0) - (s.fly_ball_count || 0);
+    const lineDriveCount = Math.max(0, (s.balls_in_play || 0) - (s.ground_ball_count || 0) - (s.fly_ball_count || 0));
     const hardHitPct = s.velo_90_plus && s.balls_in_play && s.balls_in_play > 0
-      ? ((s.velo_90_plus / s.balls_in_play) * 100).toFixed(1)
+      ? ((s.velo_90_plus / s.balls_in_play) * 100)
       : null;
 
     return {
@@ -137,12 +149,12 @@ export function PlayerScoresSection({ playerId }: PlayerScoresSectionProps) {
       hardHitPct,
       barrelPct: s.barrel_pct,
       gbCount: s.ground_ball_count || 0,
-      ldCount: lineDriveCount > 0 ? lineDriveCount : 0,
+      ldCount: lineDriveCount,
       fbCount: s.fly_ball_count || 0,
     };
   }, [launchSessions]);
 
-  // Sparkline data
+  // Sparkline data for trends
   const sparklineData = useMemo(() => {
     const compositeData = [...fourbScores]
       .filter(s => s.composite_score != null)
@@ -162,31 +174,72 @@ export function PlayerScoresSection({ playerId }: PlayerScoresSectionProps) {
     return { compositeData, evData, barrelData };
   }, [launchSessions, fourbScores]);
 
+  // Calculate trend direction
+  const getTrend = (data: { value: number | null }[]) => {
+    if (data.length < 2) return 'flat';
+    const last = data[data.length - 1]?.value ?? 0;
+    const prev = data[data.length - 2]?.value ?? 0;
+    if (last > prev) return 'up';
+    if (last < prev) return 'down';
+    return 'flat';
+  };
+
+  // Build context for Ask Rick
+  const buildRickContext = () => {
+    const parts: string[] = [];
+    if (playerName) parts.push(`Player: ${playerName}`);
+    if (topTiles.composite) parts.push(`Composite Score: ${topTiles.composite}`);
+    if (topTiles.avgEV) parts.push(`Avg Exit Velo: ${topTiles.avgEV.toFixed(1)} mph`);
+    if (topTiles.barrelPct) parts.push(`Barrel%: ${topTiles.barrelPct.toFixed(1)}%`);
+    if (topTiles.contactRate) parts.push(`Contact Rate: ${topTiles.contactRate.toFixed(1)}%`);
+    
+    const compositeTrend = getTrend(sparklineData.compositeData);
+    const evTrend = getTrend(sparklineData.evData);
+    parts.push(`Composite Trend: ${compositeTrend}`);
+    parts.push(`EV Trend: ${evTrend}`);
+    
+    return parts.join('\n');
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-16">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  if (!aggregates && launchSessions.length === 0 && fourbScores.length === 0) {
+  // Empty state - no data yet
+  const hasData = launchSessions.length > 0 || fourbScores.length > 0 || playerData?.latest_composite_score;
+  
+  if (!hasData) {
     return (
-      <Card className="bg-muted/30 border-border">
-        <CardContent className="py-12 text-center">
-          <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-          <p className="text-muted-foreground">No session data yet</p>
-          <p className="text-sm text-muted-foreground/60 mt-1">Complete a training session to see your scores</p>
+      <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+        <CardContent className="py-16 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+            <Upload className="h-8 w-8 text-primary" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">
+            Get Your 4B Score
+          </h3>
+          <p className="text-slate-400 max-w-sm mx-auto mb-6">
+            Upload your first session to see your Composite Score, Exit Velo, Barrel Rate, and more.
+          </p>
+          <Button asChild size="lg" className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600">
+            <Link to="/player/new-session">
+              <Upload className="h-4 w-4 mr-2" /> Upload Your First Session
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     );
   }
 
   const SparklineChart = ({ data, color }: { data: { value: number | null }[], color: string }) => {
-    if (data.length < 2) return <span className="text-muted-foreground text-xs">—</span>;
+    if (data.length < 2) return null;
     
     return (
-      <ResponsiveContainer width={80} height={24}>
+      <ResponsiveContainer width={60} height={20}>
         <LineChart data={data}>
           <Line 
             type="monotone" 
@@ -200,51 +253,64 @@ export function PlayerScoresSection({ playerId }: PlayerScoresSectionProps) {
     );
   };
 
+  const TrendIcon = ({ trend }: { trend: string }) => {
+    if (trend === 'up') return <TrendingUp className="h-3 w-3 text-emerald-500" />;
+    if (trend === 'down') return <TrendingDown className="h-3 w-3 text-red-500" />;
+    return <Minus className="h-3 w-3 text-slate-500" />;
+  };
+
   return (
     <div className="space-y-6">
-      {/* Big 4 Tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
+      {/* Top 4 Tiles - Hero metrics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Composite Score - Primary */}
+        <Card className="bg-gradient-to-br from-primary/20 to-primary/5 border-primary/30">
           <CardContent className="p-4 text-center">
-            <p className="text-xs font-medium text-accent uppercase tracking-wide mb-1">Composite</p>
-            <p className="text-3xl font-bold text-foreground">
-              {aggregates?.composite ?? '—'}
+            <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">Composite</p>
+            <p className="text-4xl font-black text-foreground">
+              {topTiles.composite ?? '—'}
             </p>
-            <div className="mt-2">
-              <SparklineChart data={sparklineData.compositeData} color="hsl(var(--accent))" />
+            <div className="flex items-center justify-center gap-1 mt-2">
+              <SparklineChart data={sparklineData.compositeData} color="hsl(var(--primary))" />
+              <TrendIcon trend={getTrend(sparklineData.compositeData)} />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20">
+        {/* Avg EV */}
+        <Card className="bg-gradient-to-br from-blue-500/20 to-blue-500/5 border-blue-500/30">
           <CardContent className="p-4 text-center">
-            <p className="text-xs font-medium text-emerald-500 uppercase tracking-wide mb-1">Barrel%</p>
-            <p className="text-3xl font-bold text-foreground">
-              {aggregates?.barrelPct ? `${aggregates.barrelPct}%` : '—'}
+            <p className="text-xs font-semibold text-blue-400 uppercase tracking-wide mb-1">Avg EV</p>
+            <p className="text-4xl font-black text-foreground">
+              {topTiles.avgEV ? topTiles.avgEV.toFixed(1) : '—'}
             </p>
-            <div className="mt-2">
-              <SparklineChart data={sparklineData.barrelData} color="#10b981" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
-          <CardContent className="p-4 text-center">
-            <p className="text-xs font-medium text-blue-500 uppercase tracking-wide mb-1">Avg EV</p>
-            <p className="text-3xl font-bold text-foreground">
-              {aggregates?.avgEV ? `${aggregates.avgEV}` : '—'}
-            </p>
-            <div className="mt-2">
+            <div className="flex items-center justify-center gap-1 mt-2">
               <SparklineChart data={sparklineData.evData} color="#3b82f6" />
+              <TrendIcon trend={getTrend(sparklineData.evData)} />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-amber-500/10 to-amber-500/5 border-amber-500/20">
+        {/* Barrel% */}
+        <Card className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border-emerald-500/30">
           <CardContent className="p-4 text-center">
-            <p className="text-xs font-medium text-amber-500 uppercase tracking-wide mb-1">Sweet Spot%</p>
-            <p className="text-3xl font-bold text-foreground">
-              {aggregates?.sweetSpotPct ? `${aggregates.sweetSpotPct}%` : '—'}
+            <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wide mb-1">Barrel%</p>
+            <p className="text-4xl font-black text-foreground">
+              {topTiles.barrelPct ? `${topTiles.barrelPct.toFixed(1)}` : '—'}
+            </p>
+            <div className="flex items-center justify-center gap-1 mt-2">
+              <SparklineChart data={sparklineData.barrelData} color="#10b981" />
+              <TrendIcon trend={getTrend(sparklineData.barrelData)} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Contact Rate */}
+        <Card className="bg-gradient-to-br from-amber-500/20 to-amber-500/5 border-amber-500/30">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs font-semibold text-amber-400 uppercase tracking-wide mb-1">Contact%</p>
+            <p className="text-4xl font-black text-foreground">
+              {topTiles.contactRate ? `${topTiles.contactRate.toFixed(1)}` : '—'}
             </p>
           </CardContent>
         </Card>
@@ -252,60 +318,121 @@ export function PlayerScoresSection({ playerId }: PlayerScoresSectionProps) {
 
       {/* Last Session Box Score */}
       {lastSession && (
-        <Card className="border-border bg-muted/20">
+        <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-400">
                 Last Session Box Score
               </h3>
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs border-slate-600 text-slate-300">
                 {format(new Date(lastSession.date), 'MMM d, yyyy')}
               </Badge>
             </div>
             
             <div className="grid grid-cols-5 md:grid-cols-10 gap-2 text-center">
-              <div className="p-2 bg-background rounded">
-                <p className="text-lg font-bold">{lastSession.swings}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Swings</p>
+              <div className="p-2 bg-slate-800 rounded-lg">
+                <p className="text-xl font-bold text-white">{lastSession.swings}</p>
+                <p className="text-[10px] text-slate-400 uppercase">Swings</p>
               </div>
-              <div className="p-2 bg-background rounded">
-                <p className="text-lg font-bold">{lastSession.maxEV?.toFixed(1) || '—'}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Max EV</p>
+              <div className="p-2 bg-slate-800 rounded-lg">
+                <p className="text-xl font-bold text-white">{lastSession.avgEV?.toFixed(1) || '—'}</p>
+                <p className="text-[10px] text-slate-400 uppercase">Avg EV</p>
               </div>
-              <div className="p-2 bg-background rounded">
-                <p className="text-lg font-bold">{lastSession.avgEV?.toFixed(1) || '—'}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Avg EV</p>
+              <div className="p-2 bg-slate-800 rounded-lg">
+                <p className="text-xl font-bold text-emerald-400">{lastSession.maxEV?.toFixed(1) || '—'}</p>
+                <p className="text-[10px] text-slate-400 uppercase">Max EV</p>
               </div>
-              <div className="p-2 bg-background rounded">
-                <p className="text-lg font-bold">{lastSession.avgLA?.toFixed(1) || '—'}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Avg LA</p>
+              <div className="p-2 bg-slate-800 rounded-lg">
+                <p className="text-xl font-bold text-white">{lastSession.avgLA?.toFixed(1) || '—'}°</p>
+                <p className="text-[10px] text-slate-400 uppercase">Avg LA</p>
               </div>
-              <div className="p-2 bg-background rounded">
-                <p className="text-lg font-bold">{lastSession.hardHitPct || '—'}%</p>
-                <p className="text-[10px] text-muted-foreground uppercase">HardHit%</p>
+              <div className="p-2 bg-slate-800 rounded-lg">
+                <p className="text-xl font-bold text-white">{lastSession.hardHitPct?.toFixed(1) || '—'}%</p>
+                <p className="text-[10px] text-slate-400 uppercase">HardHit%</p>
               </div>
-              <div className="p-2 bg-background rounded">
-                <p className="text-lg font-bold">{lastSession.barrelPct?.toFixed(1) || '—'}%</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Barrel%</p>
+              <div className="p-2 bg-slate-800 rounded-lg">
+                <p className="text-xl font-bold text-white">{lastSession.barrelPct?.toFixed(1) || '—'}%</p>
+                <p className="text-[10px] text-slate-400 uppercase">Barrel%</p>
               </div>
-              <div className="p-2 bg-background rounded">
-                <p className="text-lg font-bold">{lastSession.gbCount}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">GB</p>
+              <div className="p-2 bg-slate-800 rounded-lg">
+                <p className="text-xl font-bold text-white">{lastSession.gbCount}</p>
+                <p className="text-[10px] text-slate-400 uppercase">GB</p>
               </div>
-              <div className="p-2 bg-background rounded">
-                <p className="text-lg font-bold">{lastSession.ldCount}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">LD</p>
+              <div className="p-2 bg-slate-800 rounded-lg">
+                <p className="text-xl font-bold text-white">{lastSession.ldCount}</p>
+                <p className="text-[10px] text-slate-400 uppercase">LD</p>
               </div>
-              <div className="p-2 bg-background rounded">
-                <p className="text-lg font-bold">{lastSession.fbCount}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">FB</p>
+              <div className="p-2 bg-slate-800 rounded-lg">
+                <p className="text-xl font-bold text-white">{lastSession.fbCount}</p>
+                <p className="text-[10px] text-slate-400 uppercase">FB</p>
               </div>
-              <div className="p-2 bg-background rounded flex items-center justify-center">
-                <Activity className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 bg-slate-800 rounded-lg hidden md:flex items-center justify-center">
+                <Badge className="bg-blue-600 text-white text-[10px]">Latest</Badge>
               </div>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Trends Section */}
+      {(sparklineData.compositeData.length > 1 || sparklineData.evData.length > 1 || sparklineData.barrelData.length > 1) && (
+        <Card className="border-slate-700 bg-slate-900/50">
+          <CardContent className="p-4">
+            <h3 className="text-sm font-bold uppercase tracking-wide text-slate-400 mb-4">
+              Trends (Last 30 Days)
+            </h3>
+            <div className="grid grid-cols-3 gap-4">
+              {sparklineData.compositeData.length > 1 && (
+                <div className="text-center">
+                  <p className="text-xs text-slate-400 mb-2">Composite</p>
+                  <div className="flex justify-center">
+                    <ResponsiveContainer width={100} height={40}>
+                      <LineChart data={sparklineData.compositeData}>
+                        <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+              {sparklineData.evData.length > 1 && (
+                <div className="text-center">
+                  <p className="text-xs text-slate-400 mb-2">Avg EV</p>
+                  <div className="flex justify-center">
+                    <ResponsiveContainer width={100} height={40}>
+                      <LineChart data={sparklineData.evData}>
+                        <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+              {sparklineData.barrelData.length > 1 && (
+                <div className="text-center">
+                  <p className="text-xs text-slate-400 mb-2">Barrel%</p>
+                  <div className="flex justify-center">
+                    <ResponsiveContainer width={100} height={40}>
+                      <LineChart data={sparklineData.barrelData}>
+                        <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Ask Rick Button */}
+      {onAskRick && (
+        <Button
+          onClick={() => onAskRick(buildRickContext())}
+          className="w-full bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+          size="lg"
+        >
+          <MessageCircle className="h-4 w-4 mr-2" />
+          Ask Rick About My Numbers
+        </Button>
       )}
     </div>
   );

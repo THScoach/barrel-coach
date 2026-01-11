@@ -159,12 +159,26 @@ export function CoachRickWidget() {
     localStorage.removeItem(STORAGE_KEY);
   };
 
+  // Check for preloaded context on open
+  useEffect(() => {
+    if (isOpen) {
+      const preloadContext = localStorage.getItem('coach-rick-preload-context');
+      if (preloadContext) {
+        localStorage.removeItem('coach-rick-preload-context');
+        // Auto-send a message with the context
+        const contextMessage = `Based on my latest data:\n${preloadContext}\n\nWhat's your take? Give me one key takeaway and one priority focus.`;
+        sendMessage(contextMessage);
+      }
+    }
+  }, [isOpen]);
+
   return (
     <>
       {/* Floating Button */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
+          data-coach-rick-trigger
           className="fixed bottom-4 right-4 z-50 flex items-center gap-2 bg-accent text-accent-foreground px-4 py-3 rounded-full shadow-lg hover:bg-accent/90 transition-all hover:scale-105"
         >
           <MessageCircle className="w-5 h-5" />
