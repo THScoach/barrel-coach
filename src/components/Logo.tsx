@@ -33,7 +33,7 @@ export function Logo({ showTagline = false, size = 'md', linkTo = '/' }: LogoPro
       
       {/* Text */}
       <div className="flex flex-col">
-        <span className={`${sizeClasses[size].name} font-bold tracking-tight leading-none`}>
+        <span className={`${sizeClasses[size].name} font-bold tracking-tight leading-none text-white`}>
           CATCHING <span className="text-accent">BARRELS</span>
         </span>
         {showTagline && (
