@@ -17,6 +17,9 @@ import { Shield, Clock, Users, Zap, ChevronDown, Target, Sparkles } from 'lucide
 import { 
   Product, 
   PlayerInfo, 
+  PlayerLevel,
+  ProductType,
+  FourBScores,
   Environment, 
   UploadedVideo,
   AnalysisResults,
@@ -152,52 +155,48 @@ export default function Analyze() {
     if (!sessionId) return;
 
     try {
-      // Fetch results from backend
-      const { data, error } = await supabase.functions.invoke('get-session', {
-        body: {},
-        headers: {},
-      });
+      // Fetch results using secure RPC (only exposes safe, non-PII fields)
+      const { data: publicData, error } = await supabase
+        .rpc('get_session_public_data', { session_id_param: sessionId });
 
-      // Actually fetch via query params since it's a GET-style function
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-session?sessionId=${sessionId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to fetch results');
+      if (error) throw error;
       
-      const sessionData = await response.json();
+      if (!publicData || publicData.length === 0) {
+        throw new Error('Session not found');
+      }
       
-      if (sessionData.session.status !== 'complete') {
+      const sessionData = publicData[0];
+      
+      if (sessionData.status !== 'complete') {
         toast.error('Analysis is still processing. Please wait.');
         return;
       }
 
-      // Transform backend data to frontend format
+      // Transform public RPC data to frontend format
+      // Note: Public RPC only returns safe fields (no PII) - use stored playerInfo for personal data
+      const weakestCategory = (sessionData.weakest_category || 'bat') as keyof FourBScores;
+      const productType = (sessionData.product_type === 'complete_review' ? 'complete_review' : 'single_swing') as ProductType;
+      
       const analysisResults: AnalysisResults = {
-        sessionId: sessionData.session.id,
-        productType: sessionData.session.product_type,
-        playerInfo: {
-          name: sessionData.session.player_name,
-          age: sessionData.session.player_age,
-          email: sessionData.session.player_email,
-          level: sessionData.session.player_level,
+        sessionId: sessionData.id,
+        productType,
+        playerInfo: playerInfo || {
+          name: sessionData.player_name, // First name only from RPC
+          age: 0,
+          email: '',
+          level: 'hs_varsity' as PlayerLevel,
         },
-        compositeScore: parseFloat(sessionData.session.composite_score) || 62,
-        grade: sessionData.session.grade || 'Above Avg',
+        compositeScore: Number(sessionData.composite_score) || 62,
+        grade: sessionData.grade || 'Above Avg',
         scores: {
-          brain: parseFloat(sessionData.session.four_b_brain) || 68,
-          body: parseFloat(sessionData.session.four_b_body) || 65,
-          bat: parseFloat(sessionData.session.four_b_bat) || 58,
-          ball: parseFloat(sessionData.session.four_b_ball) || 61,
+          brain: Number(sessionData.four_b_brain) || 68,
+          body: Number(sessionData.four_b_body) || 65,
+          bat: Number(sessionData.four_b_bat) || 58,
+          ball: Number(sessionData.four_b_ball) || 61,
         },
-        mainProblem: sessionData.session.analysis_json?.problem || {
-          category: sessionData.session.weakest_category || 'bat',
-          name: 'Late Barrel Release',
+        mainProblem: {
+          category: weakestCategory,
+          name: sessionData.leak_type || 'Late Barrel Release',
           description: "You're swinging too late. Your bat reaches full speed AFTER you should hit the ball.",
           consequences: [
             "You're losing 30-50 feet of distance",
@@ -205,46 +204,29 @@ export default function Analyze() {
             "Pitchers will throw inside and jam you",
           ],
         },
-        drill: sessionData.session.analysis_json?.drill || {
+        drill: {
           name: 'CONNECTION BALL',
           sets: 3,
           reps: 10,
           instructions: "Put a tennis ball under your front armpit. Swing without dropping it.",
           whyItWorks: "Makes you swing earlier and stay connected through the zone.",
         },
-        ...(sessionData.session.product_type === 'complete_review' && {
-          swingAnalyses: sessionData.swings?.map((swing: any, index: number) => ({
-            id: swing.id,
-            index: swing.swing_index,
-            compositeScore: parseFloat(swing.composite_score) || 60,
-            scores: {
-              brain: parseFloat(swing.four_b_brain) || 60,
-              body: parseFloat(swing.four_b_body) || 60,
-              bat: parseFloat(swing.four_b_bat) || 60,
-              ball: parseFloat(swing.four_b_ball) || 60,
-            },
-          })) || [],
-          bestSwing: {
-            index: sessionData.session.best_swing_index || 0,
-            score: parseFloat(sessionData.session.best_swing_score) || 70,
-          },
-          worstSwing: {
-            index: sessionData.session.worst_swing_index || 0,
-            score: parseFloat(sessionData.session.worst_swing_score) || 55,
-          },
-          percentile: sessionData.session.percentile || 62,
-          thirtyDayPlan: sessionData.session.analysis_json?.thirty_day_plan || {
+        ...(productType === 'complete_review' && {
+          swingAnalyses: [],
+          bestSwing: { index: 0, score: 70 },
+          worstSwing: { index: 0, score: 55 },
+          percentile: 62,
+          thirtyDayPlan: {
             week1_2: 'Connection Ball (3×10, every day)',
             week3_4: 'Timing Tees (2×15, every day)',
             week5_6: 'Film 5 swings and upload',
             schedule: 'Monday-Friday: 10 minutes before practice | Saturday: Film 5 swings | Sunday: Rest',
           },
         }),
-        reportUrl: sessionData.session.report_url,
       };
 
       setResults(analysisResults);
-      setSelectedProduct(PRODUCTS.find(p => p.id === sessionData.session.product_type) || null);
+      setSelectedProduct(PRODUCTS.find(p => p.id === sessionData.product_type) || null);
       setStep('results');
     } catch (error) {
       console.error('Failed to fetch results:', error);
