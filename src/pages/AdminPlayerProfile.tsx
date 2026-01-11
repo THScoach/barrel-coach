@@ -47,6 +47,7 @@ import {
   PlayerDrillsTab,
   PlayerCommunicationTab,
   PlayerScoresTab,
+  PlayerTransferTab,
 } from "@/components/admin/player-profile";
 
 const LEVELS = ['Youth', 'High School', 'Travel Ball', 'College', 'Independent', 'MiLB', 'MLB'];
@@ -612,7 +613,7 @@ export default function AdminPlayerProfile() {
           </div>
         </div>
 
-        {/* 6-Tab Navigation */}
+        {/* 7-Tab Navigation */}
         <Tabs defaultValue="activity" className="space-y-6">
           <TabsList className="bg-slate-900/80 border border-slate-800">
             <TabsTrigger value="activity" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
@@ -620,6 +621,9 @@ export default function AdminPlayerProfile() {
             </TabsTrigger>
             <TabsTrigger value="scores" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
               Scores
+            </TabsTrigger>
+            <TabsTrigger value="transfer" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+              Transfer
             </TabsTrigger>
             <TabsTrigger value="schedule" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
               Schedule
@@ -641,6 +645,10 @@ export default function AdminPlayerProfile() {
 
           <TabsContent value="scores">
             <PlayerScoresTab playerId={id!} />
+          </TabsContent>
+
+          <TabsContent value="transfer">
+            <PlayerTransferTab playerId={id!} />
           </TabsContent>
 
           <TabsContent value="schedule">
