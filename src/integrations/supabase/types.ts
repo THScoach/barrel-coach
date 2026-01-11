@@ -952,6 +952,7 @@ export type Database = {
           parent_name: string | null
           parent_phone: string | null
           phone: string | null
+          players_id: string | null
           position: string | null
           scouting_grades: Json | null
           scouting_reports: string[] | null
@@ -994,6 +995,7 @@ export type Database = {
           parent_name?: string | null
           parent_phone?: string | null
           phone?: string | null
+          players_id?: string | null
           position?: string | null
           scouting_grades?: Json | null
           scouting_reports?: string[] | null
@@ -1036,6 +1038,7 @@ export type Database = {
           parent_name?: string | null
           parent_phone?: string | null
           phone?: string | null
+          players_id?: string | null
           position?: string | null
           scouting_grades?: Json | null
           scouting_reports?: string[] | null
@@ -1047,7 +1050,15 @@ export type Database = {
           updated_at?: string | null
           weight?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "player_profiles_players_id_fkey"
+            columns: ["players_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       player_programs: {
         Row: {
