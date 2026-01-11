@@ -92,77 +92,109 @@ export function VideoUploader({
 
   // Upload with XHR for progress tracking + user JWT
   const uploadVideoToBackend = useCallback(
-    async (file: File, swingIndex: number): Promise<boolean> => {
-      return new Promise(async (resolve) => {
-        try {
-          // Get user JWT
-          const { data: sessionData } = await supabase.auth.getSession();
-          const accessToken = sessionData?.session?.access_token;
-          
-          if (!accessToken) {
-            console.error("No access token available");
-            toast.error("Please log in to upload videos");
-            resolve(false);
-            return;
-          }
+    (file: File, swingIndex: number): Promise<boolean> => {
+      return new Promise((resolve) => {
+        (async () => {
+          try {
+            // Get user JWT
+            const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+            const accessToken = sessionData?.session?.access_token;
 
-          const xhr = new XMLHttpRequest();
-          uploadControllersRef.current.set(swingIndex, xhr);
-
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("sessionId", sessionId);
-          formData.append("swingIndex", swingIndex.toString());
-
-          // Track upload progress
-          xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-              const progress = Math.round((event.loaded / event.total) * 100);
-              setSlots((prev) => {
-                const v = prev[swingIndex];
-                if (!v) return prev;
-                const next = [...prev];
-                next[swingIndex] = { ...v, uploadProgress: progress };
-                return next;
-              });
+            if (sessionErr) {
+              console.error("Session error:", sessionErr);
             }
-          };
 
-          xhr.onload = () => {
-            uploadControllersRef.current.delete(swingIndex);
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve(true);
-            } else {
-              let msg = "Upload failed";
-              try {
-                const errorData = JSON.parse(xhr.responseText);
-                msg = errorData?.error || msg;
-              } catch {
-                // ignore
-              }
-              console.error("Upload failed:", msg);
+            if (!accessToken) {
+              console.error("No access token available");
+              toast.error("Please log in to upload videos");
               resolve(false);
+              return;
             }
-          };
 
-          xhr.onerror = () => {
-            uploadControllersRef.current.delete(swingIndex);
-            console.error("Upload error");
+            const xhr = new XMLHttpRequest();
+            uploadControllersRef.current.set(swingIndex, xhr);
+
+            // Optional but helpful
+            xhr.responseType = "json";
+            xhr.timeout = 120000; // 2 minutes
+
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("sessionId", sessionId);
+            formData.append("swingIndex", swingIndex.toString());
+
+            // Track upload progress
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable) {
+                const progress = Math.round((event.loaded / event.total) * 100);
+                setSlots((prev) => {
+                  const v = prev[swingIndex];
+                  if (!v) return prev;
+                  const next = [...prev];
+                  next[swingIndex] = { ...v, uploadProgress: progress };
+                  return next;
+                });
+              }
+            };
+
+            xhr.onload = () => {
+              uploadControllersRef.current.delete(swingIndex);
+
+              const ok = xhr.status >= 200 && xhr.status < 300;
+              if (ok) {
+                // Ensure UI ends at 100%
+                setSlots((prev) => {
+                  const v = prev[swingIndex];
+                  if (!v) return prev;
+                  const next = [...prev];
+                  next[swingIndex] = { ...v, uploadProgress: 100 };
+                  return next;
+                });
+                resolve(true);
+                return;
+              }
+
+              // Better error messaging
+              const body = xhr.response as Record<string, unknown>;
+              const msg =
+                (body && (body.error || body.message)) ||
+                (xhr.status === 401 ? "Not logged in." :
+                 xhr.status === 403 ? "You don't have access to this session." :
+                 "Upload failed");
+
+              console.error("Upload failed:", msg, { status: xhr.status, body });
+              toast.error(String(msg));
+              resolve(false);
+            };
+
+            xhr.onerror = () => {
+              uploadControllersRef.current.delete(swingIndex);
+              console.error("Upload error (network)");
+              toast.error("Upload failed — connection issue.");
+              resolve(false);
+            };
+
+            xhr.ontimeout = () => {
+              uploadControllersRef.current.delete(swingIndex);
+              console.error("Upload timeout");
+              toast.error("Upload timed out — try again on Wi-Fi.");
+              resolve(false);
+            };
+
+            xhr.onabort = () => {
+              uploadControllersRef.current.delete(swingIndex);
+              resolve(false);
+            };
+
+            xhr.open("POST", `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-swing`);
+            xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+            xhr.send(formData);
+          } catch (error) {
+            console.error("Upload setup error:", error);
+            toast.error("Upload failed — please try again.");
             resolve(false);
-          };
-
-          xhr.onabort = () => {
-            uploadControllersRef.current.delete(swingIndex);
-            resolve(false);
-          };
-
-          xhr.open("POST", `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-swing`);
-          xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-          xhr.send(formData);
-        } catch (error) {
-          console.error("Upload setup error:", error);
-          resolve(false);
-        }
+          }
+        })();
       });
     },
     [sessionId],
