@@ -146,7 +146,7 @@ export default function AdminImportKommodo() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-950">
       <AdminHeader />
       <div className="p-6">
         <div className="max-w-6xl mx-auto">
@@ -154,20 +154,24 @@ export default function AdminImportKommodo() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
               <Link to="/admin/videos">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:bg-slate-800">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Videos
                 </Button>
               </Link>
-              <h1 className="text-2xl font-bold">Import from Kommodo</h1>
+              <h1 className="text-2xl font-bold text-white">Import from Kommodo</h1>
             </div>
           </div>
 
           {/* Controls */}
-          <Card className="mb-6">
+          <Card className="mb-6 bg-slate-900/80 border-slate-800">
             <CardContent className="pt-6">
               <div className="flex flex-wrap items-center gap-4">
-                <Button onClick={fetchRecordings} disabled={loading}>
+                <Button 
+                  onClick={fetchRecordings} 
+                  disabled={loading}
+                  className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+                >
                   {loading ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
@@ -184,7 +188,7 @@ export default function AdminImportKommodo() {
                         onCheckedChange={setAutoPublish}
                         id="auto-publish"
                       />
-                      <label htmlFor="auto-publish" className="text-sm">
+                      <label htmlFor="auto-publish" className="text-sm text-slate-300">
                         Auto-publish after import
                       </label>
                     </div>
@@ -192,6 +196,7 @@ export default function AdminImportKommodo() {
                     <Button
                       variant="outline"
                       onClick={selectAll}
+                      className="border-slate-700 text-slate-300 hover:bg-slate-800"
                     >
                       {selectedIds.size === recordings.length ? 'Deselect All' : 'Select All'}
                     </Button>
@@ -199,6 +204,7 @@ export default function AdminImportKommodo() {
                     <Button
                       onClick={importSelected}
                       disabled={importing || selectedIds.size === 0}
+                      className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
                     >
                       {importing ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -224,10 +230,10 @@ export default function AdminImportKommodo() {
                 return (
                   <Card
                     key={rec.id}
-                    className={`transition-colors ${
+                    className={`transition-colors bg-slate-900/80 border-slate-800 ${
                       result?.success === true ? 'bg-green-500/10 border-green-500/30' :
                       result?.success === false ? 'bg-red-500/10 border-red-500/30' :
-                      selectedIds.has(rec.id) ? 'bg-accent' : ''
+                      selectedIds.has(rec.id) ? 'bg-slate-800' : ''
                     }`}
                   >
                     <CardContent className="py-3 px-4">
@@ -236,13 +242,14 @@ export default function AdminImportKommodo() {
                           checked={selectedIds.has(rec.id)}
                           onCheckedChange={() => toggleSelect(rec.id)}
                           disabled={importing || result !== undefined}
+                          className="border-slate-600"
                         />
 
-                        <Video className="h-5 w-5 text-muted-foreground shrink-0" />
+                        <Video className="h-5 w-5 text-slate-500 shrink-0" />
 
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{title}</p>
-                          <div className="flex gap-3 text-xs text-muted-foreground">
+                          <p className="font-medium truncate text-white">{title}</p>
+                          <div className="flex gap-3 text-xs text-slate-400">
                             {duration && (
                               <span>{formatDuration(duration)}</span>
                             )}
@@ -274,11 +281,11 @@ export default function AdminImportKommodo() {
               })}
             </div>
           ) : (
-            <Card>
+            <Card className="bg-slate-900/80 border-slate-800">
               <CardContent className="py-12 text-center">
-                <Video className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                <h3 className="font-medium mb-2">No Recordings Loaded</h3>
-                <p className="text-muted-foreground mb-4">
+                <Video className="h-12 w-12 mx-auto mb-4 text-slate-600" />
+                <h3 className="font-medium mb-2 text-white">No Recordings Loaded</h3>
+                <p className="text-slate-400 mb-4">
                   Click "Fetch Videos from Kommodo" to load your recordings
                 </p>
               </CardContent>

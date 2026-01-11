@@ -67,20 +67,20 @@ const getScoreColor = (score: number): string => {
   if (score >= 70) return "bg-green-500";
   if (score >= 60) return "bg-green-400";
   if (score >= 55) return "bg-blue-400";
-  if (score >= 45) return "bg-gray-400";
-  if (score >= 40) return "bg-yellow-400";
-  if (score >= 30) return "bg-orange-400";
-  return "bg-red-400";
+  if (score >= 45) return "bg-slate-500";
+  if (score >= 40) return "bg-yellow-500";
+  if (score >= 30) return "bg-orange-500";
+  return "bg-red-500";
 };
 
 const getScoreTextColor = (score: number): string => {
-  if (score >= 70) return "text-green-500";
+  if (score >= 70) return "text-green-400";
   if (score >= 60) return "text-green-400";
   if (score >= 55) return "text-blue-400";
-  if (score >= 45) return "text-gray-500";
-  if (score >= 40) return "text-yellow-500";
-  if (score >= 30) return "text-orange-500";
-  return "text-red-500";
+  if (score >= 45) return "text-slate-400";
+  if (score >= 40) return "text-yellow-400";
+  if (score >= 30) return "text-orange-400";
+  return "text-red-400";
 };
 
 const getSessionTypeLabel = (sessionType: SessionType): string => {
@@ -106,7 +106,7 @@ const ScoreCard = ({
   icon: React.ElementType;
   isWeakest?: boolean;
 }) => (
-  <Card className={`relative ${isWeakest ? 'ring-2 ring-red-500' : ''}`}>
+  <Card className={`relative bg-slate-900/80 border-slate-800 ${isWeakest ? 'ring-2 ring-red-500' : ''}`}>
     {isWeakest && (
       <div className="absolute -top-2 -right-2">
         <Badge variant="destructive" className="text-xs">
@@ -117,7 +117,7 @@ const ScoreCard = ({
     )}
     <CardContent className="pt-6 text-center">
       <Icon className={`w-8 h-8 mx-auto mb-2 ${getScoreTextColor(score)}`} />
-      <p className="text-sm font-medium text-muted-foreground mb-1">{label}</p>
+      <p className="text-sm font-medium text-slate-400 mb-1">{label}</p>
       <p className={`text-4xl font-bold ${getScoreTextColor(score)}`}>{score}</p>
       <Badge 
         className={`mt-2 ${getScoreColor(score)} text-white`}
@@ -294,13 +294,13 @@ export default function AdminRebootAnalysis() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-950">
       <AdminHeader />
       
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Reboot Analysis</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold text-white">Reboot Analysis</h1>
+          <p className="text-slate-400">
             Process Reboot Motion sessions and calculate 4B scores
           </p>
         </div>
@@ -309,23 +309,23 @@ export default function AdminRebootAnalysis() {
           {/* Left Column - Selection */}
           <div className="space-y-6">
             {/* Step 1: Select Player */}
-            <Card>
+            <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
+                <CardTitle className="text-lg flex items-center gap-2 text-white">
+                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
                   Select Player
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {selectedPlayer ? (
-                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                     <div>
-                      <p className="font-medium">{selectedPlayer.name}</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="font-medium text-white">{selectedPlayer.name}</p>
+                      <p className="text-sm text-slate-400">
                         {selectedPlayer.level} • {selectedPlayer.team}
                       </p>
                       {selectedPlayer.reboot_athlete_id && (
-                        <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                        <p className="text-xs text-green-400 flex items-center gap-1 mt-1">
                           <Check className="w-3 h-3" />
                           Reboot ID: {selectedPlayer.reboot_athlete_id}
                         </p>
@@ -338,6 +338,7 @@ export default function AdminRebootAnalysis() {
                         setSelectedPlayer(null);
                         setShowPlayerSearch(true);
                       }}
+                      className="border-slate-700 text-slate-300 hover:bg-slate-800"
                     >
                       Change
                     </Button>
@@ -345,7 +346,7 @@ export default function AdminRebootAnalysis() {
                 ) : (
                   <div className="relative">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                       <Input
                         placeholder="Search players by name..."
                         value={searchQuery}
@@ -354,14 +355,14 @@ export default function AdminRebootAnalysis() {
                           setShowPlayerSearch(true);
                         }}
                         onFocus={() => setShowPlayerSearch(true)}
-                        className="pl-10"
+                        className="pl-10 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                       />
                     </div>
                     
                     {showPlayerSearch && searchQuery.length >= 2 && (
-                      <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div className="absolute z-10 w-full mt-1 bg-slate-900 border border-slate-700 rounded-md shadow-lg max-h-60 overflow-auto">
                         {isLoadingPlayers ? (
-                          <div className="p-4 text-center text-muted-foreground">
+                          <div className="p-4 text-center text-slate-400">
                             <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                           </div>
                         ) : players.length > 0 ? (
@@ -369,26 +370,26 @@ export default function AdminRebootAnalysis() {
                             {players.map((player) => (
                               <button
                                 key={player.id}
-                                className="w-full px-4 py-3 text-left hover:bg-muted transition-colors border-b last:border-b-0"
+                                className="w-full px-4 py-3 text-left hover:bg-slate-800 transition-colors border-b border-slate-700 last:border-b-0"
                                 onClick={() => selectPlayer(player)}
                               >
-                                <p className="font-medium">{player.name}</p>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="font-medium text-white">{player.name}</p>
+                                <p className="text-sm text-slate-400">
                                   {player.level} • {player.team}
                                 </p>
                                 {player.reboot_athlete_id ? (
-                                  <p className="text-xs text-green-600">
+                                  <p className="text-xs text-green-400">
                                     Has Reboot ID
                                   </p>
                                 ) : (
-                                  <p className="text-xs text-yellow-600">
+                                  <p className="text-xs text-yellow-400">
                                     No Reboot ID
                                   </p>
                                 )}
                               </button>
                             ))}
                             <button
-                              className="w-full px-4 py-3 text-left hover:bg-muted transition-colors flex items-center gap-2 text-primary"
+                              className="w-full px-4 py-3 text-left hover:bg-slate-800 transition-colors flex items-center gap-2 text-red-400"
                               onClick={() => navigate("/admin/players")}
                             >
                               <UserPlus className="w-4 h-4" />
@@ -397,9 +398,9 @@ export default function AdminRebootAnalysis() {
                           </>
                         ) : (
                           <div className="p-4">
-                            <p className="text-muted-foreground text-sm">No players found</p>
+                            <p className="text-slate-400 text-sm">No players found</p>
                             <button
-                              className="mt-2 text-primary text-sm flex items-center gap-1"
+                              className="mt-2 text-red-400 text-sm flex items-center gap-1"
                               onClick={() => navigate("/admin/players")}
                             >
                               <UserPlus className="w-4 h-4" />
@@ -415,10 +416,10 @@ export default function AdminRebootAnalysis() {
             </Card>
 
             {/* Step 2: Select Session */}
-            <Card>
+            <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
+                <CardTitle className="text-lg flex items-center gap-2 text-white">
+                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
                   Select Session
                 </CardTitle>
               </CardHeader>
@@ -426,7 +427,7 @@ export default function AdminRebootAnalysis() {
                 <Button
                   onClick={fetchRebootSessions}
                   disabled={!selectedPlayer?.reboot_athlete_id || isLoadingSessions}
-                  className="w-full mb-4"
+                  className="w-full mb-4 border-slate-700 text-slate-300 hover:bg-slate-800"
                   variant="outline"
                 >
                   {isLoadingSessions ? (
@@ -438,13 +439,13 @@ export default function AdminRebootAnalysis() {
                 </Button>
 
                 {!selectedPlayer && (
-                  <p className="text-sm text-muted-foreground text-center">
+                  <p className="text-sm text-slate-400 text-center">
                     Select a player first
                   </p>
                 )}
 
                 {selectedPlayer && !selectedPlayer.reboot_athlete_id && (
-                  <p className="text-sm text-yellow-600 text-center">
+                  <p className="text-sm text-yellow-400 text-center">
                     This player has no Reboot Athlete ID
                   </p>
                 )}
@@ -456,8 +457,8 @@ export default function AdminRebootAnalysis() {
                         key={session.session_id}
                         className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
                           selectedSessionId === session.session_id
-                            ? "border-primary bg-primary/5"
-                            : "hover:bg-muted"
+                            ? "border-red-500 bg-red-500/10"
+                            : "border-slate-700 hover:bg-slate-800"
                         }`}
                       >
                         <input
@@ -469,15 +470,15 @@ export default function AdminRebootAnalysis() {
                           className="mr-3"
                         />
                         <div className="flex-1">
-                          <p className="font-medium">
+                          <p className="font-medium text-white">
                             {new Date(session.session_date).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               year: 'numeric'
                             })}
                           </p>
-                          <p className="text-sm text-muted-foreground">
-                            {getSessionTypeLabel(session.session_type)} • {session.movement_count} movements
+                          <p className="text-sm text-slate-400">
+                            {getSessionTypeLabel(session.session_type)} • {session.movement_count} swings
                           </p>
                         </div>
                       </label>
@@ -488,203 +489,185 @@ export default function AdminRebootAnalysis() {
             </Card>
 
             {/* Step 3: Process */}
-            <Card>
+            <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
+                <CardTitle className="text-lg flex items-center gap-2 text-white">
+                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
                   Process
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent>
                 <Button
                   onClick={processSession}
-                  disabled={!selectedPlayer || !selectedSessionId || isProcessing}
-                  className="w-full"
-                  size="lg"
+                  disabled={!selectedSessionId || isProcessing}
+                  className="w-full bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
                 >
                   {isProcessing ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
                   ) : (
-                    <Zap className="w-4 h-4 mr-2" />
+                    <>
+                      <Zap className="w-4 h-4 mr-2" />
+                      Calculate 4B Scores
+                    </>
                   )}
-                  Calculate 4B Scores
                 </Button>
-
-                {/* Test Button */}
-                <div className="pt-4 border-t">
-                  <p className="text-xs text-muted-foreground mb-2">🧪 Test with hardcoded values:</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    disabled={isProcessing}
-                    onClick={async () => {
-                      setIsProcessing(true);
-                      setResults(null);
-                      try {
-                        const { data: { session } } = await supabase.auth.getSession();
-                        const response = await supabase.functions.invoke("process-reboot-session", {
-                          body: {
-                            session_id: "841e4aec-0ded-4445-95e9-9b0d3fc27adb",
-                            org_player_id: "a293f033-6ebd-47ad-8af9-81a68ab35406",
-                          },
-                          headers: {
-                            Authorization: `Bearer ${session?.access_token}`,
-                          },
-                        });
-                        console.log("Test response:", response);
-                        if (response.error) throw new Error(response.error.message);
-                        if (response.data?.success) {
-                          setResults(response.data.scores);
-                          toast.success("Test processed successfully!");
-                        } else {
-                          throw new Error(response.data?.error || "Test failed");
-                        }
-                      } catch (error: any) {
-                        console.error("Test error:", error);
-                        toast.error(`Test failed: ${error.message}`);
-                      } finally {
-                        setIsProcessing(false);
-                      }
-                    }}
-                  >
-                    {isProcessing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                    Test Process Session
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           </div>
 
           {/* Right Column - Results */}
           <div>
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle>Results</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {results ? (
-                  <div className="space-y-6">
-                    {/* Score Cards Grid */}
-                    <div className="grid grid-cols-5 gap-2">
-                      <ScoreCard
-                        label="BRAIN"
-                        score={results.brain_score}
-                        grade={getGradeFromScore(results.brain_score)}
-                        icon={Brain}
-                        isWeakest={results.weakest_link === "brain"}
-                      />
-                      <ScoreCard
-                        label="BODY"
-                        score={results.body_score}
-                        grade={getGradeFromScore(results.body_score)}
-                        icon={Dumbbell}
-                        isWeakest={results.weakest_link === "body"}
-                      />
-                      <ScoreCard
-                        label="BAT"
-                        score={results.bat_score}
-                        grade={getGradeFromScore(results.bat_score)}
-                        icon={Target}
-                        isWeakest={results.weakest_link === "bat"}
-                      />
-                      <ScoreCard
-                        label="BALL"
-                        score={results.ball_score}
-                        grade={getGradeFromScore(results.ball_score)}
-                        icon={CircleDot}
-                        isWeakest={results.weakest_link === "ball"}
-                      />
-                      <ScoreCard
-                        label="4B"
-                        score={results.composite_score}
-                        grade={results.grade}
-                        icon={Zap}
-                      />
-                    </div>
-
-                    {/* Weakest Link */}
-                    <div className="p-4 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
-                      <p className="text-sm font-medium text-red-800 dark:text-red-200">
-                        Weakest Link: <span className="uppercase">{results.weakest_link}</span>
-                        {results.weakest_link === "brain" && " (Consistency)"}
-                        {results.weakest_link === "body" && " (Kinetic Chain)"}
-                        {results.weakest_link === "bat" && " (Bat Speed/Efficiency)"}
-                        {results.weakest_link === "ball" && " (Contact Quality)"}
+            {results ? (
+              <div className="space-y-6">
+                {/* Composite Score */}
+                <Card className="bg-slate-900/80 border-slate-800">
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <p className="text-sm uppercase tracking-wider text-slate-400 mb-2">
+                        Composite Score
                       </p>
+                      <p className={`text-7xl font-bold ${getScoreTextColor(results.composite_score)}`}>
+                        {results.composite_score}
+                      </p>
+                      <Badge className={`mt-3 ${getScoreColor(results.composite_score)} text-white`}>
+                        {results.grade}
+                      </Badge>
                     </div>
+                  </CardContent>
+                </Card>
 
-                    {/* Detailed Metrics */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-3 bg-muted rounded-lg">
-                        <p className="text-xs text-muted-foreground">Pelvis Velocity</p>
-                        <p className="text-lg font-bold">{results.pelvis_velocity}°/s</p>
-                      </div>
-                      <div className="p-3 bg-muted rounded-lg">
-                        <p className="text-xs text-muted-foreground">Torso Velocity</p>
-                        <p className="text-lg font-bold">{results.torso_velocity}°/s</p>
-                      </div>
-                      <div className="p-3 bg-muted rounded-lg">
-                        <p className="text-xs text-muted-foreground">X-Factor</p>
-                        <p className="text-lg font-bold">{results.x_factor}°</p>
-                      </div>
-                      <div className="p-3 bg-muted rounded-lg">
-                        <p className="text-xs text-muted-foreground">Bat Kinetic Energy</p>
-                        <p className="text-lg font-bold">{results.bat_ke}J</p>
-                      </div>
-                      <div className="p-3 bg-muted rounded-lg">
-                        <p className="text-xs text-muted-foreground">Transfer Efficiency</p>
-                        <p className="text-lg font-bold">{results.transfer_efficiency}%</p>
-                      </div>
-                      <div className="p-3 bg-muted rounded-lg">
-                        <p className="text-xs text-muted-foreground">Consistency</p>
-                        <p className="text-lg font-bold">
-                          {results.consistency_cv}% CV
-                          <span className="text-sm text-muted-foreground ml-1">
-                            ({results.consistency_grade})
-                          </span>
-                        </p>
-                      </div>
-                    </div>
+                {/* 4B Scores Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <ScoreCard
+                    label="Brain"
+                    score={results.brain_score}
+                    grade={getGradeFromScore(results.brain_score)}
+                    icon={Brain}
+                    isWeakest={results.weakest_link === 'brain'}
+                  />
+                  <ScoreCard
+                    label="Body"
+                    score={results.body_score}
+                    grade={getGradeFromScore(results.body_score)}
+                    icon={Dumbbell}
+                    isWeakest={results.weakest_link === 'body'}
+                  />
+                  <ScoreCard
+                    label="Bat"
+                    score={results.bat_score}
+                    grade={getGradeFromScore(results.bat_score)}
+                    icon={Target}
+                    isWeakest={results.weakest_link === 'bat'}
+                  />
+                  <ScoreCard
+                    label="Ball"
+                    score={results.ball_score}
+                    grade={getGradeFromScore(results.ball_score)}
+                    icon={CircleDot}
+                    isWeakest={results.weakest_link === 'ball'}
+                  />
+                </div>
 
-                    {/* Flow Scores */}
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Flow Breakdown</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="p-2 bg-muted rounded text-center">
-                          <p className="text-xs text-muted-foreground">Ground</p>
-                          <p className="font-bold">{results.ground_flow_score}</p>
+                {/* Detailed Metrics */}
+                <Card className="bg-slate-900/80 border-slate-800">
+                  <CardHeader>
+                    <CardTitle className="text-white">Biomechanical Details</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Pelvis Velocity</span>
+                          <span className="font-medium text-white">{results.pelvis_velocity}°/s</span>
                         </div>
-                        <div className="p-2 bg-muted rounded text-center">
-                          <p className="text-xs text-muted-foreground">Core</p>
-                          <p className="font-bold">{results.core_flow_score}</p>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Torso Velocity</span>
+                          <span className="font-medium text-white">{results.torso_velocity}°/s</span>
                         </div>
-                        <div className="p-2 bg-muted rounded text-center">
-                          <p className="text-xs text-muted-foreground">Upper</p>
-                          <p className="font-bold">{results.upper_flow_score}</p>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">X-Factor</span>
+                          <span className="font-medium text-white">{results.x_factor}°</span>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Bat KE</span>
+                          <span className="font-medium text-white">{results.bat_ke} J</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Transfer Eff.</span>
+                          <span className="font-medium text-white">{results.transfer_efficiency}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Consistency</span>
+                          <span className="font-medium text-white">{results.consistency_grade} ({results.consistency_cv}%)</span>
                         </div>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
 
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                      <Button variant="outline" className="flex-1">
-                        Save to Profile
-                      </Button>
-                      <Button variant="outline" className="flex-1">
-                        Generate Report
-                      </Button>
+                {/* Flow Scores */}
+                <Card className="bg-slate-900/80 border-slate-800">
+                  <CardHeader>
+                    <CardTitle className="text-white">Kinetic Chain Flow</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Ground Flow</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-32 h-2 bg-slate-700 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${getScoreColor(results.ground_flow_score)}`}
+                              style={{ width: `${results.ground_flow_score}%` }}
+                            />
+                          </div>
+                          <span className="font-medium text-white w-8">{results.ground_flow_score}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Core Flow</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-32 h-2 bg-slate-700 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${getScoreColor(results.core_flow_score)}`}
+                              style={{ width: `${results.core_flow_score}%` }}
+                            />
+                          </div>
+                          <span className="font-medium text-white w-8">{results.core_flow_score}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Upper Flow</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-32 h-2 bg-slate-700 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${getScoreColor(results.upper_flow_score)}`}
+                              style={{ width: `${results.upper_flow_score}%` }}
+                            />
+                          </div>
+                          <span className="font-medium text-white w-8">{results.upper_flow_score}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <Zap className="w-12 h-12 mb-4 opacity-20" />
-                    <p>Select a player and session to analyze</p>
-                    <p className="text-sm">Results will appear here</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <Card className="bg-slate-900/80 border-slate-800 h-full flex items-center justify-center">
+                <CardContent className="text-center py-12">
+                  <Target className="w-16 h-16 mx-auto mb-4 text-slate-600" />
+                  <h3 className="text-xl font-medium mb-2 text-white">No Results Yet</h3>
+                  <p className="text-slate-400">
+                    Select a player and session, then click "Calculate 4B Scores" to see results
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </main>

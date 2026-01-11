@@ -265,32 +265,36 @@ export default function AdminPlayerProfile() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-slate-950">
         <AdminHeader />
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
+          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-950">
       <AdminHeader />
       
       <main className="container py-6 max-w-4xl">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/admin/players')}>
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/admin/players')}
+              className="text-slate-400 hover:text-white hover:bg-slate-800"
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">
+              <h1 className="text-2xl font-bold text-white">
                 {isNew ? 'Add New Player' : `${formData.first_name} ${formData.last_name || ''}`}
               </h1>
               {!isNew && player && (
-                <p className="text-muted-foreground text-sm">
+                <p className="text-slate-400 text-sm">
                   Added {formatDate(player.created_at)}
                 </p>
               )}
@@ -298,18 +302,30 @@ export default function AdminPlayerProfile() {
           </div>
           <div className="flex gap-2">
             {isNew && (
-              <Button variant="outline" onClick={() => setShowResearchModal(true)}>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowResearchModal(true)}
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              >
                 <Sparkles className="h-4 w-4 mr-2" />
                 AI Research
               </Button>
             )}
             {!isNew && (
-              <Button onClick={() => navigate(`/admin/new-session?player=${id}`)}>
+              <Button 
+                onClick={() => navigate(`/admin/new-session?player=${id}`)}
+                variant="outline"
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 New Session
               </Button>
             )}
-            <Button onClick={handleSave} disabled={saveMutation.isPending}>
+            <Button 
+              onClick={handleSave} 
+              disabled={saveMutation.isPending}
+              className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+            >
               {saveMutation.isPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -321,19 +337,19 @@ export default function AdminPlayerProfile() {
         </div>
 
         <Tabs defaultValue="info" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="info">Player Info</TabsTrigger>
-            <TabsTrigger value="contact">Contact</TabsTrigger>
-            <TabsTrigger value="notes">Coach Notes</TabsTrigger>
-            {!isNew && <TabsTrigger value="sessions">Sessions ({sessions?.length || 0})</TabsTrigger>}
-            {!isNew && <TabsTrigger value="data">Data Sessions ({(launchMonitorSessions?.length || 0) + (rebootUploads?.length || 0)})</TabsTrigger>}
+          <TabsList className="bg-slate-900/80 border border-slate-800">
+            <TabsTrigger value="info" className="data-[state=active]:bg-slate-800">Player Info</TabsTrigger>
+            <TabsTrigger value="contact" className="data-[state=active]:bg-slate-800">Contact</TabsTrigger>
+            <TabsTrigger value="notes" className="data-[state=active]:bg-slate-800">Coach Notes</TabsTrigger>
+            {!isNew && <TabsTrigger value="sessions" className="data-[state=active]:bg-slate-800">Sessions ({sessions?.length || 0})</TabsTrigger>}
+            {!isNew && <TabsTrigger value="data" className="data-[state=active]:bg-slate-800">Data Sessions ({(launchMonitorSessions?.length || 0) + (rebootUploads?.length || 0)})</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="info" className="space-y-6">
             {/* Basic Info */}
-            <Card>
+            <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-white">
                   <User className="h-5 w-5" />
                   Basic Information
                 </CardTitle>
@@ -341,65 +357,71 @@ export default function AdminPlayerProfile() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>First Name *</Label>
+                    <Label className="text-slate-300">First Name *</Label>
                     <Input
                       value={formData.first_name}
                       onChange={(e) => handleChange('first_name', e.target.value)}
                       placeholder="John"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Last Name</Label>
+                    <Label className="text-slate-300">Last Name</Label>
                     <Input
                       value={formData.last_name}
                       onChange={(e) => handleChange('last_name', e.target.value)}
                       placeholder="Smith"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>Age</Label>
+                    <Label className="text-slate-300">Age</Label>
                     <Input
                       type="number"
                       value={formData.age}
                       onChange={(e) => handleChange('age', e.target.value)}
                       placeholder="14"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Height</Label>
+                    <Label className="text-slate-300">Height</Label>
                     <Input
                       value={formData.height}
                       onChange={(e) => handleChange('height', e.target.value)}
                       placeholder='5&apos;10"'
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Weight (lbs)</Label>
+                    <Label className="text-slate-300">Weight (lbs)</Label>
                     <Input
                       type="number"
                       value={formData.weight}
                       onChange={(e) => handleChange('weight', e.target.value)}
                       placeholder="165"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Hometown</Label>
+                  <Label className="text-slate-300">Hometown</Label>
                   <Input
                     value={formData.hometown}
                     onChange={(e) => handleChange('hometown', e.target.value)}
                     placeholder="Dallas, TX"
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                   />
                 </div>
               </CardContent>
             </Card>
 
             {/* Baseball Info */}
-            <Card>
+            <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-white">
                   <Building className="h-5 w-5" />
                   Baseball Info
                 </CardTitle>
@@ -407,30 +429,32 @@ export default function AdminPlayerProfile() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Organization</Label>
+                    <Label className="text-slate-300">Organization</Label>
                     <Input
                       value={formData.organization}
                       onChange={(e) => handleChange('organization', e.target.value)}
                       placeholder="Boston Red Sox"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Current Team</Label>
+                    <Label className="text-slate-300">Current Team</Label>
                     <Input
                       value={formData.current_team}
                       onChange={(e) => handleChange('current_team', e.target.value)}
                       placeholder="High-A Greenville"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-4">
                   <div className="space-y-2">
-                    <Label>Level</Label>
+                    <Label className="text-slate-300">Level</Label>
                     <Select value={formData.level} onValueChange={(v) => handleChange('level', v)}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-slate-900 border-slate-700">
                         {LEVELS.map(level => (
                           <SelectItem key={level} value={level}>{level}</SelectItem>
                         ))}
@@ -438,12 +462,12 @@ export default function AdminPlayerProfile() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Position</Label>
+                    <Label className="text-slate-300">Position</Label>
                     <Select value={formData.position} onValueChange={(v) => handleChange('position', v)}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-slate-900 border-slate-700">
                         {POSITIONS.map(pos => (
                           <SelectItem key={pos} value={pos}>{pos}</SelectItem>
                         ))}
@@ -451,12 +475,12 @@ export default function AdminPlayerProfile() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Bats</Label>
+                    <Label className="text-slate-300">Bats</Label>
                     <Select value={formData.bats} onValueChange={(v) => handleChange('bats', v)}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-slate-900 border-slate-700">
                         {BATS.map(b => (
                           <SelectItem key={b} value={b}>{b}</SelectItem>
                         ))}
@@ -464,12 +488,12 @@ export default function AdminPlayerProfile() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Throws</Label>
+                    <Label className="text-slate-300">Throws</Label>
                     <Select value={formData.throws} onValueChange={(v) => handleChange('throws', v)}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-slate-900 border-slate-700">
                         {THROWS.map(t => (
                           <SelectItem key={t} value={t}>{t}</SelectItem>
                         ))}
@@ -483,9 +507,9 @@ export default function AdminPlayerProfile() {
 
           <TabsContent value="contact" className="space-y-6">
             {/* Player Contact */}
-            <Card>
+            <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-white">
                   <Phone className="h-5 w-5" />
                   Player Contact
                 </CardTitle>
@@ -493,59 +517,61 @@ export default function AdminPlayerProfile() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Phone</Label>
+                    <Label className="text-slate-300">Phone</Label>
                     <Input
                       value={formData.phone}
                       onChange={(e) => handleChange('phone', e.target.value)}
                       placeholder="(555) 123-4567"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Email</Label>
+                    <Label className="text-slate-300">Email</Label>
                     <Input
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleChange('email', e.target.value)}
                       placeholder="player@email.com"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Parent Contact */}
-            <Card>
+            {/* Parent/Guardian Contact */}
+            <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Parent/Guardian Contact
-                </CardTitle>
+                <CardTitle className="text-white">Parent/Guardian Contact</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Parent Name</Label>
+                  <Label className="text-slate-300">Parent Name</Label>
                   <Input
                     value={formData.parent_name}
                     onChange={(e) => handleChange('parent_name', e.target.value)}
-                    placeholder="John Smith Sr."
+                    placeholder="Jane Smith"
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Parent Phone</Label>
+                    <Label className="text-slate-300">Parent Phone</Label>
                     <Input
                       value={formData.parent_phone}
                       onChange={(e) => handleChange('parent_phone', e.target.value)}
                       placeholder="(555) 123-4567"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Parent Email</Label>
+                    <Label className="text-slate-300">Parent Email</Label>
                     <Input
                       type="email"
                       value={formData.parent_email}
                       onChange={(e) => handleChange('parent_email', e.target.value)}
                       placeholder="parent@email.com"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                   </div>
                 </div>
@@ -553,39 +579,42 @@ export default function AdminPlayerProfile() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="notes" className="space-y-6">
-            <Card>
+          <TabsContent value="notes">
+            <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-white">
                   <FileText className="h-5 w-5" />
-                  Coach Notes
+                  Coach Notes & Training
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Current Focus</Label>
+                  <Label className="text-slate-300">Current Focus</Label>
                   <Input
                     value={formData.current_focus}
                     onChange={(e) => handleChange('current_focus', e.target.value)}
-                    placeholder="What are they working on right now?"
+                    placeholder="e.g., Hip rotation, load timing"
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Training History</Label>
+                  <Label className="text-slate-300">Training History</Label>
                   <Textarea
                     value={formData.training_history}
                     onChange={(e) => handleChange('training_history', e.target.value)}
-                    placeholder="Previous coaches, programs, camps..."
+                    placeholder="Previous training, coaches, facilities..."
                     rows={3}
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>General Notes</Label>
+                  <Label className="text-slate-300">Coach Notes</Label>
                   <Textarea
                     value={formData.coach_notes}
                     onChange={(e) => handleChange('coach_notes', e.target.value)}
-                    placeholder="Observations, personality, goals..."
-                    rows={5}
+                    placeholder="Observations, progress notes, scouting reports..."
+                    rows={6}
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                   />
                 </div>
               </CardContent>
@@ -593,40 +622,44 @@ export default function AdminPlayerProfile() {
           </TabsContent>
 
           {!isNew && (
-            <TabsContent value="sessions" className="space-y-6">
-              <Card>
+            <TabsContent value="sessions">
+              <Card className="bg-slate-900/80 border-slate-800">
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5" />
-                      Session History
-                    </span>
-                    <Button onClick={() => navigate(`/admin/new-session?player=${id}`)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      New Session
-                    </Button>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <Calendar className="h-5 w-5" />
+                    Assessment Sessions
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {sessions && sessions.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {sessions.map((session) => (
-                        <div
+                        <div 
                           key={session.id}
-                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                          className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors cursor-pointer"
                           onClick={() => navigate(`/admin/analyzer?session=${session.id}`)}
                         >
-                          <div>
-                            <div className="font-medium">{session.product_type}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {formatDate(session.created_at)}
+                          <div className="flex items-center gap-3">
+                            <Target className="h-5 w-5 text-red-400" />
+                            <div>
+                              <p className="font-medium text-white">{session.product_type.replace(/_/g, ' ')}</p>
+                              <p className="text-sm text-slate-400">{formatDate(session.created_at)}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
                             {session.composite_score && (
-                              <Badge>{session.composite_score.toFixed(1)}</Badge>
+                              <div className="text-right">
+                                <p className="text-2xl font-bold text-white">{session.composite_score}</p>
+                                <Badge variant="outline" className="border-slate-700 text-slate-300">{session.grade}</Badge>
+                              </div>
                             )}
-                            <Badge variant={session.status === 'completed' ? 'default' : 'secondary'}>
+                            <Badge 
+                              className={
+                                session.status === 'complete' ? 'bg-green-500/20 text-green-400' :
+                                session.status === 'paid' ? 'bg-blue-500/20 text-blue-400' :
+                                'bg-slate-500/20 text-slate-400'
+                              }
+                            >
                               {session.status}
                             </Badge>
                           </div>
@@ -634,119 +667,14 @@ export default function AdminPlayerProfile() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No sessions yet
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-          
-          {/* Data Sessions Tab */}
-          {!isNew && (
-            <TabsContent value="data" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Database className="h-5 w-5" />
-                      Data Sessions
-                    </span>
-                    <Button onClick={() => setShowDataUpload(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Upload Data
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {(launchMonitorSessions && launchMonitorSessions.length > 0) || (rebootUploads && rebootUploads.length > 0) ? (
-                    <div className="space-y-2">
-                      {/* Launch Monitor Sessions */}
-                      {launchMonitorSessions?.map((session) => (
-                        <div
-                          key={session.id}
-                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                          onClick={() => setSelectedLaunchMonitorSession(session)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Target className="h-5 w-5 text-blue-500" />
-                            <div>
-                              <div className="font-medium flex items-center gap-2">
-                                {new Date(session.session_date).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric'
-                                })}
-                                <Badge variant="outline" className="text-xs">{getBrandDisplayName(session.source as any)}</Badge>
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {session.total_swings} swings • {session.contact_rate}% contact • {session.avg_exit_velo} avg velo
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <div className="text-sm text-muted-foreground">Ball Score</div>
-                              <div className={`text-xl font-bold ${
-                                session.ball_score >= 60 ? 'text-green-500' :
-                                session.ball_score >= 50 ? 'text-yellow-500' :
-                                session.ball_score >= 40 ? 'text-orange-500' : 'text-red-500'
-                              }`}>
-                                {session.ball_score}
-                              </div>
-                            </div>
-                            <Eye className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {/* Reboot Uploads */}
-                      {rebootUploads?.map((session) => (
-                        <div
-                          key={session.id}
-                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                          onClick={() => setSelectedRebootSession(session)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Activity className="h-5 w-5 text-purple-500" />
-                            <div>
-                              <div className="font-medium flex items-center gap-2">
-                                {new Date(session.session_date).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric'
-                                })}
-                                <Badge variant="outline" className="text-xs">Reboot Motion</Badge>
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                Brain: {session.brain_score} • Body: {session.body_score} • Bat: {session.bat_score}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <div className="text-sm text-muted-foreground">Composite</div>
-                              <div className={`text-xl font-bold ${
-                                session.composite_score >= 60 ? 'text-green-500' :
-                                session.composite_score >= 50 ? 'text-yellow-500' :
-                                session.composite_score >= 40 ? 'text-orange-500' : 'text-red-500'
-                              }`}>
-                                {session.composite_score}
-                              </div>
-                            </div>
-                            <Eye className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Database className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                      <p className="text-muted-foreground mb-4">No data sessions yet</p>
-                      <Button onClick={() => setShowDataUpload(true)}>
+                    <div className="text-center py-8 text-slate-400">
+                      <p>No sessions yet</p>
+                      <Button 
+                        onClick={() => navigate(`/admin/new-session?player=${id}`)}
+                        className="mt-4 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+                      >
                         <Plus className="h-4 w-4 mr-2" />
-                        Upload CSV Data
+                        Create First Session
                       </Button>
                     </div>
                   )}
@@ -754,43 +682,170 @@ export default function AdminPlayerProfile() {
               </Card>
             </TabsContent>
           )}
+
+          {!isNew && (
+            <TabsContent value="data">
+              <div className="space-y-6">
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={() => setShowDataUpload(true)}
+                    className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+                  >
+                    <Database className="h-4 w-4 mr-2" />
+                    Upload Data
+                  </Button>
+                </div>
+
+                {/* Launch Monitor Sessions */}
+                {launchMonitorSessions && launchMonitorSessions.length > 0 && (
+                  <Card className="bg-slate-900/80 border-slate-800">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-white">
+                        <Activity className="h-5 w-5" />
+                        Launch Monitor Sessions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {launchMonitorSessions.map((session) => (
+                          <div 
+                            key={session.id}
+                            className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors cursor-pointer"
+                            onClick={() => setSelectedLaunchMonitorSession(session)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 rounded-lg bg-orange-500/20">
+                                <Target className="h-4 w-4 text-orange-400" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-white">{getBrandDisplayName(session.source)}</p>
+                                <p className="text-sm text-slate-400">{formatDate(session.session_date)}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <p className="text-sm text-slate-400">Swings</p>
+                                <p className="font-bold text-white">{session.total_swings}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm text-slate-400">Avg EV</p>
+                                <p className="font-bold text-white">{session.avg_exit_velo?.toFixed(1) || '-'}</p>
+                              </div>
+                              {session.ball_score && (
+                                <div className="text-right">
+                                  <p className="text-sm text-slate-400">Ball Score</p>
+                                  <p className="font-bold text-orange-400">{session.ball_score}</p>
+                                </div>
+                              )}
+                              <Eye className="h-4 w-4 text-slate-500" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Reboot Sessions */}
+                {rebootUploads && rebootUploads.length > 0 && (
+                  <Card className="bg-slate-900/80 border-slate-800">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-white">
+                        <Activity className="h-5 w-5" />
+                        Reboot Motion Sessions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {rebootUploads.map((session) => (
+                          <div 
+                            key={session.id}
+                            className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors cursor-pointer"
+                            onClick={() => setSelectedRebootSession(session)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 rounded-lg bg-blue-500/20">
+                                <Activity className="h-4 w-4 text-blue-400" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-white">Reboot Motion</p>
+                                <p className="text-sm text-slate-400">{formatDate(session.session_date)}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              {session.composite_score && (
+                                <div className="text-right">
+                                  <p className="text-sm text-slate-400">Composite</p>
+                                  <p className="font-bold text-white">{session.composite_score}</p>
+                                </div>
+                              )}
+                              {session.body_score && (
+                                <div className="text-right">
+                                  <p className="text-sm text-slate-400">Body</p>
+                                  <p className="font-bold text-green-400">{session.body_score}</p>
+                                </div>
+                              )}
+                              <Badge variant="outline" className="border-slate-700 text-slate-300">{session.grade || '-'}</Badge>
+                              <Eye className="h-4 w-4 text-slate-500" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {(!launchMonitorSessions || launchMonitorSessions.length === 0) && 
+                 (!rebootUploads || rebootUploads.length === 0) && (
+                  <Card className="bg-slate-900/80 border-slate-800">
+                    <CardContent className="py-8 text-center text-slate-400">
+                      <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No data sessions yet</p>
+                      <Button 
+                        onClick={() => setShowDataUpload(true)}
+                        className="mt-4 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Upload First Data Session
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
       </main>
 
-      {/* AI Research Modal */}
-      <PlayerResearchModal
+      {/* Modals */}
+      <PlayerResearchModal 
         open={showResearchModal}
-        onOpenChange={setShowResearchModal}
-        onPlayerFound={handleResearchData}
-        initialName={`${formData.first_name} ${formData.last_name}`.trim()}
+        onClose={() => setShowResearchModal(false)}
+        onDataReceived={handleResearchData}
       />
-      
-      {/* Unified Data Upload Modal */}
-      {id && !isNew && (
+
+      {showDataUpload && id && (
         <UnifiedDataUploadModal
           open={showDataUpload}
-          onOpenChange={setShowDataUpload}
+          onClose={() => setShowDataUpload(false)}
           playerId={id}
-          playerName={`${formData.first_name} ${formData.last_name}`.trim()}
           onSuccess={refetchDataSessions}
         />
       )}
-      
-      {/* Launch Monitor Session Detail Modal */}
-      <LaunchMonitorSessionDetail
-        open={!!selectedLaunchMonitorSession}
-        onOpenChange={(open) => !open && setSelectedLaunchMonitorSession(null)}
-        session={selectedLaunchMonitorSession}
-        onDelete={refetchDataSessions}
-      />
-      
-      {/* Reboot Session Detail Modal */}
-      <RebootSessionDetail
-        open={!!selectedRebootSession}
-        onOpenChange={(open) => !open && setSelectedRebootSession(null)}
-        session={selectedRebootSession}
-        onDelete={refetchDataSessions}
-      />
+
+      {selectedLaunchMonitorSession && (
+        <LaunchMonitorSessionDetail
+          session={selectedLaunchMonitorSession}
+          onClose={() => setSelectedLaunchMonitorSession(null)}
+        />
+      )}
+
+      {selectedRebootSession && (
+        <RebootSessionDetail
+          session={selectedRebootSession}
+          onClose={() => setSelectedRebootSession(null)}
+        />
+      )}
     </div>
   );
 }

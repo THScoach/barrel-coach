@@ -202,10 +202,10 @@ export default function AdminHitTraxImport() {
   
   // Get score color
   const getScoreColor = (score: number) => {
-    if (score >= 60) return "text-green-500";
-    if (score >= 50) return "text-yellow-500";
-    if (score >= 40) return "text-orange-500";
-    return "text-red-500";
+    if (score >= 60) return "text-green-400";
+    if (score >= 50) return "text-yellow-400";
+    if (score >= 40) return "text-orange-400";
+    return "text-red-400";
   };
   
   const getScoreBgColor = (score: number) => {
@@ -216,7 +216,7 @@ export default function AdminHitTraxImport() {
   };
   
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-950">
       <AdminHeader />
       
       <main className="container mx-auto px-4 py-8 max-w-4xl">
@@ -226,31 +226,32 @@ export default function AdminHitTraxImport() {
             variant="ghost" 
             size="icon"
             onClick={() => navigate("/admin")}
+            className="text-slate-400 hover:text-white hover:bg-slate-800"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">HitTrax Import</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-3xl font-bold text-white">HitTrax Import</h1>
+            <p className="text-slate-400">
               Import batting practice data and calculate Ball Score
             </p>
           </div>
         </div>
         
         {/* Step 1: Select Player */}
-        <Card className="mb-6">
+        <Card className="mb-6 bg-slate-900/80 border-slate-800">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
               Select Player
             </CardTitle>
           </CardHeader>
           <CardContent>
             {selectedPlayer ? (
-              <div className="flex items-center justify-between p-4 bg-surface rounded-lg border">
+              <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-700">
                 <div>
-                  <div className="font-medium">{selectedPlayer.name}</div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="font-medium text-white">{selectedPlayer.name}</div>
+                  <div className="text-sm text-slate-400">
                     {selectedPlayer.level} • {selectedPlayer.handedness}-handed
                     {selectedPlayer.team && ` • ${selectedPlayer.team}`}
                   </div>
@@ -262,6 +263,7 @@ export default function AdminHitTraxImport() {
                     setSelectedPlayer(null);
                     setSearchQuery("");
                   }}
+                  className="text-slate-400 hover:text-white hover:bg-slate-700"
                 >
                   Change
                 </Button>
@@ -272,21 +274,21 @@ export default function AdminHitTraxImport() {
                   placeholder="Search players by name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full"
+                  className="w-full bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                 />
                 {players.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-card border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {players.map((player) => (
                       <button
                         key={player.id}
-                        className="w-full px-4 py-3 text-left hover:bg-accent transition-colors border-b last:border-b-0"
+                        className="w-full px-4 py-3 text-left hover:bg-slate-800 transition-colors border-b border-slate-700 last:border-b-0"
                         onClick={() => {
                           setSelectedPlayer(player);
                           setSearchQuery("");
                         }}
                       >
-                        <div className="font-medium">{player.name}</div>
-                        <div className="text-sm text-muted-foreground">
+                        <div className="font-medium text-white">{player.name}</div>
+                        <div className="text-sm text-slate-400">
                           {player.level} • {player.handedness}-handed
                         </div>
                       </button>
@@ -299,15 +301,15 @@ export default function AdminHitTraxImport() {
         </Card>
         
         {/* Step 2: Upload Files */}
-        <Card className="mb-6">
+        <Card className="mb-6 bg-slate-900/80 border-slate-800">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
               Upload HitTrax CSV(s)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors">
+            <div className="border-2 border-dashed border-slate-700 rounded-lg p-8 text-center hover:border-red-500/50 transition-colors">
               <input
                 type="file"
                 accept=".csv"
@@ -318,9 +320,9 @@ export default function AdminHitTraxImport() {
                 id="csv-upload"
               />
               <label htmlFor="csv-upload" className="cursor-pointer">
-                <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                <p className="text-lg font-medium">Drop files here or click to browse</p>
-                <p className="text-sm text-muted-foreground mt-1">
+                <Upload className="h-10 w-10 mx-auto text-slate-500 mb-3" />
+                <p className="text-lg font-medium text-white">Drop files here or click to browse</p>
+                <p className="text-sm text-slate-400 mt-1">
                   Accepts multiple .csv files from same session
                 </p>
               </label>
@@ -328,23 +330,23 @@ export default function AdminHitTraxImport() {
             
             {uploadedFiles.length > 0 && (
               <div className="mt-4 space-y-2">
-                <div className="text-sm font-medium text-muted-foreground">
+                <div className="text-sm font-medium text-slate-400">
                   Uploaded Files:
                 </div>
                 {uploadedFiles.map((file, index) => (
                   <div 
                     key={index}
-                    className="flex items-center justify-between p-3 bg-surface rounded-lg"
+                    className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
                   >
                     <div className="flex items-center gap-2">
-                      <FileSpreadsheet className="h-4 w-4 text-green-500" />
-                      <span className="text-sm">{file.name}</span>
-                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <FileSpreadsheet className="h-4 w-4 text-green-400" />
+                      <span className="text-sm text-white">{file.name}</span>
+                      <CheckCircle className="h-4 w-4 text-green-400" />
                     </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-6 w-6 text-slate-400 hover:text-red-400 hover:bg-slate-700"
                       onClick={() => removeFile(index)}
                     >
                       <X className="h-4 w-4" />
@@ -357,28 +359,29 @@ export default function AdminHitTraxImport() {
         </Card>
         
         {/* Step 3: Process */}
-        <Card className="mb-6">
+        <Card className="mb-6 bg-slate-900/80 border-slate-800">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
               Process
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
               <div className="flex-1">
-                <label className="text-sm font-medium mb-1 block">Session Date</label>
+                <label className="text-sm font-medium mb-1 block text-slate-300">Session Date</label>
                 <Input
                   type="date"
                   value={sessionDate}
                   onChange={(e) => setSessionDate(e.target.value)}
+                  className="bg-slate-800/50 border-slate-700 text-white"
                 />
               </div>
               <div className="pt-6">
                 <Button
                   onClick={processFiles}
                   disabled={uploadedFiles.length === 0 || isProcessing}
-                  className="gap-2"
+                  className="gap-2 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
                 >
                   {isProcessing ? (
                     <>
@@ -399,14 +402,14 @@ export default function AdminHitTraxImport() {
         
         {/* Results */}
         {sessionStats && (
-          <Card>
+          <Card className="bg-slate-900/80 border-slate-800">
             <CardHeader>
-              <CardTitle>Results</CardTitle>
+              <CardTitle className="text-white">Results</CardTitle>
             </CardHeader>
             <CardContent>
               {/* Ball Score Card */}
-              <div className="bg-surface rounded-xl p-8 text-center mb-6">
-                <div className="text-sm uppercase tracking-wider text-muted-foreground mb-2">
+              <div className="bg-slate-800/50 rounded-xl p-8 text-center mb-6">
+                <div className="text-sm uppercase tracking-wider text-slate-400 mb-2">
                   Ball Score
                 </div>
                 <div className={`text-7xl font-bold ${getScoreColor(sessionStats.ballScore)}`}>
@@ -421,21 +424,21 @@ export default function AdminHitTraxImport() {
               
               {/* Quick Stats Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-surface rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold">{sessionStats.totalSwings}</div>
-                  <div className="text-sm text-muted-foreground">Total Swings</div>
+                <div className="bg-slate-800/50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-white">{sessionStats.totalSwings}</div>
+                  <div className="text-sm text-slate-400">Total Swings</div>
                 </div>
-                <div className="bg-surface rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold">{sessionStats.contactRate}%</div>
-                  <div className="text-sm text-muted-foreground">Contact Rate</div>
+                <div className="bg-slate-800/50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-white">{sessionStats.contactRate}%</div>
+                  <div className="text-sm text-slate-400">Contact Rate</div>
                 </div>
-                <div className="bg-surface rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold">{sessionStats.avgExitVelo}</div>
-                  <div className="text-sm text-muted-foreground">Avg Exit Velo</div>
+                <div className="bg-slate-800/50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-white">{sessionStats.avgExitVelo}</div>
+                  <div className="text-sm text-slate-400">Avg Exit Velo</div>
                 </div>
-                <div className="bg-surface rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold">{sessionStats.maxExitVelo}</div>
-                  <div className="text-sm text-muted-foreground">Max Exit Velo</div>
+                <div className="bg-slate-800/50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-white">{sessionStats.maxExitVelo}</div>
+                  <div className="text-sm text-slate-400">Max Exit Velo</div>
                 </div>
               </div>
               
@@ -443,136 +446,52 @@ export default function AdminHitTraxImport() {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Avg Launch Angle</span>
-                    <span className="font-medium">{sessionStats.avgLaunchAngle}°</span>
+                    <span className="text-slate-400">Avg Launch Angle</span>
+                    <span className="font-medium text-white">{sessionStats.avgLaunchAngle}°</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Quality Hits</span>
-                    <span className="font-medium">{sessionStats.qualityHits} ({sessionStats.qualityHitPct}%)</span>
+                    <span className="text-slate-400">Quality Hits</span>
+                    <span className="font-medium text-white">{sessionStats.qualityHits} ({sessionStats.qualityHitPct}%)</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Barrels</span>
-                    <span className="font-medium">{sessionStats.barrelHits} ({sessionStats.barrelPct}%)</span>
+                    <span className="text-slate-400">Barrels</span>
+                    <span className="font-medium text-white">{sessionStats.barrelHits} ({sessionStats.barrelPct}%)</span>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total Points</span>
-                    <span className="font-medium">{sessionStats.totalPoints.toLocaleString()}</span>
+                    <span className="text-slate-400">Total Points</span>
+                    <span className="font-medium text-white">{sessionStats.totalPoints.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Points/Swing</span>
-                    <span className="font-medium">{sessionStats.pointsPerSwing}</span>
+                    <span className="text-slate-400">Points/Swing</span>
+                    <span className="font-medium text-white">{sessionStats.pointsPerSwing}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">90+ mph Hits</span>
-                    <span className="font-medium">{sessionStats.velo90Plus}</span>
+                    <span className="text-slate-400">90+ MPH</span>
+                    <span className="font-medium text-white">{sessionStats.velo90Plus}</span>
                   </div>
                 </div>
               </div>
               
-              {/* View Details Toggle */}
+              {/* Save Button */}
               <Button
-                variant="outline"
-                className="w-full mb-4"
-                onClick={() => setShowDetails(!showDetails)}
+                onClick={saveToDatabase}
+                disabled={!selectedPlayer || isSaving}
+                className="w-full gap-2 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
               >
-                <Eye className="h-4 w-4 mr-2" />
-                {showDetails ? "Hide Details" : "View Details"}
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    Save to Database
+                  </>
+                )}
               </Button>
-              
-              {showDetails && (
-                <div className="space-y-4 mb-6">
-                  {/* Results Breakdown */}
-                  <div>
-                    <h4 className="font-medium mb-2">Results Breakdown</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {Object.entries(sessionStats.resultsBreakdown).map(([result, count]) => (
-                        <Badge key={result} variant="outline">
-                          {result}: {count}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Hit Types Breakdown */}
-                  <div>
-                    <h4 className="font-medium mb-2">Hit Types</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {Object.entries(sessionStats.hitTypesBreakdown).map(([type, count]) => (
-                        <Badge key={type} variant="secondary">
-                          {type}: {count}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Velocity Breakdown */}
-                  <div>
-                    <h4 className="font-medium mb-2">Velocity Breakdown</h4>
-                    <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div className="bg-surface rounded p-2 text-center">
-                        <div className="font-bold text-green-500">{sessionStats.velo100Plus}</div>
-                        <div className="text-xs text-muted-foreground">100+ mph</div>
-                      </div>
-                      <div className="bg-surface rounded p-2 text-center">
-                        <div className="font-bold text-yellow-500">{sessionStats.velo95Plus}</div>
-                        <div className="text-xs text-muted-foreground">95+ mph</div>
-                      </div>
-                      <div className="bg-surface rounded p-2 text-center">
-                        <div className="font-bold">{sessionStats.velo90Plus}</div>
-                        <div className="text-xs text-muted-foreground">90+ mph</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Contact Breakdown */}
-                  <div>
-                    <h4 className="font-medium mb-2">Contact Breakdown</h4>
-                    <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div className="bg-surface rounded p-2 text-center">
-                        <div className="font-bold text-green-500">{sessionStats.ballsInPlay}</div>
-                        <div className="text-xs text-muted-foreground">In Play</div>
-                      </div>
-                      <div className="bg-surface rounded p-2 text-center">
-                        <div className="font-bold text-yellow-500">{sessionStats.fouls}</div>
-                        <div className="text-xs text-muted-foreground">Fouls</div>
-                      </div>
-                      <div className="bg-surface rounded p-2 text-center">
-                        <div className="font-bold text-red-500">{sessionStats.misses}</div>
-                        <div className="text-xs text-muted-foreground">Misses</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <Button
-                  onClick={saveToDatabase}
-                  disabled={!selectedPlayer || isSaving}
-                  className="flex-1 gap-2"
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      Save to Database
-                    </>
-                  )}
-                </Button>
-              </div>
-              
-              {!selectedPlayer && sessionStats && (
-                <p className="text-sm text-amber-500 mt-2 text-center">
-                  ⚠️ Select a player to save this session
-                </p>
-              )}
             </CardContent>
           </Card>
         )}
