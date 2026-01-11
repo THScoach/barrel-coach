@@ -202,7 +202,7 @@ export function UnifiedDataUploadModal({
     try {
       // Save launch monitor session
       if (launchMonitorStats) {
-        const { error: lmError } = await supabase
+        const { data: sessionData, error: lmError } = await supabase
           .from("launch_monitor_sessions")
           .insert({
             player_id: playerId,
@@ -234,7 +234,9 @@ export function UnifiedDataUploadModal({
             ball_score: launchMonitorStats.ballScore,
             results_breakdown: launchMonitorStats.resultsBreakdown,
             hit_types_breakdown: launchMonitorStats.hitTypesBreakdown,
-          });
+          })
+          .select('id')
+          .single();
         
         if (lmError) throw lmError;
         

@@ -4,3 +4,4 @@ export { PlayerDataTab } from './PlayerDataTab';
 export { PlayerDrillsTab } from './PlayerDrillsTab';
 export { PlayerCommunicationTab } from './PlayerCommunicationTab';
 export { PlayerScoresTab } from './PlayerScoresTab';
+export { PlayerTransferTab } from './PlayerTransferTab';
