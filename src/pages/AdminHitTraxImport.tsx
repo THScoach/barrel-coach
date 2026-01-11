@@ -80,7 +80,7 @@ export default function AdminHitTraxImport() {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
   
-  // Process CSV files
+  // Process CSV files - HARDENED with better error handling
   const processFiles = async () => {
     if (uploadedFiles.length === 0) {
       toast.error("Please upload at least one CSV file");
@@ -91,15 +91,31 @@ export default function AdminHitTraxImport() {
     
     try {
       const allRows: HitTraxRow[] = [];
+      let fileWarnings: string[] = [];
       
       for (const file of uploadedFiles) {
-        const text = await file.text();
-        const rows = parseHitTraxCSV(text);
-        allRows.push(...rows);
+        try {
+          const text = await file.text();
+          const rows = parseHitTraxCSV(text);
+          
+          if (rows.length === 0) {
+            fileWarnings.push(`${file.name}: No valid data found`);
+            console.warn(`File ${file.name}: No valid data - check column headers`);
+          } else {
+            console.log(`File ${file.name}: Parsed ${rows.length} swings`);
+            allRows.push(...rows);
+          }
+        } catch (fileError) {
+          console.warn(`Error parsing ${file.name}:`, fileError);
+          fileWarnings.push(`${file.name}: Parse error - skipped`);
+        }
       }
       
       if (allRows.length === 0) {
-        toast.error("No valid swing data found in the uploaded files");
+        const message = fileWarnings.length > 0 
+          ? `No valid swing data found. Check CSV column headers match HitTrax format.`
+          : "No valid swing data found in the uploaded files";
+        toast.error(message);
         setIsProcessing(false);
         return;
       }
@@ -113,10 +129,15 @@ export default function AdminHitTraxImport() {
       setParsedRows(allRows);
       setSessionStats(stats);
       
-      toast.success(`Processed ${allRows.length} swings from ${uploadedFiles.length} file(s)`);
+      // Show appropriate success message
+      if (fileWarnings.length > 0) {
+        toast.warning(`Processed ${allRows.length} swings from ${uploadedFiles.length - fileWarnings.length} file(s). Some files had issues.`);
+      } else {
+        toast.success(`Processed ${allRows.length} swings from ${uploadedFiles.length} file(s)`);
+      }
     } catch (error) {
       console.error("Error processing files:", error);
-      toast.error("Failed to process CSV files");
+      toast.error("Failed to process CSV files. Check file format and try again.");
     } finally {
       setIsProcessing(false);
     }
