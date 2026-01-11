@@ -25,7 +25,9 @@ serve(async (req) => {
       throw new Error("Missing required fields: productType, player, environment");
     }
 
+    // Swing requirements: min required for payment gating, max allowed for upload limit
     const swingsRequired = productType === "complete_review" ? 5 : 1;
+    const swingsMaxAllowed = 15; // Allow up to 15 swings for better analysis
     const priceCents = productType === "complete_review" ? 9700 : 3700;
 
     // Format phone number if provided
@@ -52,6 +54,7 @@ serve(async (req) => {
         player_level: player.level,
         environment: environment,
         swings_required: swingsRequired,
+        swings_max_allowed: swingsMaxAllowed,
         status: "pending_upload",
       })
       .select()
@@ -116,6 +119,7 @@ serve(async (req) => {
       JSON.stringify({
         sessionId: session.id,
         swingsRequired,
+        swingsMaxAllowed,
         status: session.status,
       }),
       {

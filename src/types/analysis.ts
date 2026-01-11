@@ -33,6 +33,7 @@ export interface Product {
   name: string;
   price: number;
   swingsRequired: number;
+  swingsMaxAllowed: number;
   features: string[];
 }
 
@@ -122,6 +123,7 @@ export const PRODUCTS: Product[] = [
     name: 'Single Swing Score™',
     price: 37,
     swingsRequired: 1,
+    swingsMaxAllowed: 15,
     features: [
       '1 swing analyzed',
       'Your #1 problem identified',
@@ -134,8 +136,9 @@ export const PRODUCTS: Product[] = [
     name: 'Complete Swing Review™',
     price: 97,
     swingsRequired: 5,
+    swingsMaxAllowed: 15,
     features: [
-      '5 swings analyzed',
+      '5-15 swings analyzed',
       'Consistency analysis',
       'Age comparison',
       '30-day improvement plan',
