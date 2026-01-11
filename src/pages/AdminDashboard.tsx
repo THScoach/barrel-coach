@@ -12,9 +12,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  Video, Users, DollarSign, Plus, Upload, MessageSquare,
-  ChevronRight, Loader2, Clock, ArrowRight
+import {
+  Video,
+  Users,
+  DollarSign,
+  Plus,
+  Upload,
+  MessageSquare,
+  ChevronRight,
+  Loader2,
+  Clock,
+  TrendingUp,
+  BarChart3,
+  ArrowRight,
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { format, formatDistanceToNow, startOfWeek } from "date-fns";
@@ -22,147 +32,153 @@ import { format, formatDistanceToNow, startOfWeek } from "date-fns";
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const today = new Date();
-  const greeting = today.getHours() < 12 ? "Good morning" : today.getHours() < 17 ? "Good afternoon" : "Good evening";
+  const greeting =
+    today.getHours() < 12
+      ? "Good morning"
+      : today.getHours() < 17
+      ? "Good afternoon"
+      : "Good evening";
 
-  // Pending analyses count
   const { data: pendingCount = 0, isLoading: loadingPending } = useQuery({
-    queryKey: ['pending-analyses-count'],
+    queryKey: ["pending-analyses-count"],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from('sessions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'uploaded');
-      if (error) throw error;
+      const { count } = await supabase
+        .from("sessions")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "uploaded");
       return count || 0;
-    }
+    },
   });
 
-  // Active players count
   const { data: playerCount = 0, isLoading: loadingPlayers } = useQuery({
-    queryKey: ['active-players-count'],
+    queryKey: ["active-players-count"],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from('player_profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true);
-      if (error) throw error;
+      const { count } = await supabase
+        .from("player_profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true);
       return count || 0;
-    }
+    },
   });
 
-  // Revenue this week
   const { data: weeklyRevenue = 0, isLoading: loadingRevenue } = useQuery({
-    queryKey: ['weekly-revenue'],
+    queryKey: ["weekly-revenue"],
     queryFn: async () => {
       const weekStart = startOfWeek(today, { weekStartsOn: 0 });
-      const { data, error } = await supabase
-        .from('sessions')
-        .select('price_cents')
-        .gte('paid_at', weekStart.toISOString())
-        .not('paid_at', 'is', null);
-      if (error) throw error;
-      const total = data?.reduce((sum, s) => sum + (s.price_cents || 0), 0) || 0;
-      return total / 100;
-    }
+      const { data } = await supabase
+        .from("sessions")
+        .select("price_cents")
+        .gte("paid_at", weekStart.toISOString())
+        .not("paid_at", "is", null);
+      return (data?.reduce((sum, s) => sum + (s.price_cents || 0), 0) || 0) / 100;
+    },
   });
 
-  // Pending analyses (top 5)
   const { data: pendingAnalyses = [], isLoading: loadingPendingList } = useQuery({
-    queryKey: ['pending-analyses-list'],
+    queryKey: ["pending-analyses-list"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sessions')
-        .select('id, player_name, product_type, price_cents, created_at, status')
-        .eq('status', 'uploaded')
-        .order('created_at', { ascending: false })
+      const { data } = await supabase
+        .from("sessions")
+        .select("id, player_name, product_type, price_cents, created_at, status")
+        .eq("status", "uploaded")
+        .order("created_at", { ascending: false })
         .limit(5);
-      if (error) throw error;
       return data || [];
-    }
+    },
   });
 
-  // Recent players (top 5)
   const { data: recentPlayers = [], isLoading: loadingRecentPlayers } = useQuery({
-    queryKey: ['recent-players-list'],
+    queryKey: ["recent-players-list"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('player_profiles')
-        .select('id, first_name, last_name, organization, level, total_sessions, updated_at')
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false })
+      const { data } = await supabase
+        .from("player_profiles")
+        .select(
+          "id, first_name, last_name, organization, level, total_sessions, updated_at"
+        )
+        .eq("is_active", true)
+        .order("updated_at", { ascending: false })
         .limit(5);
-      if (error) throw error;
       return data || [];
-    }
+    },
   });
 
   const formatProductType = (type: string, cents: number) => {
     const products: Record<string, string> = {
-      'single_swing': `Single $${cents / 100}`,
-      'complete': `Complete $${cents / 100}`,
-      'in_person': `In-Person $${cents / 100}`,
+      single_swing: `Single $${cents / 100}`,
+      complete: `Complete $${cents / 100}`,
+      in_person: `In-Person $${cents / 100}`,
     };
     return products[type] || type;
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-950">
       <AdminHeader />
-      
-      <main className="container py-6">
+
+      <main className="container py-8">
         {/* Greeting */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold">{greeting}, Coach Rick</h1>
-            <p className="text-muted-foreground">{format(today, 'EEEE, MMMM d, yyyy')}</p>
-          </div>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-white">{greeting}, Coach Rick</h1>
+          <p className="text-slate-400">{format(today, "EEEE, MMMM d, yyyy")}</p>
         </div>
 
         {/* Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Card>
+          <Card className="bg-slate-900/80 border-slate-800">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-amber-500/10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Pending Analyses</p>
+                  <p className="text-3xl font-bold text-white">
+                    {loadingPending ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      pendingCount
+                    )}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-amber-500/10">
                   <Video className="h-6 w-6 text-amber-500" />
                 </div>
-                <div>
-                  <p className="text-3xl font-bold">
-                    {loadingPending ? <Loader2 className="h-6 w-6 animate-spin" /> : pendingCount}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Pending Analyses</p>
-                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-slate-900/80 border-slate-800">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-blue-500/10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Active Players</p>
+                  <p className="text-3xl font-bold text-white">
+                    {loadingPlayers ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      playerCount
+                    )}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-blue-500/10">
                   <Users className="h-6 w-6 text-blue-500" />
                 </div>
-                <div>
-                  <p className="text-3xl font-bold">
-                    {loadingPlayers ? <Loader2 className="h-6 w-6 animate-spin" /> : playerCount}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Active Players</p>
-                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-slate-900/80 border-slate-800">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-green-500/10">
-                  <DollarSign className="h-6 w-6 text-green-500" />
-                </div>
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-3xl font-bold">
-                    {loadingRevenue ? <Loader2 className="h-6 w-6 animate-spin" /> : `$${weeklyRevenue.toLocaleString()}`}
+                  <p className="text-sm text-slate-400 mb-1">This Week</p>
+                  <p className="text-3xl font-bold text-white">
+                    {loadingRevenue ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      `$${weeklyRevenue.toLocaleString()}`
+                    )}
                   </p>
-                  <p className="text-sm text-muted-foreground">This Week</p>
+                </div>
+                <div className="p-3 rounded-xl bg-green-500/10">
+                  <DollarSign className="h-6 w-6 text-green-500" />
                 </div>
               </div>
             </CardContent>
@@ -171,17 +187,28 @@ export default function AdminDashboard() {
 
         {/* Quick Actions */}
         <div className="mb-8">
-          <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+          <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
           <div className="flex flex-wrap gap-3">
-            <Button onClick={() => navigate('/admin/new-session')}>
+            <Button
+              onClick={() => navigate("/admin/new-session")}
+              className="bg-red-600 hover:bg-red-700"
+            >
               <Plus className="h-4 w-4 mr-2" />
               New Session
             </Button>
-            <Button variant="outline" onClick={() => navigate('/admin/videos')}>
+            <Button
+              onClick={() => navigate("/admin/videos")}
+              variant="outline"
+              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+            >
               <Upload className="h-4 w-4 mr-2" />
               Upload Video
             </Button>
-            <Button variant="outline" onClick={() => navigate('/admin/messages')}>
+            <Button
+              onClick={() => navigate("/admin/messages")}
+              variant="outline"
+              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+            >
               <MessageSquare className="h-4 w-4 mr-2" />
               Send SMS
             </Button>
@@ -191,50 +218,66 @@ export default function AdminDashboard() {
         {/* Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Pending Analyses */}
-          <Card>
+          <Card className="bg-slate-900/80 border-slate-800">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-semibold">Pending Analyses</CardTitle>
-              <Link to="/admin/analyzer" className="text-sm text-primary hover:underline flex items-center gap-1">
+              <CardTitle className="text-base font-semibold text-white">
+                Pending Analyses
+              </CardTitle>
+              <Link
+                to="/admin/analyzer"
+                className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1"
+              >
                 View All <ArrowRight className="h-3 w-3" />
               </Link>
             </CardHeader>
             <CardContent>
               {loadingPendingList ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                 </div>
               ) : pendingAnalyses.length > 0 ? (
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Player</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Uploaded</TableHead>
+                    <TableRow className="border-slate-800 hover:bg-transparent">
+                      <TableHead className="text-slate-400">Player</TableHead>
+                      <TableHead className="text-slate-400">Product</TableHead>
+                      <TableHead className="text-slate-400">Uploaded</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {pendingAnalyses.map((session) => (
-                      <TableRow key={session.id}>
-                        <TableCell className="font-medium">
-                          {session.player_name?.split(' ')[0]} {session.player_name?.split(' ')[1]?.[0]}.
+                      <TableRow
+                        key={session.id}
+                        className="border-slate-800 hover:bg-slate-800/50"
+                      >
+                        <TableCell className="font-medium text-white">
+                          {session.player_name?.split(" ")[0]}{" "}
+                          {session.player_name?.split(" ")[1]?.[0]}.
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">
+                          <Badge
+                            variant="outline"
+                            className="border-slate-700 text-slate-300"
+                          >
                             {formatProductType(session.product_type, session.price_cents)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
+                        <TableCell className="text-slate-400 text-sm">
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            {formatDistanceToNow(new Date(session.created_at), { addSuffix: true })}
+                            {formatDistanceToNow(new Date(session.created_at), {
+                              addSuffix: true,
+                            })}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => navigate(`/admin/analyzer?session=${session.id}`)}
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              navigate(`/admin/analyzer?session=${session.id}`)
+                            }
+                            className="bg-red-600 hover:bg-red-700"
                           >
                             Analyze
                           </Button>
@@ -244,82 +287,88 @@ export default function AdminDashboard() {
                   </TableBody>
                 </Table>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Video className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No pending analyses</p>
+                <div className="text-center py-8 text-slate-400">
+                  <p>No pending analyses 🎉</p>
                 </div>
               )}
             </CardContent>
           </Card>
 
           {/* Recent Players */}
-          <Card>
+          <Card className="bg-slate-900/80 border-slate-800">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-semibold">Recent Players</CardTitle>
-              <Link to="/admin/players" className="text-sm text-primary hover:underline flex items-center gap-1">
+              <CardTitle className="text-base font-semibold text-white">
+                Recent Players
+              </CardTitle>
+              <Link
+                to="/admin/players"
+                className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1"
+              >
                 View All <ArrowRight className="h-3 w-3" />
               </Link>
             </CardHeader>
             <CardContent>
               {loadingRecentPlayers ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                 </div>
               ) : recentPlayers.length > 0 ? (
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Player</TableHead>
-                      <TableHead>Level</TableHead>
-                      <TableHead className="text-center">Sessions</TableHead>
-                      <TableHead></TableHead>
+                    <TableRow className="border-slate-800 hover:bg-transparent">
+                      <TableHead className="text-slate-400">Player</TableHead>
+                      <TableHead className="text-slate-400">Level</TableHead>
+                      <TableHead className="text-slate-400 text-center">
+                        Sessions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {recentPlayers.map((player) => (
-                      <TableRow 
+                      <TableRow
                         key={player.id}
-                        className="cursor-pointer"
+                        className="cursor-pointer border-slate-800 hover:bg-slate-800/50"
                         onClick={() => navigate(`/admin/players/${player.id}`)}
                       >
                         <TableCell>
                           <div>
-                            <div className="font-medium">
-                              {player.first_name} {player.last_name || ''}
-                            </div>
+                            <p className="font-medium text-white">
+                              {player.first_name} {player.last_name || ""}
+                            </p>
                             {player.organization && (
-                              <div className="text-xs text-muted-foreground">
+                              <p className="text-xs text-slate-500">
                                 {player.organization}
-                              </div>
+                              </p>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
                           {player.level ? (
-                            <Badge variant="secondary">{player.level}</Badge>
-                          ) : '-'}
+                            <Badge
+                              variant="secondary"
+                              className="bg-slate-800 text-slate-300"
+                            >
+                              {player.level}
+                            </Badge>
+                          ) : (
+                            <span className="text-slate-500">-</span>
+                          )}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center text-white">
                           {player.total_sessions || 0}
-                        </TableCell>
-                        <TableCell>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No players yet</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="mt-2"
-                    onClick={() => navigate('/admin/players/new')}
+                <div className="text-center py-8 text-slate-400">
+                  <p className="mb-3">No players yet</p>
+                  <Button
+                    onClick={() => navigate("/admin/players/new")}
+                    className="bg-red-600 hover:bg-red-700"
                   >
-                    <Plus className="h-4 w-4 mr-1" />
+                    <Plus className="h-4 w-4 mr-2" />
                     Add First Player
                   </Button>
                 </div>
