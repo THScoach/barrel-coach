@@ -1,55 +1,97 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Get a fresh signed URL for a video stored in swing-videos bucket.
- * Use this for playback to avoid expired URL issues.
+ * SECURITY: Signed URLs must be obtained through authenticated edge functions.
+ * Direct client-side createSignedUrl calls are blocked because they bypass ownership checks.
  * 
- * @param storagePath - The stable storage path (e.g., "sessionId/3.mp4")
- * @param expiresIn - Expiration time in seconds (default 3600 = 1 hour)
- * @returns Fresh signed URL or null if failed
+ * Use the get-session edge function to obtain signed URLs for swing videos.
+ * That function verifies JWT and enforces session ownership before returning URLs.
  */
-export async function getSignedVideoUrl(
-  storagePath: string,
-  expiresIn: number = 3600
-): Promise<string | null> {
-  if (!storagePath) return null;
+
+/**
+ * Get signed video URLs by calling the secure get-session edge function.
+ * This ensures ownership verification before returning URLs.
+ * 
+ * @param sessionId - The session ID to get videos for
+ * @returns Object with session and swings (with signed URLs) or null if failed
+ */
+export async function getSessionWithSignedUrls(sessionId: string): Promise<{
+  session: any;
+  swings: Array<{ video_url: string | null; video_storage_path: string | null; [key: string]: any }>;
+} | null> {
+  if (!sessionId) return null;
 
   try {
-    const { data, error } = await supabase.storage
-      .from("swing-videos")
-      .createSignedUrl(storagePath, expiresIn);
-
-    if (error) {
-      console.error("Failed to create signed URL:", error);
+    const { data: { session: authSession } } = await supabase.auth.getSession();
+    
+    if (!authSession?.access_token) {
+      console.error("No auth session - cannot get signed URLs");
       return null;
     }
 
-    return data?.signedUrl || null;
+    const response = await supabase.functions.invoke('get-session', {
+      body: null,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // The function uses query params, so we need to call it differently
+    const { data, error } = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-session?sessionId=${sessionId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authSession.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    ).then(res => res.json().then(data => ({ data, error: res.ok ? null : data.error })));
+
+    if (error) {
+      console.error("Failed to get session with signed URLs:", error);
+      return null;
+    }
+
+    return data;
   } catch (err) {
-    console.error("Error getting signed URL:", err);
+    console.error("Error getting session with signed URLs:", err);
     return null;
   }
 }
 
 /**
- * Refresh signed URLs for an array of swings.
- * Useful for batch refresh on page load or when URLs expire.
- * 
- * @param swings - Array of objects with video_storage_path
- * @returns Same array with refreshed video_url fields
+ * @deprecated Use getSessionWithSignedUrls instead.
+ * Direct signed URL generation is disabled for security.
+ * Signed URLs must come from authenticated edge functions that verify ownership.
+ */
+export async function getSignedVideoUrl(
+  storagePath: string,
+  expiresIn: number = 3600
+): Promise<string | null> {
+  console.warn(
+    "SECURITY: getSignedVideoUrl is deprecated. " +
+    "Use getSessionWithSignedUrls() which enforces ownership via edge function."
+  );
+  
+  // Return null - callers must use the secure method
+  return null;
+}
+
+/**
+ * @deprecated Use getSessionWithSignedUrls instead.
+ * This function is disabled for security reasons.
  */
 export async function refreshSwingUrls<T extends { video_storage_path?: string | null; video_url?: string | null }>(
   swings: T[]
 ): Promise<T[]> {
-  return Promise.all(
-    swings.map(async (swing) => {
-      if (swing.video_storage_path) {
-        const freshUrl = await getSignedVideoUrl(swing.video_storage_path);
-        return { ...swing, video_url: freshUrl };
-      }
-      return swing;
-    })
+  console.warn(
+    "SECURITY: refreshSwingUrls is deprecated. " +
+    "Use getSessionWithSignedUrls() which enforces ownership via edge function."
   );
+  
+  // Return swings unchanged - callers must use the secure method
+  return swings;
 }
 
 /**

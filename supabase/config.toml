@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.sam3-segment]
 verify_jwt = false
+
+[functions.get-session]
+verify_jwt = false

@@ -30,7 +30,7 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Verify the JWT token
+    // Verify the JWT token and get user info
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
     
@@ -42,6 +42,7 @@ serve(async (req) => {
     }
 
     const userId = claimsData.claims.sub;
+    const userEmail = claimsData.claims.email;
 
     // Check if user is admin
     const { data: isAdminData } = await supabaseAuth.rpc("is_admin");
@@ -72,13 +73,28 @@ serve(async (req) => {
     }
 
     // ============================================================
-    // SECURITY: Only allow access if user is admin OR owns the session
+    // SECURITY LOCK 4: Only allow access if user is admin OR owns the session
+    // Primary: Check user_id match
+    // Fallback: Check email match (for legacy sessions without user_id)
     // ============================================================
-    if (!isAdmin && session.user_id !== userId) {
+    const isOwnerByUserId = session.user_id && session.user_id === userId;
+    const isOwnerByEmail = userEmail && session.player_email && 
+      (session.player_email as string).toLowerCase() === (userEmail as string).toLowerCase();
+    
+    if (!isAdmin && !isOwnerByUserId && !isOwnerByEmail) {
       return new Response(
         JSON.stringify({ error: "Forbidden - you don't own this session" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
       );
+    }
+    
+    // If session doesn't have user_id yet but email matches, claim it
+    if (!session.user_id && isOwnerByEmail) {
+      await supabase
+        .from("sessions")
+        .update({ user_id: userId })
+        .eq("id", sessionId);
+      session.user_id = userId; // Update local copy
     }
 
     // Fetch swings
