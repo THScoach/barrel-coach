@@ -1,6 +1,23 @@
 // HitTrax CSV Parser and Quality Hit Game Scoring
 // HARDENED for flexible column mapping and robust error handling
 
+/**
+ * Safe string normalizer - NEVER fails, always returns lowercase string
+ * Use this for any value that might be called with .toLowerCase() etc.
+ */
+function normStr(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  return String(v).trim().toLowerCase();
+}
+
+/**
+ * Safe uppercase string normalizer
+ */
+function normStrUpper(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  return String(v).trim().toUpperCase();
+}
+
 export interface HitTraxRow {
   swingNumber: number;
   atBat: number;
@@ -66,28 +83,32 @@ export interface HitTraxSessionStats {
 // ============================================
 
 const HEADER_ALIASES: Record<string, string[]> = {
-  // Exit Velocity aliases
+  // Exit Velocity aliases - INCLUDES "Velo" for HitTrax
   exitVelo: [
     'velo', 'exit velocity', 'exitvelocity', 'ev', 'ev (mph)', 
     'exit velo', 'exitvelo', 'exit_velocity', 'exit_velo',
-    'ball speed', 'ballspeed', 'ball_speed', 'exit speed', 'exitspeed'
+    'ball speed', 'ballspeed', 'ball_speed', 'exit speed', 'exitspeed',
+    'exit velo (mph)', 'exitvelo(mph)', 'velo (mph)'
   ],
   
   // Launch Angle aliases  
   launchAngle: [
     'la', 'launch angle', 'launchangle', 'angle', 'launch_angle',
-    'vert angle', 'vertical angle', 'vert_angle', 'vla'
+    'vert angle', 'vertical angle', 'vert_angle', 'vla',
+    'launch ang', 'vert. angle', 'la (deg)', 'launch'
   ],
   
-  // Distance aliases
+  // Distance aliases - INCLUDES "Dist" for HitTrax
   distance: [
     'dist', 'distance', 'carry', 'total distance', 'totaldistance',
-    'total_distance', 'projected distance', 'proj dist', 'proj_dist'
+    'total_distance', 'projected distance', 'proj dist', 'proj_dist',
+    'dist (ft)', 'distance (ft)', 'carry (ft)', 'proj. dist'
   ],
   
-  // Result aliases
+  // Result aliases - optional field
   result: [
-    'res', 'result', 'outcome', 'play result', 'playresult', 'play_result'
+    'res', 'result', 'outcome', 'play result', 'playresult', 'play_result',
+    'play', 'hit result', 'hitresult'
   ],
   
   // Hit Type aliases
@@ -160,10 +181,10 @@ const HEADER_ALIASES: Record<string, string[]> = {
 /**
  * Normalize a header string for matching
  */
-function normalizeHeader(header: string): string {
-  return header
-    .toLowerCase()
-    .trim()
+function normalizeHeader(header: unknown): string {
+  // Use normStr for safety - header might not be a string
+  const h = normStr(header);
+  return h
     .replace(/[\s_\-\.]+/g, ' ')  // Normalize separators
     .replace(/[^\w\s#]/g, '');     // Remove special chars except # and spaces
 }
@@ -268,13 +289,20 @@ export function parseHitTraxCSV(csvText: string): HitTraxRow[] {
     const headers = lines[0].split(',').map(h => h.trim());
     const columnMap = buildColumnMap(headers);
     
-    // Log detected columns for debugging
-    console.log('HitTrax CSV: Detected columns:', columnMap);
+    // DEBUG: Log detected columns for troubleshooting
+    console.log('[HitTrax] Raw headers:', headers);
+    console.log('[HitTrax] Column mapping:', {
+      exitVelo: columnMap.exitVelo || 'NOT FOUND',
+      launchAngle: columnMap.launchAngle || 'NOT FOUND',
+      distance: columnMap.distance || 'NOT FOUND',
+      result: columnMap.result || 'NOT FOUND (optional)',
+      hitType: columnMap.hitType || 'NOT FOUND (optional)'
+    });
     
     // Check for critical columns (EV and LA)
     if (!columnMap.exitVelo && !columnMap.launchAngle) {
-      console.warn('HitTrax CSV: Could not find Exit Velocity or Launch Angle columns');
-      console.warn('Available headers:', headers);
+      console.warn('[HitTrax] WARNING: Could not find Exit Velocity or Launch Angle columns');
+      console.warn('[HitTrax] Available headers:', headers.join(', '));
     }
     
     const rows: HitTraxRow[] = [];
@@ -326,19 +354,29 @@ export function parseHitTraxCSV(csvText: string): HitTraxRow[] {
           batting: getValue('batting'),
           level: getValue('level')
         });
+        
+        // DEBUG: Log first 3 rows to help diagnose issues
+        if (rows.length <= 3) {
+          const lastRow = rows[rows.length - 1];
+          console.log(`[HitTrax] Row ${rows.length}:`, {
+            exitVelo: lastRow.exitVelo,
+            launchAngle: lastRow.launchAngle,
+            distance: lastRow.distance,
+            result: lastRow.result,
+            resultType: typeof lastRow.result
+          });
+        }
       } catch (rowError) {
-        console.warn(`HitTrax CSV: Error parsing row ${i}:`, rowError);
+        console.warn(`[HitTrax] Error parsing row ${i}:`, rowError);
         skippedCount++;
       }
     }
     
-    if (skippedCount > 0) {
-      console.log(`HitTrax CSV: Skipped ${skippedCount} invalid/empty rows`);
-    }
+    console.log(`[HitTrax] Parsing complete: ${rows.length} valid rows, ${skippedCount} skipped`);
     
     return rows;
   } catch (error) {
-    console.error('HitTrax CSV: Critical parsing error:', error);
+    console.error('[HitTrax] Critical parsing error:', error);
     return [];
   }
 }
@@ -378,10 +416,11 @@ function parseCSVLine(line: string): string[] {
  */
 export function isMiss(row: HitTraxRow): boolean {
   // Miss if EV is 0 and no result OR result indicates miss
-  const resultLower = (row.result || '').toLowerCase();
+  // Use normStr for safe string handling - NEVER call .toLowerCase() directly
+  const resultLower = normStr(row.result);
   return (
     row.exitVelo === 0 && 
-    (!row.result || resultLower.includes('miss') || resultLower.includes('whiff'))
+    (resultLower === '' || resultLower.includes('miss') || resultLower.includes('whiff'))
   );
 }
 
@@ -389,7 +428,7 @@ export function isMiss(row: HitTraxRow): boolean {
  * Check if a swing is a foul ball
  */
 export function isFoul(row: HitTraxRow): boolean {
-  const resultLower = (row.result || '').toLowerCase();
+  const resultLower = normStr(row.result);
   return resultLower === 'foul' || resultLower.includes('foul');
 }
 
@@ -410,7 +449,8 @@ export function calculateSwingPoints(row: HitTraxRow): number {
   let points = 0;
   const velo = row.exitVelo;
   const la = row.launchAngle;
-  const result = (row.result || '').toUpperCase();
+  const result = normStrUpper(row.result);
+  const hitType = normStr(row.hitType);
   
   // Exit velocity scoring
   if (velo >= 100) points += 20;
@@ -424,12 +464,17 @@ export function calculateSwingPoints(row: HitTraxRow): number {
   else if (la >= 8 && la <= 30) points += 5;  // Acceptable
   else if (la < 0) points -= 5;  // Negative LA ground ball
   
-  // Result bonus
-  if (result.includes('HR') || result.includes('HOME')) points += 25;
-  else if (result.includes('3B') || result.includes('TRIPLE')) points += 20;
-  else if (result.includes('2B') || result.includes('DOUBLE')) points += 15;
-  else if (result.includes('1B') || result.includes('SINGLE')) points += 10;
-  else if (row.hitType === 'LD' || (row.hitType || '').toLowerCase().includes('line')) points += 5;
+  // Result bonus (only if result column exists and has value)
+  if (result) {
+    if (result.includes('HR') || result.includes('HOME')) points += 25;
+    else if (result.includes('3B') || result.includes('TRIPLE')) points += 20;
+    else if (result.includes('2B') || result.includes('DOUBLE')) points += 15;
+    else if (result.includes('1B') || result.includes('SINGLE')) points += 10;
+    else if (hitType === 'ld' || hitType.includes('line')) points += 5;
+  } else if (hitType === 'ld' || hitType.includes('line')) {
+    // If no result but hit type is line drive
+    points += 5;
+  }
   
   return points;
 }
