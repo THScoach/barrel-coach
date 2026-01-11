@@ -7,11 +7,21 @@ import { AnalysisProvider } from "@/contexts/AnalysisContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedAdminRoute } from "@/components/ProtectedAdminRoute";
 import { CoachRickWidget } from "@/components/CoachRickWidget";
+import { PlayerLayout } from "@/components/player/PlayerLayout";
+
+// Public pages
 import Index from "./pages/Index";
 import Analyze from "./pages/Analyze";
 import About from "./pages/About";
 import InnerCircle from "./pages/InnerCircle";
 import Assessment from "./pages/Assessment";
+import Library from "./pages/Library";
+import Results from "./pages/Results";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import NotFound from "./pages/NotFound";
+
+// Admin pages
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminMessages from "./pages/AdminMessages";
 import AdminVideos from "./pages/AdminVideos";
@@ -23,11 +33,13 @@ import AdminImportKommodo from "./pages/AdminImportKommodo";
 import AdminSMS from "./pages/AdminSMS";
 import AdminRebootAnalysis from "./pages/AdminRebootAnalysis";
 import AdminHitTraxImport from "./pages/AdminHitTraxImport";
-import Library from "./pages/Library";
-import Results from "./pages/Results";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import NotFound from "./pages/NotFound";
+
+// Player pages
+import PlayerHome from "./pages/player/PlayerHome";
+import PlayerData from "./pages/player/PlayerData";
+import PlayerDrills from "./pages/player/PlayerDrills";
+import PlayerMessages from "./pages/player/PlayerMessages";
+import PlayerProfile from "./pages/player/PlayerProfile";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +53,7 @@ const App = () => (
           <BrowserRouter>
             <CoachRickWidget />
             <Routes>
+              {/* Public Routes */}
               <Route path="/" element={<Index />} />
               <Route path="/analyze" element={<Analyze />} />
               <Route path="/about" element={<About />} />
@@ -50,6 +63,17 @@ const App = () => (
               <Route path="/results/:sessionId" element={<Results />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+
+              {/* Player Portal Routes */}
+              <Route path="/player" element={<PlayerLayout />}>
+                <Route index element={<PlayerHome />} />
+                <Route path="data" element={<PlayerData />} />
+                <Route path="drills" element={<PlayerDrills />} />
+                <Route path="messages" element={<PlayerMessages />} />
+                <Route path="profile" element={<PlayerProfile />} />
+              </Route>
+
+              {/* Admin Routes */}
               <Route path="/admin" element={
                 <ProtectedAdminRoute>
                   <AdminDashboard />
@@ -105,7 +129,8 @@ const App = () => (
                   <AdminHitTraxImport />
                 </ProtectedAdminRoute>
               } />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+              {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
