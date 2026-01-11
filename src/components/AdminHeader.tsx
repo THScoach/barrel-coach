@@ -17,7 +17,8 @@ export function AdminHeader() {
   const navLinks = [
     { to: "/admin", label: "Dashboard" },
     { to: "/admin/players", label: "Players" },
-    { to: "/admin/videos", label: "Library" },
+    { to: "/admin/library", label: "Library" },
+    { to: "/admin/videos", label: "Videos" },
   ];
 
   const isActive = (path: string) => {

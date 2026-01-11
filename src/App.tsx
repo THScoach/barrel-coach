@@ -33,6 +33,7 @@ import AdminImportKommodo from "./pages/AdminImportKommodo";
 import AdminSMS from "./pages/AdminSMS";
 import AdminRebootAnalysis from "./pages/AdminRebootAnalysis";
 import AdminHitTraxImport from "./pages/AdminHitTraxImport";
+import AdminLibrary from "./pages/AdminLibrary";
 
 // Player pages
 import PlayerHome from "./pages/player/PlayerHome";
@@ -127,6 +128,11 @@ const App = () => (
               <Route path="/admin/hittrax-import" element={
                 <ProtectedAdminRoute>
                   <AdminHitTraxImport />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/library" element={
+                <ProtectedAdminRoute>
+                  <AdminLibrary />
                 </ProtectedAdminRoute>
               } />
 
