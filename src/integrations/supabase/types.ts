@@ -94,6 +94,67 @@ export type Database = {
         }
         Relationships: []
       }
+      drill_completions: {
+        Row: {
+          completed_at: string | null
+          drill_id: string
+          duration_seconds: number | null
+          id: string
+          notes: string | null
+          player_id: string
+          player_program_id: string | null
+          rating: number | null
+          reps_completed: number | null
+          sets_completed: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          drill_id: string
+          duration_seconds?: number | null
+          id?: string
+          notes?: string | null
+          player_id: string
+          player_program_id?: string | null
+          rating?: number | null
+          reps_completed?: number | null
+          sets_completed?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          drill_id?: string
+          duration_seconds?: number | null
+          id?: string
+          notes?: string | null
+          player_id?: string
+          player_program_id?: string | null
+          rating?: number | null
+          reps_completed?: number | null
+          sets_completed?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drill_completions_drill_id_fkey"
+            columns: ["drill_id"]
+            isOneToOne: false
+            referencedRelation: "drills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drill_completions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drill_completions_player_program_id_fkey"
+            columns: ["player_program_id"]
+            isOneToOne: false
+            referencedRelation: "player_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drill_videos: {
         Row: {
           access_level: string | null
@@ -160,6 +221,63 @@ export type Database = {
           updated_at?: string | null
           video_type?: string | null
           video_url?: string
+        }
+        Relationships: []
+      }
+      drills: {
+        Row: {
+          created_at: string | null
+          cues: string[] | null
+          description: string | null
+          difficulty: string | null
+          duration_minutes: number | null
+          equipment: string[] | null
+          four_b_category: string | null
+          id: string
+          instructions: string | null
+          is_active: boolean | null
+          name: string
+          reps: number | null
+          sets: number | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          cues?: string[] | null
+          description?: string | null
+          difficulty?: string | null
+          duration_minutes?: number | null
+          equipment?: string[] | null
+          four_b_category?: string | null
+          id?: string
+          instructions?: string | null
+          is_active?: boolean | null
+          name: string
+          reps?: number | null
+          sets?: number | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          cues?: string[] | null
+          description?: string | null
+          difficulty?: string | null
+          duration_minutes?: number | null
+          equipment?: string[] | null
+          four_b_category?: string | null
+          id?: string
+          instructions?: string | null
+          is_active?: boolean | null
+          name?: string
+          reps?: number | null
+          sets?: number | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          video_url?: string | null
         }
         Relationships: []
       }
@@ -705,6 +823,60 @@ export type Database = {
         }
         Relationships: []
       }
+      player_programs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_week: number | null
+          id: string
+          notes: string | null
+          player_id: string
+          program_id: string
+          started_at: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_week?: number | null
+          id?: string
+          notes?: string | null
+          player_id: string
+          program_id: string
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_week?: number | null
+          id?: string
+          notes?: string | null
+          player_id?: string
+          program_id?: string
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_programs_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_programs_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       players: {
         Row: {
           account_status: string | null
@@ -842,6 +1014,102 @@ export type Database = {
           id?: string
           name?: string
           severity_weight?: number | null
+        }
+        Relationships: []
+      }
+      program_schedule: {
+        Row: {
+          created_at: string | null
+          day_of_week: number
+          drill_id: string
+          id: string
+          notes: string | null
+          order_index: number | null
+          program_id: string
+          reps_override: number | null
+          sets_override: number | null
+          week_number: number
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week: number
+          drill_id: string
+          id?: string
+          notes?: string | null
+          order_index?: number | null
+          program_id: string
+          reps_override?: number | null
+          sets_override?: number | null
+          week_number: number
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number
+          drill_id?: string
+          id?: string
+          notes?: string | null
+          order_index?: number | null
+          program_id?: string
+          reps_override?: number | null
+          sets_override?: number | null
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_schedule_drill_id_fkey"
+            columns: ["drill_id"]
+            isOneToOne: false
+            referencedRelation: "drills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_schedule_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      programs: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          difficulty: string | null
+          duration_weeks: number | null
+          four_b_focus: string[] | null
+          id: string
+          is_active: boolean | null
+          is_template: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          difficulty?: string | null
+          duration_weeks?: number | null
+          four_b_focus?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          is_template?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          difficulty?: string | null
+          duration_weeks?: number | null
+          four_b_focus?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          is_template?: boolean | null
+          name?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
