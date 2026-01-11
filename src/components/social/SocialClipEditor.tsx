@@ -5,6 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { 
   User, 
   Crosshair, 
@@ -21,11 +22,13 @@ import {
   SkipBack,
   SkipForward,
   Zap,
-  Target
+  Target,
+  X
 } from "lucide-react";
 import { useSAM3Segment, SegmentMode } from "@/hooks/useSAM3Segment";
-import { SpotlightCanvas } from "./SpotlightCanvas";
-import { BatPathTrail } from "./BatPathTrail";
+import { SpotlightCanvas, SpotlightCanvasRef } from "./SpotlightCanvas";
+import { BatPathTrail, BatPathTrailRef } from "./BatPathTrail";
+import { useVideoExport, downloadBlob } from "@/hooks/useVideoExport";
 import { toast } from "sonner";
 
 interface SocialClipEditorProps {
@@ -74,6 +77,9 @@ const TRAIL_COLORS = [
 
 export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const spotlightCanvasRef = useRef<SpotlightCanvasRef>(null);
+  const batTrailCanvasRef = useRef<BatPathTrailRef>(null);
+  
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -102,7 +108,7 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
 
   // Export state
   const [selectedPreset, setSelectedPreset] = useState<Preset>(EXPORT_PRESETS[0]);
-  const [isExporting, setIsExporting] = useState(false);
+  const { exportVideo, isExporting, progress: exportProgress, cancelExport } = useVideoExport();
 
   // Frame stepping for trail recording
   const stepFrame = useCallback((direction: 1 | -1) => {
@@ -237,19 +243,60 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
     }
   }, [contactFrameEnabled, contactFrameTime, contactFreezeActive, isPlaying, freezeDuration]);
 
-  // Export handler (simplified - in production would use MediaRecorder or ffmpeg.wasm)
+  // Export handler using MediaRecorder
   const handleExport = useCallback(async () => {
-    setIsExporting(true);
-    toast.info("Preparing export...", { description: "This feature is in development" });
+    const video = videoRef.current;
+    if (!video) {
+      toast.error("No video loaded");
+      return;
+    }
+
+    // Collect all overlay canvases
+    const overlayCanvases: HTMLCanvasElement[] = [];
     
-    // Simulate export delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const spotlightCanvas = spotlightCanvasRef.current?.getCanvas();
+    if (spotlightCanvas && overlayEnabled) {
+      overlayCanvases.push(spotlightCanvas);
+    }
     
-    toast.success("Export ready!", { 
-      description: `${selectedPreset.label} format` 
+    const trailCanvas = batTrailCanvasRef.current?.getCanvas();
+    if (trailCanvas && trailEnabled) {
+      overlayCanvases.push(trailCanvas);
+    }
+
+    toast.info("Starting export...", { 
+      description: `${selectedPreset.label} • This may take a moment`
     });
-    setIsExporting(false);
-  }, [selectedPreset]);
+
+    const blob = await exportVideo(
+      video,
+      overlayCanvases,
+      {
+        width: selectedPreset.width,
+        height: selectedPreset.height,
+        aspectRatio: selectedPreset.aspectRatio,
+        frameRate: 30,
+        videoBitsPerSecond: 8_000_000,
+      },
+      contactFrameEnabled ? contactFrameTime : null,
+      freezeDuration
+    );
+
+    if (blob) {
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const filename = `swing-clip-${selectedPreset.id}-${timestamp}.webm`;
+      
+      downloadBlob(blob, filename);
+      
+      toast.success("Export complete!", { 
+        description: `Downloaded ${filename}` 
+      });
+
+      // Call optional callback
+      onExport?.(blob, selectedPreset.id);
+    }
+  }, [selectedPreset, overlayEnabled, trailEnabled, contactFrameEnabled, contactFrameTime, freezeDuration, exportVideo, onExport]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -272,6 +319,7 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
             
             {/* SAM3 Overlay */}
             <SpotlightCanvas
+              ref={spotlightCanvasRef}
               videoRef={videoRef}
               maskUrl={lastResult?.maskUrl || null}
               mode={visualMode}
@@ -281,6 +329,7 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
             
             {/* Bat Path Trail Overlay */}
             <BatPathTrail
+              ref={batTrailCanvasRef}
               videoRef={videoRef}
               enabled={trailEnabled}
               isRecording={trailRecording}
@@ -701,9 +750,30 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
             ))}
           </div>
           
+          {/* Export Progress */}
+          {isExporting && exportProgress && (
+            <div className="space-y-2 p-3 bg-slate-700/50 rounded-lg">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-300">{exportProgress.message}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={cancelExport}
+                  className="h-6 w-6 p-0 text-slate-400 hover:text-red-400"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <Progress value={exportProgress.progress} className="h-2" />
+              <p className="text-[10px] text-slate-500 text-center">
+                {Math.round(exportProgress.progress)}% complete
+              </p>
+            </div>
+          )}
+          
           <Button
             onClick={handleExport}
-            disabled={isExporting || !overlayEnabled}
+            disabled={isExporting || (!overlayEnabled && !trailEnabled && !contactFrameEnabled)}
             className="w-full mt-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
           >
             {isExporting ? (
@@ -718,6 +788,12 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
               </>
             )}
           </Button>
+          
+          {!overlayEnabled && !trailEnabled && !contactFrameEnabled && (
+            <p className="text-[10px] text-slate-500 text-center mt-2">
+              Apply at least one effect to enable export
+            </p>
+          )}
         </Card>
       </div>
     </div>

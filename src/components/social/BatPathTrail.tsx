@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 
 interface TrailPoint {
   x: number;
@@ -19,13 +19,18 @@ interface BatPathTrailProps {
   onTrailUpdate?: (points: TrailPoint[]) => void;
 }
 
+export interface BatPathTrailRef {
+  getCanvas: () => HTMLCanvasElement | null;
+  clear: () => void;
+}
+
 /**
  * Canvas overlay that draws the bat barrel trajectory across frames.
  * Can work in two modes:
  * 1. Manual mode: User clicks to mark barrel position each frame
  * 2. Auto mode: Uses SAM3 barrel segmentation centroid
  */
-export function BatPathTrail({
+export const BatPathTrail = forwardRef<BatPathTrailRef, BatPathTrailProps>(function BatPathTrail({
   videoRef,
   enabled,
   isRecording,
@@ -35,7 +40,7 @@ export function BatPathTrail({
   trailLength = 60,
   glowEnabled = true,
   onTrailUpdate,
-}: BatPathTrailProps) {
+}, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const trailPointsRef = useRef<TrailPoint[]>([]);
   const animationRef = useRef<number>(0);
@@ -214,6 +219,16 @@ export function BatPathTrail({
     }
   }, [enabled]);
 
+  // Expose canvas ref and clear method for export
+  useImperativeHandle(ref, () => ({
+    getCanvas: () => canvasRef.current,
+    clear: () => {
+      trailPointsRef.current = [];
+      lastFrameRef.current = -1;
+      onTrailUpdate?.([]);
+    },
+  }), [onTrailUpdate]);
+
   if (!enabled) return null;
 
   return (
@@ -224,11 +239,11 @@ export function BatPathTrail({
       style={{ mixBlendMode: "screen" }}
     />
   );
-}
+});
 
 /**
  * Clears the trail points - exposed for external control
  */
-export function clearTrailPoints(ref: React.RefObject<{ clear: () => void }>) {
+export function clearTrailPoints(ref: React.RefObject<BatPathTrailRef>) {
   ref.current?.clear();
 }
