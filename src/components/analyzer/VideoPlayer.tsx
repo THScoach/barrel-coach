@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { 
   Play, Pause, SkipBack, SkipForward, Maximize, 
-  ChevronLeft, ChevronRight, Volume2, VolumeX
+  ChevronLeft, ChevronRight, Volume2, VolumeX,
+  Wand2
 } from "lucide-react";
 import {
   Select,
@@ -13,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { SAM3OverlayCanvas, type SAM3Mode } from "./SAM3OverlayCanvas";
 
 // Marker definition for swing analysis points
 export interface VideoMarker {
@@ -22,11 +24,26 @@ export interface VideoMarker {
   color?: string;
 }
 
+// Mask annotation from SAM3
+export interface MaskAnnotation {
+  id: string;
+  maskUrl: string;
+  frameTimeMs: number;
+  prompts: {
+    points?: Array<{ x: number; y: number; label: 0 | 1 }>;
+    box?: { x1: number; y1: number; x2: number; y2: number };
+  };
+  createdAt: number;
+}
+
 interface VideoPlayerProps {
   src: string;
   markers?: VideoMarker[];
   onTimeUpdate?: (time: number) => void;
   onMarkerSeek?: (marker: VideoMarker) => void;
+  enableSAM3?: boolean;
+  onAnnotationSave?: (annotation: MaskAnnotation) => void;
+  savedAnnotations?: MaskAnnotation[];
 }
 
 const PLAYBACK_SPEEDS = [0.1, 0.25, 0.5, 1];
@@ -45,6 +62,9 @@ export function VideoPlayer({
   markers = [],
   onTimeUpdate,
   onMarkerSeek,
+  enableSAM3 = false,
+  onAnnotationSave,
+  savedAnnotations = [],
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -53,6 +73,10 @@ export function VideoPlayer({
   const [playbackSpeed, setPlaybackSpeed] = useState(0.25);
   const [isMuted, setIsMuted] = useState(true);
   const [fps, setFps] = useState(240);
+  
+  // SAM3 state
+  const [sam3Active, setSam3Active] = useState(false);
+  const [sam3Mode, setSam3Mode] = useState<SAM3Mode>("off");
   
   // Track if we're in the middle of a programmatic seek
   const isSeeking = useRef(false);
@@ -241,18 +265,52 @@ export function VideoPlayer({
     return DEFAULT_MARKER_COLORS[id] || "bg-slate-500";
   };
 
+  // Handle SAM3 mode change - pause video when entering SAM3 mode
+  const handleSam3ModeChange = useCallback((newMode: SAM3Mode) => {
+    setSam3Mode(newMode);
+    if (newMode !== "off" && videoRef.current && !videoRef.current.paused) {
+      videoRef.current.pause();
+    }
+  }, []);
+
+  // Toggle SAM3 panel
+  const toggleSam3 = useCallback(() => {
+    if (sam3Active) {
+      setSam3Active(false);
+      setSam3Mode("off");
+    } else {
+      setSam3Active(true);
+      // Pause video when entering SAM3 mode
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+      }
+    }
+  }, [sam3Active]);
+
   return (
     <div className="space-y-3">
-      {/* Video Element */}
+      {/* Video Element with SAM3 Overlay */}
       <div className="relative">
         <video
           ref={videoRef}
           src={src}
           className="w-full aspect-video bg-black rounded-lg"
-          onClick={togglePlay}
+          onClick={sam3Active ? undefined : togglePlay}
           muted={isMuted}
           playsInline
         />
+        
+        {/* SAM3 Segmentation Overlay */}
+        {enableSAM3 && (
+          <SAM3OverlayCanvas
+            videoElement={videoRef.current}
+            isActive={sam3Active}
+            mode={sam3Mode}
+            onModeChange={handleSam3ModeChange}
+            onAnnotationSave={onAnnotationSave}
+            savedAnnotations={savedAnnotations}
+          />
+        )}
       </div>
 
       {/* Frame Counter */}
@@ -377,6 +435,18 @@ export function VideoPlayer({
 
         {/* Right Controls */}
         <div className="flex items-center gap-1">
+          {/* SAM3 Toggle Button */}
+          {enableSAM3 && (
+            <Button 
+              variant={sam3Active ? "secondary" : "ghost"} 
+              size="icon" 
+              onClick={toggleSam3} 
+              title="SAM3 Segmentation"
+              className={cn(sam3Active && "bg-purple-600 hover:bg-purple-700 text-white")}
+            >
+              <Wand2 className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"}>
             {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </Button>

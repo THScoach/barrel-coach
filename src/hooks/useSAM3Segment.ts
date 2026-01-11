@@ -2,7 +2,20 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type SegmentMode = "hitter" | "bat" | "barrel" | "background";
+export type SegmentMode = "hitter" | "bat" | "barrel" | "background" | "custom";
+
+export interface PointPrompt {
+  x: number;
+  y: number;
+  label: 0 | 1; // 0 = negative (exclude), 1 = positive (include)
+}
+
+export interface BoxPrompt {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
 
 export interface SegmentResult {
   maskUrl: string;
@@ -10,8 +23,17 @@ export interface SegmentResult {
   processingTime: number;
 }
 
+export interface SegmentOptions {
+  imageUrl?: string;
+  imageDataUrl?: string;
+  mode?: SegmentMode;
+  prompt?: string;
+  points?: PointPrompt[];
+  box?: BoxPrompt;
+}
+
 export interface UseSAM3SegmentReturn {
-  segment: (imageUrl: string, mode: SegmentMode, prompt?: string) => Promise<SegmentResult | null>;
+  segment: (options: SegmentOptions) => Promise<SegmentResult | null>;
   isProcessing: boolean;
   error: string | null;
   lastResult: SegmentResult | null;
@@ -22,17 +44,20 @@ export function useSAM3Segment(): UseSAM3SegmentReturn {
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<SegmentResult | null>(null);
 
-  const segment = useCallback(async (
-    imageUrl: string,
-    mode: SegmentMode,
-    prompt?: string
-  ): Promise<SegmentResult | null> => {
+  const segment = useCallback(async (options: SegmentOptions): Promise<SegmentResult | null> => {
+    const { imageUrl, imageDataUrl, mode = "custom", prompt, points, box } = options;
+
+    if (!imageUrl && !imageDataUrl) {
+      setError("imageUrl or imageDataUrl is required");
+      return null;
+    }
+
     setIsProcessing(true);
     setError(null);
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("sam3-segment", {
-        body: { imageUrl, mode, prompt },
+        body: { imageUrl, imageDataUrl, mode, prompt, points, box },
       });
 
       if (fnError) {
@@ -45,7 +70,7 @@ export function useSAM3Segment(): UseSAM3SegmentReturn {
 
       const result: SegmentResult = {
         maskUrl: data.maskUrl,
-        mode: data.mode,
+        mode: data.mode as SegmentMode,
         processingTime: data.processingTime,
       };
 
