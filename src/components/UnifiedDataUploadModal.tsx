@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -331,9 +332,10 @@ export function UnifiedDataUploadModal({
       handleClose();
       onSuccess();
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving session:", error);
-      toast.error("Failed to save session");
+      const message = error?.message || error?.details || "Failed to save session";
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -379,6 +381,9 @@ export function UnifiedDataUploadModal({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Upload Session Data</DialogTitle>
+          <DialogDescription>
+            Upload CSV files from HitTrax, Trackman, Rapsodo, or Reboot Motion to calculate player metrics.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
