@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { 
@@ -12,38 +12,89 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+
+// Marker definition for swing analysis points
+export interface VideoMarker {
+  id: string;
+  label: string;
+  time: number; // in seconds
+  color?: string;
+}
 
 interface VideoPlayerProps {
   src: string;
+  markers?: VideoMarker[];
+  onTimeUpdate?: (time: number) => void;
+  onMarkerSeek?: (marker: VideoMarker) => void;
 }
 
 const PLAYBACK_SPEEDS = [0.1, 0.25, 0.5, 1];
 const FPS_OPTIONS = [30, 60, 120, 240, 300];
 
-export function VideoPlayer({ src }: VideoPlayerProps) {
+// Default swing analysis markers
+const DEFAULT_MARKER_COLORS: Record<string, string> = {
+  load: "bg-blue-500",
+  trigger: "bg-yellow-500", 
+  contact: "bg-red-500",
+  finish: "bg-green-500",
+};
+
+export function VideoPlayer({ 
+  src, 
+  markers = [],
+  onTimeUpdate,
+  onMarkerSeek,
+}: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(0.25);
   const [isMuted, setIsMuted] = useState(true);
-  const [fps, setFps] = useState(240); // Default to 240fps for high-speed footage
+  const [fps, setFps] = useState(240);
+  
+  // Track if we're in the middle of a programmatic seek
+  const isSeeking = useRef(false);
+  const pendingSeekTime = useRef<number | null>(null);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    const handleTimeUpdate = () => setCurrentTime(video.currentTime);
-    const handleLoadedMetadata = () => setDuration(video.duration);
+    const handleTimeUpdate = () => {
+      // Don't update state during programmatic seeks to avoid conflicts
+      if (isSeeking.current) return;
+      
+      const time = video.currentTime;
+      setCurrentTime(time);
+      onTimeUpdate?.(time);
+    };
+    
+    const handleLoadedMetadata = () => {
+      setDuration(video.duration);
+    };
+    
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
     const handleEnded = () => setIsPlaying(false);
+    
+    // Critical: handle seeked event to confirm seek completion
+    const handleSeeked = () => {
+      if (pendingSeekTime.current !== null) {
+        setCurrentTime(pendingSeekTime.current);
+        onTimeUpdate?.(pendingSeekTime.current);
+        pendingSeekTime.current = null;
+      }
+      isSeeking.current = false;
+    };
 
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('ended', handleEnded);
+    video.addEventListener('seeked', handleSeeked);
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
@@ -51,14 +102,18 @@ export function VideoPlayer({ src }: VideoPlayerProps) {
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('seeked', handleSeeked);
     };
-  }, [src]);
+  }, [src, onTimeUpdate]);
 
   // Reset when source changes
   useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
     setPlaybackSpeed(0.25);
+    isSeeking.current = false;
+    pendingSeekTime.current = null;
+    
     if (videoRef.current) {
       videoRef.current.playbackRate = 0.25;
       videoRef.current.muted = true;
@@ -84,39 +139,70 @@ export function VideoPlayer({ src }: VideoPlayerProps) {
     setPlaybackSpeed(speed);
   };
 
-  // Frame step using selected FPS for accurate stepping
-  const stepFrame = (direction: 'forward' | 'backward') => {
+  // Precise seek function that waits for seeked event
+  const seekToTime = useCallback((targetTime: number, pauseFirst = true) => {
     const video = videoRef.current;
     if (!video) return;
+    
+    // Clamp to valid range
+    const clampedTime = Math.max(0, Math.min(targetTime, duration || video.duration || 0));
+    
+    // Mark that we're seeking
+    isSeeking.current = true;
+    pendingSeekTime.current = clampedTime;
+    
+    if (pauseFirst && !video.paused) {
+      video.pause();
+    }
+    
+    // Set the video time - the seeked event handler will update state
+    video.currentTime = clampedTime;
+  }, [duration]);
+
+  // Frame step using selected FPS - waits for seeked confirmation
+  const stepFrame = useCallback((direction: 'forward' | 'backward') => {
+    const video = videoRef.current;
+    if (!video || isSeeking.current) return;
     
     video.pause();
     
     // Calculate frame time based on selected FPS
     const frameTime = 1 / fps;
-    const newTime = direction === 'forward' 
-      ? Math.min(video.currentTime + frameTime, duration)
-      : Math.max(video.currentTime - frameTime, 0);
+    const currentVideoTime = video.currentTime;
     
-    video.currentTime = newTime;
-    setCurrentTime(newTime);
-  };
+    let newTime: number;
+    if (direction === 'forward') {
+      // Use Math.round to snap to frame boundaries and avoid drift
+      const currentFrame = Math.round(currentVideoTime * fps);
+      newTime = (currentFrame + 1) / fps;
+      newTime = Math.min(newTime, duration);
+    } else {
+      const currentFrame = Math.round(currentVideoTime * fps);
+      newTime = Math.max((currentFrame - 1) / fps, 0);
+    }
+    
+    seekToTime(newTime, false);
+  }, [fps, duration, seekToTime]);
 
-  const skip = (seconds: number) => {
+  const skip = useCallback((seconds: number) => {
     const video = videoRef.current;
     if (!video) return;
     
     const newTime = Math.max(0, Math.min(video.currentTime + seconds, duration));
-    video.currentTime = newTime;
-    setCurrentTime(newTime);
-  };
+    seekToTime(newTime, false);
+  }, [duration, seekToTime]);
 
-  const handleSeek = (value: number[]) => {
-    const video = videoRef.current;
-    if (!video || !duration) return;
-    
-    video.currentTime = value[0];
-    setCurrentTime(value[0]);
-  };
+  // Handle slider seek
+  const handleSliderSeek = useCallback((value: number[]) => {
+    if (!duration) return;
+    seekToTime(value[0]);
+  }, [duration, seekToTime]);
+
+  // Seek to a specific marker
+  const seekToMarker = useCallback((marker: VideoMarker) => {
+    seekToTime(marker.time);
+    onMarkerSeek?.(marker);
+  }, [seekToTime, onMarkerSeek]);
 
   const toggleMute = () => {
     const video = videoRef.current;
@@ -145,20 +231,29 @@ export function VideoPlayer({ src }: VideoPlayerProps) {
   };
 
   // Calculate current frame number
-  const currentFrame = Math.floor(currentTime * fps);
-  const totalFrames = Math.floor(duration * fps);
+  const currentFrame = Math.round(currentTime * fps);
+  const totalFrames = Math.round(duration * fps);
+
+  // Get marker color
+  const getMarkerColor = (marker: VideoMarker): string => {
+    if (marker.color) return marker.color;
+    const id = marker.id.toLowerCase();
+    return DEFAULT_MARKER_COLORS[id] || "bg-slate-500";
+  };
 
   return (
     <div className="space-y-3">
       {/* Video Element */}
-      <video
-        ref={videoRef}
-        src={src}
-        className="w-full aspect-video bg-black rounded-lg"
-        onClick={togglePlay}
-        muted={isMuted}
-        playsInline
-      />
+      <div className="relative">
+        <video
+          ref={videoRef}
+          src={src}
+          className="w-full aspect-video bg-black rounded-lg"
+          onClick={togglePlay}
+          muted={isMuted}
+          playsInline
+        />
+      </div>
 
       {/* Frame Counter */}
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
@@ -166,17 +261,66 @@ export function VideoPlayer({ src }: VideoPlayerProps) {
         <span className="font-mono">{formatTime(currentTime)} / {formatTime(duration)}</span>
       </div>
 
-      {/* Timeline Scrubber */}
-      <div className="flex items-center gap-3">
-        <Slider
-          value={[currentTime]}
-          min={0}
-          max={duration || 1}
-          step={1 / fps} // Step by frame
-          onValueChange={handleSeek}
-          className="flex-1"
-        />
+      {/* Timeline Scrubber with Markers */}
+      <div className="relative">
+        <div className="flex items-center gap-3">
+          <Slider
+            value={[currentTime]}
+            min={0}
+            max={duration || 1}
+            step={1 / fps}
+            onValueChange={handleSliderSeek}
+            className="flex-1"
+          />
+        </div>
+        
+        {/* Marker indicators on timeline */}
+        {duration > 0 && markers.length > 0 && (
+          <div className="absolute top-0 left-0 right-0 h-full pointer-events-none">
+            {markers.map((marker) => {
+              const position = (marker.time / duration) * 100;
+              if (position < 0 || position > 100) return null;
+              
+              return (
+                <div
+                  key={marker.id}
+                  className={cn(
+                    "absolute top-1/2 -translate-y-1/2 w-1 h-4 rounded-full opacity-80",
+                    getMarkerColor(marker)
+                  )}
+                  style={{ left: `${position}%` }}
+                  title={`${marker.label}: ${formatTime(marker.time)}`}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {/* Marker Navigation Buttons */}
+      {markers.length > 0 && (
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          {markers.map((marker) => {
+            const isActive = Math.abs(currentTime - marker.time) < (1 / fps);
+            return (
+              <Button
+                key={marker.id}
+                variant={isActive ? "default" : "outline"}
+                size="sm"
+                onClick={() => seekToMarker(marker)}
+                className={cn(
+                  "text-xs h-7 px-3",
+                  isActive 
+                    ? getMarkerColor(marker).replace('bg-', 'bg-') 
+                    : "border-slate-700 text-slate-400 hover:text-white"
+                )}
+              >
+                {marker.label}
+              </Button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Controls */}
       <div className="flex items-center justify-between flex-wrap gap-3">
