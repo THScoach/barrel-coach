@@ -43,17 +43,19 @@ interface DetectedFile {
 interface UnifiedDataUploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  playerId: string;
+  playerId: string; // This MUST be players.id (not player_profiles.id)
   playerName: string;
   onSuccess: () => void;
+  linkVerified?: boolean; // If true, playerId is already verified as valid players.id
 }
 
 export function UnifiedDataUploadModal({
   open,
   onOpenChange,
-  playerId,
+  playerId, // This MUST be players.id (not player_profiles.id)
   playerName,
-  onSuccess
+  onSuccess,
+  linkVerified = false
 }: UnifiedDataUploadModalProps) {
   const [detectedFiles, setDetectedFiles] = useState<DetectedFile[]>([]);
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
@@ -230,7 +232,11 @@ export function UnifiedDataUploadModal({
   };
   
   const saveToDatabase = async () => {
-    console.log('[UnifiedDataUploadModal] saveToDatabase called with playerId:', playerId);
+    // CRITICAL: playerId MUST be players.id (NOT player_profiles.id)
+    if (!playerId) {
+      toast.error("Player link missing - cannot save");
+      return;
+    }
     
     if (!launchMonitorStats && !rebootScores) {
       toast.error("Please process files first");
@@ -240,8 +246,7 @@ export function UnifiedDataUploadModal({
     setIsSaving(true);
     
     try {
-      // Save launch monitor session
-      console.log('[UnifiedDataUploadModal] Saving with player_id:', playerId);
+      // Save launch monitor session - uses players.id
       if (launchMonitorStats) {
         const { data: sessionData, error: lmError } = await supabase
           .from("launch_monitor_sessions")

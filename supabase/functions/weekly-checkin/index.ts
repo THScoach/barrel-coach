@@ -38,17 +38,16 @@ interface CheckinState {
 
 const QUESTION_KEYS = [
   'games',
-  'pa_ab', 
-  'production',
+  'pa_ab_hits', 
+  'xbh',
   'outcomes',
   'best_moment',
   'biggest_struggle',
-  'training',
   'body_fatigue',
   'next_week_goal'
 ];
 
-// Coach Rick's system prompt for the weekly check-in
+// Coach Rick's system prompt for the weekly check-in (8 questions)
 const WEEKLY_CHECKIN_SYSTEM_PROMPT = `You are Coach Rick, conducting a weekly check-in with one of your baseball players. You've coached at the MLB level and trained 400+ college commits. Your job is to collect their weekly game data through NATURAL conversation.
 
 YOUR VOICE:
@@ -58,16 +57,15 @@ YOUR VOICE:
 - Sound like a coach in the cage, not a survey bot
 - Phrases like: "Alright", "Got it", "Good stuff", "Let's see..."
 
-THE FLOW (follow this order):
+THE FLOW (8 questions, follow this order):
 1. GAMES - "How many games did you play this week?"
-2. OPPORTUNITY - "How many plate appearances or at-bats?"
-3. PRODUCTION - "How many hits? Any doubles, triples, or homers?"
+2. AT-BATS & HITS - "How many at-bats and how many hits?"
+3. EXTRA-BASES - "Any extra-base hits? Doubles, triples, homers?"
 4. OUTCOMES - "Walks and punchouts — roughly how many of each?"
 5. BEST MOMENT - "What was your BEST swing or moment this week? Doesn't have to be a hit."
 6. STRUGGLE - "What gave you the most trouble this week?"
-7. TRAINING - "What kind of work did you actually get in? Tee, flips, machine, live, strength?"
-8. BODY CHECK - "Body check. Any pain or fatigue? 0 = fresh, 10 = beat up."
-9. NEXT WEEK - "What's one thing you want better this coming week?"
+7. BODY CHECK - "Body check — fatigue level 0-10, 0 is fresh, 10 is beat up."
+8. NEXT WEEK - "What's one thing you want better this coming week?"
 
 CRITICAL RULES:
 1. Ask ONE question at a time
@@ -83,12 +81,19 @@ RESPONSE FORMAT:
 - Use line breaks sparingly
 
 CONTEXT PROVIDED:
-- Current question number (0-8, or 9+ means complete)
+- Current question number (0-7, or 8+ means complete)
 - Player's previous answers so far
 - Any prior weeks' data for context
 
-When generating the FINAL SUMMARY after question 9:
-Format: "Alright, here's what I see:\n\n• [bullet 1]\n• [bullet 2]\n• [bullet 3]\n\n[One sentence focus for the week]"`;
+FINAL SUMMARY FORMAT (after question 8):
+"Alright, here's the week:
+
+• [stat line: games, AB, hits, avg]
+• [XBH and plate discipline summary]
+• [body status note if fatigue 7+]
+
+Priority this week: [one sentence focus based on their goal]
+Drill assignment: [one specific drill based on their struggle]"`;
 
 function inferTrainingTags(text: string): string[] {
   const tags: string[] = [];
@@ -119,25 +124,31 @@ function extractDataFromResponse(questionKey: string, content: string, currentDa
     case 'games':
       if (numbers.length > 0) data.games = numbers[0];
       break;
-    case 'pa_ab':
+    case 'pa_ab_hits':
+      // Expect format like "12 AB, 4 hits" or "12 and 4" or "12, 4"
       if (numbers.length >= 2) {
-        data.pa = numbers[0];
-        data.ab = numbers[1];
+        data.ab = numbers[0];
+        data.hits = numbers[1];
+        data.pa = numbers[0]; // Default PA to AB
       } else if (numbers.length === 1) {
         data.ab = numbers[0];
         data.pa = numbers[0];
       }
       break;
-    case 'production':
-      if (numbers.length > 0) data.hits = numbers[0];
-      if (numbers.length > 1) data.doubles = numbers[1];
-      if (numbers.length > 2) data.triples = numbers[2];
-      if (numbers.length > 3) data.home_runs = numbers[3];
+    case 'xbh':
+      // Parse extra-base hits
+      if (numbers.length > 0) data.doubles = numbers[0];
+      if (numbers.length > 1) data.triples = numbers[1];
+      if (numbers.length > 2) data.home_runs = numbers[2];
       // Check for "homer" or "home run" mentions
-      if (content.toLowerCase().includes('homer') || content.toLowerCase().includes('home run')) {
-        if (!data.home_runs && numbers.length > 0) {
-          data.home_runs = numbers[numbers.length - 1] || 1;
-        }
+      const lower = content.toLowerCase();
+      if ((lower.includes('homer') || lower.includes('home run') || lower.includes('hr')) && !data.home_runs) {
+        data.home_runs = numbers.length > 0 ? numbers[numbers.length - 1] : 1;
+      }
+      if (lower.includes('none') || lower.includes('no') || lower.includes('0')) {
+        data.doubles = data.doubles || 0;
+        data.triples = data.triples || 0;
+        data.home_runs = data.home_runs || 0;
       }
       break;
     case 'outcomes':
@@ -149,8 +160,6 @@ function extractDataFromResponse(questionKey: string, content: string, currentDa
       break;
     case 'biggest_struggle':
       data.biggest_struggle = content.trim();
-      break;
-    case 'training':
       data.training_tags = inferTrainingTags(content);
       break;
     case 'body_fatigue':
@@ -292,7 +301,7 @@ serve(async (req) => {
 
     // If this is the start (no message yet)
     if (!message && messages.length === 0) {
-      const startMessage = `Alright ${playerName}, quick weekly check-in. Just tell me what you can — doesn't have to be perfect.\n\nHow many games did you play this week?`;
+      const startMessage = `Alright ${playerName}, quick weekly check-in. 8 questions, takes 2 minutes.\n\nHow many games did you play this week?`;
       
       // Create or update report as in-progress
       if (!existingReport) {
@@ -340,7 +349,7 @@ serve(async (req) => {
     
     if (previousReports && previousReports.length > 0) {
       const lastWeek = previousReports[0];
-      contextInfo += `\nLast week: ${lastWeek.games || 0} games, ${lastWeek.hits || 0} hits, ${lastWeek.ab || 0} AB`;
+      contextInfo += `\nLast week: ${lastWeek.games || 0} games, ${lastWeek.hits || 0}-for-${lastWeek.ab || 0}`;
       if (lastWeek.next_week_goal) {
         contextInfo += `\nTheir goal last week was: "${lastWeek.next_week_goal}"`;
       }

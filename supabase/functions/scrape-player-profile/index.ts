@@ -114,6 +114,19 @@ Deno.serve(async (req) => {
       );
     }
 
+    // GUARDRAIL: Only run scrape if at least one identifier exists
+    const hasIdentifier = mlbId || fangraphsId || bbrefId;
+    if (!hasIdentifier && !playerName) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Web scrape requires at least one identifier (mlb_id, fangraphs_id, bbref_id) or player name',
+          skipped: true
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -121,7 +134,7 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     const now = new Date().toISOString();
 
-    // If we have specific IDs, use them directly
+    // If we have specific IDs, use them directly (preferred path)
     if (mlbId) {
       results.push({
         source: 'savant',
@@ -153,8 +166,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // If no specific IDs and we have a name, search for the player
-    if (results.length === 0 && playerName) {
+    // ONLY search by name if we have specific IDs already (to enrich) or if explicitly requested
+    // This prevents wild scraping for youth players with no pro history
+    if (results.length === 0 && playerName && hasIdentifier) {
       const [savantResult, fangraphsResult, bbrefResult] = await Promise.all([
         searchSavant(playerName),
         searchFanGraphs(playerName),
