@@ -37,9 +37,10 @@ serve(async (req) => {
       throw new Error("Session not found");
     }
 
-    // Validate swing index
-    if (swingIndex >= session.swings_required) {
-      throw new Error(`Invalid swing index. Max is ${session.swings_required - 1}`);
+    // Validate swing index against max allowed (default 15 if not set)
+    const swingsMaxAllowed = session.swings_max_allowed ?? 15;
+    if (swingIndex >= swingsMaxAllowed) {
+      throw new Error(`Invalid swing index. Max allowed is ${swingsMaxAllowed - 1}`);
     }
 
     // Upload video to storage
@@ -99,26 +100,24 @@ serve(async (req) => {
       });
     }
 
-    // Update session status
+    // Update session status based on swings_required (min) vs uploaded count
     const { data: allSwings } = await supabase
       .from("swings")
       .select("id")
       .eq("session_id", sessionId);
 
     const swingsUploaded = allSwings?.length || 0;
-    const readyForPayment = swingsUploaded >= session.swings_required;
+    const swingsRequired = session.swings_required ?? 5;
+    const readyForPayment = swingsUploaded >= swingsRequired;
 
-    if (readyForPayment) {
-      await supabase
-        .from("sessions")
-        .update({ status: "pending_payment" })
-        .eq("id", sessionId);
-    } else {
-      await supabase
-        .from("sessions")
-        .update({ status: "uploading" })
-        .eq("id", sessionId);
-    }
+    // Update session with swing count and status
+    await supabase
+      .from("sessions")
+      .update({ 
+        status: readyForPayment ? "pending_payment" : "uploading",
+        swing_count: swingsUploaded
+      })
+      .eq("id", sessionId);
 
     // === SMS WORKFLOW: VIDEO UPLOADED ===
     // Cancel the no_upload_reminder since they uploaded
