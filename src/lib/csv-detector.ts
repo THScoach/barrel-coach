@@ -115,13 +115,30 @@ export function detectCsvType(headers: string[]): DetectionResult {
   // REBOOT MOTION DETECTION
   // ===================
   
-  // Reboot Inverse Kinematics - has pelvis_rot, torso_rot
-  if (h.some(x => x.includes('pelvis_rot') || x.includes('pelvis_tilt') || x.includes('torso_rot'))) {
+  // Reboot Inverse Kinematics - unique headers: left_shoulder_plane, torso_rot, pelvis_rot, left_hip_flex
+  if (
+    h.includes('left_shoulder_plane') || 
+    h.includes('torso_rot') || 
+    h.includes('pelvis_rot') ||
+    h.includes('left_hip_flex') ||
+    h.includes('right_shoulder_elev') ||
+    h.includes('pelvis_tilt') ||
+    h.includes('left_knee') ||
+    h.includes('right_knee')
+  ) {
     return { csvType: 'reboot-ik' };
   }
   
-  // Reboot Momentum Energy - has kinetic_energy columns
-  if (h.some(x => x.includes('kinetic_energy') || x.includes('_ke') || x.includes('momentum'))) {
+  // Reboot Momentum Energy - unique headers: total_kinetic_energy, bat_kinetic_energy, torso_kinetic_energy
+  if (
+    h.includes('total_kinetic_energy') || 
+    h.includes('bat_kinetic_energy') || 
+    h.includes('torso_kinetic_energy') ||
+    h.includes('larm_kinetic_energy') ||
+    h.includes('rarm_kinetic_energy') ||
+    h.includes('legs_kinetic_energy') ||
+    h.some(x => x.endsWith('_kinetic_energy'))
+  ) {
     return { csvType: 'reboot-me' };
   }
   
