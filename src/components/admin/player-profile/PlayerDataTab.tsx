@@ -64,27 +64,32 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
 
   // Resolve or create the players_id mapping using the RPC function
   const resolvePlayersId = async (): Promise<string | null> => {
+    console.log('[PlayerDataTab] resolvePlayersId called with playerId:', playerId);
     try {
       // Call the ensure_player_linked RPC function
       // It checks if players_id exists, creates a new players record if not, and returns the players_id
       const { data: linkedPlayerId, error } = await supabase
         .rpc('ensure_player_linked', { p_profile_id: playerId });
       
+      console.log('[PlayerDataTab] RPC result:', { linkedPlayerId, error });
+      
       if (error) {
-        console.error('Error ensuring player linked:', error);
+        console.error('[PlayerDataTab] Error ensuring player linked:', error);
         setMappingError(`Cannot link player: ${error.message}`);
         return null;
       }
       
       if (!linkedPlayerId) {
+        console.error('[PlayerDataTab] No linkedPlayerId returned');
         setMappingError('Failed to link player profile to players table');
         return null;
       }
       
+      console.log('[PlayerDataTab] Setting playersTableId to:', linkedPlayerId);
       setPlayersTableId(linkedPlayerId);
       return linkedPlayerId;
     } catch (error: any) {
-      console.error('Error resolving players_id:', error);
+      console.error('[PlayerDataTab] Exception resolving players_id:', error);
       setMappingError(error.message || 'Unknown error resolving player mapping');
       return null;
     }
