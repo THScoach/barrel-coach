@@ -100,58 +100,59 @@ function ProductCard({
 }
 
 export function ProductComparisonSection() {
+  // MASTER PROMPT v1.0 — LOCKED PRODUCT LADDER (4 products only)
   const products: ProductCardProps[] = [
     {
-      title: "Single Swing Score",
-      price: "$37",
-      priceLabel: "Per swing",
+      title: "Guided Coaching",
+      price: "$99",
+      priceLabel: "/month",
       features: [
-        { icon: <Video className="w-4 h-4" />, text: "1 swing analyzed" },
-        { icon: <Target className="w-4 h-4" />, text: "#1 problem identified" },
-        { icon: <ClipboardList className="w-4 h-4" />, text: "1 drill to fix it" },
-        { icon: <Dna className="w-4 h-4" />, text: "4B Score Card" },
+        { icon: <TrendingUp className="w-4 h-4" />, text: "Ongoing data uploads" },
+        { icon: <Target className="w-4 h-4" />, text: "Weekly AI-guided check-ins" },
+        { icon: <ClipboardList className="w-4 h-4" />, text: "Trend tracking & benchmarks" },
+        { icon: <Dna className="w-4 h-4" />, text: "Progress accountability" },
       ],
-      timing: "Under 48 hours",
-      cta: "GET MY SWING SCORE →",
-      ctaLink: "/analyze",
-      bottomLabel: "Quick Fix Solution",
+      timing: "Ongoing structure",
+      cta: "START GUIDED COACHING →",
+      ctaLink: "/inner-circle",
+      bottomLabel: "Where clarity becomes consistency.",
       bottomLabelColor: "#6B7280",
       variant: 'default'
     },
     {
-      title: "Complete Review",
-      price: "$67",
-      priceLabel: "Complete analysis",
+      title: "In-Person Assessment",
+      price: "$399",
+      priceLabel: "One session",
       features: [
-        { icon: <Video className="w-4 h-4" />, text: "5 swings analyzed" },
-        { icon: <Dna className="w-4 h-4" />, text: "Full 4B breakdown" },
-        { icon: <ClipboardList className="w-4 h-4" />, text: "30-day drill plan" },
-        { icon: <Play className="w-4 h-4" />, text: "Video library access" },
-        { icon: <TrendingUp className="w-4 h-4" />, text: "Progress tracking" },
+        { icon: <Building2 className="w-4 h-4" />, text: "Full movement evaluation" },
+        { icon: <Microscope className="w-4 h-4" />, text: "Sequence & contact patterns" },
+        { icon: <GraduationCap className="w-4 h-4" />, text: "Decision-making review" },
+        { icon: <Play className="w-4 h-4" />, text: "Game transfer analysis" },
+        { icon: <Zap className="w-4 h-4" />, text: "Same-day direction" },
       ],
-      timing: "Under 48 hours",
-      cta: "GET COMPLETE REVIEW →",
-      ctaLink: "/analyze",
-      bottomLabel: "Full Analysis Program",
+      timing: "One session. Real answers.",
+      cta: "BOOK ASSESSMENT →",
+      ctaLink: "/assessment",
+      bottomLabel: "This is not a lesson.",
       bottomLabelColor: "#DC2626",
       isPopular: true,
       variant: 'popular'
     },
     {
-      title: "In-Person Assessment",
-      price: "$299",
-      priceLabel: "Full session",
+      title: "90-Day Transformation",
+      price: "Apply",
+      priceLabel: "By application",
       features: [
-        { icon: <Building2 className="w-4 h-4" />, text: "Full biomechanical assessment" },
-        { icon: <Microscope className="w-4 h-4" />, text: "All technology included" },
-        { icon: <GraduationCap className="w-4 h-4" />, text: "Live coaching with Rick" },
-        { icon: <ClipboardList className="w-4 h-4" />, text: "Custom program" },
-        { icon: <Zap className="w-4 h-4" />, text: "Same-day results" },
+        { icon: <Video className="w-4 h-4" />, text: "Full assessment included" },
+        { icon: <ClipboardList className="w-4 h-4" />, text: "Structured training program" },
+        { icon: <TrendingUp className="w-4 h-4" />, text: "Ongoing feedback loops" },
+        { icon: <Target className="w-4 h-4" />, text: "Personalized adjustments" },
+        { icon: <Dna className="w-4 h-4" />, text: "Real, measurable change" },
       ],
-      timing: "Same day",
-      cta: "BOOK SESSION →",
+      timing: "For serious players only",
+      cta: "APPLY NOW →",
       ctaLink: "/assessment",
-      bottomLabel: "Elite Athlete Program",
+      bottomLabel: "For players done guessing.",
       bottomLabelColor: "#F59E0B",
       variant: 'premium'
     }
@@ -173,23 +174,23 @@ export function ProductComparisonSection() {
           </div>
         </div>
 
-        {/* Inner Circle Banner */}
+        {/* Free Diagnostic Banner */}
         <div className="max-w-3xl mx-auto">
-          <div className="bg-[#DC2626] text-white rounded-lg px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="bg-[#1E3A8A] text-white rounded-lg px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <Flame className="w-6 h-6" />
+              <Target className="w-6 h-6" />
               <div>
-                <span className="font-semibold">Want Ongoing Coaching?</span>
+                <span className="font-semibold">Not sure where to start?</span>
                 <span className="mx-2">|</span>
-                <span className="font-bold">INNER CIRCLE: $297/month</span>
+                <span className="font-bold">ASK RICK — FREE DIAGNOSTIC</span>
               </div>
             </div>
             <Button 
               asChild 
               variant="outline" 
-              className="bg-white text-[#DC2626] border-white hover:bg-gray-100 font-bold"
+              className="bg-white text-[#1E3A8A] border-white hover:bg-gray-100 font-bold"
             >
-              <Link to="/inner-circle">JOIN NOW →</Link>
+              <Link to="/analyze">GET FREE SNAPSHOT →</Link>
             </Button>
           </div>
         </div>

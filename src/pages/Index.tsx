@@ -127,40 +127,40 @@ export default function Index() {
       {/* ===== TESTIMONIALS ===== */}
       <TestimonialsSection />
 
-      {/* ===== INNER CIRCLE CTA ===== */}
+      {/* ===== GUIDED COACHING CTA ===== */}
       <section className="py-20 bg-gradient-to-b from-slate-900 to-slate-950">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-6">
-            <Award className="w-4 h-4 text-yellow-400" />
-            <span className="text-sm font-semibold text-yellow-400 uppercase tracking-wider">
-              Premium Membership
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 mb-6">
+            <Zap className="w-4 h-4 text-blue-400" />
+            <span className="text-sm font-semibold text-blue-400 uppercase tracking-wider">
+              Ongoing Structure
             </span>
           </div>
 
           <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-            WANT <span className="text-yellow-400">UNLIMITED</span> ACCESS?
+            CLARITY BECOMES <span className="text-blue-400">CONSISTENCY</span>
           </h2>
 
           <p className="text-lg text-slate-400 mb-8 max-w-2xl mx-auto">
-            Join the Inner Circle for weekly live calls with Coach Rick, 200+ drill videos, direct text access, and unlimited swing reviews.
+            Guided Coaching gives you weekly check-ins, trend tracking, and accountability — all in Rick's voice.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               asChild
               size="lg"
-              className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold h-14 px-8 text-lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-14 px-8 text-lg"
             >
               <Link to="/inner-circle">
                 <Users className="w-5 h-5 mr-2" />
-                Learn About Inner Circle
+                Start Guided Coaching
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Link>
             </Button>
           </div>
 
           <p className="text-sm text-slate-500 mt-6">
-            $297/month • Cancel anytime • 30-day guarantee
+            $99/month • Cancel anytime • This is where clarity becomes consistency.
           </p>
         </div>
       </section>
