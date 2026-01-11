@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ProcessingScreenProps {
   swingsCount: number;
@@ -12,20 +13,19 @@ export function ProcessingScreen({ swingsCount, sessionId, onComplete }: Process
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // Poll for session status if sessionId provided
+    // Poll for session status using secure RPC (no PII exposed)
     if (sessionId) {
       const pollInterval = setInterval(async () => {
         try {
-          const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-session?sessionId=${sessionId}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              },
-            }
-          );
-          const data = await response.json();
-          if (data.session?.status === 'complete') {
+          const { data, error } = await supabase
+            .rpc('get_session_public_data', { session_id_param: sessionId });
+          
+          if (error) {
+            console.error('Polling error:', error);
+            return;
+          }
+          
+          if (data && data.length > 0 && data[0].status === 'complete') {
             clearInterval(pollInterval);
             onComplete();
           }
