@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Upload, Play, Trash2, Edit, Eye, EyeOff, Loader2, ArrowLeft, Video, CheckCircle2, Clock, AlertCircle, Sparkles } from "lucide-react";
+import { Upload, Trash2, Edit, Eye, EyeOff, Loader2, ArrowLeft, Video, CheckCircle2, Clock, AlertCircle, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AdminHeader } from "@/components/AdminHeader";
 
@@ -62,7 +61,7 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode; color
   transcribing: { label: 'Transcribing...', icon: <Loader2 className="h-3 w-3 animate-spin" />, color: 'bg-blue-500' },
   analyzing: { label: 'Analyzing...', icon: <Sparkles className="h-3 w-3 animate-pulse" />, color: 'bg-purple-500' },
   ready_for_review: { label: 'Ready for Review', icon: <CheckCircle2 className="h-3 w-3" />, color: 'bg-green-500' },
-  draft: { label: 'Draft', icon: <Clock className="h-3 w-3" />, color: 'bg-gray-500' },
+  draft: { label: 'Draft', icon: <Clock className="h-3 w-3" />, color: 'bg-slate-500' },
   published: { label: 'Published', icon: <Eye className="h-3 w-3" />, color: 'bg-green-600' },
   failed: { label: 'Failed', icon: <AlertCircle className="h-3 w-3" />, color: 'bg-red-500' }
 };
@@ -79,7 +78,6 @@ export default function AdminVideos() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<number | null>(null);
 
-  // Form state
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -107,12 +105,10 @@ export default function AdminVideos() {
       const data = await res.json();
       setVideos(data);
       
-      // Check if any videos are still processing
       const hasProcessing = data.some((v: DrillVideo) => 
         ['processing', 'transcribing', 'analyzing'].includes(v.status)
       );
       
-      // If processing, poll more frequently
       if (hasProcessing && !pollIntervalRef.current) {
         pollIntervalRef.current = window.setInterval(fetchVideos, 5000);
       } else if (!hasProcessing && pollIntervalRef.current) {
@@ -147,13 +143,11 @@ export default function AdminVideos() {
       try {
         setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
         
-        // Generate unique filename
         const ext = file.name.split('.').pop() || 'mp4';
         const filename = `${crypto.randomUUID()}.${ext}`;
         const storagePath = `drills/${filename}`;
         const originalTitle = file.name.replace(/\.[^/.]+$/, '') || 'Processing...';
 
-        // Upload directly to Supabase Storage from client (avoids edge function memory limits)
         const { error: uploadError } = await supabase.storage
           .from('videos')
           .upload(storagePath, file, {
@@ -162,11 +156,9 @@ export default function AdminVideos() {
           });
 
         if (uploadError) {
-          console.error('Storage upload error:', uploadError);
           throw new Error(`Storage upload failed: ${uploadError.message}`);
         }
 
-        // Call lightweight edge function to create DB record and trigger pipeline
         const { data: { session: uploadSession } } = await supabase.auth.getSession();
         const res = await fetch(`${SUPABASE_URL}/functions/v1/upload-video`, {
           method: 'POST',
@@ -197,7 +189,6 @@ export default function AdminVideos() {
     setUploadProgress(100);
     toast.success(`${completedFiles} video(s) uploaded! Processing started automatically.`);
     
-    // Start polling for updates
     if (!pollIntervalRef.current) {
       pollIntervalRef.current = window.setInterval(fetchVideos, 5000);
     }
@@ -206,7 +197,6 @@ export default function AdminVideos() {
     setUploading(false);
     setUploadProgress(0);
     
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -374,20 +364,25 @@ export default function AdminVideos() {
   const processingCount = videos.filter(v => ['processing', 'transcribing', 'analyzing'].includes(v.status)).length;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-950">
       <AdminHeader />
       <div className="p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Link to="/" className="text-muted-foreground hover:text-foreground">
+            <Link to="/admin" className="text-slate-400 hover:text-white transition-colors">
               <ArrowLeft className="h-5 w-5" />
             </Link>
-            <div>
-              <h1 className="text-2xl font-bold">Video Library Admin</h1>
-              <p className="text-sm text-muted-foreground">
-                Drop videos to auto-transcribe and tag
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
+                <Video className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">Video Library</h1>
+                <p className="text-sm text-slate-400">
+                  Drop videos to auto-transcribe and tag
+                </p>
+              </div>
             </div>
           </div>
           
@@ -399,7 +394,7 @@ export default function AdminVideos() {
                 onCheckedChange={setAutoPublish}
                 id="auto-publish"
               />
-              <label htmlFor="auto-publish" className="text-sm">
+              <label htmlFor="auto-publish" className="text-sm text-slate-300">
                 Auto-publish
               </label>
             </div>
@@ -415,7 +410,10 @@ export default function AdminVideos() {
                 onChange={handleFileUpload}
                 disabled={uploading}
               />
-              <Button disabled={uploading}>
+              <Button 
+                disabled={uploading}
+                className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white"
+              >
                 {uploading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -434,43 +432,39 @@ export default function AdminVideos() {
 
         {/* Upload Progress */}
         {uploading && (
-          <Card className="mb-6">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-4">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Uploading videos...</p>
-                  <Progress value={uploadProgress} className="mt-2" />
-                </div>
-                <span className="text-sm text-muted-foreground">{uploadProgress}%</span>
+          <div className="mb-6 bg-slate-900/50 border border-slate-800 rounded-xl p-4">
+            <div className="flex items-center gap-4">
+              <Loader2 className="h-5 w-5 animate-spin text-red-500" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-white">Uploading videos...</p>
+                <Progress value={uploadProgress} className="mt-2" />
               </div>
-            </CardContent>
-          </Card>
+              <span className="text-sm text-slate-400">{uploadProgress}%</span>
+            </div>
+          </div>
         )}
 
         {/* Processing Status Banner */}
         {processingCount > 0 && (
-          <Card className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950/20">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                <p className="text-sm">
-                  <strong>{processingCount} video(s)</strong> processing... 
-                  They'll appear here when ready for review.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="mb-6 bg-blue-950/30 border border-blue-500/30 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
+              <p className="text-sm text-blue-300">
+                <strong>{processingCount} video(s)</strong> processing... 
+                They'll appear here when ready for review.
+              </p>
+            </div>
+          </div>
         )}
 
         {/* Action Bar */}
         <div className="flex items-center justify-between gap-4 mb-6">
           <div className="flex gap-4">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-48 bg-slate-900/50 border-slate-700 text-white">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-slate-900 border-slate-700">
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="ready_for_review">Ready for Review ({readyCount})</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
@@ -484,13 +478,19 @@ export default function AdminVideos() {
           <div className="flex gap-2">
             {readyCount > 0 && (
               <>
-                <Button variant="outline" size="sm" onClick={selectAllReady}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={selectAllReady}
+                  className="bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+                >
                   Select All Ready ({readyCount})
                 </Button>
                 <Button 
                   size="sm" 
                   onClick={handleBulkPublish}
                   disabled={selectedVideos.size === 0}
+                  className="bg-green-600 hover:bg-green-700 text-white"
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   Publish Selected ({selectedVideos.size})
@@ -501,129 +501,131 @@ export default function AdminVideos() {
         </div>
 
         {/* Videos Table */}
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12"></TableHead>
-                  <TableHead>Video</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Access</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+        <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-slate-800 hover:bg-transparent">
+                <TableHead className="w-12 text-slate-400"></TableHead>
+                <TableHead className="text-slate-400">Video</TableHead>
+                <TableHead className="text-slate-400">Category</TableHead>
+                <TableHead className="text-slate-400">Duration</TableHead>
+                <TableHead className="text-slate-400">Access</TableHead>
+                <TableHead className="text-slate-400">Status</TableHead>
+                <TableHead className="text-slate-400">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow className="border-slate-800">
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-500" />
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                    </TableCell>
-                  </TableRow>
-                ) : filteredVideos.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No videos yet. Upload your first video!
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredVideos.map(video => {
-                    const status = statusConfig[video.status] || statusConfig.draft;
-                    const isProcessing = ['processing', 'transcribing', 'analyzing'].includes(video.status);
-                    
-                    return (
-                      <TableRow key={video.id} className={isProcessing ? 'opacity-70' : ''}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedVideos.has(video.id)}
-                            onCheckedChange={() => toggleVideoSelection(video.id)}
-                            disabled={isProcessing}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="w-24 h-14 bg-muted rounded flex items-center justify-center relative overflow-hidden">
-                              {isProcessing ? (
-                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                              ) : (
-                                <Video className="h-6 w-6 text-muted-foreground" />
-                              )}
-                            </div>
-                            <div>
-                              <p className="font-medium line-clamp-1">{video.title}</p>
-                              {video.drill_name && (
-                                <p className="text-sm text-muted-foreground">{video.drill_name}</p>
-                              )}
-                              {video.description && !video.drill_name && (
-                                <p className="text-sm text-muted-foreground line-clamp-1">{video.description}</p>
-                              )}
-                            </div>
+              ) : filteredVideos.length === 0 ? (
+                <TableRow className="border-slate-800">
+                  <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                    No videos yet. Upload your first video!
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredVideos.map(video => {
+                  const status = statusConfig[video.status] || statusConfig.draft;
+                  const isProcessing = ['processing', 'transcribing', 'analyzing'].includes(video.status);
+                  
+                  return (
+                    <TableRow key={video.id} className={`border-slate-800 hover:bg-slate-800/50 ${isProcessing ? 'opacity-70' : ''}`}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedVideos.has(video.id)}
+                          onCheckedChange={() => toggleVideoSelection(video.id)}
+                          disabled={isProcessing}
+                          className="border-slate-600"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-24 h-14 bg-slate-800 rounded-lg flex items-center justify-center relative overflow-hidden">
+                            {isProcessing ? (
+                              <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+                            ) : (
+                              <Video className="h-6 w-6 text-slate-500" />
+                            )}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {video.four_b_category && (
-                            <Badge className={`${categoryColors[video.four_b_category]} text-white`}>
-                              {video.four_b_category}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>{formatDuration(video.duration_seconds)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{video.access_level}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={`${status.color} text-white gap-1`}>
-                            {status.icon}
-                            {status.label}
+                          <div>
+                            <p className="font-medium line-clamp-1 text-white">{video.title}</p>
+                            {video.drill_name && (
+                              <p className="text-sm text-slate-400">{video.drill_name}</p>
+                            )}
+                            {video.description && !video.drill_name && (
+                              <p className="text-sm text-slate-400 line-clamp-1">{video.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {video.four_b_category && (
+                          <Badge className={`${categoryColors[video.four_b_category]} text-white`}>
+                            {video.four_b_category}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => openEdit(video)}
-                              disabled={isProcessing}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => handlePublish(video)}
-                              disabled={isProcessing}
-                            >
-                              {video.status === 'published' ? (
-                                <EyeOff className="h-4 w-4" />
-                              ) : (
-                                <Eye className="h-4 w-4" />
-                              )}
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => handleDelete(video)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-slate-300">{formatDuration(video.duration_seconds)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="border-slate-600 text-slate-300">{video.access_level}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`${status.color} text-white gap-1`}>
+                          {status.icon}
+                          {status.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => openEdit(video)}
+                            disabled={isProcessing}
+                            className="text-slate-400 hover:text-white hover:bg-slate-800"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => handlePublish(video)}
+                            disabled={isProcessing}
+                            className="text-slate-400 hover:text-white hover:bg-slate-800"
+                          >
+                            {video.status === 'published' ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => handleDelete(video)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
         {/* Edit Dialog */}
         <Dialog open={!!editVideo} onOpenChange={(open) => !open && setEditVideo(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-700">
             <DialogHeader>
-              <DialogTitle>Edit Video</DialogTitle>
+              <DialogTitle className="text-white">Edit Video</DialogTitle>
             </DialogHeader>
             {editVideo && (
               <div className="space-y-6">
@@ -638,9 +640,9 @@ export default function AdminVideos() {
 
                 {/* AI-Generated Notice */}
                 {editVideo.status === 'ready_for_review' && (
-                  <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200">
-                    <Sparkles className="h-5 w-5 text-green-500" />
-                    <p className="text-sm text-green-700 dark:text-green-400">
+                  <div className="flex items-center gap-2 p-3 bg-green-950/30 rounded-lg border border-green-500/30">
+                    <Sparkles className="h-5 w-5 text-green-400" />
+                    <p className="text-sm text-green-300">
                       AI has pre-filled all fields. Review and publish when ready!
                     </p>
                   </div>
@@ -649,32 +651,34 @@ export default function AdminVideos() {
                 {/* Form Fields */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <label className="text-sm font-medium">Title</label>
+                    <label className="text-sm font-medium text-slate-300">Title</label>
                     <Input
                       value={formData.title}
                       onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                      className="bg-slate-800/50 border-slate-700 text-white mt-1"
                     />
                   </div>
 
                   <div className="col-span-2">
-                    <label className="text-sm font-medium">Description</label>
+                    <label className="text-sm font-medium text-slate-300">Description</label>
                     <Textarea
                       value={formData.description}
                       onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
                       rows={2}
+                      className="bg-slate-800/50 border-slate-700 text-white mt-1"
                     />
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">4B Category</label>
+                    <label className="text-sm font-medium text-slate-300">4B Category</label>
                     <Select 
                       value={formData.four_b_category} 
                       onValueChange={v => setFormData(prev => ({ ...prev, four_b_category: v }))}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white mt-1">
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-slate-900 border-slate-700">
                         <SelectItem value="brain">🧠 Brain</SelectItem>
                         <SelectItem value="body">💪 Body</SelectItem>
                         <SelectItem value="bat">🏏 Bat</SelectItem>
@@ -684,24 +688,25 @@ export default function AdminVideos() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Drill Name</label>
+                    <label className="text-sm font-medium text-slate-300">Drill Name</label>
                     <Input
                       value={formData.drill_name}
                       onChange={e => setFormData(prev => ({ ...prev, drill_name: e.target.value }))}
                       placeholder="e.g., Tee Work, Hip Rotation Drill"
+                      className="bg-slate-800/50 border-slate-700 text-white mt-1"
                     />
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Access Level</label>
+                    <label className="text-sm font-medium text-slate-300">Access Level</label>
                     <Select 
                       value={formData.access_level} 
                       onValueChange={v => setFormData(prev => ({ ...prev, access_level: v }))}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white mt-1">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-slate-900 border-slate-700">
                         <SelectItem value="free">Free</SelectItem>
                         <SelectItem value="paid">Paid</SelectItem>
                         <SelectItem value="inner_circle">Inner Circle</SelectItem>
@@ -710,15 +715,15 @@ export default function AdminVideos() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Video Type</label>
+                    <label className="text-sm font-medium text-slate-300">Video Type</label>
                     <Select 
                       value={formData.video_type} 
                       onValueChange={v => setFormData(prev => ({ ...prev, video_type: v }))}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white mt-1">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-slate-900 border-slate-700">
                         <SelectItem value="drill">Drill</SelectItem>
                         <SelectItem value="lesson">Lesson</SelectItem>
                         <SelectItem value="breakdown">Breakdown</SelectItem>
@@ -729,10 +734,10 @@ export default function AdminVideos() {
                   </div>
 
                   <div className="col-span-2">
-                    <label className="text-sm font-medium">Problems Addressed</label>
+                    <label className="text-sm font-medium text-slate-300">Problems Addressed</label>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {PROBLEMS_LIST.map(problem => (
-                        <label key={problem} className="flex items-center gap-1.5 text-sm">
+                        <label key={problem} className="flex items-center gap-1.5 text-sm text-slate-300">
                           <Checkbox
                             checked={formData.problems_addressed.includes(problem)}
                             onCheckedChange={(checked) => {
@@ -743,6 +748,7 @@ export default function AdminVideos() {
                                   : prev.problems_addressed.filter(p => p !== problem)
                               }));
                             }}
+                            className="border-slate-600"
                           />
                           {problem.replace(/_/g, ' ')}
                         </label>
@@ -751,10 +757,10 @@ export default function AdminVideos() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Motor Profiles</label>
+                    <label className="text-sm font-medium text-slate-300">Motor Profiles</label>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {MOTOR_PROFILES.map(profile => (
-                        <label key={profile} className="flex items-center gap-1.5 text-sm">
+                        <label key={profile} className="flex items-center gap-1.5 text-sm text-slate-300">
                           <Checkbox
                             checked={formData.motor_profiles.includes(profile)}
                             onCheckedChange={(checked) => {
@@ -765,6 +771,7 @@ export default function AdminVideos() {
                                   : prev.motor_profiles.filter(p => p !== profile)
                               }));
                             }}
+                            className="border-slate-600"
                           />
                           {profile}
                         </label>
@@ -773,10 +780,10 @@ export default function AdminVideos() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Player Level</label>
+                    <label className="text-sm font-medium text-slate-300">Player Level</label>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {PLAYER_LEVELS.map(level => (
-                        <label key={level} className="flex items-center gap-1.5 text-sm">
+                        <label key={level} className="flex items-center gap-1.5 text-sm text-slate-300">
                           <Checkbox
                             checked={formData.player_level.includes(level)}
                             onCheckedChange={(checked) => {
@@ -787,6 +794,7 @@ export default function AdminVideos() {
                                   : prev.player_level.filter(l => l !== level)
                               }));
                             }}
+                            className="border-slate-600"
                           />
                           {level.replace(/_/g, ' ')}
                         </label>
@@ -795,42 +803,50 @@ export default function AdminVideos() {
                   </div>
 
                   <div className="col-span-2">
-                    <label className="text-sm font-medium">Tags (comma-separated)</label>
+                    <label className="text-sm font-medium text-slate-300">Tags (comma-separated)</label>
                     <Input
                       value={formData.tags}
                       onChange={e => setFormData(prev => ({ ...prev, tags: e.target.value }))}
                       placeholder="hip rotation, power, follow through"
+                      className="bg-slate-800/50 border-slate-700 text-white mt-1"
                     />
                   </div>
 
                   <div className="col-span-2">
-                    <label className="text-sm font-medium">Transcript</label>
+                    <label className="text-sm font-medium text-slate-300">Transcript</label>
                     <Textarea
                       value={formData.transcript}
                       onChange={e => setFormData(prev => ({ ...prev, transcript: e.target.value }))}
                       rows={6}
                       placeholder="Transcript will appear here after transcription..."
+                      className="bg-slate-800/50 border-slate-700 text-white mt-1"
                     />
                   </div>
                 </div>
 
                 <div className="flex justify-between gap-3">
                   <Button 
-                    variant="default"
                     onClick={() => {
                       handlePublish(editVideo);
                       setEditVideo(null);
                     }}
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-green-600 hover:bg-green-700 text-white"
                   >
                     <Eye className="h-4 w-4 mr-2" />
                     Save & Publish
                   </Button>
                   <div className="flex gap-3">
-                    <Button variant="outline" onClick={() => setEditVideo(null)}>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setEditVideo(null)}
+                      className="bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+                    >
                       Cancel
                     </Button>
-                    <Button onClick={handleSave}>
+                    <Button 
+                      onClick={handleSave}
+                      className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
+                    >
                       Save Draft
                     </Button>
                   </div>

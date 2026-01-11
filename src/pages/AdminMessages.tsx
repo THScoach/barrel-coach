@@ -2,15 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { AdminHeader } from '@/components/AdminHeader';
-import { Footer } from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, MessageCircle, User, Phone, Loader2, Bell } from 'lucide-react';
+import { Send, MessageCircle, User, Phone, Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Link } from 'react-router-dom';
 
 interface Session {
   id: string;
@@ -221,35 +220,49 @@ export default function AdminMessages() {
   const totalUnread = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen bg-slate-950">
       <AdminHeader />
       
-      <main className="flex-1 container py-8">
+      <main className="p-6 max-w-7xl mx-auto">
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold">Messages</h1>
+          <div className="flex items-center gap-4">
+            <Link to="/admin" className="text-slate-400 hover:text-white transition-colors">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                <MessageCircle className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">Messages</h1>
+                <p className="text-sm text-slate-400">
+                  SMS conversations with players
+                </p>
+              </div>
+            </div>
             {totalUnread > 0 && (
-              <Badge variant="destructive" className="text-sm">
+              <Badge className="bg-red-500 text-white text-sm">
                 {totalUnread} unread
               </Badge>
             )}
           </div>
         </div>
         
-        <div className="grid md:grid-cols-3 gap-6 h-[calc(100vh-16rem)]">
+        <div className="grid md:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
           {/* Player List */}
-          <Card className="p-4 overflow-hidden">
-            <h2 className="font-semibold mb-4 flex items-center gap-2">
-              <User className="w-4 h-4" />
+          <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 overflow-hidden">
+            <h2 className="font-semibold mb-4 flex items-center gap-2 text-white">
+              <User className="w-4 h-4 text-slate-400" />
               Players
             </h2>
             <ScrollArea className="h-[calc(100%-2rem)]">
               {sessionsLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
                 </div>
               ) : uniquePhones?.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
+                <p className="text-sm text-slate-500 text-center py-8">
                   No players with phone numbers yet
                 </p>
               ) : (
@@ -261,22 +274,22 @@ export default function AdminMessages() {
                         key={session.id}
                         onClick={() => handleSelectSession(session)}
                         className={cn(
-                          "w-full text-left p-3 rounded-lg transition-colors relative",
+                          "w-full text-left p-3 rounded-xl transition-colors relative",
                           selectedPhone === session.player_phone
-                            ? "bg-accent text-accent-foreground"
-                            : "hover:bg-muted"
+                            ? "bg-slate-800 border border-slate-700"
+                            : "hover:bg-slate-800/50 border border-transparent"
                         )}
                       >
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium truncate">{session.player_name}</p>
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <p className="font-medium truncate text-white">{session.player_name}</p>
+                            <p className="text-xs text-slate-400 flex items-center gap-1">
                               <Phone className="w-3 h-3" />
                               {session.player_phone}
                             </p>
                           </div>
                           {unread > 0 && (
-                            <Badge variant="destructive" className="ml-2">
+                            <Badge className="ml-2 bg-red-500 text-white">
                               {unread}
                             </Badge>
                           )}
@@ -287,12 +300,12 @@ export default function AdminMessages() {
                 </div>
               )}
             </ScrollArea>
-          </Card>
+          </div>
 
           {/* Chat Area */}
-          <Card className="md:col-span-2 flex flex-col overflow-hidden">
+          <div className="md:col-span-2 bg-slate-900/50 border border-slate-800 rounded-2xl flex flex-col overflow-hidden">
             {!selectedPhone ? (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              <div className="flex-1 flex items-center justify-center text-slate-500">
                 <div className="text-center">
                   <MessageCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>Select a player to view conversation</p>
@@ -301,19 +314,19 @@ export default function AdminMessages() {
             ) : (
               <>
                 {/* Header */}
-                <div className="p-4 border-b">
-                  <h3 className="font-semibold">{selectedSession?.player_name}</h3>
-                  <p className="text-sm text-muted-foreground">{selectedPhone}</p>
+                <div className="p-4 border-b border-slate-800">
+                  <h3 className="font-semibold text-white">{selectedSession?.player_name}</h3>
+                  <p className="text-sm text-slate-400">{selectedPhone}</p>
                 </div>
 
                 {/* Messages */}
                 <ScrollArea className="flex-1 p-4">
                   {messagesLoading ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                      <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
                     </div>
                   ) : messages?.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
+                    <p className="text-sm text-slate-500 text-center py-8">
                       No messages yet. Send the first one!
                     </p>
                   ) : (
@@ -324,14 +337,14 @@ export default function AdminMessages() {
                           className={cn(
                             "max-w-[75%] p-3 rounded-2xl",
                             msg.direction === 'outbound'
-                              ? "ml-auto bg-primary text-primary-foreground rounded-br-md"
-                              : "bg-muted rounded-bl-md"
+                              ? "ml-auto bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-br-md"
+                              : "bg-slate-800 text-slate-100 rounded-bl-md"
                           )}
                         >
                           <p className="text-sm whitespace-pre-wrap">{msg.body}</p>
                           <p className={cn(
                             "text-xs mt-1",
-                            msg.direction === 'outbound' ? "opacity-70" : "opacity-60"
+                            msg.direction === 'outbound' ? "opacity-70" : "text-slate-400"
                           )}>
                             {new Date(msg.created_at).toLocaleString([], { 
                               month: 'short',
@@ -348,18 +361,20 @@ export default function AdminMessages() {
                 </ScrollArea>
 
                 {/* Input */}
-                <div className="p-4 border-t flex gap-2">
+                <div className="p-4 border-t border-slate-800 flex gap-2">
                   <Input
                     placeholder="Type a message..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                     disabled={sendMutation.isPending}
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                   />
                   <Button 
                     onClick={handleSend} 
                     disabled={!newMessage.trim() || sendMutation.isPending}
                     size="icon"
+                    className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
                   >
                     {sendMutation.isPending ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -370,11 +385,9 @@ export default function AdminMessages() {
                 </div>
               </>
             )}
-          </Card>
+          </div>
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }
