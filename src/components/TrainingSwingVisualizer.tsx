@@ -270,7 +270,7 @@ export function TrainingSwingVisualizer({
           <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center mb-4">
             <AlertTriangle className="h-6 w-6 text-amber-400" />
           </div>
-          <p className="text-amber-400 font-medium mb-1">Analysis Limited</p>
+          <p className="text-amber-400 font-medium mb-1">NEED MORE</p>
           <p className="text-slate-400 text-sm max-w-xs">
             {confidence.message}
           </p>
@@ -287,7 +287,7 @@ export function TrainingSwingVisualizer({
           <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center mb-4">
             <CheckCircle2 className="h-6 w-6 text-green-400" />
           </div>
-          <p className="text-green-400 font-medium mb-1">Clean Energy Transfer</p>
+          <p className="text-green-400 font-medium mb-1">GOOD MOVE</p>
           <p className="text-slate-400 text-sm max-w-xs">
             {translation.caption}
           </p>
@@ -302,14 +302,14 @@ export function TrainingSwingVisualizer({
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-amber-400" />
-          <span className="text-sm font-medium text-white">What Caused the Leak</span>
+          <span className="text-sm font-medium text-white">Here's What Broke Down</span>
         </div>
         {showHighlight && (
           <button 
             onClick={handleReplay}
             className="text-xs text-slate-400 hover:text-white transition-colors"
           >
-            Replay
+            Run it again
           </button>
         )}
       </div>
@@ -448,7 +448,7 @@ export function TrainingSwingVisualizer({
       {/* Clarifying label */}
       <div className="px-4 pb-3">
         <p className="text-slate-500 text-center text-xs italic">
-          Training diagram — highlights the cause pattern (not a full motion capture replay).
+          Training diagram — shows the pattern, not a full replay.
         </p>
       </div>
     </div>

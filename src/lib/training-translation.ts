@@ -32,8 +32,8 @@ export interface TrainingTranslation {
 export const TRAINING_TRANSLATIONS: Record<LeakType, TrainingTranslation> = {
   [LeakType.CLEAN_TRANSFER]: {
     primaryCause: 'none',
-    caption: 'Great job! Your legs connected to the ground and transferred energy cleanly.',
-    trainingFocus: 'Maintain your current pattern',
+    caption: "That's it. You stayed connected and got it out on time.",
+    trainingFocus: 'Keep doing that.',
     highlightJoints: [],
     causeColor: 'green',
   },
@@ -41,55 +41,55 @@ export const TRAINING_TRANSLATIONS: Record<LeakType, TrainingTranslation> = {
   [LeakType.EARLY_BACK_LEG_RELEASE]: {
     primaryCause: 'rear_leg',
     caption: 'You left the ground too early with your back leg.',
-    trainingFocus: 'Stay connected longer with rear leg',
+    trainingFocus: 'Stay in the ground longer.',
     highlightJoints: ['rear_hip', 'rear_knee', 'rear_ankle'],
     causeColor: 'red',
   },
 
   [LeakType.LATE_LEAD_LEG_ACCEPTANCE]: {
     primaryCause: 'lead_leg',
-    caption: 'Your front leg didn\'t catch the force in time.',
-    trainingFocus: 'Earlier front-side acceptance',
+    caption: "Your front leg didn't catch it in time.",
+    trainingFocus: 'Catch it earlier on the front side.',
     highlightJoints: ['lead_hip', 'lead_knee', 'lead_ankle'],
     causeColor: 'yellow',
   },
 
   [LeakType.VERTICAL_PUSH]: {
-    primaryCause: 'legs',
+    primaryCause: 'ground',
     caption: 'You pushed up instead of into the ground.',
-    trainingFocus: 'Push into the ground, not up',
+    trainingFocus: 'Push into the ground, not straight up.',
     highlightJoints: ['rear_knee', 'rear_ankle', 'lead_knee', 'lead_ankle'],
     causeColor: 'red',
   },
 
   [LeakType.GLIDE_WITHOUT_CAPTURE]: {
     primaryCause: 'lead_leg',
-    caption: 'You moved forward but didn\'t stop and transfer.',
-    trainingFocus: 'Learn to brake and transfer',
+    caption: "You moved forward but never stopped it.",
+    trainingFocus: 'Brake it, then fire.',
     highlightJoints: ['lead_hip', 'lead_knee'],
     causeColor: 'yellow',
   },
 
   [LeakType.LATE_ENGINE]: {
-    primaryCause: 'timing',
-    caption: 'Your legs produced power — it just showed up late.',
-    trainingFocus: 'Earlier ground connection timing',
+    primaryCause: 'ground',
+    caption: 'Your legs made power — it just showed up late.',
+    trainingFocus: 'Get to the ground earlier.',
     highlightJoints: ['rear_hip', 'rear_knee', 'lead_knee'],
     causeColor: 'yellow',
   },
 
   [LeakType.CORE_DISCONNECT]: {
     primaryCause: 'core',
-    caption: 'Your upper body fired before your legs could lead.',
-    trainingFocus: 'Let the legs lead the swing',
+    caption: 'Your upper half went before your legs.',
+    trainingFocus: 'Let the legs start the swing.',
     highlightJoints: ['rear_hip', 'lead_hip', 'core'],
     causeColor: 'red',
   },
 
   [LeakType.UNKNOWN]: {
     primaryCause: 'none',
-    caption: 'Movement pattern unclear — more swings needed.',
-    trainingFocus: 'Capture more data',
+    caption: "I can't see this one clean yet.",
+    trainingFocus: 'Give me more swings.',
     highlightJoints: [],
     causeColor: 'yellow',
   },
@@ -113,21 +113,21 @@ export function hasConfidentAnalysis(
   if (swingCount < 3) {
     return {
       confident: false,
-      message: 'Movement pattern unclear — more swings needed for accurate analysis.',
+      message: "I can't see this one clean yet. Give me more swings.",
     };
   }
 
   if (!hasContactEvent) {
     return {
       confident: false,
-      message: 'Contact point unclear — analysis may be limited.',
+      message: "I can't see this one clean yet.",
     };
   }
 
   if (leakType === LeakType.UNKNOWN) {
     return {
       confident: false,
-      message: 'Movement pattern unclear — more swings needed.',
+      message: "I can't see this one clean yet.",
     };
   }
 
@@ -143,17 +143,17 @@ export function hasConfidentAnalysis(
 export function getBodyPartDisplayName(cause: TrainingTranslation['primaryCause']): string {
   switch (cause) {
     case 'rear_leg':
-      return 'Back Leg';
+      return 'BACK LEG';
     case 'lead_leg':
-      return 'Front Leg';
+      return 'FRONT LEG';
     case 'legs':
-      return 'Legs';
+      return 'GROUND';
     case 'ground':
-      return 'Ground Connection';
+      return 'GROUND';
     case 'core':
-      return 'Core';
+      return 'SEQUENCE';
     case 'timing':
-      return 'Timing';
+      return 'GROUND';
     case 'none':
       return '';
     default:
