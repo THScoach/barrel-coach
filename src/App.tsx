@@ -24,6 +24,7 @@ import NotFound from "./pages/NotFound";
 import SocialClips from "./pages/SocialClips";
 import Pricing from "./pages/Pricing";
 import Apply from "./pages/Apply";
+import Diagnostic from "./pages/Diagnostic";
 
 // Admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -73,6 +74,7 @@ const App = () => (
               <Route path="/social-clips" element={<SocialClips />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/apply" element={<Apply />} />
+              <Route path="/diagnostic" element={<Diagnostic />} />
 
               {/* Player Portal Routes */}
               <Route path="/player" element={<PlayerLayout />}>
