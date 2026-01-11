@@ -39,7 +39,7 @@ import { AdminHeader } from "@/components/AdminHeader";
 import { ScoreInput } from "@/components/analyzer/ScoreInput";
 import { ProblemSelector } from "@/components/analyzer/ProblemSelector";
 import { DrillRecommendations } from "@/components/analyzer/DrillRecommendations";
-import { VideoPlayer, VideoMarker } from "@/components/analyzer/VideoPlayer";
+import { VideoPlayer, VideoMarker, MaskAnnotation } from "@/components/analyzer/VideoPlayer";
 import { format, formatDistanceToNow } from "date-fns";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -123,6 +123,9 @@ export default function AdminAnalyzer() {
   const [currentSwingIndex, setCurrentSwingIndex] = useState(0);
   const [currentVideoTime, setCurrentVideoTime] = useState(0);
   const [swingMarkers, setSwingMarkers] = useState<VideoMarker[]>([]);
+  
+  // SAM3 annotations state (in-memory for now)
+  const [savedAnnotations, setSavedAnnotations] = useState<MaskAnnotation[]>([]);
 
   // Analysis form state
   const [scores, setScores] = useState({ brain: 5, body: 5, bat: 5, ball: 5 });
@@ -459,6 +462,9 @@ export default function AdminAnalyzer() {
                           src={currentSwing.video_url}
                           markers={swingMarkers}
                           onTimeUpdate={setCurrentVideoTime}
+                          enableSAM3={true}
+                          savedAnnotations={savedAnnotations}
+                          onAnnotationSave={(a) => setSavedAnnotations(prev => [a, ...prev])}
                         />
                         {/* Marker Setting Controls */}
                         <div className="flex items-center justify-center gap-2 flex-wrap pt-2 border-t border-slate-700">

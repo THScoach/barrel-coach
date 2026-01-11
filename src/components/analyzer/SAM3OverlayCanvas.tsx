@@ -226,8 +226,10 @@ export function SAM3OverlayCanvas({
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      if (data.maskUrl) {
-        setCurrentMaskUrl(data.maskUrl);
+      // Prefer maskDataUrl (base64) to avoid CORS issues with remote URLs
+      const maskResult = data.maskDataUrl || data.maskUrl;
+      if (maskResult) {
+        setCurrentMaskUrl(maskResult);
         toast.success(`Segmentation complete (${data.processingTime}ms)`);
       } else {
         toast.error("No mask returned");

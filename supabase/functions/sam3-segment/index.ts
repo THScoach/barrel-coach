@@ -144,10 +144,10 @@ async function segmentWithPrompts(
   // Handle async prediction
   if (result.status === "starting" || result.status === "processing") {
     const finalResult = await pollPrediction(apiKey, result.id);
-    return formatResponse(finalResult, mode, startTime, corsHeaders);
+    return await formatResponse(finalResult, mode, startTime, corsHeaders);
   }
 
-  return formatResponse(result, mode, startTime, corsHeaders);
+  return await formatResponse(result, mode, startTime, corsHeaders);
 }
 
 function getSegmentPrompt(mode: string, customPrompt?: string): string {
@@ -202,10 +202,10 @@ async function fallbackGroundedSAM(
   
   if (result.status === "starting" || result.status === "processing") {
     const finalResult = await pollPrediction(apiKey, result.id);
-    return formatResponse(finalResult, mode, startTime, corsHeaders);
+    return await formatResponse(finalResult, mode, startTime, corsHeaders);
   }
 
-  return formatResponse(result, mode, startTime, corsHeaders);
+  return await formatResponse(result, mode, startTime, corsHeaders);
 }
 
 async function pollPrediction(apiKey: string, predictionId: string, maxAttempts = 30): Promise<any> {
@@ -230,12 +230,35 @@ async function pollPrediction(apiKey: string, predictionId: string, maxAttempts 
   throw new Error("Prediction timed out");
 }
 
-function formatResponse(
+// Fetch remote mask and convert to base64 data URL to avoid CORS issues
+async function fetchMaskAsDataUrl(url: string): Promise<string> {
+  if (!url) return "";
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error(`Failed to fetch mask: ${response.status}`);
+      return "";
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    // Base64 encode in Deno
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const b64 = btoa(binary);
+    return `data:image/png;base64,${b64}`;
+  } catch (err) {
+    console.error("Failed to convert mask to data URL:", err);
+    return "";
+  }
+}
+
+async function formatResponse(
   result: any,
   mode: string,
   startTime: number,
   corsHeaders: Record<string, string>
-): Response {
+): Promise<Response> {
   const processingTime = Date.now() - startTime;
   
   // Extract mask URL from result
@@ -253,13 +276,17 @@ function formatResponse(
     }
   }
 
-  const response: SegmentResponse = {
+  // Convert remote mask URL to base64 to avoid CORS issues in browser
+  const maskDataUrl = await fetchMaskAsDataUrl(maskUrl);
+
+  const response = {
     maskUrl,
+    maskDataUrl,
     mode,
     processingTime,
   };
 
-  console.log(`SAM3 segmentation complete: mode=${mode}, time=${processingTime}ms, maskUrl=${maskUrl ? 'present' : 'missing'}`);
+  console.log(`SAM3 segmentation complete: mode=${mode}, time=${processingTime}ms, maskUrl=${maskUrl ? 'present' : 'missing'}, dataUrl=${maskDataUrl ? 'present' : 'missing'}`);
 
   return new Response(
     JSON.stringify(response),
