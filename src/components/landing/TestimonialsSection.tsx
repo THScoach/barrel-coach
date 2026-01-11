@@ -1,4 +1,5 @@
-import { Star } from 'lucide-react';
+import { Star, Play } from 'lucide-react';
+import { useState, useRef } from 'react';
 
 const testimonials = [
   {
@@ -32,17 +33,62 @@ const testimonials = [
 ];
 
 export function TestimonialsSection() {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handlePlayClick = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleVideoEnded = () => {
+    setIsPlaying(false);
+  };
+
   return (
-    <section className="bg-white-95 py-24">
-      <div className="container">
+    <section className="bg-slate-900 py-24">
+      <div className="container max-w-6xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-16">
-          <span className="inline-block bg-primary text-white text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-full mb-4">
+          <span className="inline-block bg-red-600 text-white text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-full mb-4">
             Testimonials
           </span>
-          <h2 className="text-4xl md:text-5xl font-bold text-navy-900">
+          <h2 className="text-4xl md:text-5xl font-bold text-white">
             WHAT PLAYERS ARE SAYING
           </h2>
+        </div>
+
+        {/* Video Testimonial */}
+        <div className="mb-16">
+          <div className="relative max-w-3xl mx-auto rounded-2xl overflow-hidden shadow-2xl shadow-red-500/10">
+            <video
+              ref={videoRef}
+              src="/videos/testimonial-1.mp4"
+              className="w-full aspect-video object-cover"
+              onEnded={handleVideoEnded}
+              onClick={handlePlayClick}
+              playsInline
+            />
+            {!isPlaying && (
+              <button
+                onClick={handlePlayClick}
+                className="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/30 transition-colors group"
+              >
+                <div className="w-20 h-20 rounded-full bg-red-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+                  <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
+                </div>
+              </button>
+            )}
+          </div>
+          <p className="text-center text-slate-400 mt-4 text-sm">
+            Hear from players who transformed their swing with the 4B System
+          </p>
         </div>
 
         {/* Testimonials Grid */}
@@ -50,19 +96,19 @@ export function TestimonialsSection() {
           {testimonials.map((testimonial, index) => (
             <div 
               key={index}
-              className="bg-white rounded-2xl p-8 shadow-lg"
+              className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-8"
             >
               <div className="flex items-center gap-4 mb-5">
-                <div className="w-14 h-14 rounded-full bg-navy-700 flex items-center justify-center text-lg font-bold text-white">
+                <div className="w-14 h-14 rounded-full bg-slate-700 flex items-center justify-center text-lg font-bold text-white">
                   {testimonial.avatar}
                 </div>
                 <div>
-                  <h4 className="font-bold text-navy-900">{testimonial.name}</h4>
-                  <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                  <h4 className="font-bold text-white">{testimonial.name}</h4>
+                  <p className="text-sm text-slate-400">{testimonial.role}</p>
                 </div>
               </div>
               
-              <p className="text-gray-600 italic leading-relaxed mb-4">
+              <p className="text-slate-300 italic leading-relaxed mb-4">
                 "{testimonial.quote}"
               </p>
               
