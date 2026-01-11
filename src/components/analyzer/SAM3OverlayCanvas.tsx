@@ -66,6 +66,7 @@ export function SAM3OverlayCanvas({
   const [boxStart, setBoxStart] = useState<{ x: number; y: number } | null>(null);
   const [currentBox, setCurrentBox] = useState<BoxPrompt | null>(null);
   const [maskOpacity, setMaskOpacity] = useState(0.45);
+  const [activeSavedAnnotation, setActiveSavedAnnotation] = useState<MaskAnnotation | null>(null);
 
   // Get video dimensions and compute letterbox offset
   const getVideoLayout = useCallback(() => {
@@ -272,6 +273,27 @@ export function SAM3OverlayCanvas({
     toast.success("Mask saved");
   }, [currentMaskUrl, videoElement, points, currentBox, onAnnotationSave]);
 
+  // Auto-detect saved annotations at current frame
+  useEffect(() => {
+    if (!videoElement || savedAnnotations.length === 0) {
+      setActiveSavedAnnotation(null);
+      return;
+    }
+
+    const currentTimeMs = videoElement.currentTime * 1000;
+    const frameToleranceMs = 1000 / 30; // ~33ms tolerance (one frame at 30fps)
+
+    // Find annotation closest to current time within tolerance
+    const matchingAnnotation = savedAnnotations.find(
+      (a) => Math.abs(a.frameTimeMs - currentTimeMs) <= frameToleranceMs
+    );
+
+    setActiveSavedAnnotation(matchingAnnotation || null);
+  }, [videoElement?.currentTime, savedAnnotations, videoElement]);
+
+  // Determine which mask to display: current working mask or saved annotation
+  const displayMaskUrl = currentMaskUrl || (activeSavedAnnotation?.maskUrl);
+
   // Draw overlay (points, box, mask)
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -287,8 +309,8 @@ export function SAM3OverlayCanvas({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw mask if available
-    if (currentMaskUrl && showMask) {
+    // Draw mask if available (current working mask or saved annotation)
+    if (displayMaskUrl && showMask) {
       const maskImg = new Image();
       maskImg.crossOrigin = "anonymous";
       maskImg.onload = () => {
@@ -305,7 +327,11 @@ export function SAM3OverlayCanvas({
         // Redraw prompts on top
         drawPrompts(ctx, layout);
       };
-      maskImg.src = currentMaskUrl;
+      maskImg.onerror = () => {
+        // If mask fails to load, just draw prompts
+        drawPrompts(ctx, layout);
+      };
+      maskImg.src = displayMaskUrl;
     } else {
       drawPrompts(ctx, layout);
     }
@@ -350,7 +376,7 @@ export function SAM3OverlayCanvas({
         ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
       }
     }
-  }, [points, currentBox, currentMaskUrl, showMask, maskOpacity, getVideoLayout]);
+  }, [points, currentBox, displayMaskUrl, showMask, maskOpacity, getVideoLayout]);
 
   // Auto-run segmentation when prompts change
   useEffect(() => {
@@ -420,7 +446,7 @@ export function SAM3OverlayCanvas({
 
         <div className="w-px h-6 bg-white/20 mx-1" />
 
-        {currentMaskUrl && (
+        {(currentMaskUrl || activeSavedAnnotation) && (
           <Button
             variant="ghost"
             size="sm"

@@ -353,6 +353,26 @@ export function VideoPlayer({
             })}
           </div>
         )}
+        
+        {/* SAM3 Annotation markers on timeline */}
+        {duration > 0 && savedAnnotations.length > 0 && (
+          <div className="absolute top-0 left-0 right-0 h-full pointer-events-none">
+            {savedAnnotations.map((annotation) => {
+              const annotationTime = annotation.frameTimeMs / 1000;
+              const position = (annotationTime / duration) * 100;
+              if (position < 0 || position > 100) return null;
+              
+              return (
+                <div
+                  key={annotation.id}
+                  className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-purple-500 opacity-90 ring-1 ring-purple-300"
+                  style={{ left: `${position}%` }}
+                  title={`Mask annotation: ${formatTime(annotationTime)}`}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Marker Navigation Buttons */}
