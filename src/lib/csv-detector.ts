@@ -19,127 +19,172 @@ export interface DetectionResult {
 }
 
 /**
+ * Normalize a header string for matching
+ */
+function normalizeHeader(header: string): string {
+  return header
+    .toLowerCase()
+    .trim()
+    .replace(/[\s_\-\.]+/g, ' ')
+    .replace(/[^\w\s#]/g, '');
+}
+
+/**
+ * Check if headers contain any of the given aliases
+ */
+function hasAnyAlias(normalizedHeaders: string[], aliases: string[]): boolean {
+  return aliases.some(alias => {
+    const normalized = normalizeHeader(alias);
+    return normalizedHeaders.some(h => 
+      h === normalized || h.includes(normalized) || normalized.includes(h)
+    );
+  });
+}
+
+/**
+ * Find a matching header from aliases
+ */
+function findMatchingHeader(headers: string[], aliases: string[]): string | undefined {
+  for (const header of headers) {
+    const normalized = normalizeHeader(header);
+    for (const alias of aliases) {
+      const aliasNorm = normalizeHeader(alias);
+      if (normalized === aliasNorm || normalized.includes(aliasNorm)) {
+        return header;
+      }
+    }
+  }
+  return undefined;
+}
+
+// Exit Velocity aliases for all brands
+const EV_ALIASES = [
+  'velo', 'exit velocity', 'exitvelocity', 'ev', 'ev (mph)', 'exit velo', 
+  'exitvelo', 'exit_velocity', 'exit_velo', 'ball speed', 'ballspeed', 
+  'ball_speed', 'exit speed', 'exitspeed', 'exit_speed'
+];
+
+// Launch Angle aliases for all brands
+const LA_ALIASES = [
+  'la', 'launch angle', 'launchangle', 'angle', 'launch_angle',
+  'vert angle', 'vertical angle', 'vert_angle', 'vla'
+];
+
+// Distance aliases
+const DIST_ALIASES = [
+  'dist', 'distance', 'carry', 'total distance', 'totaldistance',
+  'total_distance', 'projected distance', 'proj dist', 'proj_dist'
+];
+
+/**
  * Detect CSV type and launch monitor brand from headers
+ * HARDENED: Uses flexible header matching with aliases
  */
 export function detectCsvType(headers: string[]): DetectionResult {
-  const h = headers.map(x => x.trim().toLowerCase());
+  const h = headers.map(x => normalizeHeader(x));
+  
+  // ===================
+  // REBOOT MOTION DETECTION (check first - very specific headers)
+  // ===================
+  
+  // Reboot Inverse Kinematics
+  const rebootIkAliases = ['left_shoulder_plane', 'torso_rot', 'pelvis_rot', 'left_hip_flex', 
+    'right_shoulder_elev', 'pelvis_tilt', 'left_knee', 'right_knee'];
+  if (hasAnyAlias(h, rebootIkAliases)) {
+    return { csvType: 'reboot-ik' };
+  }
+  
+  // Reboot Momentum Energy
+  const rebootMeAliases = ['total_kinetic_energy', 'bat_kinetic_energy', 'torso_kinetic_energy',
+    'larm_kinetic_energy', 'rarm_kinetic_energy', 'legs_kinetic_energy'];
+  if (hasAnyAlias(h, rebootMeAliases) || h.some(x => x.endsWith('kinetic energy'))) {
+    return { csvType: 'reboot-me' };
+  }
   
   // ===================
   // LAUNCH MONITOR DETECTION
   // ===================
   
-  // HitTrax - has Velo, LA, Dist, Res columns
-  if (h.includes('velo') && h.includes('la') && h.includes('dist')) {
+  // HitTrax specific - has 'Res' column for result
+  const hittraxSpecific = ['res', 'pts', 'horiz angle'];
+  if (hasAnyAlias(h, hittraxSpecific) && hasAnyAlias(h, EV_ALIASES)) {
     return {
       csvType: 'launch-monitor',
       brand: 'hittrax',
       columnMap: {
-        exitVelo: 'Velo',
-        launchAngle: 'LA',
-        distance: 'Dist',
-        result: 'Res',
-        hitType: 'Type',
-        user: 'User'
+        exitVelo: findMatchingHeader(headers, EV_ALIASES) || 'Velo',
+        launchAngle: findMatchingHeader(headers, LA_ALIASES) || 'LA',
+        distance: findMatchingHeader(headers, DIST_ALIASES) || 'Dist',
+        result: findMatchingHeader(headers, ['res', 'result', 'outcome']) || 'Res',
+        hitType: findMatchingHeader(headers, ['type', 'hit type', 'hittype', 'bb type']) || 'Type',
+        user: findMatchingHeader(headers, ['user', 'player', 'name', 'hitter']) || 'User'
       }
     };
   }
   
-  // Trackman - has ExitSpeed, LaunchAngle
-  if (h.includes('exitspeed') || h.includes('exit speed') || h.includes('exit_speed')) {
+  // Trackman - has ExitSpeed specifically
+  if (hasAnyAlias(h, ['exit speed', 'exitspeed', 'exit_speed'])) {
     return {
       csvType: 'launch-monitor',
       brand: 'trackman',
       columnMap: {
-        exitVelo: h.find(x => x.includes('exitspeed') || x.includes('exit speed') || x.includes('exit_speed')) || 'ExitSpeed',
-        launchAngle: h.find(x => x.includes('launchangle') || x.includes('launch angle') || x.includes('launch_angle')) || 'LaunchAngle',
-        distance: h.find(x => x.includes('distance') || x.includes('carry')) || 'Distance'
+        exitVelo: findMatchingHeader(headers, ['exit speed', 'exitspeed', 'exit_speed']) || 'ExitSpeed',
+        launchAngle: findMatchingHeader(headers, LA_ALIASES) || 'LaunchAngle',
+        distance: findMatchingHeader(headers, DIST_ALIASES) || 'Distance'
       }
     };
   }
   
-  // Rapsodo - has ExitVelo (note different from Trackman's ExitSpeed)
-  if (h.includes('exitvelo') || h.includes('exit velo') || h.includes('exit_velo')) {
-    return {
-      csvType: 'launch-monitor',
-      brand: 'rapsodo',
-      columnMap: {
-        exitVelo: 'ExitVelo',
-        launchAngle: 'LA',
-        distance: 'Dist'
-      }
-    };
-  }
-  
-  // FlightScope - has BallSpeed, VLA
-  if (h.includes('ballspeed') || h.includes('ball speed') || h.includes('vla')) {
+  // FlightScope - has BallSpeed and VLA specifically
+  if (hasAnyAlias(h, ['ball speed', 'ballspeed', 'ball_speed'])) {
     return {
       csvType: 'launch-monitor',
       brand: 'flightscope',
       columnMap: {
-        exitVelo: h.find(x => x.includes('ballspeed') || x.includes('ball speed')) || 'BallSpeed',
-        launchAngle: h.find(x => x.includes('vla') || x.includes('launch')) || 'VLA',
-        distance: h.find(x => x.includes('carry') || x.includes('distance')) || 'Carry'
+        exitVelo: findMatchingHeader(headers, ['ball speed', 'ballspeed', 'ball_speed']) || 'BallSpeed',
+        launchAngle: findMatchingHeader(headers, ['vla', ...LA_ALIASES]) || 'VLA',
+        distance: findMatchingHeader(headers, ['carry', ...DIST_ALIASES]) || 'Carry'
       }
     };
   }
   
-  // Diamond Kinetics
-  if (h.includes('exitvelocity') || h.includes('exit velocity')) {
+  // Diamond Kinetics - has ExitVelocity (two words camelcase)
+  if (h.some(x => x === 'exitvelocity' || x === 'exit velocity')) {
     return {
       csvType: 'launch-monitor',
       brand: 'diamond-kinetics',
       columnMap: {
-        exitVelo: 'ExitVelocity',
-        launchAngle: 'LaunchAngle',
-        distance: 'Distance'
+        exitVelo: findMatchingHeader(headers, ['exitvelocity', 'exit velocity']) || 'ExitVelocity',
+        launchAngle: findMatchingHeader(headers, LA_ALIASES) || 'LaunchAngle',
+        distance: findMatchingHeader(headers, DIST_ALIASES) || 'Distance'
       }
     };
   }
   
-  // Generic launch monitor - look for velocity/speed + angle patterns
-  const hasVeloColumn = h.some(x => x.includes('velo') || x.includes('speed') || x.includes('ev'));
-  const hasAngleColumn = h.some(x => x.includes('angle') || x.includes('la'));
-  if (hasVeloColumn && hasAngleColumn) {
+  // Rapsodo - has ExitVelo
+  if (hasAnyAlias(h, ['exit velo', 'exitvelo', 'exit_velo'])) {
+    return {
+      csvType: 'launch-monitor',
+      brand: 'rapsodo',
+      columnMap: {
+        exitVelo: findMatchingHeader(headers, ['exit velo', 'exitvelo', 'exit_velo']) || 'ExitVelo',
+        launchAngle: findMatchingHeader(headers, LA_ALIASES) || 'LA',
+        distance: findMatchingHeader(headers, DIST_ALIASES) || 'Dist'
+      }
+    };
+  }
+  
+  // Generic launch monitor - look for any velocity + angle patterns
+  if (hasAnyAlias(h, EV_ALIASES) && hasAnyAlias(h, LA_ALIASES)) {
     return {
       csvType: 'launch-monitor',
       brand: 'generic',
       columnMap: {
-        exitVelo: headers.find(x => x.toLowerCase().includes('velo') || x.toLowerCase().includes('speed')) || '',
-        launchAngle: headers.find(x => x.toLowerCase().includes('angle') || x.toLowerCase() === 'la') || '',
-        distance: headers.find(x => x.toLowerCase().includes('dist') || x.toLowerCase().includes('carry')) || ''
+        exitVelo: findMatchingHeader(headers, EV_ALIASES) || '',
+        launchAngle: findMatchingHeader(headers, LA_ALIASES) || '',
+        distance: findMatchingHeader(headers, DIST_ALIASES) || ''
       }
     };
-  }
-  
-  // ===================
-  // REBOOT MOTION DETECTION
-  // ===================
-  
-  // Reboot Inverse Kinematics - unique headers: left_shoulder_plane, torso_rot, pelvis_rot, left_hip_flex
-  if (
-    h.includes('left_shoulder_plane') || 
-    h.includes('torso_rot') || 
-    h.includes('pelvis_rot') ||
-    h.includes('left_hip_flex') ||
-    h.includes('right_shoulder_elev') ||
-    h.includes('pelvis_tilt') ||
-    h.includes('left_knee') ||
-    h.includes('right_knee')
-  ) {
-    return { csvType: 'reboot-ik' };
-  }
-  
-  // Reboot Momentum Energy - unique headers: total_kinetic_energy, bat_kinetic_energy, torso_kinetic_energy
-  if (
-    h.includes('total_kinetic_energy') || 
-    h.includes('bat_kinetic_energy') || 
-    h.includes('torso_kinetic_energy') ||
-    h.includes('larm_kinetic_energy') ||
-    h.includes('rarm_kinetic_energy') ||
-    h.includes('legs_kinetic_energy') ||
-    h.some(x => x.endsWith('_kinetic_energy'))
-  ) {
-    return { csvType: 'reboot-me' };
   }
   
   return { csvType: 'unknown' };

@@ -86,15 +86,30 @@ export function HitTraxUploadModal({
     
     try {
       const allRows: HitTraxRow[] = [];
+      let totalSkipped = 0;
+      let fileWarnings: string[] = [];
       
       for (const file of uploadedFiles) {
-        const text = await file.text();
-        const rows = parseHitTraxCSV(text);
-        allRows.push(...rows);
+        try {
+          const text = await file.text();
+          const rows = parseHitTraxCSV(text);
+          
+          if (rows.length === 0) {
+            fileWarnings.push(`${file.name}: No valid data found`);
+          } else {
+            allRows.push(...rows);
+          }
+        } catch (fileError) {
+          console.warn(`Error parsing ${file.name}:`, fileError);
+          fileWarnings.push(`${file.name}: Parse error - skipped`);
+        }
       }
       
       if (allRows.length === 0) {
-        toast.error("No valid swing data found in the uploaded files");
+        const message = fileWarnings.length > 0 
+          ? `No valid swing data found. ${fileWarnings.join(', ')}`
+          : "No valid swing data found in the uploaded files";
+        toast.error(message);
         setIsProcessing(false);
         return;
       }
@@ -108,10 +123,15 @@ export function HitTraxUploadModal({
       setParsedRows(allRows);
       setSessionStats(stats);
       
-      toast.success(`Processed ${allRows.length} swings`);
+      // Show warnings if any files had issues
+      if (fileWarnings.length > 0) {
+        toast.warning(`Processed ${allRows.length} swings (some files had issues)`);
+      } else {
+        toast.success(`Processed ${allRows.length} swings`);
+      }
     } catch (error) {
       console.error("Error processing files:", error);
-      toast.error("Failed to process CSV files");
+      toast.error("Failed to process CSV files. Check file format.");
     } finally {
       setIsProcessing(false);
     }
