@@ -296,6 +296,13 @@ export function VideoUploader({
       const fileArray = Array.from(files);
       if (fileArray.length === 0) return;
 
+      // Coach Rick voice for max swings exceeded
+      if (fileArray.length > swingsMaxAllowed) {
+        toast.error(`🔥 ${swingsMaxAllowed} max. Pick your best 5–15 swings.`, {
+          duration: 5000,
+        });
+      }
+
       if (remainingCapacity <= 0) {
         toast.error(`Session is full. Max ${swingsMaxAllowed} swings.`);
         return;
