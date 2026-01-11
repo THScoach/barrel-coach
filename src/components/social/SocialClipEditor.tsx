@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { 
   User, 
   Crosshair, 
@@ -13,10 +15,15 @@ import {
   Play,
   Pause,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Pencil,
+  Trash2,
+  SkipBack,
+  SkipForward
 } from "lucide-react";
 import { useSAM3Segment, SegmentMode } from "@/hooks/useSAM3Segment";
 import { SpotlightCanvas } from "./SpotlightCanvas";
+import { BatPathTrail } from "./BatPathTrail";
 import { toast } from "sonner";
 
 interface SocialClipEditorProps {
@@ -34,6 +41,13 @@ interface Preset {
   height: number;
 }
 
+interface TrailPoint {
+  x: number;
+  y: number;
+  timestamp: number;
+  frame: number;
+}
+
 const EXPORT_PRESETS: Preset[] = [
   { id: "vertical", label: "9:16 Vertical", aspectRatio: "9/16", width: 1080, height: 1920 },
   { id: "square", label: "1:1 Square", aspectRatio: "1/1", width: 1080, height: 1080 },
@@ -45,6 +59,15 @@ const SEGMENT_MODES: { mode: SegmentMode; label: string; icon: React.ReactNode; 
   { mode: "bat", label: "Bat", icon: <Crosshair className="h-4 w-4" />, description: "Track the bat path" },
   { mode: "barrel", label: "Barrel", icon: <Circle className="h-4 w-4" />, description: "Highlight barrel zone" },
   { mode: "background", label: "Background", icon: <EyeOff className="h-4 w-4" />, description: "Mute the cage" },
+];
+
+const TRAIL_COLORS = [
+  { id: "amber", color: "#f59e0b", label: "Amber" },
+  { id: "red", color: "#ef4444", label: "Red" },
+  { id: "green", color: "#22c55e", label: "Green" },
+  { id: "blue", color: "#3b82f6", label: "Blue" },
+  { id: "purple", color: "#a855f7", label: "Purple" },
+  { id: "white", color: "#ffffff", label: "White" },
 ];
 
 export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) {
@@ -60,9 +83,28 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
   const [intensity, setIntensity] = useState(0.7);
   const [overlayEnabled, setOverlayEnabled] = useState(false);
   
+  // Bat path trail state
+  const [trailEnabled, setTrailEnabled] = useState(false);
+  const [trailRecording, setTrailRecording] = useState(false);
+  const [trailColor, setTrailColor] = useState(TRAIL_COLORS[0].color);
+  const [trailWidth, setTrailWidth] = useState(4);
+  const [trailGlow, setTrailGlow] = useState(true);
+  const [trailPoints, setTrailPoints] = useState<TrailPoint[]>([]);
+  
   // Export state
   const [selectedPreset, setSelectedPreset] = useState<Preset>(EXPORT_PRESETS[0]);
   const [isExporting, setIsExporting] = useState(false);
+
+  // Frame stepping for trail recording
+  const stepFrame = useCallback((direction: 1 | -1) => {
+    const video = videoRef.current;
+    if (!video) return;
+    
+    const fps = 30; // Assume 30fps
+    const frameTime = 1 / fps;
+    video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + (direction * frameTime)));
+    setCurrentTime(video.currentTime);
+  }, []);
 
   // Capture current frame for segmentation
   const captureFrame = useCallback((): string | null => {
@@ -182,6 +224,25 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
               enabled={overlayEnabled}
             />
             
+            {/* Bat Path Trail Overlay */}
+            <BatPathTrail
+              videoRef={videoRef}
+              enabled={trailEnabled}
+              isRecording={trailRecording}
+              trailColor={trailColor}
+              trailWidth={trailWidth}
+              glowEnabled={trailGlow}
+              onTrailUpdate={setTrailPoints}
+            />
+            
+            {/* Recording indicator */}
+            {trailRecording && (
+              <div className="absolute top-3 left-3 flex items-center gap-2 bg-red-500/90 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                <div className="w-2 h-2 bg-white rounded-full" />
+                Recording Trail - Click barrel position
+              </div>
+            )}
+            
             {/* Processing indicator */}
             {isProcessing && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -196,6 +257,17 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
           {/* Playback controls */}
           <div className="p-4 space-y-3 border-t border-slate-700">
             <div className="flex items-center gap-3">
+              {/* Frame step back */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => stepFrame(-1)}
+                className="h-8 w-8"
+                title="Previous frame"
+              >
+                <SkipBack className="h-4 w-4" />
+              </Button>
+              
               <Button
                 variant="ghost"
                 size="icon"
@@ -203,6 +275,17 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
                 className="h-8 w-8"
               >
                 {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              </Button>
+              
+              {/* Frame step forward */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => stepFrame(1)}
+                className="h-8 w-8"
+                title="Next frame"
+              >
+                <SkipForward className="h-4 w-4" />
               </Button>
               
               <Slider
@@ -221,24 +304,33 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
           </div>
         </Card>
         
-        {/* Active Effect Badge */}
-        {overlayEnabled && activeSegmentMode && (
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
-              <Sparkles className="h-3 w-3 mr-1" />
-              {activeSegmentMode.charAt(0).toUpperCase() + activeSegmentMode.slice(1)} {visualMode}
+        {/* Active Effect Badges */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {overlayEnabled && activeSegmentMode && (
+            <>
+              <Badge variant="secondary" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                <Sparkles className="h-3 w-3 mr-1" />
+                {activeSegmentMode.charAt(0).toUpperCase() + activeSegmentMode.slice(1)} {visualMode}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetOverlay}
+                className="h-6 text-xs text-slate-400"
+              >
+                <RotateCcw className="h-3 w-3 mr-1" />
+                Reset
+              </Button>
+            </>
+          )}
+          
+          {trailEnabled && trailPoints.length > 0 && (
+            <Badge variant="secondary" className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+              <Pencil className="h-3 w-3 mr-1" />
+              Trail: {trailPoints.length} points
             </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={resetOverlay}
-              className="h-6 text-xs text-slate-400"
-            >
-              <RotateCcw className="h-3 w-3 mr-1" />
-              Reset
-            </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Controls Panel */}
@@ -296,6 +388,99 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
               onValueChange={(v) => setIntensity(v[0])}
             />
           </div>
+        </Card>
+
+        {/* Bat Path Trail */}
+        <Card className="bg-slate-800/50 border-slate-700 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-slate-300">Bat Path Trail</h3>
+            <Switch
+              checked={trailEnabled}
+              onCheckedChange={(checked) => {
+                setTrailEnabled(checked);
+                if (!checked) {
+                  setTrailRecording(false);
+                  setTrailPoints([]);
+                }
+              }}
+            />
+          </div>
+          
+          {trailEnabled && (
+            <div className="space-y-4">
+              {/* Recording controls */}
+              <div className="flex gap-2">
+                <Button
+                  variant={trailRecording ? "destructive" : "default"}
+                  size="sm"
+                  onClick={() => setTrailRecording(!trailRecording)}
+                  className="flex-1 text-xs"
+                >
+                  <Pencil className="h-3 w-3 mr-1" />
+                  {trailRecording ? "Stop Recording" : "Start Recording"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTrailPoints([])}
+                  disabled={trailPoints.length === 0}
+                  className="text-xs"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              
+              {trailRecording && (
+                <p className="text-[10px] text-slate-400 bg-slate-700/50 p-2 rounded">
+                  Step through frames and click on the barrel position to record the path.
+                </p>
+              )}
+              
+              {/* Trail color */}
+              <div className="space-y-2">
+                <Label className="text-xs text-slate-400">Trail Color</Label>
+                <div className="flex gap-1">
+                  {TRAIL_COLORS.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setTrailColor(c.color)}
+                      className={`w-6 h-6 rounded-full border-2 transition-all ${
+                        trailColor === c.color 
+                          ? "border-white scale-110" 
+                          : "border-transparent hover:border-slate-500"
+                      }`}
+                      style={{ backgroundColor: c.color }}
+                      title={c.label}
+                    />
+                  ))}
+                </div>
+              </div>
+              
+              {/* Trail width */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-slate-400">Trail Width</Label>
+                  <span className="text-xs text-slate-500">{trailWidth}px</span>
+                </div>
+                <Slider
+                  value={[trailWidth]}
+                  min={2}
+                  max={10}
+                  step={1}
+                  onValueChange={(v) => setTrailWidth(v[0])}
+                />
+              </div>
+              
+              {/* Glow toggle */}
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-slate-400">Glow Effect</Label>
+                <Switch
+                  checked={trailGlow}
+                  onCheckedChange={setTrailGlow}
+                />
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Export Presets */}
