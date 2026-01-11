@@ -146,7 +146,7 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
 
     setActiveSegmentMode(mode);
     
-    const result = await segment(frameDataUrl, mode);
+    const result = await segment({ imageDataUrl: frameDataUrl, mode });
     
     if (result) {
       setOverlayEnabled(true);

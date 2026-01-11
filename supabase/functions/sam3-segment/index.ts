@@ -5,16 +5,33 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface PointPrompt {
+  x: number;
+  y: number;
+  label: 0 | 1; // 0 = negative, 1 = positive
+}
+
+interface BoxPrompt {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 interface SegmentRequest {
-  imageUrl: string;
-  mode: "hitter" | "bat" | "barrel" | "background";
+  imageUrl?: string;
+  imageDataUrl?: string; // base64 data URL
+  mode?: "hitter" | "bat" | "barrel" | "background" | "custom";
   prompt?: string;
+  points?: PointPrompt[];
+  box?: BoxPrompt;
 }
 
 interface SegmentResponse {
   maskUrl: string;
   mode: string;
   processingTime: number;
+  confidence?: number;
 }
 
 serve(async (req) => {
@@ -29,65 +46,31 @@ serve(async (req) => {
       throw new Error("REPLICATE_API_KEY is not configured");
     }
 
-    const { imageUrl, mode, prompt }: SegmentRequest = await req.json();
+    const body: SegmentRequest = await req.json();
+    const { imageUrl, imageDataUrl, mode = "custom", prompt, points, box } = body;
 
-    if (!imageUrl) {
+    // Accept either URL or base64 data
+    const image = imageDataUrl || imageUrl;
+    if (!image) {
       return new Response(
-        JSON.stringify({ error: "imageUrl is required" }),
+        JSON.stringify({ error: "imageUrl or imageDataUrl is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const startTime = Date.now();
+    const hasPointOrBox = (points && points.length > 0) || box;
 
-    // Map mode to SAM3 prompt
+    console.log(`SAM3 request: mode=${mode}, points=${points?.length || 0}, hasBox=${!!box}`);
+
+    // If we have point/box prompts, use SAM 2.1 with coordinate prompts
+    if (hasPointOrBox) {
+      return await segmentWithPrompts(REPLICATE_API_KEY, image, points, box, mode, startTime, corsHeaders);
+    }
+
+    // Otherwise use text-based Grounded-SAM
     const segmentPrompt = getSegmentPrompt(mode, prompt);
-
-    console.log(`SAM3 segmentation request: mode=${mode}, prompt="${segmentPrompt}"`);
-
-    // Call Replicate SAM3 API
-    // Using SAM 2.1 (meta/sam-2.1-pro) for video/image segmentation
-    const prediction = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${REPLICATE_API_KEY}`,
-        "Content-Type": "application/json",
-        "Prefer": "wait",  // Wait for result (up to 60s)
-      },
-      body: JSON.stringify({
-        // SAM 2.1 Pro model for high-quality segmentation
-        version: "fe97b453a6455861e3bac769b441ca1f1086110da7466dbb65cf1eecfd60dc83",
-        input: {
-          image: imageUrl,
-          point_coords: null,
-          point_labels: null,
-          box: null,
-          mask_input: null,
-          multimask_output: false,
-          // Use text prompt for concept-based segmentation
-          use_m2m: true,
-        }
-      }),
-    });
-
-    if (!prediction.ok) {
-      const errorText = await prediction.text();
-      console.error("Replicate API error:", prediction.status, errorText);
-      
-      // Fallback: Use Grounding DINO + SAM for text-based segmentation
-      return await fallbackGroundedSAM(REPLICATE_API_KEY, imageUrl, segmentPrompt, mode, startTime, corsHeaders);
-    }
-
-    const result = await prediction.json();
-
-    // Handle async prediction (if Prefer: wait didn't complete)
-    if (result.status === "starting" || result.status === "processing") {
-      // Poll for result
-      const finalResult = await pollPrediction(REPLICATE_API_KEY, result.id);
-      return formatResponse(finalResult, mode, startTime, corsHeaders);
-    }
-
-    return formatResponse(result, mode, startTime, corsHeaders);
+    return await fallbackGroundedSAM(REPLICATE_API_KEY, image, segmentPrompt, mode, startTime, corsHeaders);
 
   } catch (error) {
     console.error("SAM3 segmentation error:", error);
@@ -100,6 +83,72 @@ serve(async (req) => {
     );
   }
 });
+
+// SAM 2.1 with point/box prompts
+async function segmentWithPrompts(
+  apiKey: string,
+  image: string,
+  points: PointPrompt[] | undefined,
+  box: BoxPrompt | undefined,
+  mode: string,
+  startTime: number,
+  corsHeaders: Record<string, string>
+): Promise<Response> {
+  console.log("Using SAM 2.1 with coordinate prompts");
+
+  // Format point coordinates for SAM 2.1
+  // SAM expects [[x1,y1], [x2,y2], ...]
+  let pointCoords: number[][] | null = null;
+  let pointLabels: number[] | null = null;
+  
+  if (points && points.length > 0) {
+    pointCoords = points.map(p => [p.x, p.y]);
+    pointLabels = points.map(p => p.label);
+  }
+
+  // Format box for SAM 2.1: [x1, y1, x2, y2]
+  let boxInput: number[] | null = null;
+  if (box) {
+    boxInput = [box.x1, box.y1, box.x2, box.y2];
+  }
+
+  const prediction = await fetch("https://api.replicate.com/v1/predictions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "Prefer": "wait",
+    },
+    body: JSON.stringify({
+      // SAM 2.1 Pro model
+      version: "fe97b453a6455861e3bac769b441ca1f1086110da7466dbb65cf1eecfd60dc83",
+      input: {
+        image: image,
+        point_coords: pointCoords,
+        point_labels: pointLabels,
+        box: boxInput,
+        multimask_output: false,
+        return_logits: false,
+      }
+    }),
+  });
+
+  if (!prediction.ok) {
+    const errorText = await prediction.text();
+    console.error("SAM 2.1 API error:", prediction.status, errorText);
+    throw new Error(`SAM segmentation failed: ${prediction.status}`);
+  }
+
+  const result = await prediction.json();
+
+  // Handle async prediction
+  if (result.status === "starting" || result.status === "processing") {
+    const finalResult = await pollPrediction(apiKey, result.id);
+    return formatResponse(finalResult, mode, startTime, corsHeaders);
+  }
+
+  return formatResponse(result, mode, startTime, corsHeaders);
+}
 
 function getSegmentPrompt(mode: string, customPrompt?: string): string {
   if (customPrompt) return customPrompt;
@@ -116,15 +165,14 @@ function getSegmentPrompt(mode: string, customPrompt?: string): string {
 
 async function fallbackGroundedSAM(
   apiKey: string,
-  imageUrl: string,
+  image: string,
   prompt: string,
   mode: string,
   startTime: number,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
-  console.log("Using fallback Grounded-SAM for text-based segmentation");
+  console.log("Using Grounded-SAM for text-based segmentation");
   
-  // Use Grounded-SAM which supports text prompts
   const prediction = await fetch("https://api.replicate.com/v1/predictions", {
     method: "POST",
     headers: {
@@ -136,7 +184,7 @@ async function fallbackGroundedSAM(
       // Grounded-SAM model for text-prompted segmentation
       version: "ee871c19efb1941f55f66a3d7d960428c8a5afcb77449547fe8e5a3ab9ec7960",
       input: {
-        image: imageUrl,
+        image: image,
         text_prompt: prompt,
         box_threshold: 0.25,
         text_threshold: 0.25,
@@ -200,6 +248,8 @@ function formatResponse(
       maskUrl = result.output.find((url: string) => url.includes("mask")) || result.output[0];
     } else if (result.output.mask) {
       maskUrl = result.output.mask;
+    } else if (result.output.combined_mask) {
+      maskUrl = result.output.combined_mask;
     }
   }
 
@@ -209,7 +259,7 @@ function formatResponse(
     processingTime,
   };
 
-  console.log(`SAM3 segmentation complete: mode=${mode}, time=${processingTime}ms`);
+  console.log(`SAM3 segmentation complete: mode=${mode}, time=${processingTime}ms, maskUrl=${maskUrl ? 'present' : 'missing'}`);
 
   return new Response(
     JSON.stringify(response),
