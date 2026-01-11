@@ -110,16 +110,20 @@ const BONES = [
   { from: 'lead_wrist', to: 'bat_end' },
 ];
 
-// Joint to highlight mapping
+// Joint to highlight mapping - LEGS ONLY for primary highlights
+// Pelvis is handled separately as secondary tier (low opacity, never red)
 const JOINT_HIGHLIGHT_MAP: Record<string, string[]> = {
-  rear_hip: ['pelvis', 'rear_hip'],
+  rear_hip: ['rear_hip'],  // No pelvis - legs only
   rear_knee: ['rear_hip', 'rear_knee'],
   rear_ankle: ['rear_knee', 'rear_ankle', 'rear_foot'],
-  lead_hip: ['pelvis', 'lead_hip'],
+  lead_hip: ['lead_hip'],  // No pelvis - legs only
   lead_knee: ['lead_hip', 'lead_knee'],
   lead_ankle: ['lead_knee', 'lead_ankle', 'lead_foot'],
-  core: ['core', 'pelvis', 'neck'],
+  core: ['core', 'neck'],  // No pelvis - core only
 };
+
+// Secondary highlight joints (shown at low opacity, never red)
+const SECONDARY_JOINTS = new Set(['pelvis']);
 
 // Get all joints to highlight based on translation
 function getHighlightedJoints(translation: TrainingTranslation): Set<string> {
@@ -133,17 +137,46 @@ function getHighlightedJoints(translation: TrainingTranslation): Set<string> {
   return joints;
 }
 
+// Check if a joint is secondary (pelvis) - never gets full color
+function isSecondaryJoint(joint: string): boolean {
+  return SECONDARY_JOINTS.has(joint);
+}
+
 // Get color for a bone based on highlighted joints
+// Secondary joints (pelvis) get low opacity, never red
 function getBoneColor(
   from: string, 
   to: string, 
   highlightedJoints: Set<string>,
   causeColor: 'green' | 'yellow' | 'red'
 ): string {
-  const isHighlighted = highlightedJoints.has(from) || highlightedJoints.has(to);
+  const fromHighlighted = highlightedJoints.has(from);
+  const toHighlighted = highlightedJoints.has(to);
+  const isHighlighted = fromHighlighted || toHighlighted;
+  
+  // Check if this bone connects to pelvis
+  const connectsToPelvis = isSecondaryJoint(from) || isSecondaryJoint(to);
   
   if (!isHighlighted) {
+    // Secondary joints (pelvis) get slightly more opacity as connectors
+    if (connectsToPelvis) {
+      return 'hsl(var(--muted-foreground) / 0.5)';
+    }
     return 'hsl(var(--muted-foreground) / 0.4)';
+  }
+  
+  // If one end is pelvis, use muted color (never full red/yellow)
+  if (connectsToPelvis) {
+    switch (causeColor) {
+      case 'green':
+        return 'hsl(142 76% 55% / 0.4)'; // green, low opacity
+      case 'yellow':
+        return 'hsl(45 93% 58% / 0.4)'; // amber, low opacity
+      case 'red':
+        return 'hsl(45 93% 58% / 0.4)'; // YELLOW not red for pelvis
+      default:
+        return 'hsl(var(--muted-foreground) / 0.5)';
+    }
   }
   
   switch (causeColor) {
@@ -159,12 +192,22 @@ function getBoneColor(
 }
 
 // Get color for joint based on highlight status
+// Secondary joints (pelvis) get low opacity, never red
 function getJointColor(
   joint: string,
   highlightedJoints: Set<string>,
   causeColor: 'green' | 'yellow' | 'red'
 ): string {
   const isHighlighted = highlightedJoints.has(joint);
+  const isSecondary = isSecondaryJoint(joint);
+  
+  // Pelvis is always shown as secondary (low opacity, never red)
+  if (isSecondary) {
+    if (isHighlighted || causeColor !== 'green') {
+      return 'hsl(var(--muted-foreground) / 0.5)'; // Low opacity connector
+    }
+    return 'hsl(var(--muted-foreground) / 0.4)';
+  }
   
   if (!isHighlighted) {
     return 'hsl(var(--muted-foreground) / 0.3)';
@@ -399,6 +442,13 @@ export function TrainingSwingVisualizer({
         </p>
         <p className="text-slate-400 text-center text-sm">
           <span className="text-slate-500">Training Focus:</span> {translation.trainingFocus}
+        </p>
+      </div>
+      
+      {/* Clarifying label */}
+      <div className="px-4 pb-3">
+        <p className="text-slate-500 text-center text-xs italic">
+          Training diagram — highlights the cause pattern (not a full motion capture replay).
         </p>
       </div>
     </div>

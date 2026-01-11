@@ -185,7 +185,12 @@ export default function Results() {
         {analysis?.primary_problem && (
           <div className="mb-6">
             <TrainingSwingVisualizer
-              leakType={(analysis.leak_type as LeakType) || mapProblemToLeak(analysis.primary_problem)}
+              leakType={
+                // Use leak_type directly when available, fallback to mapping for legacy data
+                analysis.leak_type 
+                  ? (analysis.leak_type as LeakType)
+                  : mapProblemToLeak(analysis.primary_problem)
+              }
               swingCount={isCompleteReview ? 5 : 1}
               hasContactEvent={true}
             />
