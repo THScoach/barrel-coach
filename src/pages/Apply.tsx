@@ -234,7 +234,7 @@ export default function Apply() {
             </div>
 
             <p className="text-center text-sm text-slate-500">
-              Investment: $1,997 – $2,997 depending on cadence and access level.
+              Founders / Offseason Rate: $1,299 (limited) • Standard: $1,997–$2,997
             </p>
           </form>
         </div>

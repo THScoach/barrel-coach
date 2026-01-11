@@ -273,31 +273,31 @@ export default function Index() {
             <p className="text-lg text-slate-400">Three paths. All lead to better at-bats.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Guided Coaching */}
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Free Diagnostic */}
             <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-8 text-center hover:-translate-y-1 transition-transform">
-              <div className="text-blue-400 font-bold text-sm uppercase tracking-wider mb-2">Ongoing Structure</div>
-              <h3 className="text-2xl font-bold text-white mb-2">Guided Coaching</h3>
-              <div className="text-4xl font-black text-white mb-1">$99</div>
-              <div className="text-slate-500 mb-6">/month</div>
+              <div className="text-slate-400 font-bold text-sm uppercase tracking-wider mb-2">Entry Point</div>
+              <h3 className="text-2xl font-bold text-white mb-2">Free Diagnostic</h3>
+              <div className="text-4xl font-black text-white mb-1">$0</div>
+              <div className="text-slate-500 mb-6">one-time snapshot</div>
               <ul className="text-left space-y-3 mb-8">
                 <li className="flex items-start gap-3 text-slate-300">
                   <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  Weekly AI check-ins in Rick's voice
+                  Upload your swing video
                 </li>
                 <li className="flex items-start gap-3 text-slate-300">
                   <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  Ongoing data uploads + trend tracking
+                  Get clarity on what's happening
                 </li>
                 <li className="flex items-start gap-3 text-slate-300">
                   <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  Clear benchmarks + accountability
+                  No credit card required
                 </li>
               </ul>
-              <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                <Link to="/inner-circle">Start Coaching</Link>
+              <Button asChild className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold">
+                <Link to="/analyze">Get Free Diagnostic</Link>
               </Button>
-              <p className="text-xs text-slate-500 mt-4">Clarity becomes consistency.</p>
+              <p className="text-xs text-slate-500 mt-4">Clarity, not coaching.</p>
             </div>
 
             {/* In-Person Assessment */}
@@ -333,8 +333,8 @@ export default function Index() {
             <div className="bg-gradient-to-b from-slate-900 to-slate-900/80 border border-yellow-500/30 rounded-2xl p-8 text-center hover:-translate-y-1 transition-transform">
               <div className="text-yellow-400 font-bold text-sm uppercase tracking-wider mb-2">Flagship Program</div>
               <h3 className="text-2xl font-bold text-white mb-2">90-Day Transformation</h3>
-              <div className="text-2xl font-black text-white mb-1">$1,997 – $2,997</div>
-              <div className="text-slate-500 mb-6">by application</div>
+              <div className="text-xl font-black text-white mb-1">Starts at $1,299</div>
+              <div className="text-slate-500 text-sm mb-6">Founders / Offseason Rate (limited)</div>
               <ul className="text-left space-y-3 mb-8">
                 <li className="flex items-start gap-3 text-slate-300">
                   <Check className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
@@ -352,7 +352,7 @@ export default function Index() {
               <Button asChild className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold">
                 <Link to="/apply">Apply Now</Link>
               </Button>
-              <p className="text-xs text-slate-500 mt-4">For players done guessing.</p>
+              <p className="text-xs text-slate-500 mt-4">By application only.</p>
             </div>
           </div>
         </div>

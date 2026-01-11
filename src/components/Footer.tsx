@@ -53,16 +53,13 @@ export function Footer() {
             <h4 className="font-semibold text-white mb-4">Products</h4>
             <ul className="space-y-3">
               <li>
-                <Link to="/analyze" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Free Diagnostic</Link>
-              </li>
-              <li>
-                <Link to="/inner-circle" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Guided Coaching — $99/mo</Link>
+                <Link to="/analyze" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Free Diagnostic — $0</Link>
               </li>
               <li>
                 <Link to="/assessment" className="text-slate-400 hover:text-red-500 transition-colors text-sm">In-Person Assessment — $399</Link>
               </li>
               <li>
-                <Link to="/apply" className="text-slate-400 hover:text-red-500 transition-colors text-sm">90-Day Transformation</Link>
+                <Link to="/apply" className="text-slate-400 hover:text-red-500 transition-colors text-sm">90-Day Transformation — Apply</Link>
               </li>
             </ul>
           </div>
