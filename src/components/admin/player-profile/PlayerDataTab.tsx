@@ -401,6 +401,7 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
           onOpenChange={setUploadModalOpen}
           playerId={playersTableId}
           playerName={playerName}
+          linkVerified={true}
           onSuccess={() => {
             loadSessions(playersTableId);
             setUploadModalOpen(false);

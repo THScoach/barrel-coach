@@ -142,7 +142,7 @@ export function WeeklyCheckinChat({ playerId, playerName, onComplete }: WeeklyCh
 
   const getProgress = () => {
     if (!state) return 0;
-    return Math.min(100, (state.currentQuestion / 9) * 100);
+    return Math.min(100, (state.currentQuestion / 8) * 100);
   };
 
   // Calculate batting average for display
@@ -172,7 +172,7 @@ export function WeeklyCheckinChat({ playerId, playerName, onComplete }: WeeklyCh
           <div>
             <h3 className="font-bold">Weekly Check-In</h3>
             <p className="text-sm text-muted-foreground">
-              {isComplete ? 'Complete!' : `Question ${Math.min(state?.currentQuestion || 1, 9)} of 9`}
+              {isComplete ? 'Complete!' : `Question ${Math.min(state?.currentQuestion || 1, 8)} of 8`}
             </p>
           </div>
         </div>
