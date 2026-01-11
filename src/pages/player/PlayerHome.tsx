@@ -308,9 +308,9 @@ export default function PlayerHome() {
               </Link>
             </Button>
             <Button className="w-full" asChild>
-              <Link to="/analyze">
+              <Link to="/player/new-session">
                 <Upload className="h-4 w-4 mr-2" />
-                Upload Swing Video
+                Start New Session
               </Link>
             </Button>
           </CardContent>
