@@ -39,7 +39,7 @@ import { AdminHeader } from "@/components/AdminHeader";
 import { ScoreInput } from "@/components/analyzer/ScoreInput";
 import { ProblemSelector } from "@/components/analyzer/ProblemSelector";
 import { DrillRecommendations } from "@/components/analyzer/DrillRecommendations";
-import { VideoPlayer } from "@/components/analyzer/VideoPlayer";
+import { VideoPlayer, VideoMarker } from "@/components/analyzer/VideoPlayer";
 import { format, formatDistanceToNow } from "date-fns";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -121,6 +121,8 @@ export default function AdminAnalyzer() {
   const [sending, setSending] = useState(false);
   const [activeTab, setActiveTab] = useState("pending");
   const [currentSwingIndex, setCurrentSwingIndex] = useState(0);
+  const [currentVideoTime, setCurrentVideoTime] = useState(0);
+  const [swingMarkers, setSwingMarkers] = useState<VideoMarker[]>([]);
 
   // Analysis form state
   const [scores, setScores] = useState({ brain: 5, body: 5, bat: 5, ball: 5 });
@@ -173,6 +175,8 @@ export default function AdminAnalyzer() {
     setSelectedSession(session);
     setLoadingSwings(true);
     setCurrentSwingIndex(0);
+    setSwingMarkers([]); // Reset markers when switching sessions
+    setCurrentVideoTime(0);
 
     try {
       const {
@@ -449,10 +453,53 @@ export default function AdminAnalyzer() {
                         <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
                       </div>
                     ) : currentSwing?.video_url ? (
-                      <VideoPlayer
-                        key={currentSwing.id}
-                        src={currentSwing.video_url}
-                      />
+                      <div className="space-y-3">
+                        <VideoPlayer
+                          key={currentSwing.id}
+                          src={currentSwing.video_url}
+                          markers={swingMarkers}
+                          onTimeUpdate={setCurrentVideoTime}
+                        />
+                        {/* Marker Setting Controls */}
+                        <div className="flex items-center justify-center gap-2 flex-wrap pt-2 border-t border-slate-700">
+                          <span className="text-xs text-slate-400 mr-2">Set Marker at Current Frame:</span>
+                          {(['load', 'trigger', 'contact', 'finish'] as const).map((markerType) => {
+                            const exists = swingMarkers.some(m => m.id === markerType);
+                            return (
+                              <Button
+                                key={markerType}
+                                variant={exists ? "default" : "outline"}
+                                size="sm"
+                                className="h-6 px-2 text-xs capitalize"
+                                onClick={() => {
+                                  setSwingMarkers(prev => {
+                                    // Remove existing marker of this type
+                                    const filtered = prev.filter(m => m.id !== markerType);
+                                    // Add new marker at current time
+                                    return [...filtered, {
+                                      id: markerType,
+                                      label: markerType.charAt(0).toUpperCase() + markerType.slice(1),
+                                      time: currentVideoTime
+                                    }].sort((a, b) => a.time - b.time);
+                                  });
+                                }}
+                              >
+                                {markerType} {exists ? '✓' : ''}
+                              </Button>
+                            );
+                          })}
+                          {swingMarkers.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs text-slate-500"
+                              onClick={() => setSwingMarkers([])}
+                            >
+                              Clear All
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     ) : (
                       <div className="aspect-video bg-slate-800 rounded-lg flex flex-col items-center justify-center text-slate-500">
                         <Video className="h-12 w-12 mb-2 opacity-50" />
