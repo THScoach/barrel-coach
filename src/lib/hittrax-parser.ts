@@ -56,9 +56,17 @@ export interface HitTraxSessionStats {
   optimalLaCount: number;
   groundBallCount: number;
   flyBallCount: number;
+  lineDriveCount: number;
   
   maxDistance: number;
   avgDistance: number;
+  
+  // StatCast-aligned metrics
+  hardHitCount: number;    // EV >= 95
+  sweetSpotCount: number;  // LA 8-32
+  hardHitPct: number;
+  sweetSpotPct: number;
+  damagePct: number;       // Hard Hit AND Sweet Spot combined
   
   qualityHits: number;
   barrelHits: number;
@@ -549,6 +557,7 @@ export function calculateSessionStats(rows: HitTraxRow[]): HitTraxSessionStats {
   const optimalLaCount = launchAngles.filter(la => la >= 10 && la <= 25).length;
   const groundBallCount = launchAngles.filter(la => la < 10).length;
   const flyBallCount = launchAngles.filter(la => la > 25).length;
+  const lineDriveCount = launchAngles.filter(la => la >= 10 && la <= 25).length;
   
   // Distance stats
   const distances = ballsInPlay.map(r => r.distance).filter(d => d > 0);
@@ -557,24 +566,31 @@ export function calculateSessionStats(rows: HitTraxRow[]): HitTraxSessionStats {
     ? distances.reduce((a, b) => a + b, 0) / distances.length 
     : 0;
   
-  // Quality metrics
-  const qualityHits = ballsInPlay.filter(r => {
-    const la = r.launchAngle;
-    return la >= 10 && la <= 25;
-  }).length;
+  // StatCast-aligned metrics
+  const hardHitCount = ballsInPlay.filter(r => r.exitVelo >= 95).length;
+  const sweetSpotCount = ballsInPlay.filter(r => r.launchAngle >= 8 && r.launchAngle <= 32).length;
+  const damageCount = ballsInPlay.filter(r => r.exitVelo >= 95 && r.launchAngle >= 8 && r.launchAngle <= 32).length;
   
+  const hardHitPct = ballsInPlayCount > 0 ? (hardHitCount / ballsInPlayCount) * 100 : 0;
+  const sweetSpotPct = ballsInPlayCount > 0 ? (sweetSpotCount / ballsInPlayCount) * 100 : 0;
+  const damagePct = ballsInPlayCount > 0 ? (damageCount / ballsInPlayCount) * 100 : 0;
+  
+  // Quality metrics
+  const qualityHits = ballsInPlay.filter(r => r.launchAngle >= 10 && r.launchAngle <= 25).length;
+  
+  // Barrel detection using StatCast-aligned definition
   const barrelHits = ballsInPlay.filter(r => {
     const velo = r.exitVelo;
     const la = r.launchAngle;
-    return velo >= 95 && la >= 10 && la <= 25;
+    if (velo < 98) return false;
+    const evAbove98 = Math.min(velo - 98, 18);
+    const lowLA = Math.max(8, 26 - evAbove98);
+    const highLA = Math.min(50, 30 + evAbove98 * (20 / 18));
+    return la >= lowLA && la <= highLA;
   }).length;
   
-  const qualityHitPct = ballsInPlayCount > 0 
-    ? (qualityHits / ballsInPlayCount) * 100 
-    : 0;
-  const barrelPct = ballsInPlayCount > 0 
-    ? (barrelHits / ballsInPlayCount) * 100 
-    : 0;
+  const qualityHitPct = ballsInPlayCount > 0 ? (qualityHits / ballsInPlayCount) * 100 : 0;
+  const barrelPct = ballsInPlayCount > 0 ? (barrelHits / ballsInPlayCount) * 100 : 0;
   
   // Quality Hit Game scoring
   const totalPoints = rows.reduce((sum, row) => sum + calculateSwingPoints(row), 0);
@@ -613,9 +629,16 @@ export function calculateSessionStats(rows: HitTraxRow[]): HitTraxSessionStats {
     optimalLaCount,
     groundBallCount,
     flyBallCount,
+    lineDriveCount,
     
     maxDistance: Math.round(maxDistance),
     avgDistance: Math.round(avgDistance),
+    
+    hardHitCount,
+    sweetSpotCount,
+    hardHitPct: Math.round(hardHitPct * 10) / 10,
+    sweetSpotPct: Math.round(sweetSpotPct * 10) / 10,
+    damagePct: Math.round(damagePct * 10) / 10,
     
     qualityHits,
     barrelHits,
@@ -656,8 +679,14 @@ function createEmptyStats(): HitTraxSessionStats {
     optimalLaCount: 0,
     groundBallCount: 0,
     flyBallCount: 0,
+    lineDriveCount: 0,
     maxDistance: 0,
     avgDistance: 0,
+    hardHitCount: 0,
+    sweetSpotCount: 0,
+    hardHitPct: 0,
+    sweetSpotPct: 0,
+    damagePct: 0,
     qualityHits: 0,
     barrelHits: 0,
     qualityHitPct: 0,
