@@ -1,14 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Logo } from './Logo';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 
 const navigation = [
-  { name: 'Get Analyzed', href: '/analyze' },
-  { name: 'Video Vault', href: '/library' },
+  { name: 'Pricing', href: '/pricing' },
   { name: 'About Rick', href: '/about' },
-  { name: 'Inner Circle', href: '/inner-circle' },
+  { name: 'Book Assessment', href: '/assessment' },
 ];
 
 interface HeaderProps {
@@ -44,10 +43,16 @@ export function Header({ showLogin = true }: HeaderProps) {
           ))}
         </nav>
 
-        {/* Desktop Login Button */}
-        <div className="hidden md:flex items-center">
+        {/* Desktop CTA + Login */}
+        <div className="hidden md:flex items-center gap-4">
+          <Button asChild className="bg-red-600 hover:bg-red-700 text-white font-bold">
+            <Link to="/analyze">
+              Free Diagnostic
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Link>
+          </Button>
           {showLogin && (
-            <Button asChild variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800">
+            <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:text-white">
               <Link to="/login">Login</Link>
             </Button>
           )}
@@ -80,11 +85,18 @@ export function Header({ showLogin = true }: HeaderProps) {
                 {item.name}
               </Link>
             ))}
-            {showLogin && (
-              <Button asChild variant="outline" className="w-full mt-4 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800">
-                <Link to="/login">Login</Link>
+            <div className="pt-4 space-y-3">
+              <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
+                <Link to="/analyze" onClick={() => setMobileMenuOpen(false)}>
+                  Free Diagnostic
+                </Link>
               </Button>
-            )}
+              {showLogin && (
+                <Button asChild variant="outline" className="w-full border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800">
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}

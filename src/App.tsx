@@ -22,6 +22,8 @@ import Signup from "./pages/Signup";
 import Beta from "./pages/Beta";
 import NotFound from "./pages/NotFound";
 import SocialClips from "./pages/SocialClips";
+import Pricing from "./pages/Pricing";
+import Apply from "./pages/Apply";
 
 // Admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -69,6 +71,8 @@ const App = () => (
               <Route path="/signup" element={<Signup />} />
               <Route path="/beta" element={<Beta />} />
               <Route path="/social-clips" element={<SocialClips />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/apply" element={<Apply />} />
 
               {/* Player Portal Routes */}
               <Route path="/player" element={<PlayerLayout />}>

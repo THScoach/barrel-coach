@@ -1,16 +1,35 @@
 import { Link } from 'react-router-dom';
 import { Logo } from './Logo';
-import { Mail, Twitter } from 'lucide-react';
+import { Mail, Twitter, ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export function Footer() {
   return (
     <footer className="bg-slate-950 border-t border-slate-800/50">
+      {/* CTA Bar */}
+      <div className="bg-slate-900/50 border-b border-slate-800/50">
+        <div className="container py-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <p className="text-white font-semibold">Ready to stop guessing?</p>
+              <p className="text-slate-400 text-sm">Get your free diagnostic now.</p>
+            </div>
+            <Button asChild className="bg-red-600 hover:bg-red-700 text-white font-bold">
+              <Link to="/analyze">
+                Free Diagnostic
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <div className="container py-16">
         <div className="grid gap-12 md:grid-cols-4">
           {/* Logo & Tagline */}
           <div className="md:col-span-1">
             <Logo size="sm" linkTo="/" />
-            <p className="text-slate-400 mt-4 text-sm">Unlock Your Swing DNA</p>
+            <p className="text-slate-400 mt-4 text-sm">Stop guessing. Start catching barrels.</p>
             <div className="flex gap-3 mt-6">
               <a 
                 href="https://twitter.com/catchingbarrels" 
@@ -21,7 +40,7 @@ export function Footer() {
                 <Twitter className="w-5 h-5" />
               </a>
               <a 
-                href="mailto:support@catchingbarrels.com" 
+                href="mailto:rick@catchingbarrels.com" 
                 className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-700 transition-all"
               >
                 <Mail className="w-5 h-5" />
@@ -34,16 +53,16 @@ export function Footer() {
             <h4 className="font-semibold text-white mb-4">Products</h4>
             <ul className="space-y-3">
               <li>
-                <Link to="/analyze" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Single Swing Score™</Link>
+                <Link to="/analyze" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Free Diagnostic</Link>
               </li>
               <li>
-                <Link to="/analyze" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Complete Review</Link>
+                <Link to="/inner-circle" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Guided Coaching — $99/mo</Link>
               </li>
               <li>
-                <Link to="/inner-circle" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Inner Circle</Link>
+                <Link to="/assessment" className="text-slate-400 hover:text-red-500 transition-colors text-sm">In-Person Assessment — $399</Link>
               </li>
               <li>
-                <Link to="/assessment" className="text-slate-400 hover:text-red-500 transition-colors text-sm">In-Person Assessment</Link>
+                <Link to="/apply" className="text-slate-400 hover:text-red-500 transition-colors text-sm">90-Day Transformation</Link>
               </li>
             </ul>
           </div>
@@ -56,6 +75,9 @@ export function Footer() {
                 <Link to="/about" className="text-slate-400 hover:text-red-500 transition-colors text-sm">About Rick</Link>
               </li>
               <li>
+                <Link to="/pricing" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Pricing</Link>
+              </li>
+              <li>
                 <Link to="/library" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Video Vault</Link>
               </li>
             </ul>
@@ -66,8 +88,8 @@ export function Footer() {
             <h4 className="font-semibold text-white mb-4">Contact</h4>
             <ul className="space-y-3">
               <li>
-                <a href="mailto:support@catchingbarrels.com" className="text-slate-400 hover:text-red-500 transition-colors text-sm flex items-center gap-2">
-                  <Mail className="w-4 h-4" /> support@catchingbarrels.com
+                <a href="mailto:rick@catchingbarrels.com" className="text-slate-400 hover:text-red-500 transition-colors text-sm flex items-center gap-2">
+                  <Mail className="w-4 h-4" /> rick@catchingbarrels.com
                 </a>
               </li>
               <li>
