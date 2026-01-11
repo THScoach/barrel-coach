@@ -33,8 +33,8 @@ import { AlertTriangle, CheckCircle2, Zap } from 'lucide-react';
 
 interface TrainingSwingVisualizerProps {
   leakType: LeakType;
-  swingCount?: number;
-  hasContactEvent?: boolean;
+  swingCount?: number | null;
+  hasContactEvent?: boolean | null;
   className?: string;
 }
 
