@@ -1,0 +1,125 @@
+
+  <!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <title>20260106_130658_9bd860fa</title>
+      <link rel="shortcut icon" type="image/png" href="https://link.getonform.com/images/onform_fav_icon.png" />
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <link href="https://vjs.zencdn.net/7.17.0/video-js.css" rel="stylesheet" />
+      <meta property="og:title" content="20260106_130658_9bd860fa" />
+      <meta property="og:description" content="Video Analysis and Coaching Platform" />
+      <meta property="og:image" content="https://firebasestorage.googleapis.com:443/v0/b/onform-coach-background-photos/o/q2AHoIJ97ldU0EJjvTd6aplbo8u2%2F078AF9B7-8C13-442E-8A91-FF6ABC9B0A0B.jpg?alt=media&token=7a3f3c76-0510-4952-acc7-9e804f594c06" />
+      <meta property="og:url" content="https://link.getonform.com/view?id=w2vxuT68ZPbT48vdKyPa" />
+      <meta name="twitter:card" content="https://firebasestorage.googleapis.com:443/v0/b/onform-coach-background-photos/o/q2AHoIJ97ldU0EJjvTd6aplbo8u2%2F078AF9B7-8C13-442E-8A91-FF6ABC9B0A0B.jpg?alt=media&token=7a3f3c76-0510-4952-acc7-9e804f594c06" />
+      <script async src="https://www.googletagmanager.com/gtag/js?id=UA-174283588-1"></script>
+      <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','UA-174283588-1');gtag('event','video_play',{event_label:'20260106_130658_9bd860fa',event_category:'web viewer',non_interaction:true});</script>
+      <style>
+        * { box-sizing:border-box; }
+        .flex-container { display:flex; flex-direction:row; font-size:15px; padding:5px; }
+        .container { background:#fff; padding:5px; font-family:helvetica; display:flex; align-items:center; }
+        .flex-item-video { background:#fff; padding:5px; width:70%; }
+        .flex-item-top { padding:5px; flex:100%; text-align:center; font-family:futura; }
+        #mainlogo { visibility:hidden; display:none; }
+        footer { padding:20px; text-align:center; color:black; font-family:helvetica; }
+        mobilebottomcontent { padding:20px; text-align:center; color:black; font-family:helvetica; font-size:15px; visibility:hidden; display:none; }
+        a { text-align:center; color:black; font-family:helvetica; padding:10px; }
+        .video-js-responsive-container { display:flex; flex-direction:column; }
+        .left-content-wrapper { display:flex; align-items:center; flex-direction:column; height:100%; width:100%; }
+        #call-to-action { display:flex; flex-direction:column; align-items:center; width:100%; text-align:center; }
+        .left-col-wrapper { display:flex; flex-direction:column; width:50%; align-items:center; justify-content:center; flex:1; }
+        .image-wrapper { flex:1; width:100%; text-align:center; }
+        .desktop-footer { width:100%; }
+        .small-screen-footer { display:none; }
+        .action-wrapper { width:100%; }
+        .action-wrapper img { width:50%; }
+        .video-js { height:calc(100vh - 35px); object-fit:contain; }
+        div p { margin:0; text-align:center; }
+        @media (max-width:800px) {
+          .left-col-wrapper, .action-column, .image-wrapper { width:100%; }
+          #mainlogo { visibility:visible; display:inline; }
+          #call-to-action { visibility:hidden; display:none; }
+          mobilebottomcontent { visibility:visible; display:inline; }
+          .desktop-footer { display:none; }
+          .small-screen-footer { width:100%; display:block; }
+          .container { flex-direction:column; }
+          .flex-item-video { width:100%; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="left-col-wrapper">
+          <div class="image-wrapper"><img src="https://firebasestorage.googleapis.com:443/v0/b/onform-coach-background-photos/o/q2AHoIJ97ldU0EJjvTd6aplbo8u2%2F078AF9B7-8C13-442E-8A91-FF6ABC9B0A0B.jpg?alt=media&token=7a3f3c76-0510-4952-acc7-9e804f594c06" id="headimage" width="50%" /></div>
+          <div class="action-column" style="margin-top: 20px;">
+            <div id="call-to-action">
+              <div class="action-wrapper"></div>
+              <div class="action-wrapper"></div>
+              <div class="action-wrapper"><div id="down_btn"><p><a href="https://storage.googleapis.com/us-videos/original/w2vxuT68ZPbT48vdKyPa.mp4?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=onform-df2a9%40appspot.gserviceaccount.com%2F20260111%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260111T020722Z&X-Goog-Expires=518400&X-Goog-SignedHeaders=host&X-Goog-Signature=9b221996e577fb0d42e880a93c524152c3200fbd898a299c22377beb3e600afa37d91b75a03292f5dd67719f7573220055a9cb98ab9cee278a38f5271c8ff29455b4859f20bc032dc0936a088bc489c7969e24b4dacf58ea2521e487e6bb8d09787a21db660688eb58b74862148fa60d9991992d57e9f0761f72f63da7034d86714d52ee3998b6dfabc9359ea41aa394ff741d2e3903128cab41d1e14229d484acb24c776a95f19048f7459f60dbfcfe83fe161e4bf7e933324c370ded1f1656a2e4f9d94fd0d731b309934adabc5e8a52cf033db4d9228eaa9ca3c0795c19069d272dbad71912ce1619c4a9c5fb36ff261df18fe5142f2f209314db3c32780e" download><img src="https://link.getonform.com/images/downloadtocomputer.png"></a></p></div></div>
+            </div>
+          </div>
+          <div class="desktop-footer">
+            <footer>
+              <br>
+              <br>
+              <p>
+                <a href="https://apps.apple.com/us/app/onform-video-analysis-app/id1490334045" style="padding:0; display:inline-block; margin-right:10px;">
+                  <img src="https://onform.com/wp-content/uploads/2024/06/Download_on_the_App_Store_Badge_US-UK_blk_092917-1.png" alt="Download on the App Store" style="height:40px; width:auto;">
+                </a>
+                <a href="https://play.google.com/store/apps/details?id=com.app.OnForm" style="padding:0; display:inline-block;">
+                  <img src="https://onform.com/wp-content/uploads/2024/08/Google-Play_880x572.png" alt="Get it on Google Play" style="height:40px; width:auto;">
+                </a>
+              </p><br>
+              <a href="https://onform.com" style="font-size:75%">Home</a>
+              <a href="https://onform.com/about/" style="font-size:75%">About Us</a>
+              <a href="https://onform.com/privacy/" style="font-size:75%">Privacy</a>
+              <a href="https://onform.com/terms-of-use/" style="font-size:75%">Terms of Use</a>
+              <p><a href="https://www.onform.com"><img src="https://onform.com/wp-content/uploads/2024/06/Onform-logo-black.png" width="80" /></a><br/>© 2026</p>
+            </footer>
+          </div>
+        </div>
+        <div class="flex-item-video"><div style="background-color:#cccccc;padding:5px;"><p>20260106_130658_9bd860fa</p></div>
+        <div class="video-js-responsive-container vjs-hd">
+          <video id="my-video" class="video-js vjs-default-skin vjs-big-play-centered" controls width="100%" preload="auto" poster="https://storage.googleapis.com/us-videos/thumbnails/w2vxuT68ZPbT48vdKyPa.jpeg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=onform-df2a9%40appspot.gserviceaccount.com%2F20260111%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260111T020722Z&X-Goog-Expires=518400&X-Goog-SignedHeaders=host&X-Goog-Signature=797cc98ca63ccfdc45f98b2e27d5e244fbda318e43f4537d8da68a8dddcbe3fb2be08e94dd760e1653f4513af3cdd216c0418fdd774a4d2a9e41fc65abce74826fe498230d3981524cdf814d0833ebe7950a1e2105fd3d8f677e35ba2ab29cca0b1ab96d0f1a32d34b6dac9cb9c37582db37ac4fd040e4ac40155ce308e5502d13c5edfde0c9c8f257109d3f0d3bd5874c20ee68b17b7d8557f63076bf12024fc5ccf272303af2f641bfedacae60353ed3423cd567dea457db0816d9afb472433fa4452cf4bb31554dbd4025d2b21b0ea260e36eb16775ad3f2b0b42df5348615972d6899f2de184a6641628d0cea82581c580b852ec093332e762e78aa31543" data-setup='{"fluid": true}'>
+            <source src="https://storage.googleapis.com/us-videos/original/w2vxuT68ZPbT48vdKyPa.mp4?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=onform-df2a9%40appspot.gserviceaccount.com%2F20260111%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260111T020722Z&X-Goog-Expires=518400&X-Goog-SignedHeaders=host&X-Goog-Signature=9b221996e577fb0d42e880a93c524152c3200fbd898a299c22377beb3e600afa37d91b75a03292f5dd67719f7573220055a9cb98ab9cee278a38f5271c8ff29455b4859f20bc032dc0936a088bc489c7969e24b4dacf58ea2521e487e6bb8d09787a21db660688eb58b74862148fa60d9991992d57e9f0761f72f63da7034d86714d52ee3998b6dfabc9359ea41aa394ff741d2e3903128cab41d1e14229d484acb24c776a95f19048f7459f60dbfcfe83fe161e4bf7e933324c370ded1f1656a2e4f9d94fd0d731b309934adabc5e8a52cf033db4d9228eaa9ca3c0795c19069d272dbad71912ce1619c4a9c5fb36ff261df18fe5142f2f209314db3c32780e" type="video/mp4" />
+            <p class="vjs-no-js">To view this video please enable JavaScript, and consider upgrading to a web browser that supports HTML5 video.</p>
+          </video>
+        </div>
+        <div id="angle-controls" style="text-align:center;margin-top:10px;">
+          
+        </div>
+        <script src="https://vjs.zencdn.net/7.17.0/video.min.js"></script>
+        <script>
+          var player = videojs("my-video", { fluid:true, aspectRatio:'16:9' });
+          const sources = ["https://storage.googleapis.com/us-videos/original/w2vxuT68ZPbT48vdKyPa.mp4?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=onform-df2a9%40appspot.gserviceaccount.com%2F20260111%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260111T020722Z&X-Goog-Expires=518400&X-Goog-SignedHeaders=host&X-Goog-Signature=9b221996e577fb0d42e880a93c524152c3200fbd898a299c22377beb3e600afa37d91b75a03292f5dd67719f7573220055a9cb98ab9cee278a38f5271c8ff29455b4859f20bc032dc0936a088bc489c7969e24b4dacf58ea2521e487e6bb8d09787a21db660688eb58b74862148fa60d9991992d57e9f0761f72f63da7034d86714d52ee3998b6dfabc9359ea41aa394ff741d2e3903128cab41d1e14229d484acb24c776a95f19048f7459f60dbfcfe83fe161e4bf7e933324c370ded1f1656a2e4f9d94fd0d731b309934adabc5e8a52cf033db4d9228eaa9ca3c0795c19069d272dbad71912ce1619c4a9c5fb36ff261df18fe5142f2f209314db3c32780e"];
+          function switchAngle(i) {
+            player.src({ type:'video/mp4', src:sources[i] });
+            player.play();
+            document.querySelectorAll('.angle-button').forEach((btn, idx) => btn.classList.toggle('active', idx===i));
+          }
+        </script>
+      </div>
+        <mobilebottomcontent>
+          <div class="action-wrapper"></div>
+          <div class="action-wrapper"></div>
+        </mobilebottomcontent>
+        <footer class="small-screen-footer">
+          <br>
+          <br>
+          <p>
+            <a href="https://apps.apple.com/us/app/onform-video-analysis-app/id1490334045" style="padding:0; display:inline-block; margin-right:10px;">
+              <img src="https://onform.com/wp-content/uploads/2024/06/Download_on_the_App_Store_Badge_US-UK_blk_092917-1.png" alt="Download on the App Store" style="height:40px; width:auto;">
+            </a>
+            <a href="https://play.google.com/store/apps/details?id=com.app.OnForm" style="padding:0; display:inline-block;">
+              <img src="https://onform.com/wp-content/uploads/2024/08/Google-Play_880x572.png" alt="Get it on Google Play" style="height:40px; width:auto;">
+            </a>
+          </p><br>
+          <a href="https://onform.com" style="font-size:75%">Home</a>
+          <a href="https://onform.com/about/" style="font-size:75%">About Us</a>
+          <a href="https://onform.com/privacy/" style="font-size:75%">Privacy</a>
+          <a href="https://onform.com/terms-of-use/" style="font-size:75%">Terms of Use</a>
+          <p><a href="https://onform.com"><img src="https://onform.com/wp-content/uploads/2024/06/Onform-logo-black.png" width="80" /></a><br/>© 2026</p>
+        </footer>
+      </div>
+    </body>
+  </html>
