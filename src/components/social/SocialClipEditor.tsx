@@ -19,7 +19,9 @@ import {
   Pencil,
   Trash2,
   SkipBack,
-  SkipForward
+  SkipForward,
+  Zap,
+  Target
 } from "lucide-react";
 import { useSAM3Segment, SegmentMode } from "@/hooks/useSAM3Segment";
 import { SpotlightCanvas } from "./SpotlightCanvas";
@@ -91,6 +93,13 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
   const [trailGlow, setTrailGlow] = useState(true);
   const [trailPoints, setTrailPoints] = useState<TrailPoint[]>([]);
   
+  // Contact frame freeze state
+  const [contactFrameEnabled, setContactFrameEnabled] = useState(false);
+  const [contactFrameTime, setContactFrameTime] = useState<number | null>(null);
+  const [contactFreezeActive, setContactFreezeActive] = useState(false);
+  const [freezeDuration, setFreezeDuration] = useState(1.0); // seconds
+  const [freezeEffectStyle, setFreezeEffectStyle] = useState<"flash" | "ripple" | "zoom">("flash");
+
   // Export state
   const [selectedPreset, setSelectedPreset] = useState<Preset>(EXPORT_PRESETS[0]);
   const [isExporting, setIsExporting] = useState(false);
@@ -182,6 +191,52 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
     setActiveSegmentMode(null);
   }, []);
 
+  // Mark current frame as contact frame
+  const markContactFrame = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    
+    setContactFrameTime(video.currentTime);
+    toast.success("Contact frame marked!", {
+      description: `Frame at ${formatTime(video.currentTime)}`
+    });
+  }, []);
+
+  // Clear contact frame
+  const clearContactFrame = useCallback(() => {
+    setContactFrameTime(null);
+    setContactFreezeActive(false);
+    toast.info("Contact frame cleared");
+  }, []);
+
+  // Check if we should trigger freeze effect during playback
+  const handleTimeUpdateWithFreeze = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    
+    setCurrentTime(video.currentTime);
+    
+    // Check for contact frame freeze
+    if (contactFrameEnabled && contactFrameTime !== null) {
+      const timeDiff = Math.abs(video.currentTime - contactFrameTime);
+      if (timeDiff < 0.05 && !contactFreezeActive && isPlaying) {
+        // Trigger freeze effect
+        setContactFreezeActive(true);
+        video.pause();
+        setIsPlaying(false);
+        
+        // Auto-resume after freeze duration
+        setTimeout(() => {
+          setContactFreezeActive(false);
+          if (video && !video.ended) {
+            video.play();
+            setIsPlaying(true);
+          }
+        }, freezeDuration * 1000);
+      }
+    }
+  }, [contactFrameEnabled, contactFrameTime, contactFreezeActive, isPlaying, freezeDuration]);
+
   // Export handler (simplified - in production would use MediaRecorder or ffmpeg.wasm)
   const handleExport = useCallback(async () => {
     setIsExporting(true);
@@ -209,7 +264,7 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
               ref={videoRef}
               src={videoUrl}
               className="w-full h-full object-contain"
-              onTimeUpdate={handleTimeUpdate}
+              onTimeUpdate={handleTimeUpdateWithFreeze}
               onLoadedMetadata={handleLoadedMetadata}
               playsInline
               muted
@@ -250,6 +305,53 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
                   <Loader2 className="h-8 w-8 animate-spin text-amber-500 mx-auto" />
                   <p className="text-sm text-slate-300">Processing segmentation...</p>
                 </div>
+              </div>
+            )}
+            
+            {/* Contact Frame Freeze Effect Overlay */}
+            {contactFreezeActive && (
+              <div 
+                className={`absolute inset-0 pointer-events-none ${
+                  freezeEffectStyle === "flash" 
+                    ? "animate-pulse bg-amber-500/30" 
+                    : freezeEffectStyle === "ripple"
+                    ? "bg-gradient-radial from-amber-500/40 via-transparent to-transparent"
+                    : ""
+                }`}
+              >
+                {/* Center impact indicator */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className={`
+                    ${freezeEffectStyle === "flash" ? "animate-ping" : "animate-pulse"}
+                    bg-amber-500/50 rounded-full w-24 h-24 flex items-center justify-center
+                  `}>
+                    <Zap className="h-10 w-10 text-amber-300" />
+                  </div>
+                </div>
+                
+                {/* "CONTACT" label */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2">
+                  <Badge className="bg-amber-500 text-black font-bold text-lg px-4 py-1 animate-pulse">
+                    <Target className="h-4 w-4 mr-2" />
+                    CONTACT
+                  </Badge>
+                </div>
+                
+                {/* Zoom effect overlay */}
+                {freezeEffectStyle === "zoom" && (
+                  <div className="absolute inset-0 border-4 border-amber-400 animate-pulse">
+                    <div className="absolute inset-4 border-2 border-amber-300/50" />
+                    <div className="absolute inset-8 border border-amber-200/30" />
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Contact frame marker indicator */}
+            {contactFrameEnabled && contactFrameTime !== null && !contactFreezeActive && (
+              <div className="absolute top-3 right-3 bg-amber-500/90 text-black text-xs px-2 py-1 rounded-full font-medium">
+                <Target className="h-3 w-3 inline mr-1" />
+                Contact @ {formatTime(contactFrameTime)}
               </div>
             )}
           </div>
@@ -328,6 +430,13 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
             <Badge variant="secondary" className="bg-orange-500/20 text-orange-400 border-orange-500/30">
               <Pencil className="h-3 w-3 mr-1" />
               Trail: {trailPoints.length} points
+            </Badge>
+          )}
+          
+          {contactFrameEnabled && contactFrameTime !== null && (
+            <Badge variant="secondary" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+              <Target className="h-3 w-3 mr-1" />
+              Contact @ {formatTime(contactFrameTime)}
             </Badge>
           )}
         </div>
@@ -479,6 +588,97 @@ export function SocialClipEditor({ videoUrl, onExport }: SocialClipEditorProps) 
                   onCheckedChange={setTrailGlow}
                 />
               </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Contact Frame Freeze */}
+        <Card className="bg-slate-800/50 border-slate-700 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-amber-500" />
+              Contact Freeze
+            </h3>
+            <Switch
+              checked={contactFrameEnabled}
+              onCheckedChange={(checked) => {
+                setContactFrameEnabled(checked);
+                if (!checked) {
+                  setContactFrameTime(null);
+                  setContactFreezeActive(false);
+                }
+              }}
+            />
+          </div>
+          
+          {contactFrameEnabled && (
+            <div className="space-y-4">
+              {/* Mark/Clear contact frame */}
+              <div className="flex gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={markContactFrame}
+                  className="flex-1 text-xs bg-amber-600 hover:bg-amber-700"
+                >
+                  <Target className="h-3 w-3 mr-1" />
+                  Mark Contact Frame
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearContactFrame}
+                  disabled={contactFrameTime === null}
+                  className="text-xs"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              
+              {contactFrameTime !== null && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-md p-2 text-center">
+                  <p className="text-xs text-amber-400">
+                    Contact marked at <span className="font-mono font-bold">{formatTime(contactFrameTime)}</span>
+                  </p>
+                </div>
+              )}
+              
+              {/* Freeze duration */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-slate-400">Freeze Duration</Label>
+                  <span className="text-xs text-slate-500">{freezeDuration.toFixed(1)}s</span>
+                </div>
+                <Slider
+                  value={[freezeDuration]}
+                  min={0.3}
+                  max={3.0}
+                  step={0.1}
+                  onValueChange={(v) => setFreezeDuration(v[0])}
+                />
+              </div>
+              
+              {/* Effect style */}
+              <div className="space-y-2">
+                <Label className="text-xs text-slate-400">Effect Style</Label>
+                <div className="flex gap-2">
+                  {(["flash", "ripple", "zoom"] as const).map((style) => (
+                    <Button
+                      key={style}
+                      variant={freezeEffectStyle === style ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setFreezeEffectStyle(style)}
+                      className="flex-1 text-xs capitalize"
+                    >
+                      {style}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              
+              <p className="text-[10px] text-slate-400 bg-slate-700/50 p-2 rounded">
+                Navigate to the contact frame and click "Mark Contact Frame". The video will pause and highlight at this moment during playback.
+              </p>
             </div>
           )}
         </Card>
