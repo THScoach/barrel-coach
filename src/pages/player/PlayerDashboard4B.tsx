@@ -18,6 +18,7 @@ import {
   BTabContent,
   type FourBCategory 
 } from "@/components/player/dashboard";
+import type { SessionMetricsData, MetricItem } from "@/components/player/dashboard/BTabContent";
 
 interface ScoreSession {
   id: string;
@@ -28,6 +29,29 @@ interface ScoreSession {
   ball: number | null;
   composite: number | null;
   type: 'reboot' | 'analyzer';
+  // Detailed metrics
+  consistencyCV?: number | null;
+  legsKEPeak?: number | null;
+  torsoKEPeak?: number | null;
+  transferPct?: number | null;
+  groundFlowScore?: number | null;
+  coreFlowScore?: number | null;
+  armsKEPeak?: number | null;
+  batKE?: number | null;
+  upperFlowScore?: number | null;
+  transferEfficiency?: number | null;
+  primaryLeak?: string | null;
+  pelvisVelocity?: number | null;
+  torsoVelocity?: number | null;
+  xFactor?: number | null;
+}
+
+interface HitTraxData {
+  avgExitVelo: number | null;
+  maxExitVelo: number | null;
+  hardHitPct: number | null;
+  barrelPct: number | null;
+  sweetSpotPct: number | null;
 }
 
 interface PlayerData {
@@ -52,6 +76,7 @@ export default function PlayerDashboard4B() {
   
   const [player, setPlayer] = useState<PlayerData | null>(null);
   const [sessions, setSessions] = useState<ScoreSession[]>([]);
+  const [hitTraxData, setHitTraxData] = useState<HitTraxData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeB, setActiveB] = useState<FourBCategory>(initialB);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -76,23 +101,31 @@ export default function PlayerDashboard4B() {
 
     if (playerData) {
       setPlayer(playerData);
-      await loadSessions(playerData.id);
+      await Promise.all([
+        loadSessions(playerData.id),
+        loadHitTraxData(playerData.id),
+      ]);
     }
     setLoading(false);
   };
 
   const loadSessions = async (playerId: string) => {
-    // Fetch from fourb_scores (Reboot data)
+    // Fetch from fourb_scores with detailed metrics
     const { data: fourbData } = await supabase
       .from('fourb_scores')
-      .select('id, created_at, brain_score, body_score, bat_score, ball_score, composite_score')
+      .select(`
+        id, created_at, brain_score, body_score, bat_score, ball_score, composite_score,
+        consistency_cv, ground_flow_score, core_flow_score, upper_flow_score,
+        bat_ke, transfer_efficiency, pelvis_velocity, torso_velocity, x_factor,
+        primary_issue_category, weakest_link
+      `)
       .eq('player_id', playerId)
       .order('created_at', { ascending: true });
 
     // Fetch from sessions table (analyzer data)
     const { data: sessionData } = await supabase
       .from('sessions')
-      .select('id, created_at, four_b_brain, four_b_body, four_b_bat, four_b_ball, composite_score')
+      .select('id, created_at, four_b_brain, four_b_body, four_b_bat, four_b_ball, composite_score, leak_type')
       .eq('player_id', playerId)
       .not('four_b_brain', 'is', null)
       .order('created_at', { ascending: true });
@@ -107,6 +140,17 @@ export default function PlayerDashboard4B() {
         ball: s.ball_score,
         composite: s.composite_score,
         type: 'reboot' as const,
+        // Detailed metrics
+        consistencyCV: s.consistency_cv,
+        groundFlowScore: s.ground_flow_score,
+        coreFlowScore: s.core_flow_score,
+        upperFlowScore: s.upper_flow_score,
+        batKE: s.bat_ke,
+        transferEfficiency: s.transfer_efficiency,
+        pelvisVelocity: s.pelvis_velocity,
+        torsoVelocity: s.torso_velocity,
+        xFactor: s.x_factor,
+        primaryLeak: s.primary_issue_category || s.weakest_link,
       })),
       ...(sessionData || []).map(s => ({
         id: s.id,
@@ -117,10 +161,33 @@ export default function PlayerDashboard4B() {
         ball: s.four_b_ball,
         composite: s.composite_score,
         type: 'analyzer' as const,
+        primaryLeak: s.leak_type,
       })),
     ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
     setSessions(allSessions);
+  };
+
+  const loadHitTraxData = async (playerId: string) => {
+    // Load latest HitTrax/launch monitor session
+    const { data: hittrax } = await supabase
+      .from('launch_monitor_sessions')
+      .select('avg_exit_velo, max_exit_velo, barrel_pct, optimal_la_count, balls_in_play, velo_95_plus')
+      .eq('player_id', playerId)
+      .order('session_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (hittrax) {
+      const ballsInPlay = hittrax.balls_in_play || 1;
+      setHitTraxData({
+        avgExitVelo: hittrax.avg_exit_velo,
+        maxExitVelo: hittrax.max_exit_velo,
+        hardHitPct: hittrax.velo_95_plus ? (hittrax.velo_95_plus / ballsInPlay) * 100 : null,
+        barrelPct: hittrax.barrel_pct,
+        sweetSpotPct: hittrax.optimal_la_count ? (hittrax.optimal_la_count / ballsInPlay) * 100 : null,
+      });
+    }
   };
 
   const handleSelectB = (b: FourBCategory) => {
@@ -195,31 +262,152 @@ export default function PlayerDashboard4B() {
       }));
   };
 
-  // Get metrics for each B (placeholder - you can expand with real data)
-  const getMetricsForB = (b: FourBCategory) => {
-    // These would come from your actual session data
-    const metricsMap: Record<FourBCategory, Array<{ label: string; value: string | number; unit?: string }>> = {
-      brain: [
-        { label: 'Timing Consistency', value: 'Good' },
-        { label: 'CV Score', value: latestSession?.brain || '--', unit: '' },
-      ],
-      body: [
-        { label: 'Legs KE Peak', value: '--', unit: 'J' },
-        { label: 'Torso KE Peak', value: '--', unit: 'J' },
-        { label: 'Transfer %', value: '--', unit: '%' },
-      ],
-      bat: [
-        { label: 'Arms KE Peak', value: '--', unit: 'J' },
-        { label: 'Transfer Efficiency', value: '--', unit: '%' },
-        { label: 'Kinetic EV Potential', value: '--', unit: 'mph' },
-      ],
-      ball: [
-        { label: 'Avg Exit Velo', value: '--', unit: 'mph' },
-        { label: 'Hard Hit %', value: '--', unit: '%' },
-        { label: 'Barrel %', value: '--', unit: '%' },
-      ],
+  // Get metrics for each B category with complete cards
+  const getMetricsForB = (b: FourBCategory): MetricItem[] => {
+    const latest = latestSession;
+    
+    // Calculate kinetic potential EV from bat KE (if available)
+    const kineticPotentialEV = latest?.batKE 
+      ? Math.round(2.5 * Math.sqrt(latest.batKE) * 1.15) // Simplified formula
+      : null;
+    
+    switch (b) {
+      case 'brain':
+        return [
+          { 
+            label: 'Consistency (CV)', 
+            value: latest?.consistencyCV?.toFixed(1) ?? null,
+            unit: '%',
+            isMeasured: latest?.consistencyCV !== null && latest?.consistencyCV !== undefined,
+            description: 'Lower is more consistent'
+          },
+          { 
+            label: 'Brain Score', 
+            value: latest?.brain ?? null,
+            isMeasured: latest?.brain !== null,
+          },
+        ];
+      
+      case 'body':
+        return [
+          { 
+            label: 'Ground Flow Score', 
+            value: latest?.groundFlowScore?.toFixed(0) ?? null,
+            isMeasured: latest?.groundFlowScore !== null && latest?.groundFlowScore !== undefined,
+          },
+          { 
+            label: 'Core Flow Score', 
+            value: latest?.coreFlowScore?.toFixed(0) ?? null,
+            isMeasured: latest?.coreFlowScore !== null && latest?.coreFlowScore !== undefined,
+          },
+          { 
+            label: 'Pelvis Velocity', 
+            value: latest?.pelvisVelocity?.toFixed(0) ?? null,
+            unit: '°/s',
+            isMeasured: latest?.pelvisVelocity !== null && latest?.pelvisVelocity !== undefined,
+          },
+          { 
+            label: 'Torso Velocity', 
+            value: latest?.torsoVelocity?.toFixed(0) ?? null,
+            unit: '°/s',
+            isMeasured: latest?.torsoVelocity !== null && latest?.torsoVelocity !== undefined,
+          },
+        ];
+      
+      case 'bat':
+        return [
+          { 
+            label: 'Upper Flow Score', 
+            value: latest?.upperFlowScore?.toFixed(0) ?? null,
+            isMeasured: latest?.upperFlowScore !== null && latest?.upperFlowScore !== undefined,
+          },
+          { 
+            label: 'Transfer Efficiency', 
+            value: latest?.transferEfficiency?.toFixed(0) ?? null,
+            unit: '%',
+            isMeasured: latest?.transferEfficiency !== null && latest?.transferEfficiency !== undefined,
+          },
+          { 
+            label: 'Bat KE', 
+            value: latest?.batKE?.toFixed(0) ?? null,
+            unit: 'J',
+            isMeasured: latest?.batKE !== null && latest?.batKE !== undefined && latest.batKE > 0,
+            description: 'Kinetic energy at bat'
+          },
+          { 
+            label: 'Kinetic EV Potential', 
+            value: kineticPotentialEV ?? null,
+            unit: 'mph',
+            isMeasured: kineticPotentialEV !== null,
+            highlight: true,
+            description: 'Estimated exit velocity'
+          },
+        ];
+      
+      case 'ball':
+        // Calculate kinetic potential for comparison
+        const latestKineticEV = latest?.batKE 
+          ? Math.round(2.5 * Math.sqrt(latest.batKE) * 1.15)
+          : null;
+        
+        return [
+          { 
+            label: 'Kinetic EV Potential', 
+            value: latestKineticEV ?? null,
+            unit: 'mph',
+            isMeasured: latestKineticEV !== null,
+            description: 'From swing mechanics'
+          },
+          { 
+            label: 'Avg Exit Velo (Actual)', 
+            value: hitTraxData?.avgExitVelo?.toFixed(1) ?? null,
+            unit: 'mph',
+            isMeasured: hitTraxData?.avgExitVelo !== null && hitTraxData?.avgExitVelo !== undefined,
+            highlight: true,
+            description: 'From HitTrax'
+          },
+          { 
+            label: 'Max Exit Velo', 
+            value: hitTraxData?.maxExitVelo?.toFixed(1) ?? null,
+            unit: 'mph',
+            isMeasured: hitTraxData?.maxExitVelo !== null && hitTraxData?.maxExitVelo !== undefined,
+          },
+          { 
+            label: 'Barrel %', 
+            value: hitTraxData?.barrelPct?.toFixed(1) ?? null,
+            unit: '%',
+            isMeasured: hitTraxData?.barrelPct !== null && hitTraxData?.barrelPct !== undefined,
+          },
+        ];
+      
+      default:
+        return [];
+    }
+  };
+  
+  // Get session metrics for coaching note generation
+  const getSessionMetrics = (): SessionMetricsData => {
+    const latest = latestSession;
+    const kineticPotentialEV = latest?.batKE 
+      ? Math.round(2.5 * Math.sqrt(latest.batKE) * 1.15)
+      : null;
+    
+    return {
+      consistencyCV: latest?.consistencyCV,
+      groundFlowScore: latest?.groundFlowScore,
+      coreFlowScore: latest?.coreFlowScore,
+      upperFlowScore: latest?.upperFlowScore,
+      batKE: latest?.batKE,
+      transferEfficiency: latest?.transferEfficiency,
+      primaryLeak: latest?.primaryLeak,
+      kineticPotentialEV,
+      // HitTrax data
+      avgExitVelo: hitTraxData?.avgExitVelo,
+      maxExitVelo: hitTraxData?.maxExitVelo,
+      hardHitPct: hitTraxData?.hardHitPct,
+      barrelPct: hitTraxData?.barrelPct,
+      sweetSpotPct: hitTraxData?.sweetSpotPct,
     };
-    return metricsMap[b];
   };
 
   if (loading) {
@@ -290,6 +478,7 @@ export default function PlayerDashboard4B() {
         score={currentScores[activeB]}
         previousScore={previousScores?.[activeB] ?? null}
         grade={compositeGrade}
+        sessionMetrics={getSessionMetrics()}
         subtitle={B_SUBTITLES[activeB]}
         sessions={getSessionsForB(activeB)}
         metrics={getMetricsForB(activeB)}
