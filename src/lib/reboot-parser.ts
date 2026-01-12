@@ -16,13 +16,17 @@
 
 export enum LeakType {
   CLEAN_TRANSFER = 'clean_transfer',
+  LATE_LEGS = 'late_legs',             // Legs KE peaks after arms (Python: LATE_LEGS)
+  EARLY_ARMS = 'early_arms',           // Arms dominate before legs contribute (Python: EARLY_ARMS)
+  TORSO_BYPASS = 'torso_bypass',       // Energy skips torso (Python: TORSO_BYPASS)
+  NO_BAT_DELIVERY = 'no_bat_delivery', // Energy doesn't reach bat (Python: NO_BAT_DELIVERY)
+  // Legacy - kept for backward compatibility with old data
   EARLY_BACK_LEG_RELEASE = 'early_back_leg_release',
   LATE_LEAD_LEG_ACCEPTANCE = 'late_lead_leg_acceptance',
   VERTICAL_PUSH = 'vertical_push',
   GLIDE_WITHOUT_CAPTURE = 'glide_without_capture',
   LATE_ENGINE = 'late_engine',
   CORE_DISCONNECT = 'core_disconnect',
-  NO_BAT_DELIVERY = 'no_bat_delivery',
   UNKNOWN = 'unknown',
 }
 
@@ -276,39 +280,49 @@ export interface RebootMEMetrics {
 // CONSTANTS
 // ============================================================================
 
+/**
+ * THRESHOLDS - MOMENTUM-BASED (Kinetic Energy in Joules)
+ * Aligned with Python 4B Bio Engine spec
+ */
 export const THRESHOLDS = {
-  // Ground Flow (BODY) - ME-based
-  legsKE: { min: 100, max: 500 },              // Joules
+  // BODY - Ground Flow (Legs)
+  legsKE: { min: 100, max: 500 },               // Joules (Python: legs_ke_peak)
+  legsKEContact: { min: 50, max: 300 },         // Joules at contact (Python: legs_ke_contact)
   
-  // Core Flow (BODY) - ME-based
-  torsoKE: { min: 150, max: 600 },             // Joules
-  torsoToArmsTransfer: { min: 50, max: 150 },  // percentage
+  // BODY - Core Flow (Torso)
+  torsoKE: { min: 50, max: 250 },               // Joules (Python: torso_ke_peak)
+  legsToTorsoTransfer: { min: 30, max: 80 },    // percentage (Python: legs_to_torso_transfer)
   
-  // Upper Flow (BAT) - ME-based
-  batKE: { min: 100, max: 600 },               // Joules
-  armsKE: { min: 80, max: 250 },               // Joules
-  batEfficiency: { min: 25, max: 65 },         // percentage
-  deliveryEfficiency: { min: 30, max: 60 },    // percentage (proxy when no bat KE)
+  // BAT - Upper Flow
+  armsKE: { min: 80, max: 250 },                // Joules (Python: arms_ke_peak)
+  batKE: { min: 100, max: 600 },                // Joules (Python: bat_ke_peak)
+  batEfficiency: { min: 25, max: 65 },          // percentage (bat/total) (Python: total_efficiency)
+  torsoToArmsTransfer: { min: 50, max: 150 },   // percentage (Python: torso_to_arms_transfer)
   
-  // Legacy IK thresholds (used only if IK available)
-  pelvisVelocity: { min: 400, max: 900 },      // deg/s
-  torsoVelocity: { min: 400, max: 900 },       // deg/s
-  xFactorMax: { min: 10, max: 45 },            // degrees
-  xFactorStretchRate: { min: 400, max: 1200 }, // deg/s
-  pelvisTiming: { min: 30, max: 200 },         // ms before contact
-  leadKneeAtContact: { min: 40, max: 90 },     // degrees
-  rearElbowExtRate: { min: 200, max: 600 },    // deg/s
-  properSequencePct: { min: 40, max: 100 },    // percentage
+  // BRAIN - Consistency (CV - lower is better, INVERTED)
+  cvLegsKE: { min: 5, max: 40 },                // percentage (Python: cv_legs_ke)
+  cvBatKE: { min: 10, max: 60 },                // percentage (Python: cv_bat_ke)
+  cvTotalKE: { min: 5, max: 40 },               // percentage (Python: cv_total_ke)
   
-  // Consistency (BRAIN) - INVERTED
-  cvLegsKE: { min: 5, max: 40 },               // percentage
-  cvTorsoKE: { min: 5, max: 40 },              // percentage
-  cvArmsKE: { min: 5, max: 40 },               // percentage
-  cvOutput: { min: 10, max: 150 },             // percentage (bat KE or arms KE)
+  // BALL - Energy at Contact Consistency (CV - lower is better, INVERTED)
+  cvBatKEContact: { min: 10, max: 50 },         // percentage (Python: cv_bat_ke_contact)
   
-  // Contact Consistency (BALL) - INVERTED
-  cvTotalKE: { min: 5, max: 30 },              // percentage
-  cvBatEfficiency: { min: 10, max: 50 },       // percentage
+  // Legacy thresholds (kept for backward compatibility)
+  torsoKELegacy: { min: 150, max: 600 },
+  cvTorsoKE: { min: 5, max: 40 },
+  cvArmsKE: { min: 5, max: 40 },
+  cvOutput: { min: 10, max: 150 },
+  cvBatEfficiency: { min: 10, max: 50 },
+  
+  // Legacy IK thresholds (used only if IK available - SUPPORT ONLY)
+  pelvisVelocity: { min: 400, max: 900 },
+  torsoVelocity: { min: 400, max: 900 },
+  xFactorMax: { min: 10, max: 45 },
+  xFactorStretchRate: { min: 400, max: 1200 },
+  pelvisTiming: { min: 30, max: 200 },
+  leadKneeAtContact: { min: 40, max: 90 },
+  rearElbowExtRate: { min: 200, max: 600 },
+  properSequencePct: { min: 40, max: 100 },
 };
 
 export const WEIGHTS = {
@@ -339,11 +353,33 @@ const K_CEILING = 103.6;          // Ceiling constant for bat speed projection
 const K_CURRENT_MULT = 0.90;      // Current is 90% of ceiling max
 const BASELINE_HEIGHT_INCHES = 68; // Adult baseline for lever index
 
+/**
+ * LEAK_MESSAGES - Aligned with Python 4B Bio Engine spec
+ * Coach Rick language for each leak type
+ */
 export const LEAK_MESSAGES: Record<LeakType, { caption: string; training: string }> = {
+  // Python spec leak types
   [LeakType.CLEAN_TRANSFER]: {
-    caption: 'Energy transferred cleanly.',
+    caption: 'Energy flowed through the chain.',
     training: 'Keep doing what you\'re doing.',
   },
+  [LeakType.LATE_LEGS]: {
+    caption: 'Your legs fired late — the energy showed up after your hands.',
+    training: 'Get to the ground earlier.',
+  },
+  [LeakType.EARLY_ARMS]: {
+    caption: 'Your arms took over before your legs finished.',
+    training: 'Let the legs lead.',
+  },
+  [LeakType.TORSO_BYPASS]: {
+    caption: 'Energy jumped from legs to arms, skipping your core.',
+    training: 'Let your core catch and redirect the energy.',
+  },
+  [LeakType.NO_BAT_DELIVERY]: {
+    caption: 'Energy didn\'t make it to the barrel.',
+    training: 'Focus on delivering energy through the hands.',
+  },
+  // Legacy leak types (backward compatibility)
   [LeakType.EARLY_BACK_LEG_RELEASE]: {
     caption: 'You left the ground too early.',
     training: 'Stay connected to the ground longer.',
@@ -367,10 +403,6 @@ export const LEAK_MESSAGES: Record<LeakType, { caption: string; training: string
   [LeakType.CORE_DISCONNECT]: {
     caption: 'Your upper body fired before your lower body.',
     training: 'Let the hips lead the hands.',
-  },
-  [LeakType.NO_BAT_DELIVERY]: {
-    caption: 'Energy isn\'t reaching the barrel.',
-    training: 'Focus on connection through the core.',
   },
   [LeakType.UNKNOWN]: {
     caption: '',
@@ -989,9 +1021,19 @@ export function calculateKineticPotentialLayer(
 }
 
 // ============================================================================
-// LEAK DETECTION (MOMENTUM-BASED)
+// LEAK DETECTION - MOMENTUM-BASED (Aligned with Python spec)
 // ============================================================================
 
+/**
+ * Detect primary energy leak from momentum data
+ * 
+ * Python spec leak types:
+ * - CLEAN_TRANSFER: Energy flowed through the chain
+ * - LATE_LEGS: Legs KE peaks after arms
+ * - EARLY_ARMS: Arms dominate before legs contribute
+ * - TORSO_BYPASS: Energy skips torso
+ * - NO_BAT_DELIVERY: Energy doesn't reach bat
+ */
 export function detectLeakType(swings: SwingMetrics[]): {
   type: LeakType;
   caption: string;
@@ -1003,65 +1045,60 @@ export function detectLeakType(swings: SwingMetrics[]): {
   
   const avgBatEfficiency = avg(swings.map(s => s.batEfficiency));
   const avgTorsoToArms = avg(swings.map(s => s.torsoToArmsTransferPct));
-  const hasBatKE = swings.some(s => s.batKE > 1);
+  const hasBatKE = swings.some(s => s.batKE > 10);
+  const avgBatKE = avg(swings.map(s => s.batKE));
+  const avgLegsKE = avg(swings.map(s => s.legsKE));
+  const avgTorsoKE = avg(swings.map(s => s.torsoKE));
   
-  // Check for no bat delivery (low efficiency or no bat KE)
-  if (!hasBatKE || avgBatEfficiency < 20) {
+  // Calculate proper sequence percentage (legs peak → arms peak order)
+  // In Python: proper_sequence = legs_peak_time <= torso_peak_time <= arms_peak_time
+  const properSeqPct = swings.filter(s => s.legsKEPeakTime <= s.armsKEPeakTime).length / swings.length;
+  
+  // Check for late legs (legs peak after arms) - Python: LATE_LEGS
+  const lateLegsCount = swings.filter(s => s.legsKEPeakTime > s.armsKEPeakTime).length;
+  const lateLegsPct = lateLegsCount / swings.length;
+  
+  // Check for no bat delivery - Python: NO_BAT_DELIVERY
+  const noBatCount = swings.filter(s => s.batKE < 10).length;
+  const noBatPct = noBatCount / swings.length;
+  
+  // Check for torso bypass (arms peak before torso, if IK data available)
+  // Approximate using low torso-to-arms transfer as indicator
+  const torsoBypassIndicator = avgTorsoKE > 0 && avgTorsoToArms < 50;
+  
+  // ========== LEAK DETECTION ORDER (Python spec) ==========
+  
+  // 1) No bat delivery (bat KE never materializes)
+  if (noBatPct > 0.5) {
     const msg = LEAK_MESSAGES[LeakType.NO_BAT_DELIVERY];
     return { type: LeakType.NO_BAT_DELIVERY, caption: msg.caption, trainingMeaning: msg.training };
   }
   
-  // If we have IK data, use timing-based detection
-  const hasIKData = swings.some(s => s.pelvisVelocity > 0);
-  
-  if (hasIKData) {
-    const avgPelvisTiming = avg(swings.filter(s => s.pelvisTiming > 0).map(s => s.pelvisTiming));
-    const avgProperSeq = swings.filter(s => s.properSequence).length / swings.length;
-    
-    const lateEnginePct = swings.filter(s => 
-      s.legsKEPeakTime > s.contactTime).length / swings.length;
-    
-    const earlyArmsPct = swings.filter(s => 
-      s.armsKEPeakTime < s.pelvisPeakTime).length / swings.length;
-    
-    if (lateEnginePct > 0.5) {
-      const msg = LEAK_MESSAGES[LeakType.LATE_ENGINE];
-      return { type: LeakType.LATE_ENGINE, caption: msg.caption, trainingMeaning: msg.training };
-    }
-    
-    if (avgProperSeq < 0.4) {
-      const msg = LEAK_MESSAGES[LeakType.CORE_DISCONNECT];
-      return { type: LeakType.CORE_DISCONNECT, caption: msg.caption, trainingMeaning: msg.training };
-    }
-    
-    if (earlyArmsPct > 0.5) {
-      const msg = LEAK_MESSAGES[LeakType.EARLY_BACK_LEG_RELEASE];
-      return { type: LeakType.EARLY_BACK_LEG_RELEASE, caption: msg.caption, trainingMeaning: msg.training };
-    }
-    
-    if (avgPelvisTiming < 30) {
-      const msg = LEAK_MESSAGES[LeakType.LATE_LEAD_LEG_ACCEPTANCE];
-      return { type: LeakType.LATE_LEAD_LEG_ACCEPTANCE, caption: msg.caption, trainingMeaning: msg.training };
-    }
-    
-    if (avgPelvisTiming > 200) {
-      const msg = LEAK_MESSAGES[LeakType.GLIDE_WITHOUT_CAPTURE];
-      return { type: LeakType.GLIDE_WITHOUT_CAPTURE, caption: msg.caption, trainingMeaning: msg.training };
-    }
+  // 2) Late legs (legs fired after arms)
+  if (lateLegsPct > 0.5) {
+    const msg = LEAK_MESSAGES[LeakType.LATE_LEGS];
+    return { type: LeakType.LATE_LEGS, caption: msg.caption, trainingMeaning: msg.training };
   }
   
-  // ME-only leak detection based on energy transfer patterns
-  if (avgTorsoToArms < 60) {
-    const msg = LEAK_MESSAGES[LeakType.CORE_DISCONNECT];
-    return { type: LeakType.CORE_DISCONNECT, caption: msg.caption, trainingMeaning: msg.training };
+  // 3) Torso bypass (energy skipped core)
+  if (torsoBypassIndicator) {
+    const msg = LEAK_MESSAGES[LeakType.TORSO_BYPASS];
+    return { type: LeakType.TORSO_BYPASS, caption: msg.caption, trainingMeaning: msg.training };
   }
   
-  // Check for good transfer
-  if (avgBatEfficiency >= 35) {
+  // 4) Early arms (arms took over before legs finished)
+  if (properSeqPct < 0.4) {
+    const msg = LEAK_MESSAGES[LeakType.EARLY_ARMS];
+    return { type: LeakType.EARLY_ARMS, caption: msg.caption, trainingMeaning: msg.training };
+  }
+  
+  // 5) Clean transfer (good sequence and efficiency)
+  if (properSeqPct > 0.7 && avgBatEfficiency > 30) {
     const msg = LEAK_MESSAGES[LeakType.CLEAN_TRANSFER];
     return { type: LeakType.CLEAN_TRANSFER, caption: msg.caption, trainingMeaning: msg.training };
   }
   
+  // Default: UNKNOWN
   return { type: LeakType.UNKNOWN, caption: '', trainingMeaning: '' };
 }
 
@@ -1281,7 +1318,7 @@ export function calculate4BScores(
     
     upperFlowComponents = [
       to2080Scale(avgArmsKE, THRESHOLDS.armsKE.min, THRESHOLDS.armsKE.max),
-      to2080Scale(proxyEffPct, THRESHOLDS.deliveryEfficiency.min, THRESHOLDS.deliveryEfficiency.max),
+      to2080Scale(proxyEffPct, THRESHOLDS.torsoToArmsTransfer.min, THRESHOLDS.torsoToArmsTransfer.max),
     ];
   }
   const batScore = Math.round(avg(upperFlowComponents));

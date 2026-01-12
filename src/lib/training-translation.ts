@@ -30,6 +30,7 @@ export interface TrainingTranslation {
  * - Use simple, action-oriented language
  */
 export const TRAINING_TRANSLATIONS: Record<LeakType, TrainingTranslation> = {
+  // ========== PYTHON SPEC LEAK TYPES (Primary) ==========
   [LeakType.CLEAN_TRANSFER]: {
     primaryCause: 'none',
     caption: "That's clean. Your legs did their job and the barrel got paid.",
@@ -38,6 +39,39 @@ export const TRAINING_TRANSLATIONS: Record<LeakType, TrainingTranslation> = {
     causeColor: 'green',
   },
 
+  [LeakType.LATE_LEGS]: {
+    primaryCause: 'timing',
+    caption: "Your legs fired late — the energy showed up after your hands.",
+    trainingFocus: "Get to the ground earlier.",
+    highlightJoints: ['rear_hip', 'rear_knee', 'lead_knee'],
+    causeColor: 'yellow',
+  },
+
+  [LeakType.EARLY_ARMS]: {
+    primaryCause: 'timing',
+    caption: "Your arms took over before your legs finished.",
+    trainingFocus: "Let the legs lead.",
+    highlightJoints: ['rear_hip', 'rear_knee'],
+    causeColor: 'red',
+  },
+
+  [LeakType.TORSO_BYPASS]: {
+    primaryCause: 'core',
+    caption: "Energy jumped from legs to arms, skipping your core.",
+    trainingFocus: "Let your core catch and redirect the energy.",
+    highlightJoints: ['rear_hip', 'lead_hip', 'core'],
+    causeColor: 'red',
+  },
+
+  [LeakType.NO_BAT_DELIVERY]: {
+    primaryCause: 'core',
+    caption: "Energy didn't make it to the barrel.",
+    trainingFocus: "Focus on delivering energy through the hands.",
+    highlightJoints: ['rear_hip', 'lead_hip', 'core'],
+    causeColor: 'red',
+  },
+
+  // ========== LEGACY LEAK TYPES (Backward Compatibility) ==========
   [LeakType.EARLY_BACK_LEG_RELEASE]: {
     primaryCause: 'rear_leg',
     caption: "Your back leg bailed early. You quit the ground before the swing was finished.",
@@ -82,14 +116,6 @@ export const TRAINING_TRANSLATIONS: Record<LeakType, TrainingTranslation> = {
     primaryCause: 'core',
     caption: "Your top half took off before your legs started it.",
     trainingFocus: "Legs lead. Then the core. Then the hands.",
-    highlightJoints: ['rear_hip', 'lead_hip', 'core'],
-    causeColor: 'red',
-  },
-
-  [LeakType.NO_BAT_DELIVERY]: {
-    primaryCause: 'core',
-    caption: "Your body made energy — but it never reached the barrel.",
-    trainingFocus: "Connect the chain. Ground → core → hands → barrel.",
     highlightJoints: ['rear_hip', 'lead_hip', 'core'],
     causeColor: 'red',
   },
