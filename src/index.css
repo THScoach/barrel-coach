@@ -151,23 +151,57 @@
     @apply bg-slate-900/95 backdrop-blur-lg border-slate-800;
   }
 
-  /* Card surfaces: Visibly lighter than page */
+  /* Card surfaces: Visibly lighter than page - IMPROVED CONTRAST */
   .card-surface {
-    @apply bg-slate-900/80 border border-slate-700/60;
+    @apply bg-slate-900/90 border border-slate-700/70;
   }
 
   /* Elevated card (hover state or important) */
   .card-elevated {
-    @apply bg-slate-800/90 border border-slate-700;
+    @apply bg-slate-800/95 border border-slate-600;
   }
 
   /* Interactive surface (buttons, inputs) */
   .interactive-surface {
-    @apply bg-slate-800/60 border border-slate-700/50 hover:bg-slate-800 hover:border-slate-600 transition-colors;
+    @apply bg-slate-800/70 border border-slate-600/60 hover:bg-slate-700/80 hover:border-slate-500 transition-colors;
   }
 
   /* ============================================
-     TYPOGRAPHY CONTRAST HIERARCHY
+     RICK LAB ADMIN TYPOGRAPHY - HIGH CONTRAST
+     ============================================ */
+  
+  /* Page titles: Maximum contrast, bold */
+  .admin-title {
+    @apply text-white font-bold tracking-tight;
+  }
+
+  /* Section headings */
+  .admin-heading {
+    @apply text-slate-50 font-semibold;
+  }
+
+  /* Primary content: High visibility */
+  .admin-text {
+    @apply text-slate-100;
+  }
+
+  /* Secondary content: Clear, readable */
+  .admin-text-secondary {
+    @apply text-slate-300;
+  }
+
+  /* Labels: Visible on dark */
+  .admin-label {
+    @apply text-slate-400 text-sm font-medium;
+  }
+
+  /* Table text: Readable rows */
+  .admin-table-text {
+    @apply text-slate-200 font-medium;
+  }
+
+  /* ============================================
+     LEGACY TYPOGRAPHY CLASSES
      ============================================ */
   
   /* Headings: Maximum contrast */
@@ -244,18 +278,24 @@
   }
 
   /* ============================================
-     CARD STYLES - Elevated & Padded
+     CARD STYLES - Elevated & Padded - IMPROVED
      ============================================ */
 
   .pwa-card {
-    @apply bg-slate-900/80 border border-slate-700/60 rounded-xl;
+    @apply bg-slate-900/90 border border-slate-700/70 rounded-xl;
     @apply p-5 md:p-6;
-    box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.4);
   }
 
   .pwa-card-interactive {
     @apply pwa-card cursor-pointer;
-    @apply hover:bg-slate-800/90 hover:border-slate-600 transition-colors;
+    @apply hover:bg-slate-800/95 hover:border-slate-600 transition-colors;
+  }
+
+  /* Admin table card - lighter background for row separation */
+  .admin-table-card {
+    @apply bg-slate-900/95 border border-slate-700 rounded-xl;
+    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.4);
   }
 
   /* ============================================
