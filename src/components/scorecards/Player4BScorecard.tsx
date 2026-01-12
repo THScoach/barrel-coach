@@ -515,12 +515,12 @@ export function Player4BScorecard({
   );
 }
 
-// Stat chip component
+// Stat chip component - improved contrast
 function StatChip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-slate-800/50 rounded-lg px-3 py-2 text-center">
-      <p className="text-lg font-bold text-foreground">{value}</p>
-      <p className="text-[10px] text-slate-500 uppercase tracking-wide">{label}</p>
+    <div className="bg-slate-800/80 rounded-lg px-3 py-2 text-center border border-slate-700/50">
+      <p className="text-lg font-bold text-slate-50">{value}</p>
+      <p className="text-[10px] text-slate-400 uppercase tracking-wide font-medium">{label}</p>
     </div>
   );
 }

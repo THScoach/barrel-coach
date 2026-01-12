@@ -29,25 +29,25 @@ export function AdminHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-900/95 backdrop-blur-lg supports-[backdrop-filter]:bg-slate-900/80">
+    <header className="sticky top-0 z-50 border-b border-slate-700 bg-slate-900 backdrop-blur-lg supports-[backdrop-filter]:bg-slate-900/98">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-8">
-          <div className="flex items-center gap-2">
+          <Link to="/admin" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
             <Logo size="md" />
-            <span className="hidden md:inline font-bold text-white">Rick Lab</span>
-          </div>
+            <span className="hidden md:inline font-bold text-slate-50 text-lg tracking-tight">Rick Lab</span>
+          </Link>
           
-          {/* Desktop Nav - hidden on mobile */}
+          {/* Desktop Nav - high contrast text */}
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium transition-all min-h-[44px] flex items-center",
+                  "px-4 py-2 rounded-lg text-sm font-semibold transition-all min-h-[44px] flex items-center",
                   isActive(link.to)
-                    ? "bg-gradient-to-r from-red-600/90 to-orange-500/90 text-white shadow-lg shadow-red-900/20"
-                    : "text-slate-300 hover:text-white hover:bg-slate-800/80"
+                    ? "bg-gradient-to-r from-red-600 to-orange-500 text-white shadow-lg shadow-red-900/30"
+                    : "text-slate-200 hover:text-white hover:bg-slate-800"
                 )}
               >
                 {link.label}
@@ -57,7 +57,7 @@ export function AdminHeader() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* New Session - always visible */}
+          {/* New Session - primary action */}
           <Link to="/admin/new-session">
             <Button 
               size="sm" 
@@ -68,17 +68,17 @@ export function AdminHeader() {
             </Button>
           </Link>
           
-          {/* User info - hidden on small screens */}
-          <div className="hidden sm:flex items-center gap-2 text-sm text-slate-400 px-3 py-2 bg-slate-800/50 rounded-lg border border-slate-700/50">
-            <User className="h-4 w-4" />
-            <span className="max-w-[120px] truncate">{user?.email}</span>
+          {/* User info - cleaner, moved to dropdown on mobile */}
+          <div className="hidden lg:flex items-center gap-2 text-sm text-slate-300 px-3 py-2 bg-slate-800/70 rounded-lg border border-slate-700">
+            <User className="h-4 w-4 text-slate-400" />
+            <span className="max-w-[120px] truncate font-medium">{user?.email}</span>
           </div>
           
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={handleSignOut}
-            className="text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700/50 min-h-[44px]"
+            className="text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 min-h-[44px]"
           >
             <LogOut className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Logout</span>

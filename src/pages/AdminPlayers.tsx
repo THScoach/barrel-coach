@@ -124,14 +124,14 @@ export default function AdminPlayers() {
       <AdminHeader />
 
       <main className={`container py-6 md:py-8 ${isMobile ? 'pb-24' : ''}`}>
-        {/* Header */}
+        {/* Header - High contrast */}
         <div className="flex items-center justify-between mb-6 md:mb-8">
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
-              <Users className="h-5 w-5 md:h-6 md:w-6" />
+            <h1 className="text-xl md:text-2xl font-bold text-slate-50 flex items-center gap-2.5 tracking-tight">
+              <Users className="h-5 w-5 md:h-6 md:w-6 text-slate-300" />
               Players
             </h1>
-            <p className="text-slate-400 text-sm md:text-base">Manage your player database</p>
+            <p className="text-slate-400 text-sm md:text-base mt-0.5">Manage your player database</p>
           </div>
           <Button
             onClick={() => navigate("/admin/players/new")}
@@ -143,19 +143,19 @@ export default function AdminPlayers() {
           </Button>
         </div>
 
-        {/* Main Tabs */}
+        {/* Main Tabs - Higher Contrast */}
         <Tabs defaultValue="roster" className="space-y-4 md:space-y-6">
-          <TabsList className="bg-slate-900/80 border border-slate-800 p-1">
+          <TabsList className="bg-slate-900 border border-slate-700 p-1">
             <TabsTrigger 
               value="roster" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600/90 data-[state=active]:to-orange-500/90 data-[state=active]:text-white text-slate-400 min-h-[44px] px-4"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600 data-[state=active]:to-orange-500 data-[state=active]:text-white data-[state=active]:font-semibold text-slate-300 hover:text-white min-h-[44px] px-4"
             >
               <Users className="h-4 w-4 mr-2" />
               Roster
             </TabsTrigger>
             <TabsTrigger 
               value="linking" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600/90 data-[state=active]:to-orange-500/90 data-[state=active]:text-white text-slate-400 min-h-[44px] px-4"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600 data-[state=active]:to-orange-500 data-[state=active]:text-white data-[state=active]:font-semibold text-slate-300 hover:text-white min-h-[44px] px-4"
             >
               <Link2 className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Profile ↔ Player</span>
@@ -207,21 +207,21 @@ export default function AdminPlayers() {
               </CardContent>
             </Card>
 
-            {/* Players Table */}
+            {/* Players Table - Improved Contrast */}
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
               </div>
             ) : players && players.length > 0 ? (
-              <Card className="pwa-card overflow-hidden">
+              <Card className="admin-table-card overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-slate-700/60 hover:bg-transparent">
-                      <TableHead className="text-slate-300 font-semibold">Player</TableHead>
-                      <TableHead className="text-slate-300 font-semibold hidden md:table-cell">Organization</TableHead>
-                      <TableHead className="text-slate-300 font-semibold">Level</TableHead>
-                      <TableHead className="text-slate-300 font-semibold hidden sm:table-cell">Contact</TableHead>
-                      <TableHead className="text-slate-300 font-semibold text-center hidden sm:table-cell">
+                    <TableRow className="border-slate-700 hover:bg-transparent bg-slate-800/50">
+                      <TableHead className="text-slate-200 font-semibold text-sm">Player</TableHead>
+                      <TableHead className="text-slate-200 font-semibold text-sm hidden md:table-cell">Organization</TableHead>
+                      <TableHead className="text-slate-200 font-semibold text-sm">Level</TableHead>
+                      <TableHead className="text-slate-200 font-semibold text-sm hidden sm:table-cell">Contact</TableHead>
+                      <TableHead className="text-slate-200 font-semibold text-sm text-center hidden sm:table-cell">
                         Sessions
                       </TableHead>
                       <TableHead></TableHead>
@@ -231,16 +231,16 @@ export default function AdminPlayers() {
                     {players.map((player) => (
                       <TableRow
                         key={player.id}
-                        className="cursor-pointer border-slate-700/40 hover:bg-slate-800/60 min-h-[56px] transition-colors"
+                        className="cursor-pointer border-slate-700/50 hover:bg-slate-800/70 min-h-[56px] transition-colors"
                         onClick={() => navigate(`/admin/players/${player.id}`)}
                       >
                         <TableCell className="py-4">
                           <div>
-                            <p className="font-medium text-white">
+                            <p className="font-semibold text-slate-50 text-[15px]">
                               {player.first_name} {player.last_name || ""}
                             </p>
                             {player.position && (
-                              <p className="text-xs text-slate-400">
+                              <p className="text-xs text-slate-400 font-medium mt-0.5">
                                 {player.position}
                               </p>
                             )}
@@ -252,11 +252,11 @@ export default function AdminPlayers() {
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                           <div>
-                            <p className="text-slate-200">
+                            <p className="text-slate-200 font-medium">
                               {player.organization || "-"}
                             </p>
                             {player.current_team && (
-                              <p className="text-xs text-slate-500">
+                              <p className="text-xs text-slate-400 mt-0.5">
                                 {player.current_team}
                               </p>
                             )}
@@ -266,7 +266,7 @@ export default function AdminPlayers() {
                           {player.level ? (
                             <Badge
                               variant="secondary"
-                              className="bg-slate-800 text-slate-300"
+                              className="bg-slate-700/80 text-slate-200 font-medium border border-slate-600"
                             >
                               {player.level}
                             </Badge>
@@ -275,11 +275,11 @@ export default function AdminPlayers() {
                           )}
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">
-                          <div className="flex flex-col gap-1 text-sm">
+                          <div className="flex flex-col gap-1.5 text-sm">
                             {player.phone && (
                               <div className="flex items-center gap-1.5 text-slate-300">
                                 <Phone className="h-3.5 w-3.5 text-slate-500" />
-                                {formatPhone(player.phone)}
+                                <span className="font-medium">{formatPhone(player.phone)}</span>
                               </div>
                             )}
                             {player.email && (
@@ -295,15 +295,15 @@ export default function AdminPlayers() {
                             variant={player.total_sessions > 0 ? "default" : "outline"}
                             className={
                               player.total_sessions > 0
-                                ? "bg-green-500/20 text-green-400 border-green-500/30"
-                                : "text-slate-500 border-slate-600"
+                                ? "bg-green-500/20 text-green-300 border-green-500/40 font-semibold"
+                                : "text-slate-400 border-slate-600"
                             }
                           >
                             {player.total_sessions}
                           </Badge>
                         </TableCell>
                         <TableCell className="pr-4">
-                          <ChevronRight className="h-5 w-5 text-slate-500" />
+                          <ChevronRight className="h-5 w-5 text-slate-400" />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -311,12 +311,12 @@ export default function AdminPlayers() {
                 </Table>
               </Card>
             ) : (
-              <Card className="pwa-card">
+              <Card className="admin-table-card">
                 <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                   <div className="p-4 rounded-full bg-slate-800 mb-4">
                     <Users className="h-8 w-8 text-slate-400" />
                   </div>
-                  <h3 className="font-semibold text-white mb-1">No players yet</h3>
+                  <h3 className="font-semibold text-slate-50 mb-1">No players yet</h3>
                   <p className="text-sm text-slate-400 mb-4">
                     Add your first player to get started
                   </p>
