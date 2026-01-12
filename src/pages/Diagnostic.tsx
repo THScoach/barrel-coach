@@ -16,7 +16,7 @@ export default function Diagnostic() {
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/20 mb-6">
               <Target className="w-4 h-4 text-red-400" />
               <span className="text-sm font-bold text-red-400 uppercase tracking-wider">
-                Free Diagnostic
+                Free Swing Diagnostic
               </span>
             </div>
 
@@ -25,7 +25,7 @@ export default function Diagnostic() {
             </h1>
 
             <p className="text-xl text-slate-300 max-w-2xl mx-auto mb-4">
-              Upload your swing. I'll tell you what's happening — not what you want to hear.
+              Upload your swing. I'll look at it and tell you what's happening — not what you want to hear.
             </p>
             <p className="text-lg text-slate-500 max-w-xl mx-auto">
               This is a one-time diagnostic. One response. Clarity, not coaching.
@@ -58,9 +58,9 @@ export default function Diagnostic() {
               <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
                 <Zap className="w-6 h-6 text-emerald-400" />
               </div>
-              <h3 className="font-bold text-white mb-2">Truth, Not Hype</h3>
+              <h3 className="font-bold text-white mb-2">Delivered via SMS</h3>
               <p className="text-sm text-slate-400">
-                I'll tell you what I see. That's the deal.
+                Short analysis from Rick. Straight to your phone.
               </p>
             </div>
           </div>
@@ -77,7 +77,7 @@ export default function Diagnostic() {
               </li>
               <li className="flex items-start gap-3">
                 <span className="text-red-400 font-bold">✕</span>
-                A full training plan. That's what assessments and the 90-Day program are for.
+                A full training plan. That's what the $99/month coaching is for.
               </li>
               <li className="flex items-start gap-3">
                 <span className="text-red-400 font-bold">✕</span>
@@ -121,10 +121,10 @@ export default function Diagnostic() {
               asChild
               variant="outline"
               size="lg"
-              className="border-slate-600 text-white hover:bg-slate-800"
+              className="border-red-500/50 text-red-400 hover:bg-red-500/10"
             >
-              <Link to="/assessment">
-                In-Person Assessment — $399
+              <Link to="/coaching">
+                Online Coaching — $99/mo
               </Link>
             </Button>
             <Button
@@ -133,8 +133,8 @@ export default function Diagnostic() {
               size="lg"
               className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
             >
-              <Link to="/apply">
-                90-Day Transformation — Apply
+              <Link to="/assessment">
+                In-Person Assessment — $299
               </Link>
             </Button>
           </div>

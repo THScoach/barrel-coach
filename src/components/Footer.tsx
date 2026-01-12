@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 export function Footer() {
   return (
     <footer className="bg-slate-950 border-t border-slate-800/50">
-      {/* CTA Bar */}
+      {/* CTA Bar — Persistent Footer CTA */}
       <div className="bg-slate-900/50 border-b border-slate-800/50">
         <div className="container py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -48,21 +48,18 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Products */}
+          {/* Products — Only 3 */}
           <div>
             <h4 className="font-semibold text-white mb-4">Products</h4>
             <ul className="space-y-3">
               <li>
-                <Link to="/diagnostic" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Free Diagnostic — $0</Link>
+                <Link to="/diagnostic" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Free Swing Diagnostic — $0</Link>
               </li>
               <li>
-                <Link to="/live" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Catching Barrels Live — $99/mo</Link>
+                <Link to="/coaching" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Online Coaching — $99/mo</Link>
               </li>
               <li>
-                <Link to="/apply?tier=group" className="text-slate-400 hover:text-red-500 transition-colors text-sm">90-Day Small Group — $1,299</Link>
-              </li>
-              <li>
-                <Link to="/apply?tier=1on1" className="text-slate-400 hover:text-red-500 transition-colors text-sm">1-on-1 Coaching — $2,997</Link>
+                <Link to="/assessment" className="text-slate-400 hover:text-red-500 transition-colors text-sm">In-Person Assessment — $299</Link>
               </li>
             </ul>
           </div>
