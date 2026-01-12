@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Upload, Trash2, Edit, Eye, EyeOff, Loader2, ArrowLeft, Video, CheckCircle2, Clock, AlertCircle, Sparkles } from "lucide-react";
+import { Upload, Trash2, Edit, Eye, EyeOff, Loader2, ArrowLeft, Video, CheckCircle2, Clock, AlertCircle, Sparkles, Link as LinkIcon, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AdminHeader } from "@/components/AdminHeader";
 
@@ -77,6 +77,9 @@ export default function AdminVideos() {
   const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<number | null>(null);
+  const [showOnformImport, setShowOnformImport] = useState(false);
+  const [onformUrls, setOnformUrls] = useState('');
+  const [importingOnform, setImportingOnform] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -199,6 +202,52 @@ export default function AdminVideos() {
     
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleOnformImport = async () => {
+    const urlList = onformUrls
+      .split('\n')
+      .map(u => u.trim())
+      .filter(u => u.length > 0 && (u.includes('getonform.com') || u.includes('onform.com')));
+
+    if (urlList.length === 0) {
+      toast.error('Please paste valid OnForm URLs (one per line)');
+      return;
+    }
+
+    setImportingOnform(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/import-onform-video`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ urls: urlList, autoPublish })
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Import failed');
+      }
+
+      toast.success(data.message);
+      setOnformUrls('');
+      setShowOnformImport(false);
+      
+      if (!pollIntervalRef.current) {
+        pollIntervalRef.current = window.setInterval(fetchVideos, 5000);
+      }
+      
+      await fetchVideos();
+    } catch (error) {
+      console.error('OnForm import error:', error);
+      toast.error(error instanceof Error ? error.message : 'Import failed');
+    } finally {
+      setImportingOnform(false);
     }
   };
 
@@ -399,6 +448,16 @@ export default function AdminVideos() {
               </label>
             </div>
             
+            {/* OnForm Import button */}
+            <Button
+              variant="outline"
+              onClick={() => setShowOnformImport(true)}
+              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+            >
+              <LinkIcon className="h-4 w-4 mr-2" />
+              Import OnForm
+            </Button>
+            
             {/* Upload button */}
             <div className="relative">
               <input
@@ -429,6 +488,57 @@ export default function AdminVideos() {
             </div>
           </div>
         </div>
+
+        {/* OnForm Import Modal */}
+        {showOnformImport && (
+          <div className="mb-6 bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <LinkIcon className="h-5 w-5 text-orange-500" />
+                <h3 className="text-lg font-semibold text-white">Import from OnForm</h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowOnformImport(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-sm text-slate-400 mb-4">
+              Paste OnForm share links below (one per line). Videos will be downloaded and added to your library.
+            </p>
+            <Textarea
+              value={onformUrls}
+              onChange={(e) => setOnformUrls(e.target.value)}
+              placeholder={`https://link.getonform.com/view?id=WxwGsEyvFrwW7qhBm5ST\nhttps://link.getonform.com/view?id=VOGaGuf96gxAmJn6MZQt\n...`}
+              className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 min-h-[150px] mb-4 font-mono text-sm"
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-400">
+                {onformUrls.split('\n').filter(u => u.trim().length > 0).length} URL(s) detected
+              </span>
+              <Button
+                onClick={handleOnformImport}
+                disabled={importingOnform || !onformUrls.trim()}
+                className="bg-gradient-to-r from-orange-600 to-red-500 hover:from-orange-700 hover:to-red-600 text-white"
+              >
+                {importingOnform ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Import Videos
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Upload Progress */}
         {uploading && (
