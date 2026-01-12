@@ -60,7 +60,7 @@ export default function AdminPlayers() {
   const [orgFilter, setOrgFilter] = useState<string>("all");
   const [levelFilter, setLevelFilter] = useState<string>("all");
 
-  const { data: players, isLoading, error } = useQuery({
+  const { data: players, isLoading, error, refetch } = useQuery({
     queryKey: ["player-profiles", searchQuery, orgFilter, levelFilter],
     queryFn: async () => {
       let query = supabase
@@ -115,9 +115,7 @@ export default function AdminPlayers() {
     return phone;
   };
 
-  if (error) {
-    toast.error("Failed to load players");
-  }
+  const hasFilters = searchQuery || orgFilter !== "all" || levelFilter !== "all";
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -164,79 +162,96 @@ export default function AdminPlayers() {
           </TabsList>
 
           <TabsContent value="roster">
-            {/* Filters */}
-            <Card className="mb-4 md:mb-6 pwa-card">
-              <CardContent className="pt-4 pb-4">
-                <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                    <Input
-                      placeholder="Search by name..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 bg-slate-800/60 border-slate-700 text-white placeholder:text-slate-500 min-h-[44px]"
-                    />
-                  </div>
-                  <Select value={orgFilter} onValueChange={setOrgFilter}>
-                    <SelectTrigger className="w-full sm:w-[180px] bg-slate-800/60 border-slate-700 text-slate-200 min-h-[44px]">
-                      <SelectValue placeholder="Organization" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700">
-                      <SelectItem value="all">All Organizations</SelectItem>
-                      {filterOptions?.organizations.map((org) => (
-                        <SelectItem key={org} value={org!}>
-                          {org}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={levelFilter} onValueChange={setLevelFilter}>
-                    <SelectTrigger className="w-full sm:w-[150px] bg-slate-800/60 border-slate-700 text-slate-200 min-h-[44px]">
-                      <SelectValue placeholder="Level" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700">
-                      <SelectItem value="all">All Levels</SelectItem>
-                      {filterOptions?.levels.map((level) => (
-                        <SelectItem key={level} value={level!}>
-                          {level}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Compact Filters Row */}
+            <div className="flex flex-col sm:flex-row gap-2 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search players..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-9 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-slate-500"
+                />
+              </div>
+              <Select value={orgFilter} onValueChange={setOrgFilter}>
+                <SelectTrigger className="w-full sm:w-[160px] h-9 bg-slate-900 border-slate-700 text-slate-200">
+                  <SelectValue placeholder="Organization" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-700">
+                  <SelectItem value="all">All Organizations</SelectItem>
+                  {filterOptions?.organizations.map((org) => (
+                    <SelectItem key={org} value={org!}>
+                      {org}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={levelFilter} onValueChange={setLevelFilter}>
+                <SelectTrigger className="w-full sm:w-[130px] h-9 bg-slate-900 border-slate-700 text-slate-200">
+                  <SelectValue placeholder="Level" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-700">
+                  <SelectItem value="all">All Levels</SelectItem>
+                  {filterOptions?.levels.map((level) => (
+                    <SelectItem key={level} value={level!}>
+                      {level}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            {/* Players Table - Improved Contrast */}
-            {isLoading ? (
+            {/* Error State */}
+            {error ? (
+              <Card className="bg-slate-900 border-slate-800">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="p-4 rounded-full bg-red-500/10 mb-4">
+                    <Users className="h-8 w-8 text-red-400" />
+                  </div>
+                  <h3 className="font-semibold text-white mb-1">Failed to load players</h3>
+                  <p className="text-sm text-slate-400 mb-4">
+                    Something went wrong. Please try again.
+                  </p>
+                  <Button
+                    onClick={() => refetch()}
+                    variant="outline"
+                    className="border-slate-700 text-white hover:bg-slate-800"
+                  >
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
               </div>
             ) : players && players.length > 0 ? (
-              <Card className="admin-table-card overflow-hidden">
+              <Card className="bg-slate-900 border-slate-800 overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-slate-700 hover:bg-transparent bg-slate-800/50">
-                      <TableHead className="text-slate-200 font-semibold text-sm">Player</TableHead>
-                      <TableHead className="text-slate-200 font-semibold text-sm hidden md:table-cell">Organization</TableHead>
-                      <TableHead className="text-slate-200 font-semibold text-sm">Level</TableHead>
-                      <TableHead className="text-slate-200 font-semibold text-sm hidden sm:table-cell">Contact</TableHead>
-                      <TableHead className="text-slate-200 font-semibold text-sm text-center hidden sm:table-cell">
+                    <TableRow className="border-slate-700 hover:bg-transparent bg-slate-800">
+                      <TableHead className="text-slate-300 font-semibold text-xs uppercase tracking-wide">Player</TableHead>
+                      <TableHead className="text-slate-300 font-semibold text-xs uppercase tracking-wide hidden md:table-cell">Organization</TableHead>
+                      <TableHead className="text-slate-300 font-semibold text-xs uppercase tracking-wide">Level</TableHead>
+                      <TableHead className="text-slate-300 font-semibold text-xs uppercase tracking-wide hidden sm:table-cell">Contact</TableHead>
+                      <TableHead className="text-slate-300 font-semibold text-xs uppercase tracking-wide text-center hidden sm:table-cell">
                         Sessions
                       </TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {players.map((player) => (
+                    {players.map((player, index) => (
                       <TableRow
                         key={player.id}
-                        className="cursor-pointer border-slate-700/50 hover:bg-slate-800/70 min-h-[56px] transition-colors"
+                        className={`cursor-pointer border-slate-800 hover:bg-slate-800 transition-colors ${
+                          index % 2 === 0 ? 'bg-slate-900' : 'bg-slate-900/60'
+                        }`}
                         onClick={() => navigate(`/admin/players/${player.id}`)}
                       >
-                        <TableCell className="py-4">
+                        <TableCell className="py-3.5">
                           <div>
-                            <p className="font-semibold text-slate-50 text-[15px]">
+                            <p className="font-semibold text-white text-[15px]">
                               {player.first_name} {player.last_name || ""}
                             </p>
                             {player.position && (
@@ -252,7 +267,7 @@ export default function AdminPlayers() {
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                           <div>
-                            <p className="text-slate-200 font-medium">
+                            <p className="text-white font-medium">
                               {player.organization || "-"}
                             </p>
                             {player.current_team && (
@@ -266,7 +281,7 @@ export default function AdminPlayers() {
                           {player.level ? (
                             <Badge
                               variant="secondary"
-                              className="bg-slate-700/80 text-slate-200 font-medium border border-slate-600"
+                              className="bg-slate-700 text-white font-medium border border-slate-600"
                             >
                               {player.level}
                             </Badge>
@@ -277,14 +292,14 @@ export default function AdminPlayers() {
                         <TableCell className="hidden sm:table-cell">
                           <div className="flex flex-col gap-1.5 text-sm">
                             {player.phone && (
-                              <div className="flex items-center gap-1.5 text-slate-300">
-                                <Phone className="h-3.5 w-3.5 text-slate-500" />
+                              <div className="flex items-center gap-1.5 text-slate-200">
+                                <Phone className="h-3.5 w-3.5 text-slate-400" />
                                 <span className="font-medium">{formatPhone(player.phone)}</span>
                               </div>
                             )}
                             {player.email && (
                               <div className="flex items-center gap-1.5 text-slate-300">
-                                <Mail className="h-3.5 w-3.5 text-slate-500" />
+                                <Mail className="h-3.5 w-3.5 text-slate-400" />
                                 <span className="truncate max-w-[140px]">{player.email}</span>
                               </div>
                             )}
@@ -303,20 +318,45 @@ export default function AdminPlayers() {
                           </Badge>
                         </TableCell>
                         <TableCell className="pr-4">
-                          <ChevronRight className="h-5 w-5 text-slate-400" />
+                          <ChevronRight className="h-5 w-5 text-slate-500" />
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </Card>
-            ) : (
-              <Card className="admin-table-card">
+            ) : hasFilters ? (
+              /* No results for current filter */
+              <Card className="bg-slate-900 border-slate-800">
                 <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                   <div className="p-4 rounded-full bg-slate-800 mb-4">
-                    <Users className="h-8 w-8 text-slate-400" />
+                    <Search className="h-8 w-8 text-slate-500" />
                   </div>
-                  <h3 className="font-semibold text-slate-50 mb-1">No players yet</h3>
+                  <h3 className="font-semibold text-white mb-1">No players match this filter</h3>
+                  <p className="text-sm text-slate-400 mb-4">
+                    Try adjusting your search or filter criteria
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setOrgFilter("all");
+                      setLevelFilter("all");
+                    }}
+                    variant="outline"
+                    className="border-slate-700 text-white hover:bg-slate-800"
+                  >
+                    Clear Filters
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              /* Empty state - no players at all */
+              <Card className="bg-slate-900 border-slate-800">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="p-4 rounded-full bg-slate-800 mb-4">
+                    <Users className="h-8 w-8 text-slate-500" />
+                  </div>
+                  <h3 className="font-semibold text-white mb-1">No players yet</h3>
                   <p className="text-sm text-slate-400 mb-4">
                     Add your first player to get started
                   </p>
