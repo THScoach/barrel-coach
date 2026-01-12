@@ -198,32 +198,35 @@ export function ResultsPage({ results, userAccessLevel = 'paid' }: ResultsPagePr
         </Card>
       )}
 
-      {/* Upsell - Complete Review (Single Swing only) */}
+      {/* Upsell - KRS Assessment (Single Swing only) */}
       {!isCompleteReview && (
-        <Card className="p-6 mb-8 bg-accent/5 border-accent/30">
+        <Card className="p-6 mb-8 bg-blue-500/5 border-blue-500/30">
           <h2 className="text-lg font-bold mb-4">WANT THE FULL PICTURE?</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-xl">Complete Swing Review™</span>
-              <span className="font-bold text-xl">$97</span>
+              <span className="font-bold text-xl">Full KRS Assessment</span>
+              <span className="font-bold text-xl">$37</span>
             </div>
             <ul className="space-y-2 text-sm">
-              <li>• See your best swing vs worst swing</li>
-              <li>• See how you compare to other {results.playerInfo.age}-year-olds</li>
-              <li>• Get a 30-day improvement plan</li>
+              <li>• Full KRS 4B Report</li>
+              <li>• AI-powered explanation of your results</li>
+              <li>• Starter drills to fix your #1 issue</li>
             </ul>
             <Button variant="accent" size="lg" className="w-full gap-2">
-              GET THE FULL PICTURE
+              GET FULL KRS REPORT
               <ArrowRight className="w-4 h-4" />
             </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              Or <a href="/coaching" className="underline">join the $99/mo membership</a> which includes your full report
+            </p>
           </div>
         </Card>
       )}
 
-      {/* Upsell - Inner Circle (Complete Review only) */}
+      {/* Upsell - Membership (Complete Review only) */}
       {isCompleteReview && (
         <Card className="p-6 mb-8 bg-primary text-primary-foreground">
-          <h2 className="text-lg font-bold mb-2">WANT PERSONAL COACHING?</h2>
+          <h2 className="text-lg font-bold mb-2">READY FOR ONGOING COACHING?</h2>
           <p className="text-sm opacity-80 mb-4">
             Rick Strickland is the MLB Hitting Coach for the Baltimore Orioles. 
             He's trained Pete Crow-Armstrong, Andrew Benintendi, and Devin Williams.
@@ -231,21 +234,21 @@ export function ResultsPage({ results, userAccessLevel = 'paid' }: ResultsPagePr
           
           <div className="p-4 rounded-lg bg-white/10 backdrop-blur">
             <div className="flex items-center justify-between mb-3">
-              <span className="font-bold">Rick's Inner Circle</span>
-              <span className="font-bold">$297/month</span>
+              <span className="font-bold">Catching Barrels Membership</span>
+              <span className="font-bold">$99/month</span>
             </div>
             <ul className="space-y-1 text-sm opacity-90 mb-4">
-              <li>• 2 personal video reviews from Rick</li>
-              <li>• Weekly group coaching calls</li>
-              <li>• Direct access via chat</li>
+              <li>• Weekly Monday night coaching calls</li>
+              <li>• Unlimited KRS retests</li>
+              <li>• Rick AI for instant answers</li>
+              <li>• My Swing Lab access</li>
             </ul>
-            <p className="text-xs opacity-70 mb-3">Only 12 spots left</p>
             <Button 
               variant="hero" 
               size="lg" 
               className="w-full"
             >
-              JOIN THE INNER CIRCLE
+              JOIN MEMBERSHIP
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>

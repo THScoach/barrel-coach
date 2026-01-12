@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Header } from '@/components/Header';
@@ -88,8 +89,21 @@ export default function Assessment() {
     <div className="min-h-screen flex flex-col bg-slate-950">
       <Header />
 
+      {/* Seasonal Notice Banner */}
+      <section className="pt-24 pb-4">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
+            <p className="text-amber-400 text-sm">
+              <strong>Spring training spots are limited and may be closed.</strong>{" "}
+              <Link to="/diagnostic" className="underline hover:text-amber-300">Start with a Free Diagnostic</Link> or{" "}
+              <Link to="/coaching" className="underline hover:text-amber-300">Online Membership</Link> instead.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Hero */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
+      <section className="relative pt-8 pb-20 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-500/10 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl" />
@@ -97,7 +111,7 @@ export default function Assessment() {
         <div className="max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/20 rounded-full text-yellow-400 text-sm mb-4">
-              <span className="font-bold uppercase tracking-wider">Limited Time — Spring Training Discount</span>
+              <span className="font-bold uppercase tracking-wider">Limited Availability — Seasonal Offer</span>
             </div>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/50 rounded-full text-slate-300 text-sm mb-6">
               <Clock className="w-4 h-4 text-red-400" />
