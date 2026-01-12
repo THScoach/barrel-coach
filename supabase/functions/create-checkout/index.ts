@@ -8,24 +8,19 @@ const corsHeaders = {
 };
 
 /**
- * Stripe Price IDs - Both products give full 4B report access
+ * Stripe Price IDs - Product Offerings
  * 
- * single_swing: $37 for exactly 1 swing analysis
- *   - Used for quick single-swing diagnostics
- *   - Full 4B report with Brain, Body, Bat, Ball scores
- * 
- * complete_review: $37 for 5+ swing analysis (same price, more data)
+ * complete_review: $37 for 5-15 swing analysis
  *   - Requires minimum 5 swings for statistical validity
  *   - Includes consistency metrics and composite scoring
  *   - Full 4B report with Brain, Body, Bat, Ball scores
  * 
- * Note: Both products are priced at $37 intentionally.
- * The complete_review provides more value (5+ swings) at the same price
- * to encourage comprehensive analysis submissions.
+ * Note: There is NO single-swing $37 product. The $37 KRS Assessment
+ * requires 5+ swings for proper consistency and pattern analysis.
+ * Free diagnostics (1 swing) go through a different flow.
  */
 const PRICES = {
-  single_swing: "price_1Sni9jA7XlInXgw8nyCx0srR",    // $37 - 1 swing
-  complete_review: "price_1Sni9yA7XlInXgw81XabkdCK", // $37 - 5+ swings
+  complete_review: "price_1Sni9yA7XlInXgw81XabkdCK", // $37 - 5+ swings required
 };
 
 serve(async (req) => {
