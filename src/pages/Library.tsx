@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Play, Lock, Clock, X, Brain, Dumbbell, Target, CircleDot, Sparkles, Zap, Filter } from "lucide-react";
+import { Search, Play, Lock, Clock, X, Brain, Dumbbell, Target, CircleDot, Sparkles, Zap, Filter, FileText, CheckCircle2 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { VideoRecommendations } from "@/components/VideoRecommendations";
@@ -79,6 +79,7 @@ export default function Library() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [problemFilter, setProblemFilter] = useState('all');
+  const [transcribedOnly, setTranscribedOnly] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<DrillVideo | null>(null);
   const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
 
@@ -163,6 +164,9 @@ export default function Library() {
         if (problemFilter !== 'all') {
           query = query.contains('problems_addressed', [problemFilter]);
         }
+        if (transcribedOnly) {
+          query = query.not('transcript', 'is', null);
+        }
 
         const { data, error } = await query;
         if (error) throw error;
@@ -173,7 +177,7 @@ export default function Library() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, categoryFilter, problemFilter]);
+  }, [searchQuery, categoryFilter, problemFilter, transcribedOnly]);
 
   useEffect(() => {
     const debounce = setTimeout(fetchVideos, 300);
@@ -312,9 +316,25 @@ export default function Library() {
       {/* ===== PROBLEM FILTERS ===== */}
       <section className="py-8 border-y border-slate-800 bg-slate-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Filter className="w-5 h-5 text-slate-500" />
-            <span className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Fix a Specific Problem</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <Filter className="w-5 h-5 text-slate-500" />
+              <span className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Fix a Specific Problem</span>
+            </div>
+            
+            {/* Transcription Filter Toggle */}
+            <button
+              onClick={() => setTranscribedOnly(!transcribedOnly)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                transcribedOnly
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-transparent'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Transcribed Only</span>
+              {transcribedOnly && <CheckCircle2 className="w-4 h-4" />}
+            </button>
           </div>
           
           <div className="flex flex-wrap gap-2">
@@ -457,6 +477,14 @@ export default function Library() {
                       {!canAccess && (
                         <div className="absolute top-2 right-2 p-2 bg-black/70 rounded-full">
                           <Lock className="w-4 h-4 text-yellow-400" />
+                        </div>
+                      )}
+
+                      {/* Transcript Status Badge */}
+                      {canAccess && video.transcript && (
+                        <div className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-1 bg-green-500/20 border border-green-500/30 rounded text-xs text-green-400 font-medium">
+                          <FileText className="w-3 h-3" />
+                          <span>Transcribed</span>
                         </div>
                       )}
                     </div>

@@ -2365,6 +2365,20 @@ export type Database = {
         Returns: undefined
       }
       ensure_player_linked: { Args: { p_profile_id: string }; Returns: string }
+      find_similar_videos: {
+        Args: { max_results?: number; video_id_param: string }
+        Returns: {
+          description: string
+          duration_seconds: number
+          four_b_category: string
+          id: string
+          problems_addressed: string[]
+          similarity_score: number
+          thumbnail_url: string
+          title: string
+          video_url: string
+        }[]
+      }
       get_recommended_videos: {
         Args: { p_limit?: number; p_session_id: string }
         Returns: {
@@ -2407,6 +2421,26 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      search_video_transcripts: {
+        Args: {
+          category_filter?: string
+          max_results?: number
+          search_query: string
+        }
+        Returns: {
+          description: string
+          duration_seconds: number
+          four_b_category: string
+          id: string
+          matching_excerpt: string
+          problems_addressed: string[]
+          relevance_score: number
+          thumbnail_url: string
+          title: string
+          transcript: string
+          video_url: string
+        }[]
+      }
       search_videos: {
         Args: {
           category_filter?: string

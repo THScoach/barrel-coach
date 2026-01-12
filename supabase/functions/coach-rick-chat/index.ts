@@ -90,20 +90,66 @@ const DRILL_KEYWORDS = [
   'power', 'exit velo', 'balance', 'load', 'stride', 'swing'
 ];
 
+// Keywords for video content questions
+const VIDEO_CONTENT_KEYWORDS = [
+  'what video', 'which video', 'find video', 'show me', 'videos about',
+  'video on', 'video for', 'explain', 'teach', 'demonstrate', 'how to',
+  'what does rick say', 'what did rick', 'related videos', 'similar videos'
+];
+
 function shouldSearchDrills(message: string): boolean {
   const lowerMessage = message.toLowerCase();
   return DRILL_KEYWORDS.some(keyword => lowerMessage.includes(keyword));
+}
+
+function shouldSearchTranscripts(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  return VIDEO_CONTENT_KEYWORDS.some(keyword => lowerMessage.includes(keyword)) ||
+    (lowerMessage.includes('video') && shouldSearchDrills(message));
+}
+
+// Extract search terms from natural language query
+function extractSearchTerms(message: string): string {
+  // Remove common question words and keep the meaningful terms
+  const stopWords = ['what', 'which', 'how', 'do', 'does', 'can', 'could', 'would', 'should', 
+    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+    'about', 'for', 'on', 'with', 'at', 'by', 'from', 'to', 'in', 'of', 'and', 'or', 'but',
+    'video', 'videos', 'show', 'me', 'find', 'search', 'look', 'rick', 'say', 'says', 'said'];
+  
+  return message
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(word => !stopWords.includes(word) && word.length > 2)
+    .join(' ')
+    .trim();
 }
 
 interface DrillVideo {
   id: string;
   title: string;
   description: string | null;
+  transcript?: string | null;
   four_b_category: string | null;
   problems_addressed: string[] | null;
   duration_seconds: number | null;
   video_url: string;
   thumbnail_url: string | null;
+  relevance_score?: number;
+  matching_excerpt?: string;
+}
+
+interface TranscriptSearchResult {
+  id: string;
+  title: string;
+  description: string | null;
+  transcript: string | null;
+  four_b_category: string | null;
+  problems_addressed: string[] | null;
+  duration_seconds: number | null;
+  video_url: string;
+  thumbnail_url: string | null;
+  relevance_score: number;
+  matching_excerpt: string;
 }
 
 serve(async (req) => {
@@ -133,13 +179,73 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     let supabase: ReturnType<typeof createClient> | null = null;
     let relevantDrills: DrillVideo[] = [];
+    let transcriptContext = '';
 
     if (supabaseUrl && supabaseKey) {
       supabase = createClient(supabaseUrl, supabaseKey);
 
-      // Search for relevant drill videos if the message suggests they want drills
-      // Note: In diagnostic mode, we don't provide drills (per Master Prompt rules)
-      if (!isDiagnostic && shouldSearchDrills(message)) {
+      // Check if user is asking about video content - use transcript search
+      if (!isDiagnostic && shouldSearchTranscripts(message)) {
+        const searchTerms = extractSearchTerms(message);
+        
+        if (searchTerms) {
+          // Determine category filter from message
+          let categoryFilter: string | null = null;
+          const lowerMessage = message.toLowerCase();
+          if (lowerMessage.includes('brain') || lowerMessage.includes('timing') || lowerMessage.includes('rhythm')) {
+            categoryFilter = 'brain';
+          } else if (lowerMessage.includes('body') || lowerMessage.includes('hip') || lowerMessage.includes('rotation')) {
+            categoryFilter = 'body';
+          } else if (lowerMessage.includes('bat') || lowerMessage.includes('hand') || lowerMessage.includes('path')) {
+            categoryFilter = 'bat';
+          } else if (lowerMessage.includes('ball') || lowerMessage.includes('exit') || lowerMessage.includes('launch')) {
+            categoryFilter = 'ball';
+          }
+
+          // Use the transcript search function via POST request
+          const searchResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/search_video_transcripts`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`
+            },
+            body: JSON.stringify({
+              search_query: searchTerms,
+              category_filter: categoryFilter,
+              max_results: 5
+            })
+          });
+
+          if (searchResponse.ok) {
+            const transcriptResults = await searchResponse.json() as TranscriptSearchResult[];
+            
+            if (transcriptResults && transcriptResults.length > 0) {
+              relevantDrills = transcriptResults.map(r => ({
+                id: r.id,
+                title: r.title,
+                description: r.description,
+                transcript: r.transcript,
+                four_b_category: r.four_b_category,
+                problems_addressed: r.problems_addressed,
+                duration_seconds: r.duration_seconds,
+                video_url: r.video_url,
+                thumbnail_url: r.thumbnail_url,
+                relevance_score: r.relevance_score,
+                matching_excerpt: r.matching_excerpt
+              }));
+
+              // Build context from transcript excerpts for AI
+              transcriptContext = '\n\nRelevant video content from transcripts:\n' + 
+                transcriptResults.map(r => 
+                  `- "${r.title}": ${r.matching_excerpt?.replace(/\*\*/g, '') || r.description || 'No excerpt'}`
+                ).join('\n');
+            }
+          }
+        }
+      }
+      // Fall back to regular drill search if transcript search didn't find results
+      else if (!isDiagnostic && shouldSearchDrills(message)) {
         const searchTerms = message.toLowerCase();
         
         // Determine category from message
@@ -154,28 +260,72 @@ serve(async (req) => {
           categoryFilter = 'ball';
         }
 
-        let query = supabase
-          .from('drill_videos')
-          .select('id, title, description, four_b_category, problems_addressed, duration_seconds, video_url, thumbnail_url')
-          .eq('status', 'published')
-          .limit(5);
+        // Try transcript search first for better results
+        const extractedTerms = extractSearchTerms(message);
+        if (extractedTerms) {
+          const searchResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/search_video_transcripts`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`
+            },
+            body: JSON.stringify({
+              search_query: extractedTerms,
+              category_filter: categoryFilter,
+              max_results: 5
+            })
+          });
 
-        if (categoryFilter) {
-          query = query.eq('four_b_category', categoryFilter);
+          if (searchResponse.ok) {
+            const transcriptResults = await searchResponse.json() as TranscriptSearchResult[];
+            
+            if (transcriptResults && transcriptResults.length > 0) {
+              relevantDrills = transcriptResults.map(r => ({
+                id: r.id,
+                title: r.title,
+                description: r.description,
+                four_b_category: r.four_b_category,
+                problems_addressed: r.problems_addressed,
+                duration_seconds: r.duration_seconds,
+                video_url: r.video_url,
+                thumbnail_url: r.thumbnail_url,
+                relevance_score: r.relevance_score,
+                matching_excerpt: r.matching_excerpt
+              }));
+
+              transcriptContext = '\n\nRelevant video content from transcripts:\n' + 
+                transcriptResults.map(r => 
+                  `- "${r.title}": ${r.matching_excerpt?.replace(/\*\*/g, '') || r.description || 'No excerpt'}`
+                ).join('\n');
+            }
+          }
         }
 
-        const { data: drills } = await query;
-        
-        if (drills && drills.length > 0) {
-          relevantDrills = drills;
-        } else if (categoryFilter) {
-          // If no category-specific drills, get any drills
-          const { data: anyDrills } = await supabase
+        // Fallback to basic query if transcript search found nothing
+        if (relevantDrills.length === 0) {
+          let query = supabase
             .from('drill_videos')
             .select('id, title, description, four_b_category, problems_addressed, duration_seconds, video_url, thumbnail_url')
             .eq('status', 'published')
             .limit(5);
-          relevantDrills = anyDrills || [];
+
+          if (categoryFilter) {
+            query = query.eq('four_b_category', categoryFilter);
+          }
+
+          const { data: drills } = await query;
+          
+          if (drills && drills.length > 0) {
+            relevantDrills = drills;
+          } else if (categoryFilter) {
+            const { data: anyDrills } = await supabase
+              .from('drill_videos')
+              .select('id, title, description, four_b_category, problems_addressed, duration_seconds, video_url, thumbnail_url')
+              .eq('status', 'published')
+              .limit(5);
+            relevantDrills = anyDrills || [];
+          }
         }
       }
     }
@@ -197,6 +347,12 @@ serve(async (req) => {
         `- "${d.title}" (${d.four_b_category?.toUpperCase() || 'General'}): ${d.description || 'No description'}`
       ).join('\n');
       systemPrompt += `\n\nAvailable drill videos you can recommend:\n${drillList}\n\nWhen recommending drills, use the EXACT titles shown above.`;
+      
+      // Add transcript context if available
+      if (transcriptContext) {
+        systemPrompt += transcriptContext;
+        systemPrompt += '\n\nUse these transcript excerpts to answer questions about what the videos cover. Quote specific insights when relevant.';
+      }
     }
 
     // Add diagnostic mode instruction
