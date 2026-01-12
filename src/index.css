@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Catching Barrels Design System - MiniMax Redesign */
+/* Catching Barrels Design System - PWA Optimized Dark Theme */
 
 @layer base {
   :root {
@@ -136,6 +136,164 @@
 }
 
 @layer components {
+  /* ============================================
+     PWA DARK THEME CONTRAST HIERARCHY
+     Page BG → Nav/Cards → Interactive Elements
+     ============================================ */
+
+  /* Page background: Deepest dark */
+  .page-bg {
+    @apply bg-slate-950;
+  }
+
+  /* Navigation surfaces: Elevated from page */
+  .nav-surface {
+    @apply bg-slate-900/95 backdrop-blur-lg border-slate-800;
+  }
+
+  /* Card surfaces: Visibly lighter than page */
+  .card-surface {
+    @apply bg-slate-900/80 border border-slate-700/60;
+  }
+
+  /* Elevated card (hover state or important) */
+  .card-elevated {
+    @apply bg-slate-800/90 border border-slate-700;
+  }
+
+  /* Interactive surface (buttons, inputs) */
+  .interactive-surface {
+    @apply bg-slate-800/60 border border-slate-700/50 hover:bg-slate-800 hover:border-slate-600 transition-colors;
+  }
+
+  /* ============================================
+     TYPOGRAPHY CONTRAST HIERARCHY
+     ============================================ */
+  
+  /* Headings: Maximum contrast */
+  .text-heading {
+    @apply text-white font-semibold;
+  }
+
+  /* Primary content: High visibility */
+  .text-primary-content {
+    @apply text-slate-100;
+  }
+
+  /* Secondary content: Clear but subdued */
+  .text-secondary-content {
+    @apply text-slate-300;
+  }
+
+  /* Labels and captions: Muted but readable */
+  .text-label {
+    @apply text-slate-400;
+  }
+
+  /* Disabled/tertiary: Low emphasis */
+  .text-tertiary {
+    @apply text-slate-500;
+  }
+
+  /* Key values and numbers: Accent or white */
+  .text-value {
+    @apply text-white font-medium;
+  }
+
+  /* ============================================
+     TAP TARGETS (iOS HIG: 44pt minimum)
+     ============================================ */
+
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .touch-target-lg {
+    min-height: 56px;
+    min-width: 56px;
+  }
+
+  /* ============================================
+     BUTTON STYLES - Clear Visual Hierarchy
+     ============================================ */
+
+  /* Primary action: Filled, high contrast */
+  .btn-primary {
+    @apply bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold;
+    @apply hover:from-red-700 hover:to-orange-600;
+    @apply min-h-[44px] px-5 rounded-lg;
+    @apply shadow-lg shadow-red-900/30;
+    @apply transition-all active:scale-[0.98];
+  }
+
+  /* Secondary action: Bordered, visible */
+  .btn-secondary {
+    @apply bg-slate-800/80 border border-slate-600 text-slate-200;
+    @apply hover:bg-slate-700 hover:border-slate-500 hover:text-white;
+    @apply min-h-[44px] px-4 rounded-lg;
+    @apply transition-all active:scale-[0.98];
+  }
+
+  /* Ghost action: Subtle but tappable */
+  .btn-ghost {
+    @apply bg-transparent border border-slate-700/50 text-slate-400;
+    @apply hover:bg-slate-800/50 hover:text-slate-200 hover:border-slate-600;
+    @apply min-h-[44px] px-4 rounded-lg;
+    @apply transition-all;
+  }
+
+  /* ============================================
+     CARD STYLES - Elevated & Padded
+     ============================================ */
+
+  .pwa-card {
+    @apply bg-slate-900/80 border border-slate-700/60 rounded-xl;
+    @apply p-5 md:p-6;
+    box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.3);
+  }
+
+  .pwa-card-interactive {
+    @apply pwa-card cursor-pointer;
+    @apply hover:bg-slate-800/90 hover:border-slate-600 transition-colors;
+  }
+
+  /* ============================================
+     TAB/NAV STYLES
+     ============================================ */
+
+  /* Tab pill style - active state */
+  .tab-active {
+    @apply bg-gradient-to-r from-red-600 to-orange-500 text-white font-medium;
+    @apply rounded-lg px-4 py-2;
+  }
+
+  /* Tab inactive - clearly readable */
+  .tab-inactive {
+    @apply text-slate-400 hover:text-slate-200 hover:bg-slate-800/50;
+    @apply rounded-lg px-4 py-2 transition-colors;
+  }
+
+  /* ============================================
+     SAFE AREAS (iOS PWA)
+     ============================================ */
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
+  /* ============================================
+     LEGACY COMPONENT STYLES
+     ============================================ */
+
   /* Score circle component */
   .score-circle {
     @apply relative flex items-center justify-center rounded-full;
@@ -257,19 +415,5 @@
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
-  }
-
-  /* PWA Mobile - safe areas and touch targets */
-  .safe-area-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0);
-  }
-
-  .pb-safe {
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
-  }
-
-  .touch-target {
-    min-height: 44px;
-    min-width: 44px;
   }
 }

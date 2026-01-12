@@ -29,10 +29,13 @@ import {
 import { AdminHeader } from "@/components/AdminHeader";
 import { ActivityFeed } from "@/components/admin/ActivityFeed";
 import { DashboardWidgets } from "@/components/admin/DashboardWidgets";
+import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { format, formatDistanceToNow, startOfWeek } from "date-fns";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const today = new Date();
   const greeting =
     today.getHours() < 12
@@ -80,17 +83,17 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-950">
       <AdminHeader />
 
-      <main className="container py-8">
+      <main className={`container py-6 md:py-8 ${isMobile ? 'pb-24' : ''}`}>
         {/* Greeting */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">{greeting}, Coach Rick</h1>
-          <p className="text-slate-400">{format(today, "EEEE, MMMM d, yyyy")}</p>
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-xl md:text-2xl font-bold text-white">{greeting}, Coach Rick</h1>
+          <p className="text-slate-400 text-sm md:text-base">{format(today, "EEEE, MMMM d, yyyy")}</p>
         </div>
 
         {/* Metric Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Card className="bg-slate-900/80 border-slate-800">
-            <CardContent className="pt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
+          <Card className="pwa-card">
+            <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-400 mb-1">Pending Analyses</p>
@@ -102,15 +105,15 @@ export default function AdminDashboard() {
                     )}
                   </p>
                 </div>
-                <div className="p-3 rounded-xl bg-amber-500/10">
+                <div className="p-3 rounded-xl bg-amber-500/15">
                   <Video className="h-6 w-6 text-amber-500" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/80 border-slate-800">
-            <CardContent className="pt-6">
+          <Card className="pwa-card">
+            <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-400 mb-1">Active Players</p>
@@ -122,15 +125,15 @@ export default function AdminDashboard() {
                     )}
                   </p>
                 </div>
-                <div className="p-3 rounded-xl bg-blue-500/10">
+                <div className="p-3 rounded-xl bg-blue-500/15">
                   <Users className="h-6 w-6 text-blue-500" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/80 border-slate-800">
-            <CardContent className="pt-6">
+          <Card className="pwa-card">
+            <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-400 mb-1">This Week</p>
@@ -142,7 +145,7 @@ export default function AdminDashboard() {
                     )}
                   </p>
                 </div>
-                <div className="p-3 rounded-xl bg-green-500/10">
+                <div className="p-3 rounded-xl bg-green-500/15">
                   <DollarSign className="h-6 w-6 text-green-500" />
                 </div>
               </div>
@@ -151,39 +154,39 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
-          <div className="flex flex-wrap gap-3">
+        <div className="mb-6 md:mb-8">
+          <h2 className="text-lg font-semibold text-white mb-3 md:mb-4">Quick Actions</h2>
+          <div className="flex flex-wrap gap-2 md:gap-3">
             <Button
               onClick={() => navigate("/admin/players/new")}
-              className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+              className="btn-primary"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Player
             </Button>
             <Button
               onClick={() => navigate("/admin/videos")}
-              variant="outline"
-              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              className="btn-secondary"
             >
               <Upload className="h-4 w-4 mr-2" />
-              Upload Video
+              <span className="hidden sm:inline">Upload Video</span>
+              <span className="sm:hidden">Upload</span>
             </Button>
             <Button
               onClick={() => navigate("/admin/messages")}
-              variant="outline"
-              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              className="btn-secondary"
             >
               <MessageSquare className="h-4 w-4 mr-2" />
-              Send Message
+              <span className="hidden sm:inline">Send Message</span>
+              <span className="sm:hidden">Message</span>
             </Button>
           </div>
         </div>
 
         {/* Two Column Layout: Activity Feed + Widgets */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 md:gap-6">
           {/* Left: Activity Feed */}
-          <Card className="bg-slate-900/80 border-slate-800">
+          <Card className="pwa-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base font-semibold text-white">
                 Activity Feed
@@ -200,6 +203,9 @@ export default function AdminDashboard() {
           </div>
         </div>
       </main>
+
+      {/* Mobile Bottom Nav */}
+      {isMobile && <MobileBottomNav />}
     </div>
   );
 }
