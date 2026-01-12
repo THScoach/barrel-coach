@@ -26,6 +26,7 @@ import Pricing from "./pages/Pricing";
 import Apply from "./pages/Apply";
 import Diagnostic from "./pages/Diagnostic";
 import Coaching from "./pages/Coaching";
+import FreeDiagnosticReport from "./pages/FreeDiagnosticReport";
 
 // Admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -77,6 +78,7 @@ const App = () => (
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/apply" element={<Apply />} />
               <Route path="/diagnostic" element={<Diagnostic />} />
+              <Route path="/diagnostic/report/:sessionId?" element={<FreeDiagnosticReport />} />
               <Route path="/coaching" element={<Coaching />} />
 
               {/* Player Portal Routes - 4B First Dashboard */}
