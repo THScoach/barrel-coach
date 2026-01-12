@@ -25,10 +25,50 @@ serve(async (req) => {
       throw new Error("Missing required fields: productType, player, environment");
     }
 
-    // Swing requirements: min required for payment gating, max allowed for upload limit
-    const swingsRequired = productType === "complete_review" ? 5 : 1;
-    const swingsMaxAllowed = 15; // Allow up to 15 swings for better analysis
-    const priceCents = productType === "complete_review" ? 9700 : 3700;
+    // Validate product type
+    const validProductTypes = ["free_diagnostic", "single_swing", "complete_review", "membership"];
+    if (!validProductTypes.includes(productType)) {
+      throw new Error(`Invalid product type: ${productType}. Must be one of: ${validProductTypes.join(", ")}`);
+    }
+
+    /**
+     * Swing Requirements by Product:
+     * 
+     * free_diagnostic: 1 swing only (teaser report, locked insights)
+     * single_swing: Exactly 1 swing ($37, full 4B report)
+     * complete_review: 5-15 swings ($37, full 4B report + consistency metrics)
+     * membership: 5-15 swings ($99/month ongoing coaching access)
+     */
+    let swingsRequired: number;
+    let swingsMaxAllowed: number;
+    let priceCents: number;
+
+    switch (productType) {
+      case "free_diagnostic":
+        swingsRequired = 1;
+        swingsMaxAllowed = 1; // Strict limit: exactly 1 swing for free tier
+        priceCents = 0;
+        break;
+      case "single_swing":
+        swingsRequired = 1;
+        swingsMaxAllowed = 1; // Exactly 1 swing
+        priceCents = 3700;
+        break;
+      case "complete_review":
+        swingsRequired = 5; // Minimum 5 for statistical validity
+        swingsMaxAllowed = 15;
+        priceCents = 3700; // Same price as single_swing, more value
+        break;
+      case "membership":
+        swingsRequired = 5; // Minimum 5 for comprehensive coaching
+        swingsMaxAllowed = 15;
+        priceCents = 9900; // Monthly subscription handled separately
+        break;
+      default:
+        swingsRequired = 5;
+        swingsMaxAllowed = 15;
+        priceCents = 3700;
+    }
 
     // Format phone number if provided
     let formattedPhone = null;
