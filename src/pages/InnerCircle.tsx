@@ -564,8 +564,8 @@ export default function InnerCircle() {
 
           <p className="text-slate-500 text-sm mt-10">
             Questions? Email{" "}
-            <a href="mailto:support@catchingbarrels.com" className="text-yellow-400 hover:underline">
-              support@catchingbarrels.com
+            <a href="mailto:swingrehabcoach@gmail.com" className="text-yellow-400 hover:underline">
+              swingrehabcoach@gmail.com
             </a>
           </p>
         </div>

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Logo } from './Logo';
-import { Mail, Twitter, ArrowRight } from 'lucide-react';
+import { Mail, Twitter, ArrowRight, Instagram } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function Footer() {
@@ -32,7 +32,7 @@ export function Footer() {
             <p className="text-slate-400 mt-4 text-sm">Stop guessing. Start catching barrels.</p>
             <div className="flex gap-3 mt-6">
               <a 
-                href="https://twitter.com/catchingbarrels" 
+                href="https://twitter.com/swingrehab" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-700 transition-all"
@@ -40,7 +40,15 @@ export function Footer() {
                 <Twitter className="w-5 h-5" />
               </a>
               <a 
-                href="mailto:rick@catchingbarrels.com" 
+                href="https://instagram.com/theswingrehabcoach" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-700 transition-all"
+              >
+                <Instagram className="w-5 h-5" />
+              </a>
+              <a 
+                href="mailto:swingrehabcoach@gmail.com" 
                 className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-700 transition-all"
               >
                 <Mail className="w-5 h-5" />
@@ -85,18 +93,28 @@ export function Footer() {
             <h4 className="font-semibold text-white mb-4">Contact</h4>
             <ul className="space-y-3">
               <li>
-                <a href="mailto:rick@catchingbarrels.com" className="text-slate-400 hover:text-red-500 transition-colors text-sm flex items-center gap-2">
-                  <Mail className="w-4 h-4" /> rick@catchingbarrels.com
+                <a href="mailto:swingrehabcoach@gmail.com" className="text-slate-400 hover:text-red-500 transition-colors text-sm flex items-center gap-2">
+                  <Mail className="w-4 h-4" /> swingrehabcoach@gmail.com
                 </a>
               </li>
               <li>
                 <a 
-                  href="https://twitter.com/catchingbarrels" 
+                  href="https://twitter.com/swingrehab" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-slate-400 hover:text-red-500 transition-colors text-sm flex items-center gap-2"
                 >
-                  <Twitter className="w-4 h-4" /> @catchingbarrels
+                  <Twitter className="w-4 h-4" /> @swingrehab
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="https://instagram.com/theswingrehabcoach" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-slate-400 hover:text-red-500 transition-colors text-sm flex items-center gap-2"
+                >
+                  <Instagram className="w-4 h-4" /> @theswingrehabcoach
                 </a>
               </li>
             </ul>
