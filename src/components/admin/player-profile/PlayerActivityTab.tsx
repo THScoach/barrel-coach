@@ -7,7 +7,8 @@ import { format, formatDistanceToNow } from "date-fns";
 import { BarChart3, Target, Activity, Video, MessageSquare, FileText } from "lucide-react";
 
 interface PlayerActivityTabProps {
-  playerId: string;
+  playerId: string; // player_profiles.id
+  playersTableId?: string; // players.id for data tables
 }
 
 interface ActivityItem {
@@ -24,7 +25,7 @@ interface ActivityItem {
   };
 }
 
-export function PlayerActivityTab({ playerId }: PlayerActivityTabProps) {
+export function PlayerActivityTab({ playerId, playersTableId }: PlayerActivityTabProps) {
   const [filter, setFilter] = useState("all");
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,15 +37,19 @@ export function PlayerActivityTab({ playerId }: PlayerActivityTabProps) {
 
   useEffect(() => {
     loadActivities();
-  }, [playerId, filter]);
+  }, [playerId, playersTableId, filter]);
 
   const loadActivities = async () => {
     setLoading(true);
     
+    // Use playerId for sessions table (references player_profiles)
+    // Use playersTableId for data tables (references players)
+    const dataPlayerId = playersTableId || playerId;
+    
     const [sessionsRes, launchRes, rebootRes] = await Promise.all([
       supabase.from('sessions').select('*').eq('player_id', playerId).order('created_at', { ascending: false }).limit(20),
-      supabase.from('launch_monitor_sessions').select('*').eq('player_id', playerId).order('session_date', { ascending: false }).limit(20),
-      supabase.from('reboot_uploads').select('*').eq('player_id', playerId).order('created_at', { ascending: false }).limit(20),
+      supabase.from('launch_monitor_sessions').select('*').eq('player_id', dataPlayerId).order('session_date', { ascending: false }).limit(20),
+      supabase.from('reboot_uploads').select('*').eq('player_id', dataPlayerId).order('created_at', { ascending: false }).limit(20),
     ]);
 
     const allActivities: ActivityItem[] = [

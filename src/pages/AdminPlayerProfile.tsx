@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -63,13 +63,31 @@ const THROWS = ['Right', 'Left'];
 export default function AdminPlayerProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const isNew = id === 'new';
   const isMobile = useIsMobile();
 
-  // Mobile tab state
-  const [mobileTab, setMobileTab] = useState("overview");
+  // Tab state - sync with URL parameter
+  const urlTab = searchParams.get('tab') || 'activity';
+  const [activeTab, setActiveTab] = useState(urlTab);
+  const [mobileTab, setMobileTab] = useState(urlTab === 'activity' ? 'overview' : urlTab);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
+
+  // Sync active tab when URL changes
+  useEffect(() => {
+    const tab = searchParams.get('tab') || 'activity';
+    setActiveTab(tab);
+    if (isMobile) {
+      setMobileTab(tab === 'activity' ? 'overview' : tab);
+    }
+  }, [searchParams, isMobile]);
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -695,7 +713,7 @@ export default function AdminPlayerProfile() {
             </div>
 
             {/* Mobile Tab Content */}
-            {mobileTab === "overview" && <PlayerActivityTab playerId={player?.id || id!} />}
+            {mobileTab === "overview" && <PlayerActivityTab playerId={player?.id || id!} playersTableId={player?.players_id} />}
             {mobileTab === "scores" && <PlayerScoresTab playerId={player?.players_id || id!} playerName={getPlayerName()} />}
             {mobileTab === "drills" && <PlayerDrillsTab playerId={player?.id || id!} />}
             {mobileTab === "data" && <PlayerDataTab playerId={player?.id || id!} playerName={getPlayerName()} />}
@@ -712,7 +730,7 @@ export default function AdminPlayerProfile() {
           </div>
         ) : (
           /* Desktop 7-Tab Navigation */
-          <Tabs defaultValue="activity" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
             <TabsList className="bg-slate-900/80 border border-slate-800">
               <TabsTrigger value="activity" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Activity
@@ -738,7 +756,7 @@ export default function AdminPlayerProfile() {
             </TabsList>
 
             <TabsContent value="activity">
-              <PlayerActivityTab playerId={player?.id || id!} />
+              <PlayerActivityTab playerId={player?.id || id!} playersTableId={player?.players_id} />
             </TabsContent>
             <TabsContent value="scores">
               <PlayerScoresTab playerId={player?.players_id || id!} playerName={getPlayerName()} />
