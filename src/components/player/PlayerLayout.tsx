@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { Home, TrendingUp, Dumbbell, MessageSquare, User, LogOut } from "lucide-react";
+import { Home, TrendingUp, MessageSquare, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
@@ -12,12 +12,12 @@ export function PlayerLayout() {
     navigate('/login');
   };
 
-  // Core tabs only - Transfer & Schedule hidden for now
+  // Simplified baseball-first navigation: Home, Scores, Messages, Profile
+  // Drills accessible from Home's Next Actions, not as a primary tab
   const navItems = [
-    { to: '/player', icon: Home, label: 'Home', end: true },
+    { to: '/player', icon: Home, label: 'Lab', end: true },
     { to: '/player/data', icon: TrendingUp, label: 'Scores', end: false },
-    { to: '/player/drills', icon: Dumbbell, label: 'Drills', end: false },
-    { to: '/player/messages', icon: MessageSquare, label: 'Messages', end: false },
+    { to: '/player/messages', icon: MessageSquare, label: 'Coach', end: false },
     { to: '/player/profile', icon: User, label: 'Profile', end: false },
   ];
 
@@ -29,7 +29,7 @@ export function PlayerLayout() {
           <div className="flex items-center justify-between">
             <NavLink to="/player" className="flex items-center gap-2">
               <Logo size="sm" />
-              <span className="font-bold text-lg hidden sm:inline">CatchBarrels</span>
+              <span className="font-bold text-lg hidden sm:inline">My Swing Lab</span>
             </NavLink>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />

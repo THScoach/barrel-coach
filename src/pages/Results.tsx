@@ -282,20 +282,31 @@ export default function Results() {
           </div>
         )}
 
-        {/* Upsell (Single Swing only) */}
+        {/* Upsell (Single Swing / Free Diagnostic) */}
         {!isCompleteReview && (
           <Card className="mb-8 bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/30">
             <CardContent className="p-6 text-center">
-              <h2 className="font-bold text-xl text-white mb-2">Want the Complete Analysis?</h2>
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-500/20 rounded-full text-red-400 text-xs font-bold uppercase tracking-wider mb-4">
+                Free Snapshot Complete
+              </div>
+              <h2 className="font-bold text-xl text-white mb-2">Unlock Full KRS Report & Coaching</h2>
               <p className="text-slate-300 mb-6">
-                Get your full motor profile, 3-5 personalized drills, and detailed breakdown of all 4B categories.
+                This is just the snapshot. Get your full motor profile, weekly live calls with Rick, 
+                personalized drill prescriptions, and ongoing feedback to actually fix what's broken.
               </p>
-              <Button size="lg" className="bg-red-500 hover:bg-red-600 text-white" asChild>
-                <Link to="/analyze">
-                  Upgrade to Complete Review — $60 more
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Link>
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button size="lg" className="bg-red-500 hover:bg-red-600 text-white" asChild>
+                  <Link to="/coaching">
+                    Start Coaching — $99/mo
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Link>
+                </Button>
+                <Button size="lg" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-800" asChild>
+                  <Link to="/assessment">
+                    In-Person Assessment — $299
+                  </Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
