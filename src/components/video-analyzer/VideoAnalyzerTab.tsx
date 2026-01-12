@@ -11,10 +11,13 @@ import {
   CheckCircle2, 
   Clock, 
   ChevronRight,
-  BarChart3
+  BarChart3,
+  Loader2,
+  Sparkles
 } from "lucide-react";
 import { VideoSwingUploadModal } from "./VideoSwingUploadModal";
 import { VideoAnalyzerDetail } from "./VideoAnalyzerDetail";
+import { useAnalyzeVideoSwingSession } from "@/hooks/useAnalyzeVideoSwingSession";
 import { cn } from "@/lib/utils";
 
 interface VideoSwingSession {
@@ -44,6 +47,8 @@ export function VideoAnalyzerTab({
   const [loading, setLoading] = useState(true);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  
+  const { analyze, isAnalyzing, analyzingSessionId } = useAnalyzeVideoSwingSession();
 
   useEffect(() => {
     if (playerId) {
@@ -172,41 +177,72 @@ export function VideoAnalyzerTab({
         </Card>
       ) : (
         <div className="space-y-2">
-          {sessions.map((session) => (
-            <Card 
-              key={session.id}
-              className="cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => setSelectedSessionId(session.id)}
-            >
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Video className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">
-                          {format(new Date(session.session_date), 'MMM d, yyyy')}
-                        </span>
-                        <Badge variant="outline" className="text-xs">
-                          {getContextLabel(session.context)}
-                        </Badge>
+          {sessions.map((session) => {
+            const isThisSessionAnalyzing = isAnalyzing && analyzingSessionId === session.id;
+            const isAnalyzed = session.status === 'analyzed' || session.analyzed_count === session.video_count;
+            
+            const handleAnalyzeClick = async (e: React.MouseEvent) => {
+              e.stopPropagation();
+              const result = await analyze(session.id, false);
+              if (result?.success) {
+                loadSessions();
+              }
+            };
+            
+            return (
+              <Card 
+                key={session.id}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => setSelectedSessionId(session.id)}
+              >
+                <CardContent className="py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Video className="h-5 w-5 text-primary" />
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {session.video_count} video{session.video_count !== 1 ? 's' : ''}
-                        {session.analyzed_count > 0 && ` • ${session.analyzed_count} analyzed`}
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {format(new Date(session.session_date), 'MMM d, yyyy')}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {getContextLabel(session.context)}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {session.video_count} video{session.video_count !== 1 ? 's' : ''}
+                          {session.analyzed_count > 0 && ` • ${session.analyzed_count} analyzed`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {/* Analyze button for unanalyzed sessions */}
+                      {!isAnalyzed && !isThisSessionAnalyzing && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleAnalyzeClick}
+                          className="gap-1"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          Analyze
+                        </Button>
+                      )}
+                      {isThisSessionAnalyzing && (
+                        <Button variant="secondary" size="sm" disabled className="gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Analyzing...
+                        </Button>
+                      )}
+                      {getStatusBadge(session.status, session.analyzed_count, session.video_count)}
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {getStatusBadge(session.status, session.analyzed_count, session.video_count)}
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
