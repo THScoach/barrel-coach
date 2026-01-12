@@ -1,7 +1,7 @@
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Check, ArrowRight, MessageCircle, Users, Zap } from "lucide-react";
+import { Check, ArrowRight, MessageCircle, Zap, Users, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   Accordion,
@@ -20,8 +20,12 @@ const faqs = [
     answer: "Your full KRS 4B report (Brain, Body, Bat, Ball), AI-powered explanation of your results, and starter drills to begin fixing your #1 issue. One-time purchase, instant access.",
   },
   {
-    question: "What's included in the $99/month membership?",
-    answer: "Weekly Monday night live group calls, unlimited swing uploads with KRS reports, Rick AI for instant answers, My Swing Lab access, and monthly retests to track progress. Cancel anytime.",
+    question: "What's included in the membership?",
+    answer: "Weekly Monday night live group calls with Coach Rick, unlimited swing uploads with KRS reports, Rick AI for instant answers, My Swing Lab access, monthly retests to track progress, and seasonal in-season/off-season guidance. Cancel anytime.",
+  },
+  {
+    question: "What's the Founding Annual rate?",
+    answer: "The $899/year founding rate saves you ~24% vs monthly ($1,188/year). It's only available to early members who join before March 1, and the rate is locked in as long as you stay active.",
   },
   {
     question: "What if I'm in-season?",
@@ -133,7 +137,7 @@ export default function Pricing() {
               </Button>
             </div>
 
-            {/* 3. Catching Barrels Membership — $99/month (FEATURED) */}
+            {/* 3. Catching Barrels Membership — $99/month OR $899/year (FEATURED) */}
             <div className="bg-slate-900/80 border-2 border-red-500/50 rounded-2xl p-8 flex flex-col relative ring-2 ring-red-500/30">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
                 Most Popular
@@ -145,7 +149,25 @@ export default function Pricing() {
                   <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Ongoing</span>
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">Catching Barrels Membership</h3>
-                <div className="text-4xl font-black text-white mb-2">$99<span className="text-lg text-slate-400">/mo</span></div>
+                
+                {/* Pricing Options */}
+                <div className="space-y-2 mb-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-black text-white">$99</span>
+                    <span className="text-lg text-slate-400">/month</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                    <Clock className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                    <div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xl font-bold text-white">$899</span>
+                        <span className="text-sm text-slate-400">/year</span>
+                        <span className="text-xs font-bold text-yellow-400 bg-yellow-500/20 px-2 py-0.5 rounded">Save ~24%</span>
+                      </div>
+                      <p className="text-xs text-yellow-400/80">Founding Annual Rate – until March 1</p>
+                    </div>
+                  </div>
+                </div>
                 <p className="text-slate-500 text-sm">Cancel anytime</p>
               </div>
               
@@ -169,6 +191,10 @@ export default function Pricing() {
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                   Monthly retests to track progress
+                </li>
+                <li className="flex items-start gap-3 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  Seasonal guidance (in-season / off-season)
                 </li>
               </ul>
 

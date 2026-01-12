@@ -344,7 +344,8 @@ export default function Index() {
               <div className="text-red-400 font-bold text-sm uppercase tracking-wider mb-2 mt-2">Ongoing</div>
               <h3 className="text-2xl font-bold text-white mb-2">Catching Barrels Membership</h3>
               <div className="text-4xl font-black text-white mb-1">$99<span className="text-lg text-slate-400">/mo</span></div>
-              <div className="text-slate-500 mb-6">Cancel anytime</div>
+              <div className="text-sm text-yellow-400 mb-1">or $899/year (save ~24%)</div>
+              <div className="text-slate-500 text-xs mb-6">Founding annual rate – until March 1</div>
               <p className="text-slate-400 text-sm mb-4">Full coaching. Weekly calls. Direct access.</p>
               <ul className="text-left space-y-3 mb-8 flex-grow">
                 <li className="flex items-start gap-3 text-slate-300">

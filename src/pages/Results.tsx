@@ -304,7 +304,7 @@ export default function Results() {
                   to="/coaching" 
                   className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-4"
                 >
-                  Skip straight to Monthly Coaching – $99/mo includes your full KRS report
+                  Skip straight to Monthly Coaching – $99/mo or $899/year founding rate until March 1
                 </Link>
               </div>
             </CardContent>
