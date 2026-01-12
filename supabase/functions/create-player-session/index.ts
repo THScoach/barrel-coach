@@ -61,10 +61,12 @@ serve(async (req) => {
     /**
      * Swing Requirements by Product:
      * 
-     * free_diagnostic: 1 swing only (teaser report, locked insights)
-     * single_swing: Exactly 1 swing ($37, full 4B report)
-     * complete_review: 5-15 swings ($37, full 4B report + consistency)
-     * membership: 5-15 swings ($99/month ongoing coaching)
+     * free_diagnostic: 1 swing only (teaser report, locked insights) - $0
+     * complete_review: 5-15 swings ($37, full 4B report + consistency analysis)
+     * membership: 5-15 swings per session ($99/month ongoing coaching)
+     * 
+     * Note: There is NO single-swing $37 product. The $37 KRS Assessment
+     * requires 5+ swings for proper consistency and pattern analysis.
      */
     let swingsRequired: number;
     let swingsMaxAllowed: number;
@@ -72,26 +74,25 @@ serve(async (req) => {
 
     switch (productType) {
       case "free_diagnostic":
+        // Free teaser - single swing only
         swingsRequired = 1;
         swingsMaxAllowed = 1;
         priceCents = 0;
         break;
-      case "single_swing":
-        swingsRequired = 1;
-        swingsMaxAllowed = 1;
-        priceCents = 3700;
-        break;
       case "complete_review":
+        // $37 KRS Assessment - requires 5+ swings for full analysis
         swingsRequired = 5;
         swingsMaxAllowed = 15;
         priceCents = 3700;
         break;
       case "membership":
+        // $99/month coaching - 5-15 swings per session
         swingsRequired = 5;
         swingsMaxAllowed = 15;
         priceCents = 9900;
         break;
       default:
+        // Default to complete_review specs
         swingsRequired = 5;
         swingsMaxAllowed = 15;
         priceCents = 3700;
