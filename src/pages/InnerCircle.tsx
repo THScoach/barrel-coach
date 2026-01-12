@@ -334,22 +334,22 @@ export default function InnerCircle() {
                 <tr className="border-b border-slate-800">
                   <th className="text-left py-6 px-6 text-slate-400 font-semibold text-lg">Feature</th>
                   <th className="text-center py-6 px-6">
-                    <div className="text-slate-400 font-medium text-sm uppercase tracking-wider">Single Swing</div>
-                    <div className="text-white font-bold text-xl mt-1">$37</div>
+                    <div className="text-slate-400 font-medium text-sm uppercase tracking-wider">Free Diagnostic</div>
+                    <div className="text-white font-bold text-xl mt-1">$0</div>
                   </th>
                   <th className="text-center py-6 px-6">
-                    <div className="text-slate-400 font-medium text-sm uppercase tracking-wider">Complete Review</div>
-                    <div className="text-white font-bold text-xl mt-1">$97</div>
+                    <div className="text-slate-400 font-medium text-sm uppercase tracking-wider">KRS Assessment</div>
+                    <div className="text-white font-bold text-xl mt-1">$37</div>
                   </th>
                   <th className="text-center py-6 px-6 relative">
                     {/* Highlighted column header */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-yellow-500/20 to-transparent rounded-t-xl" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-red-500/20 to-transparent rounded-t-xl" />
                     <div className="relative">
-                      <div className="inline-flex items-center gap-1 text-yellow-400 font-medium text-sm uppercase tracking-wider">
+                      <div className="inline-flex items-center gap-1 text-red-400 font-medium text-sm uppercase tracking-wider">
                         <Crown className="w-4 h-4" />
-                        Inner Circle
+                        Membership
                       </div>
-                      <div className="text-white font-bold text-xl mt-1">$297/mo</div>
+                      <div className="text-white font-bold text-xl mt-1">$99/mo</div>
                     </div>
                   </th>
                 </tr>
@@ -382,18 +382,18 @@ export default function InnerCircle() {
                     </td>
                     <td className="text-center py-5 px-6 relative">
                       {/* Highlighted column */}
-                      <div className="absolute inset-0 bg-yellow-500/5" />
+                      <div className="absolute inset-0 bg-red-500/5" />
                       <div className="relative">
                         {typeof row.inner === "boolean" ? (
                           row.inner ? (
-                            <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-yellow-500/20">
-                              <Check className="w-5 h-5 text-yellow-400" />
+                            <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-500/20">
+                              <Check className="w-5 h-5 text-red-400" />
                             </div>
                           ) : (
                             <X className="w-6 h-6 text-slate-600 mx-auto" />
                           )
                         ) : (
-                          <span className="text-yellow-400 font-bold">{row.inner}</span>
+                          <span className="text-red-400 font-bold">{row.inner}</span>
                         )}
                       </div>
                     </td>

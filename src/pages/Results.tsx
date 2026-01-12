@@ -284,28 +284,28 @@ export default function Results() {
 
         {/* Upsell (Single Swing / Free Diagnostic) */}
         {!isCompleteReview && (
-          <Card className="mb-8 bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/30">
+          <Card className="mb-8 bg-gradient-to-r from-blue-500/10 to-red-500/10 border-blue-500/30">
             <CardContent className="p-6 text-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-500/20 rounded-full text-red-400 text-xs font-bold uppercase tracking-wider mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 rounded-full text-blue-400 text-xs font-bold uppercase tracking-wider mb-4">
                 Free Snapshot Complete
               </div>
-              <h2 className="font-bold text-xl text-white mb-2">Unlock Full KRS Report & Coaching</h2>
+              <h2 className="font-bold text-xl text-white mb-2">Unlock Full KRS Report</h2>
               <p className="text-slate-300 mb-6">
-                This is just the snapshot. Get your full motor profile, weekly live calls with Rick, 
-                personalized drill prescriptions, and ongoing feedback to actually fix what's broken.
+                Get your complete 4B breakdown, AI-powered explanation, and starter drills to fix your #1 issue.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button size="lg" className="bg-red-500 hover:bg-red-600 text-white" asChild>
-                  <Link to="/coaching">
-                    Start Coaching — $99/mo
+              <div className="flex flex-col gap-3 justify-center">
+                <Button size="lg" className="bg-blue-500 hover:bg-blue-600 text-white" asChild>
+                  <Link to="/diagnostic?upgrade=assessment">
+                    Unlock Full KRS Report – $37
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Link>
                 </Button>
-                <Button size="lg" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-800" asChild>
-                  <Link to="/assessment">
-                    In-Person Assessment — $299
-                  </Link>
-                </Button>
+                <Link 
+                  to="/coaching" 
+                  className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-4"
+                >
+                  Skip straight to Monthly Coaching – $99/mo includes your full KRS report
+                </Link>
               </div>
             </CardContent>
           </Card>

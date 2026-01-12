@@ -8,7 +8,6 @@ const navigation = [
   { name: 'Home', href: '/' },
   { name: 'Coaching', href: '/coaching' },
   { name: 'Pricing', href: '/pricing' },
-  { name: 'Upload Swing', href: '/analyze' },
 ];
 
 interface HeaderProps {

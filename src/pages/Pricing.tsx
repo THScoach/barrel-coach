@@ -1,7 +1,7 @@
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Check, ArrowRight, MessageCircle, Users, MapPin } from "lucide-react";
+import { Check, ArrowRight, MessageCircle, Users, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   Accordion,
@@ -16,12 +16,12 @@ const faqs = [
     answer: "Yes. 100% free. No credit card. Upload your swing, get a snapshot of what's happening. It's one response — clarity, not coaching.",
   },
   {
-    question: "What's included in the $99/month coaching?",
-    answer: "Weekly Monday night live group calls, swing uploads with personal feedback, SMS communication with me, and ongoing coaching throughout the month. Cancel anytime.",
+    question: "What's the $37 KRS Assessment?",
+    answer: "Your full KRS 4B report (Brain, Body, Bat, Ball), AI-powered explanation of your results, and starter drills to begin fixing your #1 issue. One-time purchase, instant access.",
   },
   {
-    question: "What's the $299 in-person assessment?",
-    answer: "90 minutes with me, face-to-face. Full 4B evaluation, video analysis, and clear next steps.",
+    question: "What's included in the $99/month membership?",
+    answer: "Weekly Monday night live group calls, unlimited swing uploads with KRS reports, Rick AI for instant answers, My Swing Lab access, and monthly retests to track progress. Cancel anytime.",
   },
   {
     question: "What if I'm in-season?",
@@ -66,7 +66,7 @@ export default function Pricing() {
                   <MessageCircle className="w-4 h-4 text-slate-400" />
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Start Here</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Clarity First</h3>
+                <h3 className="text-xl font-bold text-white mb-2">Free Diagnostic</h3>
                 <div className="text-4xl font-black text-white mb-2">$0</div>
                 <p className="text-slate-500 text-sm">One-time</p>
               </div>
@@ -78,11 +78,11 @@ export default function Pricing() {
                 </li>
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                  One diagnostic response
+                  Snapshot of what's happening
                 </li>
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                  Direction only
+                  Direction, not coaching
                 </li>
               </ul>
 
@@ -96,7 +96,44 @@ export default function Pricing() {
               </Button>
             </div>
 
-            {/* 2. Online Coaching — $99/month (FEATURED) */}
+            {/* 2. KRS Assessment — $37 */}
+            <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-8 flex flex-col">
+              <div className="mb-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 rounded-full mb-4">
+                  <Zap className="w-4 h-4 text-blue-400" />
+                  <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">One-Time</span>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">KRS Assessment</h3>
+                <div className="text-4xl font-black text-white mb-2">$37</div>
+                <p className="text-slate-500 text-sm">One-time purchase</p>
+              </div>
+              
+              <ul className="space-y-3 mb-6 flex-grow">
+                <li className="flex items-start gap-3 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                  Full KRS 4B Report
+                </li>
+                <li className="flex items-start gap-3 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                  AI-powered explanation
+                </li>
+                <li className="flex items-start gap-3 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                  Starter drills to fix your #1 issue
+                </li>
+              </ul>
+
+              <p className="text-slate-500 text-sm mb-6 border-t border-slate-800 pt-4">
+                Get the full picture.<br />
+                Know exactly what to work on.
+              </p>
+
+              <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                <Link to="/diagnostic">Get KRS Assessment</Link>
+              </Button>
+            </div>
+
+            {/* 3. Catching Barrels Membership — $99/month (FEATURED) */}
             <div className="bg-slate-900/80 border-2 border-red-500/50 rounded-2xl p-8 flex flex-col relative ring-2 ring-red-500/30">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
                 Most Popular
@@ -107,7 +144,7 @@ export default function Pricing() {
                   <Users className="w-4 h-4 text-red-400" />
                   <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Ongoing</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Weekly Coaching</h3>
+                <h3 className="text-xl font-bold text-white mb-2">Catching Barrels Membership</h3>
                 <div className="text-4xl font-black text-white mb-2">$99<span className="text-lg text-slate-400">/mo</span></div>
                 <p className="text-slate-500 text-sm">Cancel anytime</p>
               </div>
@@ -115,19 +152,23 @@ export default function Pricing() {
               <ul className="space-y-3 mb-6 flex-grow">
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Weekly Monday night coaching call
+                  Full KRS reports included
                 </li>
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Unlimited swing uploads
+                  My Swing Lab access
                 </li>
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Ongoing feedback
+                  Weekly Monday night coaching calls
                 </li>
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Accountability
+                  Rick AI for instant answers
+                </li>
+                <li className="flex items-start gap-3 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  Monthly retests to track progress
                 </li>
               </ul>
 
@@ -137,51 +178,7 @@ export default function Pricing() {
               </p>
 
               <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
-                <Link to="/coaching">Start Coaching</Link>
-              </Button>
-            </div>
-
-            {/* 3. In-Person Assessment — $299 */}
-            <div className="bg-slate-900/80 border border-yellow-500/30 rounded-2xl p-8 flex flex-col relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-yellow-500 rounded-full text-xs font-bold text-black uppercase tracking-wider">
-                Limited Availability
-              </div>
-              
-              <div className="mb-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-yellow-500/20 rounded-full mb-4">
-                  <MapPin className="w-4 h-4 text-yellow-400" />
-                  <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider">In-Person</span>
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">One Truth Session</h3>
-                <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-4xl font-black text-white">$299</span>
-                  <span className="text-lg text-slate-500 line-through">$399</span>
-                </div>
-                <p className="text-slate-500 text-sm">One-time • 90 minutes</p>
-              </div>
-              
-              <ul className="space-y-3 mb-6 flex-grow">
-                <li className="flex items-start gap-3 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  90-minute in-person session
-                </li>
-                <li className="flex items-start gap-3 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  Full swing evaluation
-                </li>
-                <li className="flex items-start gap-3 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  Clear next steps
-                </li>
-              </ul>
-
-              <p className="text-slate-500 text-sm mb-6 border-t border-slate-800 pt-4">
-                One session.<br />
-                Real answers.
-              </p>
-
-              <Button asChild className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold">
-                <Link to="/assessment">Book In-Person Assessment</Link>
+                <Link to="/coaching">Join Membership</Link>
               </Button>
             </div>
 

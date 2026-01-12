@@ -24,9 +24,9 @@ import { VideoRecorder } from "@/components/VideoRecorder";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 const PRODUCTS = [
-  { id: 'single_swing', name: 'Single Swing Score', price: 37, priceId: 'price_1SnjB8A7XlInXgw8HK1bJuGp' },
-  { id: 'complete_assessment', name: 'Complete Review', price: 97, priceId: 'price_1SnjBeA7XlInXgw8BmGjVZpn' },
-  { id: 'in_person_assessment', name: 'In-Person Assessment', price: 299, priceId: 'price_1SnqwfA7XlInXgw809dC018v' },
+  { id: 'krs_assessment', name: 'KRS Assessment', price: 37, priceId: 'price_1Sni9jA7XlInXgw8nyCx0srR' },
+  { id: 'membership', name: 'Catching Barrels Membership', price: 99, priceId: 'price_1SoacUA7XlInXgw8erLx2iRH' },
+  { id: 'in_person_assessment', name: 'In-Person Assessment (Seasonal)', price: 299, priceId: 'price_1SnqwfA7XlInXgw809dC018v' },
 ];
 
 const PAYMENT_OPTIONS = [

@@ -120,29 +120,29 @@ export interface AnalysisState {
 export const PRODUCTS: Product[] = [
   {
     id: 'single_swing',
-    name: 'Single Swing Score™',
+    name: 'KRS Assessment',
     price: 37,
     swingsRequired: 1,
     swingsMaxAllowed: 15,
     features: [
-      '1 swing analyzed',
-      'Your #1 problem identified',
-      '1 drill to fix it',
+      'Full KRS 4B Report',
+      'AI-powered explanation',
+      'Starter drills included',
       'PDF report emailed'
     ]
   },
   {
     id: 'complete_review',
-    name: 'Complete Swing Review™',
-    price: 97,
-    swingsRequired: 5,
+    name: 'Catching Barrels Membership',
+    price: 99,
+    swingsRequired: 1,
     swingsMaxAllowed: 15,
     features: [
-      '5-15 swings analyzed',
-      'Consistency analysis',
-      'Age comparison',
-      '30-day improvement plan',
-      'PDF report emailed'
+      'Everything in KRS Assessment',
+      'Weekly Monday night calls',
+      'My Swing Lab access',
+      'Rick AI for instant answers',
+      'Monthly retests'
     ]
   }
 ];

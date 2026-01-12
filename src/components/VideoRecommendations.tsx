@@ -381,77 +381,77 @@ export function VideoRecommendations({
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* $37 Option */}
+            {/* $37 KRS Assessment */}
             <div 
               className="border rounded-lg p-4 cursor-pointer hover:border-primary transition-colors"
               onClick={() => {
                 setShowUpgradeModal(false);
-                navigate('/analyze');
+                navigate('/diagnostic?upgrade=assessment');
               }}
             >
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-bold text-lg">Single Swing Score</h3>
+                <h3 className="font-bold text-lg">KRS Assessment</h3>
                 <span className="text-2xl font-bold text-primary">$37</span>
               </div>
               <ul className="space-y-1.5 text-sm text-muted-foreground mb-3">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  AI analysis of 1 swing video
+                  Full KRS 4B Report
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Your 4B Score breakdown
+                  AI-powered explanation
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Access to paid video library
+                  Starter drills included
                 </li>
               </ul>
               <Button className="w-full" variant="outline">
-                Get Started
+                Get KRS Assessment
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
 
-            {/* $97 Option - Highlighted */}
+            {/* $99/mo Membership - Highlighted */}
             <div 
               className="border-2 border-accent rounded-lg p-4 cursor-pointer hover:bg-accent/5 transition-colors relative"
               onClick={() => {
                 setShowUpgradeModal(false);
-                navigate('/analyze');
+                navigate('/coaching');
               }}
             >
               <Badge className="absolute -top-2.5 left-4 bg-accent text-accent-foreground">
-                BEST VALUE
+                MOST POPULAR
               </Badge>
               <div className="flex items-center justify-between mb-2 mt-1">
-                <h3 className="font-bold text-lg">Complete Swing Review™</h3>
-                <span className="text-2xl font-bold text-accent">$97</span>
+                <h3 className="font-bold text-lg">Catching Barrels Membership</h3>
+                <span className="text-2xl font-bold text-accent">$99/mo</span>
               </div>
               <ul className="space-y-1.5 text-sm text-muted-foreground mb-3">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  AI analysis of 5 swing videos
+                  Full KRS reports included
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Best vs Worst swing comparison
+                  Weekly Monday night calls
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Percentile ranking vs peers
+                  My Swing Lab access
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  30-day improvement plan
+                  Rick AI for instant answers
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Full video library access
+                  Monthly retests
                 </li>
               </ul>
               <Button className="w-full" variant="accent">
-                Get Complete Review
+                Join Membership
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
