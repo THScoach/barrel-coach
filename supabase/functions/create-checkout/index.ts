@@ -7,10 +7,25 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Stripe price IDs
+/**
+ * Stripe Price IDs - Both products give full 4B report access
+ * 
+ * single_swing: $37 for exactly 1 swing analysis
+ *   - Used for quick single-swing diagnostics
+ *   - Full 4B report with Brain, Body, Bat, Ball scores
+ * 
+ * complete_review: $37 for 5+ swing analysis (same price, more data)
+ *   - Requires minimum 5 swings for statistical validity
+ *   - Includes consistency metrics and composite scoring
+ *   - Full 4B report with Brain, Body, Bat, Ball scores
+ * 
+ * Note: Both products are priced at $37 intentionally.
+ * The complete_review provides more value (5+ swings) at the same price
+ * to encourage comprehensive analysis submissions.
+ */
 const PRICES = {
-  single_swing: "price_1Sni9jA7XlInXgw8nyCx0srR",
-  complete_review: "price_1Sni9yA7XlInXgw81XabkdCK",
+  single_swing: "price_1Sni9jA7XlInXgw8nyCx0srR",    // $37 - 1 swing
+  complete_review: "price_1Sni9yA7XlInXgw81XabkdCK", // $37 - 5+ swings
 };
 
 serve(async (req) => {

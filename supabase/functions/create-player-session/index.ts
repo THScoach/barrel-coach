@@ -58,10 +58,44 @@ serve(async (req) => {
       throw new Error("No player profile found for this account. Contact Coach Rick.");
     }
 
-    // Swing requirements: min required for grading, max allowed for upload limit
-    const swingsRequired = productType === "complete_review" ? 5 : 1;
-    const swingsMaxAllowed = 15;
-    const priceCents = productType === "complete_review" ? 9700 : 3700;
+    /**
+     * Swing Requirements by Product:
+     * 
+     * free_diagnostic: 1 swing only (teaser report, locked insights)
+     * single_swing: Exactly 1 swing ($37, full 4B report)
+     * complete_review: 5-15 swings ($37, full 4B report + consistency)
+     * membership: 5-15 swings ($99/month ongoing coaching)
+     */
+    let swingsRequired: number;
+    let swingsMaxAllowed: number;
+    let priceCents: number;
+
+    switch (productType) {
+      case "free_diagnostic":
+        swingsRequired = 1;
+        swingsMaxAllowed = 1;
+        priceCents = 0;
+        break;
+      case "single_swing":
+        swingsRequired = 1;
+        swingsMaxAllowed = 1;
+        priceCents = 3700;
+        break;
+      case "complete_review":
+        swingsRequired = 5;
+        swingsMaxAllowed = 15;
+        priceCents = 3700;
+        break;
+      case "membership":
+        swingsRequired = 5;
+        swingsMaxAllowed = 15;
+        priceCents = 9900;
+        break;
+      default:
+        swingsRequired = 5;
+        swingsMaxAllowed = 15;
+        priceCents = 3700;
+    }
 
     // Create session attached to the existing player
     const { data: session, error: sessionError } = await supabase

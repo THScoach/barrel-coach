@@ -16,7 +16,8 @@ import {
   Loader2,
   Sparkles,
   Zap,
-  AlertCircle
+  AlertCircle,
+  Download
 } from "lucide-react";
 import { VideoPlayer } from "@/components/analyzer/VideoPlayer";
 import { MomentumSequenceVisualizer } from "@/components/analyzer/MomentumSequenceVisualizer";
@@ -35,6 +36,7 @@ interface VideoSwing {
   video_url: string | null;
   thumbnail_url: string | null;
   duration_seconds: number | null;
+  frame_rate: number | null;
   status: string;
   sequence_analysis: any;
   sequence_score: number | null;
@@ -363,33 +365,63 @@ export function VideoAnalyzerDetail({ sessionId, onBack }: VideoAnalyzerDetailPr
                     setCurrentTimeMs(0);
                   }}
                 >
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "h-8 w-8 rounded flex items-center justify-center text-xs font-medium",
-                          index === selectedSwingIndex 
-                            ? "bg-primary text-primary-foreground" 
-                            : "bg-muted"
-                        )}>
-                          {index + 1}
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "h-8 w-8 rounded flex items-center justify-center text-xs font-medium",
+                            index === selectedSwingIndex 
+                              ? "bg-primary text-primary-foreground" 
+                              : "bg-muted"
+                          )}>
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">Swing {index + 1}</p>
+                            <div className="flex items-center gap-1.5">
+                              {swing.sequence_score !== null && (
+                                <span className="text-xs text-muted-foreground">
+                                  Score: {swing.sequence_score}
+                                </span>
+                              )}
+                              {swing.frame_rate && swing.frame_rate >= 120 && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-green-600/50 text-green-400">
+                                  {swing.frame_rate}fps
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium">Swing {index + 1}</p>
-                          {swing.sequence_score !== null && (
-                            <p className="text-xs text-muted-foreground">
-                              Score: {swing.sequence_score}
-                            </p>
+                        <div className="flex items-center gap-1">
+                          {/* Download button for high-speed videos (120fps+) */}
+                          {swing.frame_rate && swing.frame_rate >= 120 && swing.video_url && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Trigger download using the signed URL
+                                const link = document.createElement('a');
+                                link.href = swing.video_url!;
+                                link.download = `swing-${swing.swing_index + 1}-${swing.frame_rate}fps.mp4`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }}
+                              title={`Download ${swing.frame_rate}fps video for Reboot analysis`}
+                            >
+                              <Download className="h-3.5 w-3.5 text-green-400" />
+                            </Button>
+                          )}
+                          {swing.status === 'analyzed' ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-muted-foreground" />
                           )}
                         </div>
                       </div>
-                      {swing.status === 'analyzed' ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </div>
-                  </CardContent>
+                    </CardContent>
                 </Card>
               ))}
             </div>
