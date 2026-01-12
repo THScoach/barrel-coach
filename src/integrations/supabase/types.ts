@@ -684,6 +684,65 @@ export type Database = {
           },
         ]
       }
+      invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string | null
+          id: string
+          invite_token: string
+          invite_type: Database["public"]["Enums"]["invite_type"]
+          invited_by: string | null
+          last_sent_at: string | null
+          opened_at: string | null
+          player_id: string | null
+          player_name: string | null
+          status: Database["public"]["Enums"]["invite_status"]
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string | null
+          id?: string
+          invite_token?: string
+          invite_type: Database["public"]["Enums"]["invite_type"]
+          invited_by?: string | null
+          last_sent_at?: string | null
+          opened_at?: string | null
+          player_id?: string | null
+          player_name?: string | null
+          status?: Database["public"]["Enums"]["invite_status"]
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string | null
+          id?: string
+          invite_token?: string
+          invite_type?: Database["public"]["Enums"]["invite_type"]
+          invited_by?: string | null
+          last_sent_at?: string | null
+          opened_at?: string | null
+          player_id?: string | null
+          player_name?: string | null
+          status?: Database["public"]["Enums"]["invite_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invites_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       launch_monitor_sessions: {
         Row: {
           avg_distance: number | null
@@ -2486,6 +2545,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      invite_status: "pending" | "accepted" | "expired" | "cancelled"
+      invite_type: "diagnostic" | "assessment" | "membership" | "beta"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2614,6 +2675,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      invite_status: ["pending", "accepted", "expired", "cancelled"],
+      invite_type: ["diagnostic", "assessment", "membership", "beta"],
     },
   },
 } as const

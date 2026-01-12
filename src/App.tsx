@@ -40,6 +40,7 @@ import AdminSMS from "./pages/AdminSMS";
 import AdminRebootAnalysis from "./pages/AdminRebootAnalysis";
 import AdminHitTraxImport from "./pages/AdminHitTraxImport";
 import AdminLibrary from "./pages/AdminLibrary";
+import AdminInvites from "./pages/AdminInvites";
 
 // Player pages
 import PlayerDashboard4B from "./pages/player/PlayerDashboard4B";
@@ -148,6 +149,11 @@ const App = () => (
               <Route path="/admin/library" element={
                 <ProtectedAdminRoute>
                   <AdminLibrary />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/invites" element={
+                <ProtectedAdminRoute>
+                  <AdminInvites />
                 </ProtectedAdminRoute>
               } />
 
