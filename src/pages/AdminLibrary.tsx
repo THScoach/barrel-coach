@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dumbbell, BookOpen } from "lucide-react";
+import { Dumbbell, BookOpen, Video } from "lucide-react";
 import { DrillsTab } from "@/components/library/DrillsTab";
 import { ProgramsTab } from "@/components/library/ProgramsTab";
+import { VideosTab } from "@/components/library/VideosTab";
 
 export default function AdminLibrary() {
-  const [activeTab, setActiveTab] = useState("drills");
+  const [activeTab, setActiveTab] = useState("videos");
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -16,12 +17,19 @@ export default function AdminLibrary() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white">Library</h1>
           <p className="text-slate-400 mt-1">
-            Manage drill templates and training programs
+            Videos, drills, and training programs
           </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-slate-900 border border-slate-800 p-1">
+            <TabsTrigger 
+              value="videos" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2"
+            >
+              <Video className="h-4 w-4" />
+              Videos
+            </TabsTrigger>
             <TabsTrigger 
               value="drills" 
               className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2"
@@ -37,6 +45,10 @@ export default function AdminLibrary() {
               Programs
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="videos">
+            <VideosTab />
+          </TabsContent>
 
           <TabsContent value="drills">
             <DrillsTab />
