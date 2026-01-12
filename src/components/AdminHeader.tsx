@@ -1,24 +1,27 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { LogOut, User, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PlayerPickerModal } from "@/components/admin/PlayerPickerModal";
 
 export function AdminHeader() {
   const { user, signOut } = useAuth();
   const location = useLocation();
+  const [showPlayerPicker, setShowPlayerPicker] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
     window.location.href = "/login";
   };
 
+  // Removed "Videos" from nav - now lives inside Library
   const navLinks = [
     { to: "/admin", label: "Dashboard" },
     { to: "/admin/players", label: "Players" },
     { to: "/admin/library", label: "Library" },
-    { to: "/admin/videos", label: "Videos" },
   ];
 
   const isActive = (path: string) => {
@@ -57,16 +60,15 @@ export function AdminHeader() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* New Session - primary action */}
-          <Link to="/admin/new-session">
-            <Button 
-              size="sm" 
-              className="gap-2 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white font-semibold min-h-[44px] px-4 shadow-lg shadow-red-900/30"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">New Session</span>
-            </Button>
-          </Link>
+          {/* New Session - opens player picker first */}
+          <Button 
+            size="sm" 
+            onClick={() => setShowPlayerPicker(true)}
+            className="gap-2 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white font-semibold min-h-[44px] px-4 shadow-lg shadow-red-900/30"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New Session</span>
+          </Button>
           
           {/* User info - cleaner, moved to dropdown on mobile */}
           <div className="hidden lg:flex items-center gap-2 text-sm text-slate-300 px-3 py-2 bg-slate-800/70 rounded-lg border border-slate-700">
@@ -85,6 +87,12 @@ export function AdminHeader() {
           </Button>
         </div>
       </div>
+      
+      {/* Player Picker Modal for New Session */}
+      <PlayerPickerModal 
+        open={showPlayerPicker} 
+        onOpenChange={setShowPlayerPicker} 
+      />
     </header>
   );
 }
