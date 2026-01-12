@@ -7,3 +7,4 @@ export { PlayerScoresTab } from './PlayerScoresTab';
 export { PlayerTransferTab } from './PlayerTransferTab';
 export { Interactive4BTiles } from './Interactive4BTiles';
 export { RecentSessionsList } from './RecentSessionsList';
+export { PlayerProgressionDashboard } from './PlayerProgressionDashboard';

@@ -33,7 +33,8 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  Database
+  Database,
+  LineChart
 } from "lucide-react";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { getBrandDisplayName, LaunchMonitorBrand } from "@/lib/csv-detector";
@@ -44,6 +45,7 @@ import { VideoAnalyzerTab } from "@/components/video-analyzer";
 import { usePlayerScorecard } from "@/hooks/usePlayerScorecard";
 import { Interactive4BTiles } from "./Interactive4BTiles";
 import { RecentSessionsList } from "./RecentSessionsList";
+import { PlayerProgressionDashboard } from "./PlayerProgressionDashboard";
 import { cn } from "@/lib/utils";
 
 interface PlayerDataTabProps {
@@ -75,7 +77,7 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
   const [loading, setLoading] = useState(true);
   const [deleteSession, setDeleteSession] = useState<DataSession | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [activeView, setActiveView] = useState<'dashboard' | 'sessions' | 'video'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'progression' | 'sessions' | 'video'>('dashboard');
   
   // playersTableId is the stable ID from the `players` table (FK target for data tables)
   const [playersTableId, setPlayersTableId] = useState<string | null>(null);
@@ -378,12 +380,19 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
 
       {/* ===== TAB NAVIGATION ===== */}
       <Tabs value={activeView} onValueChange={(v) => setActiveView(v as typeof activeView)}>
-        <TabsList className="grid w-full grid-cols-3 max-w-md bg-slate-800/50">
+        <TabsList className="grid w-full grid-cols-4 max-w-lg bg-slate-800/50">
           <TabsTrigger 
             value="dashboard" 
             className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
           >
             4B Scores
+          </TabsTrigger>
+          <TabsTrigger 
+            value="progression" 
+            className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
+          >
+            <LineChart className="h-4 w-4 mr-1" />
+            Progression
           </TabsTrigger>
           <TabsTrigger 
             value="sessions" 
@@ -446,6 +455,30 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
                   <Upload className="h-4 w-4 mr-2" />
                   Upload First Session
                 </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ===== PROGRESSION TAB: Long-term Trends ===== */}
+        <TabsContent value="progression" className="mt-6">
+          {playersTableId ? (
+            <PlayerProgressionDashboard
+              playerId={playerId}
+              playersTableId={playersTableId}
+              playerName={playerName}
+              onViewSession={(sessionId, type) => {
+                const session = sessions.find(s => s.id === sessionId);
+                if (session) {
+                  handleViewSession(session);
+                }
+              }}
+            />
+          ) : (
+            <Card className="bg-slate-900/80 border-slate-800">
+              <CardContent className="py-8 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-slate-500 mx-auto" />
+                <p className="text-slate-400 mt-2">Loading player data...</p>
               </CardContent>
             </Card>
           )}
