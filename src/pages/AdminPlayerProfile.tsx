@@ -34,10 +34,15 @@ import { toast } from "sonner";
 import { 
   ArrowLeft, Save, User, Phone, Building, 
   FileText, Plus, Loader2, Sparkles, Settings,
-  MessageSquare, MoreHorizontal, Zap
+  MessageSquare, MoreHorizontal, Zap, ChevronDown
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { PlayerResearchModal } from "@/components/PlayerResearchModal";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
+import { MobileSegmentedControl } from "@/components/admin/MobileSegmentedControl";
+import { MobileMoreSheet } from "@/components/admin/MobileMoreSheet";
+import { FloatingActionButton } from "@/components/admin/FloatingActionButton";
 
 // Import the new tab components
 import {
@@ -60,6 +65,11 @@ export default function AdminPlayerProfile() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isNew = id === 'new';
+  const isMobile = useIsMobile();
+
+  // Mobile tab state
+  const [mobileTab, setMobileTab] = useState("overview");
+  const [showMoreSheet, setShowMoreSheet] = useState(false);
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -632,61 +642,108 @@ export default function AdminPlayerProfile() {
           </div>
         </div>
 
-        {/* 7-Tab Navigation */}
-        <Tabs defaultValue="activity" className="space-y-6">
-          <TabsList className="bg-slate-900/80 border border-slate-800">
-            <TabsTrigger value="activity" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-              Activity
-            </TabsTrigger>
-            <TabsTrigger value="scores" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-              Scores
-            </TabsTrigger>
-            <TabsTrigger value="transfer" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-              Transfer
-            </TabsTrigger>
-            <TabsTrigger value="schedule" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-              Schedule
-            </TabsTrigger>
-            <TabsTrigger value="data" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-              Data
-            </TabsTrigger>
-            <TabsTrigger value="drills" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-              Drills
-            </TabsTrigger>
-            <TabsTrigger value="communication" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-              Communication
-            </TabsTrigger>
-          </TabsList>
+        {/* Mobile Segmented Control + More */}
+        {isMobile ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <MobileSegmentedControl
+                options={[
+                  { value: "overview", label: "Overview" },
+                  { value: "scores", label: "Scores" },
+                  { value: "drills", label: "Plan" },
+                ]}
+                value={mobileTab}
+                onChange={setMobileTab}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMoreSheet(true)}
+                className="border-slate-700 text-slate-300 hover:bg-slate-800 min-h-[44px]"
+              >
+                More
+                <ChevronDown className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
 
-          <TabsContent value="activity">
-            <PlayerActivityTab playerId={player?.id || id!} />
-          </TabsContent>
+            {/* Mobile Tab Content */}
+            {mobileTab === "overview" && <PlayerActivityTab playerId={player?.id || id!} />}
+            {mobileTab === "scores" && <PlayerScoresTab playerId={player?.players_id || id!} playerName={getPlayerName()} />}
+            {mobileTab === "drills" && <PlayerDrillsTab playerId={player?.id || id!} />}
+            {mobileTab === "data" && <PlayerDataTab playerId={player?.id || id!} playerName={getPlayerName()} />}
+            {mobileTab === "transfer" && <PlayerTransferTab playerId={player?.players_id || id!} />}
+            {mobileTab === "schedule" && <PlayerScheduleTab playerId={player?.id || id!} />}
+            {mobileTab === "communication" && <PlayerCommunicationTab playerId={player?.id || id!} playerName={getPlayerName()} />}
 
-          <TabsContent value="scores">
-            <PlayerScoresTab playerId={player?.players_id || id!} playerName={getPlayerName()} />
-          </TabsContent>
+            <MobileMoreSheet
+              open={showMoreSheet}
+              onOpenChange={setShowMoreSheet}
+              onSelectTab={setMobileTab}
+              currentTab={mobileTab}
+            />
+          </div>
+        ) : (
+          /* Desktop 7-Tab Navigation */
+          <Tabs defaultValue="activity" className="space-y-6">
+            <TabsList className="bg-slate-900/80 border border-slate-800">
+              <TabsTrigger value="activity" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Activity
+              </TabsTrigger>
+              <TabsTrigger value="scores" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Scores
+              </TabsTrigger>
+              <TabsTrigger value="transfer" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Transfer
+              </TabsTrigger>
+              <TabsTrigger value="schedule" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Schedule
+              </TabsTrigger>
+              <TabsTrigger value="data" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Data
+              </TabsTrigger>
+              <TabsTrigger value="drills" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Drills
+              </TabsTrigger>
+              <TabsTrigger value="communication" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Communication
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="transfer">
-            <PlayerTransferTab playerId={player?.players_id || id!} />
-          </TabsContent>
+            <TabsContent value="activity">
+              <PlayerActivityTab playerId={player?.id || id!} />
+            </TabsContent>
+            <TabsContent value="scores">
+              <PlayerScoresTab playerId={player?.players_id || id!} playerName={getPlayerName()} />
+            </TabsContent>
+            <TabsContent value="transfer">
+              <PlayerTransferTab playerId={player?.players_id || id!} />
+            </TabsContent>
+            <TabsContent value="schedule">
+              <PlayerScheduleTab playerId={player?.id || id!} />
+            </TabsContent>
+            <TabsContent value="data">
+              <PlayerDataTab playerId={player?.id || id!} playerName={getPlayerName()} />
+            </TabsContent>
+            <TabsContent value="drills">
+              <PlayerDrillsTab playerId={player?.id || id!} />
+            </TabsContent>
+            <TabsContent value="communication">
+              <PlayerCommunicationTab playerId={player?.id || id!} playerName={getPlayerName()} />
+            </TabsContent>
+          </Tabs>
+        )}
 
-          <TabsContent value="schedule">
-            <PlayerScheduleTab playerId={player?.id || id!} />
-          </TabsContent>
-
-          <TabsContent value="data">
-            <PlayerDataTab playerId={player?.id || id!} playerName={getPlayerName()} />
-          </TabsContent>
-
-          <TabsContent value="drills">
-            <PlayerDrillsTab playerId={player?.id || id!} />
-          </TabsContent>
-
-          <TabsContent value="communication">
-            <PlayerCommunicationTab playerId={player?.id || id!} playerName={getPlayerName()} />
-          </TabsContent>
-        </Tabs>
+        {/* Mobile FAB */}
+        {isMobile && (
+          <FloatingActionButton 
+            to={`/admin/new-session?player=${player?.id || id!}`}
+            label="New Session"
+          />
+        )}
       </main>
+      
+      {/* Mobile Bottom Nav */}
+      {isMobile && <MobileBottomNav />}
 
       {/* Edit Player Modal */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>

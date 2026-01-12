@@ -258,4 +258,18 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
   }
+
+  /* PWA Mobile - safe areas and touch targets */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
