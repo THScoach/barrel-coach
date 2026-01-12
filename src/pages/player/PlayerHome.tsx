@@ -183,13 +183,13 @@ export default function PlayerHome() {
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6 md:ml-56">
-      {/* Welcome Header */}
+      {/* Dashboard Header */}
       <div className="space-y-1">
         <h1 className="text-2xl font-bold">
-          Your Coaching Hub
+          Your Game
         </h1>
         <p className="text-muted-foreground">
-          Stay active. Upload swings. Show up Mondays. That's how this works.
+          Trends matter more than one swing.
         </p>
       </div>
 
@@ -264,12 +264,12 @@ export default function PlayerHome() {
         </Card>
       </div>
 
-      {/* 4B Scores Card */}
+      {/* Current Status Card */}
       {latestScores && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Your 4B Scores</CardTitle>
-            <CardDescription>This is clarity, not coaching. Join the coaching group to improve week by week.</CardDescription>
+            <CardTitle className="text-lg">Where You Are Right Now</CardTitle>
+            <CardDescription>This reflects your current movement pattern — not one swing.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-4 gap-2 text-center">
@@ -311,7 +311,20 @@ export default function PlayerHome() {
         </Card>
       )}
 
-      {/* Video Analyzer Section */}
+      {/* Next Focus Card */}
+      <Card className="border-primary/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Fix This First</CardTitle>
+          <CardDescription>One adjustment. One priority. That's how momentum builds.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Upload swings to get your personalized focus area.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Upload Section */}
       <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -319,26 +332,21 @@ export default function PlayerHome() {
             Upload Swings
           </CardTitle>
           <CardDescription>
-            This is how I keep eyes on you. Upload and I'll give feedback.
+            This is how I keep eyes on you.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              If you want to improve week by week, keep uploading. That's the deal.
-            </p>
-            <div className="flex gap-2">
-              <Button onClick={() => setVideoUploadOpen(true)}>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Swing Videos
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/player/data?tab=video">
-                  View Sessions
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Link>
-              </Button>
-            </div>
+          <div className="flex gap-2">
+            <Button onClick={() => setVideoUploadOpen(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Swing Videos
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/player/data?tab=video">
+                View Sessions
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
