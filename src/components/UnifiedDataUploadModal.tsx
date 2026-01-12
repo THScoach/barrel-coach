@@ -740,24 +740,15 @@ export function UnifiedDataUploadModal({
                 </div>
               </div>
               
-              {/* Detailed Metrics - Conditionally show based on data source */}
+              {/* Detailed Metrics - ME-based energy metrics only */}
               <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t border-purple-200 dark:border-purple-800">
-                {/* IK-specific metrics: only show when IK data is present */}
-                {rebootScores.ikMetrics && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">X-Factor:</span>
-                      <span className="font-medium">{rebootScores.xFactor}°</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Sequence:</span>
-                      <span className="font-medium">{rebootScores.properSequencePct}%</span>
-                    </div>
-                  </>
-                )}
                 {/* ME-specific metrics: only show when ME data is present */}
                 {rebootScores.meMetrics && (
                   <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Legs KE:</span>
+                      <span className="font-medium">{rebootScores.legsKE} J</span>
+                    </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Arms KE:</span>
                       <span className="font-medium">{rebootScores.armsKE} J</span>
@@ -765,6 +756,10 @@ export function UnifiedDataUploadModal({
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Transfer Eff:</span>
                       <span className="font-medium">{rebootScores.transferEfficiency}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Consistency:</span>
+                      <span className="font-medium">{rebootScores.consistencyGrade} ({Math.round(rebootScores.consistencyCV)}%)</span>
                     </div>
                   </>
                 )}
