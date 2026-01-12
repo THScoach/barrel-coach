@@ -347,10 +347,10 @@ const BAT_SPEED_CLAMPS: Record<string, { min: number; max: number }> = {
 };
 
 // ============================================================================
-// KINETIC POTENTIAL LAYER CONSTANTS (LOCKED)
+// KINETIC POTENTIAL LAYER CONSTANTS (LOCKED - DO NOT CHANGE)
 // ============================================================================
-const K_CEILING = 103.6;          // Ceiling constant for bat speed projection
-const K_CURRENT_MULT = 0.90;      // Current is 90% of ceiling max
+const KP_SPEED_MULTIPLIER = 2.5;   // Bat speed ceiling multiplier (sqrt(KE) scaling)
+const KP_EFFICIENCY_SCALE = 1.4;   // Efficiency normalization factor
 const BASELINE_HEIGHT_INCHES = 68; // Adult baseline for lever index
 
 /**
@@ -978,27 +978,26 @@ export function calculateKineticPotentialLayer(
   // 2) Lever Index
   const leverIndex = heightInches / BASELINE_HEIGHT_INCHES;
   
-  // 3) Efficiency (0-1) - momentum-only, coachable, bounded
-  const effRaw =
-    0.35 * (avgLegsToTorsoTransferPct / 80) +
-    0.35 * (avgTorsoToArmsTransferPct / 150) +
-    0.30 * (properSequencePct / 100);
+  // 3) Efficiency (0-1) - NO BAT SENSOR formula (LOCKED)
+  // Measures how much body energy is actually delivered to the hands
+  // Youth ≈ 0.45–0.65, Elite ≈ 0.80–0.90
+  const rawEfficiency = avgTotalKEPeak > 0 
+    ? (avgArmsKEPeak / avgTotalKEPeak) * KP_EFFICIENCY_SCALE
+    : 0;
+  const efficiency = clamp(rawEfficiency, 0, 1);
   
-  const efficiency = clamp(effRaw * 1.53, 0, 1);
+  // CORE FORMULAS (LOCKED - DO NOT CHANGE)
   
-  // CORE FORMULAS (LOCKED)
+  // A) Projected Bat Speed Ceiling (mph)
+  // Physics: KE ∝ velocity², therefore velocity ∝ √KE
+  // Height scales final speed via lever length
+  const projectedBatSpeedCeilingMph = KP_SPEED_MULTIPLIER * Math.sqrt(avgArmsKEPeak) * leverIndex;
   
-  // A) Mass-normalized arms energy index (the key normalization layer)
-  const armsMassIndex = avgArmsKEPeak / bodyMassKg;
+  // B) Estimated Current Bat Speed (mph)
+  // Represents best-case swings, NOT average game output
+  const estimatedCurrentBatSpeedMph = projectedBatSpeedCeilingMph * efficiency;
   
-  // B) Projected Bat Speed Ceiling (mph)
-  const projectedBatSpeedCeilingMph = K_CEILING * Math.sqrt(armsMassIndex) * leverIndex;
-  
-  // C) Estimated Current Bat Speed (mph)
-  const estimatedCurrentBatSpeedMph = 
-    (K_CEILING * K_CURRENT_MULT) * Math.sqrt(armsMassIndex) * leverIndex * efficiency;
-  
-  // D) MPH left on the table
+  // C) MPH left on the table
   const mphLeftOnTable = projectedBatSpeedCeilingMph - estimatedCurrentBatSpeedMph;
   
   return {
