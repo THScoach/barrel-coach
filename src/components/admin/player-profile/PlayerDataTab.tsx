@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { Upload, BarChart3, Target, Activity, Zap, Video, ChevronRight, Database, MoreVertical, Trash2, AlertCircle } from "lucide-react";
+import { Upload, BarChart3, Target, Activity, Zap, Video, ChevronRight, Database, MoreVertical, Trash2, AlertCircle, LayoutDashboard, Loader2 } from "lucide-react";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { getBrandDisplayName } from "@/lib/csv-detector";
 import { LaunchMonitorBrand } from "@/lib/csv-detector";
@@ -30,6 +30,8 @@ import { toast } from "sonner";
 import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
 import { RebootSessionDetail } from "@/components/RebootSessionDetail";
 import { VideoAnalyzerTab } from "@/components/video-analyzer";
+import { Player4BScorecard } from "@/components/scorecards";
+import { usePlayerScorecard } from "@/hooks/usePlayerScorecard";
 
 interface PlayerDataTabProps {
   playerId: string; // This is player_profiles.id
@@ -61,7 +63,7 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
   const [loading, setLoading] = useState(true);
   const [deleteSession, setDeleteSession] = useState<DataSession | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [activeView, setActiveView] = useState<'data' | 'video'>('data');
+  const [activeView, setActiveView] = useState<'scorecard' | 'data' | 'video'>('scorecard');
   
   // playersTableId is the stable ID from the `players` table (FK target for data tables)
   const [playersTableId, setPlayersTableId] = useState<string | null>(null);
@@ -71,6 +73,15 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
   const [selectedLaunchMonitorSession, setSelectedLaunchMonitorSession] = useState<any>(null);
   const [selectedRebootSession, setSelectedRebootSession] = useState<any>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  
+  // Scorecard hook
+  const { 
+    data: scorecardData, 
+    loading: scorecardLoading, 
+    timeWindow, 
+    setTimeWindow,
+    refresh: refreshScorecard 
+  } = usePlayerScorecard(playersTableId);
 
   // Resolve or create the players_id mapping using the RPC function
   const resolvePlayersId = async (): Promise<string | null> => {
@@ -304,17 +315,46 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
   return (
     <div className="space-y-4">
       {/* View Tabs */}
-      <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'data' | 'video')}>
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
+      <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'scorecard' | 'data' | 'video')}>
+        <TabsList className="grid w-full grid-cols-3 max-w-lg">
+          <TabsTrigger value="scorecard" className="flex items-center gap-2">
+            <LayoutDashboard className="h-4 w-4" />
+            4B Card
+          </TabsTrigger>
           <TabsTrigger value="data" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
-            Session Data
+            Sessions
           </TabsTrigger>
           <TabsTrigger value="video" className="flex items-center gap-2">
             <Video className="h-4 w-4" />
-            Video Analyzer
+            Video
           </TabsTrigger>
         </TabsList>
+
+        {/* Scorecard Tab */}
+        <TabsContent value="scorecard" className="mt-4">
+          {scorecardLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : scorecardData ? (
+            <Player4BScorecard
+              data={scorecardData}
+              timeWindow={timeWindow}
+              onTimeWindowChange={setTimeWindow}
+              onUploadVideo={() => setActiveView('video')}
+              onUploadData={() => setUploadModalOpen(true)}
+              onViewVideoSession={() => setActiveView('video')}
+              isAdmin={true}
+            />
+          ) : (
+            <Card className="bg-slate-900/80 border-slate-800">
+              <CardContent className="py-8 text-center">
+                <p className="text-slate-400">No player data available</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
         <TabsContent value="video" className="mt-4">
           {playersTableId ? (

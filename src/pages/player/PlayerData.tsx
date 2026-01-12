@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,10 +12,15 @@ import {
   Upload,
   TrendingUp,
   MessageCircle,
-  Video
+  Video,
+  Loader2,
+  LayoutDashboard
 } from "lucide-react";
 import { PlayerScoresSection } from "@/components/player/PlayerScoresSection";
 import { VideoAnalyzerTab } from "@/components/video-analyzer";
+import { Player4BScorecard } from "@/components/scorecards";
+import { usePlayerScorecard } from "@/hooks/usePlayerScorecard";
+import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { toast } from "sonner";
 
 interface Session {
@@ -30,20 +35,31 @@ interface Session {
 }
 
 export default function PlayerData() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState<string>('');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
   
-  // Get initial tab from URL params or default to "scores"
-  const initialTab = searchParams.get('tab') || 'scores';
+  // Scorecard hook
+  const { 
+    data: scorecardData, 
+    loading: scorecardLoading, 
+    timeWindow, 
+    setTimeWindow,
+    refresh: refreshScorecard 
+  } = usePlayerScorecard(playerId);
+  
+  // Get initial tab from URL params or default to "scorecard"
+  const initialTab = searchParams.get('tab') || 'scorecard';
   const [activeTab, setActiveTab] = useState(initialTab);
 
   // Update URL when tab changes
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    if (value === 'scores') {
+    if (value === 'scorecard') {
       searchParams.delete('tab');
     } else {
       searchParams.set('tab', value);
@@ -115,10 +131,14 @@ export default function PlayerData() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="scorecard" className="flex items-center gap-2">
+            <LayoutDashboard className="h-4 w-4" />
+            4B Card
+          </TabsTrigger>
           <TabsTrigger value="scores" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
-            Scores
+            Trends
           </TabsTrigger>
           <TabsTrigger value="sessions" className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
@@ -126,9 +146,39 @@ export default function PlayerData() {
           </TabsTrigger>
           <TabsTrigger value="video" className="flex items-center gap-2">
             <Video className="h-4 w-4" />
-            Video Analyzer
+            Video
           </TabsTrigger>
         </TabsList>
+
+        {/* 4B Scorecard Tab */}
+        <TabsContent value="scorecard" className="mt-4">
+          {scorecardLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : scorecardData ? (
+            <Player4BScorecard
+              data={scorecardData}
+              timeWindow={timeWindow}
+              onTimeWindowChange={setTimeWindow}
+              onUploadVideo={() => handleTabChange('video')}
+              onUploadData={() => setUploadModalOpen(true)}
+              onViewVideoSession={(sessionId) => {
+                searchParams.set('tab', 'video');
+                searchParams.set('session', sessionId);
+                setSearchParams(searchParams);
+                setActiveTab('video');
+              }}
+              onWeeklyCheckin={() => navigate('/player/weekly-checkin')}
+            />
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">No player data found</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
         <TabsContent value="scores" className="mt-4">
           {playerId ? (
@@ -205,6 +255,20 @@ export default function PlayerData() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Upload Modal */}
+      {playerId && (
+        <UnifiedDataUploadModal
+          open={uploadModalOpen}
+          onOpenChange={setUploadModalOpen}
+          playerId={playerId}
+          playerName={playerName}
+          onSuccess={() => {
+            refreshScorecard();
+            setUploadModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
