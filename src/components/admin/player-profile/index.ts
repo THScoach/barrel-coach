@@ -8,3 +8,7 @@ export { PlayerTransferTab } from './PlayerTransferTab';
 export { Interactive4BTiles } from './Interactive4BTiles';
 export { RecentSessionsList } from './RecentSessionsList';
 export { PlayerProgressionDashboard } from './PlayerProgressionDashboard';
+// New consolidated tabs
+export { PlayerOverviewTab } from './PlayerOverviewTab';
+export { PlayerScoresTabNew } from './PlayerScoresTabNew';
+export { PlayerCommunicationTabNew } from './PlayerCommunicationTabNew';

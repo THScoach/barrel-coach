@@ -46,13 +46,9 @@ import { FloatingActionButton } from "@/components/admin/FloatingActionButton";
 
 // Import the new tab components
 import {
-  PlayerActivityTab,
-  PlayerScheduleTab,
-  PlayerDataTab,
-  PlayerDrillsTab,
-  PlayerCommunicationTab,
-  PlayerScoresTab,
-  PlayerTransferTab,
+  PlayerOverviewTab,
+  PlayerScoresTabNew,
+  PlayerCommunicationTabNew,
 } from "@/components/admin/player-profile";
 
 const LEVELS = ['Youth', 'High School', 'Travel Ball', 'College', 'Independent', 'MiLB', 'MLB'];
@@ -68,18 +64,18 @@ export default function AdminPlayerProfile() {
   const isNew = id === 'new';
   const isMobile = useIsMobile();
 
-  // Tab state - sync with URL parameter
-  const urlTab = searchParams.get('tab') || 'activity';
+  // Tab state - sync with URL parameter (default to 'overview')
+  const urlTab = searchParams.get('tab') || 'overview';
   const [activeTab, setActiveTab] = useState(urlTab);
   const [mobileTab, setMobileTab] = useState(urlTab === 'activity' ? 'overview' : urlTab);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
 
   // Sync active tab when URL changes
   useEffect(() => {
-    const tab = searchParams.get('tab') || 'activity';
+    const tab = searchParams.get('tab') || 'overview';
     setActiveTab(tab);
     if (isMobile) {
-      setMobileTab(tab === 'activity' ? 'overview' : tab);
+      setMobileTab(tab);
     }
   }, [searchParams, isMobile]);
 
@@ -729,52 +725,43 @@ export default function AdminPlayerProfile() {
             />
           </div>
         ) : (
-          /* Desktop 7-Tab Navigation */
+          /* Desktop 3-Tab Navigation: Overview → Scores → Communication */
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
             <TabsList className="bg-slate-900/80 border border-slate-800">
-              <TabsTrigger value="activity" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-                Activity
+              <TabsTrigger value="overview" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Overview
               </TabsTrigger>
               <TabsTrigger value="scores" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Scores
-              </TabsTrigger>
-              <TabsTrigger value="transfer" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-                Transfer
-              </TabsTrigger>
-              <TabsTrigger value="schedule" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-                Schedule
-              </TabsTrigger>
-              <TabsTrigger value="data" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-                Data
-              </TabsTrigger>
-              <TabsTrigger value="drills" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-                Drills
               </TabsTrigger>
               <TabsTrigger value="communication" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Communication
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="activity">
-              <PlayerActivityTab playerId={player?.id || id!} playersTableId={player?.players_id} />
+            <TabsContent value="overview">
+              <PlayerOverviewTab 
+                playerId={player?.id || id!} 
+                playersTableId={player?.players_id}
+                playerName={getPlayerName()}
+                playerLevel={player?.level}
+                playerBats={player?.bats}
+                playerThrows={player?.throws}
+              />
             </TabsContent>
             <TabsContent value="scores">
-              <PlayerScoresTab playerId={player?.players_id || id!} playerName={getPlayerName()} />
-            </TabsContent>
-            <TabsContent value="transfer">
-              <PlayerTransferTab playerId={player?.players_id || id!} />
-            </TabsContent>
-            <TabsContent value="schedule">
-              <PlayerScheduleTab playerId={player?.id || id!} />
-            </TabsContent>
-            <TabsContent value="data">
-              <PlayerDataTab playerId={player?.id || id!} playerName={getPlayerName()} />
-            </TabsContent>
-            <TabsContent value="drills">
-              <PlayerDrillsTab playerId={player?.id || id!} />
+              <PlayerScoresTabNew 
+                playerId={player?.id || id!} 
+                playersTableId={player?.players_id}
+                playerName={getPlayerName()} 
+              />
             </TabsContent>
             <TabsContent value="communication">
-              <PlayerCommunicationTab playerId={player?.id || id!} playerName={getPlayerName()} />
+              <PlayerCommunicationTabNew 
+                playerId={player?.id || id!} 
+                playersTableId={player?.players_id}
+                playerName={getPlayerName()} 
+              />
             </TabsContent>
           </Tabs>
         )}
