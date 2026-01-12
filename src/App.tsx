@@ -90,6 +90,7 @@ const App = () => (
                 <Route path="profile" element={<PlayerProfile />} />
                 <Route path="new-session" element={<PlayerNewSession />} />
                 <Route path="weekly-checkin" element={<PlayerWeeklyCheckin />} />
+                <Route path="diagnostic/:sessionId?" element={<FreeDiagnosticReport />} />
               </Route>
 
               {/* Admin Routes */}
