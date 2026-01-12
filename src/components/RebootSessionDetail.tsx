@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Loader2, Trash2, Activity, Zap, Info } from "lucide-react";
+import { Loader2, Trash2, Activity, Zap, Info, Target } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getGrade } from "@/lib/reboot-parser";
@@ -33,6 +33,7 @@ interface MEDataRow {
 interface RebootUpload {
   id: string;
   session_date: string;
+  player_id?: string | null;
   brain_score: number | null;
   body_score: number | null;
   bat_score: number | null;
@@ -59,6 +60,26 @@ interface RebootSessionDetailProps {
   onOpenChange: (open: boolean) => void;
   session: RebootUpload | null;
   onDelete: () => void;
+}
+
+// Kinetic Potential constants (LOCKED - DO NOT CHANGE)
+const BASELINE_HEIGHT_INCHES = 68;
+const KP_EFFICIENCY_SCALE = 1.4;
+const KP_SPEED_MULTIPLIER = 2.5;
+
+interface KineticPotential {
+  massAdjustedEnergy: number;
+  leverIndex: number;
+  efficiency: number;
+  estimatedCurrentBatSpeedMph: number;
+  projectedBatSpeedCeilingMph: number;
+  mphLeftOnTable: number;
+  hasProjections: boolean;
+  missingData: 'height_weight' | 'me_data' | null;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 // Extract peak KE values from ME data
@@ -130,8 +151,108 @@ export function RebootSessionDetail({
   onDelete
 }: RebootSessionDetailProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [playerPhysicalData, setPlayerPhysicalData] = useState<{
+    heightInches: number | null;
+    weightLbs: number | null;
+  } | null>(null);
+
+  // Fetch player physical data for Kinetic Potential calculations
+  useEffect(() => {
+    async function fetchPlayerData() {
+      if (!session?.player_id) {
+        setPlayerPhysicalData(null);
+        return;
+      }
+
+      const { data } = await supabase
+        .from('players')
+        .select('height_inches, weight_lbs')
+        .eq('id', session.player_id)
+        .maybeSingle();
+
+      if (data) {
+        setPlayerPhysicalData({
+          heightInches: data.height_inches ? Number(data.height_inches) : null,
+          weightLbs: data.weight_lbs ? Number(data.weight_lbs) : null,
+        });
+      } else {
+        setPlayerPhysicalData(null);
+      }
+    }
+
+    if (open && session) {
+      fetchPlayerData();
+    }
+  }, [open, session?.player_id]);
   
   if (!session) return null;
+
+  // Extract ME-based energy metrics
+  const meMetrics = extractMEMetrics(session.me_data);
+
+  // Calculate Kinetic Potential (formulas LOCKED - DO NOT CHANGE)
+  const calculateKineticPotential = (): KineticPotential => {
+    const heightInches = playerPhysicalData?.heightInches;
+    const weightLbs = playerPhysicalData?.weightLbs;
+
+    // Check for missing player data
+    if (!heightInches || !weightLbs) {
+      return {
+        massAdjustedEnergy: 0,
+        leverIndex: 0,
+        efficiency: 0,
+        estimatedCurrentBatSpeedMph: 0,
+        projectedBatSpeedCeilingMph: 0,
+        mphLeftOnTable: 0,
+        hasProjections: false,
+        missingData: 'height_weight',
+      };
+    }
+
+    // Check for missing ME data
+    if (!meMetrics.totalKE || !meMetrics.armsKE || meMetrics.totalKE <= 0 || meMetrics.armsKE <= 0) {
+      return {
+        massAdjustedEnergy: 0,
+        leverIndex: 0,
+        efficiency: 0,
+        estimatedCurrentBatSpeedMph: 0,
+        projectedBatSpeedCeilingMph: 0,
+        mphLeftOnTable: 0,
+        hasProjections: false,
+        missingData: 'me_data',
+      };
+    }
+
+    const bodyMassKg = weightLbs / 2.20462;
+    const armsKEPeak = meMetrics.armsKE;
+    const totalKEPeak = meMetrics.totalKE;
+
+    // DERIVED METRICS (LOCKED FORMULAS)
+    const leverIndex = heightInches / BASELINE_HEIGHT_INCHES;
+    const massAdjustedEnergy = totalKEPeak / bodyMassKg;
+
+    // Efficiency (0-1) - NO BAT SENSOR formula
+    const rawEfficiency = (armsKEPeak / totalKEPeak) * KP_EFFICIENCY_SCALE;
+    const efficiency = clamp(rawEfficiency, 0, 1);
+
+    // CORE FORMULAS (LOCKED - DO NOT CHANGE)
+    const projectedBatSpeedCeilingMph = KP_SPEED_MULTIPLIER * Math.sqrt(armsKEPeak) * leverIndex;
+    const estimatedCurrentBatSpeedMph = projectedBatSpeedCeilingMph * efficiency;
+    const mphLeftOnTable = Math.max(0, projectedBatSpeedCeilingMph - estimatedCurrentBatSpeedMph);
+
+    return {
+      massAdjustedEnergy,
+      leverIndex,
+      efficiency,
+      estimatedCurrentBatSpeedMph,
+      projectedBatSpeedCeilingMph,
+      mphLeftOnTable,
+      hasProjections: true,
+      missingData: null,
+    };
+  };
+
+  const kineticPotential = calculateKineticPotential();
   
   const getScoreColor = (score: number | null) => {
     if (score === null) return "text-muted-foreground";
@@ -180,9 +301,6 @@ export function RebootSessionDetail({
       setIsDeleting(false);
     }
   };
-
-  // Extract ME-based energy metrics
-  const meMetrics = extractMEMetrics(session.me_data);
 
   // Format KE display with "Not Measured" fallback
   const formatKE = (value: number | null, isBat: boolean = false) => {
@@ -276,6 +394,95 @@ export function RebootSessionDetail({
               <div className="text-xs text-muted-foreground">Total System Energy</div>
               <div className="text-xl font-bold">{formatKE(meMetrics.totalKE)}</div>
             </div>
+          </div>
+
+          {/* KINETIC POTENTIAL SECTION */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-emerald-500" />
+              <h4 className="font-medium text-sm">KINETIC POTENTIAL</h4>
+            </div>
+
+            {kineticPotential.missingData === 'height_weight' ? (
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg text-center">
+                <p className="text-sm text-amber-400">
+                  Add height + weight to enable bat speed projection.
+                </p>
+              </div>
+            ) : kineticPotential.missingData === 'me_data' ? (
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg text-center">
+                <p className="text-sm text-amber-400">
+                  Need more usable ME data to project bat speed.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Big 3 numbers */}
+                <div className="grid grid-cols-3 gap-3">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-center cursor-help">
+                          <div className="text-xs text-muted-foreground">Current (est.)</div>
+                          <div className="text-2xl font-bold text-emerald-400">
+                            {kineticPotential.estimatedCurrentBatSpeedMph.toFixed(1)}
+                          </div>
+                          <div className="text-xs text-emerald-400/80">mph</div>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Estimate based on how much of your total energy actually makes it into your arms.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-center cursor-help">
+                          <div className="text-xs text-muted-foreground">Ceiling</div>
+                          <div className="text-2xl font-bold text-blue-400">
+                            {kineticPotential.projectedBatSpeedCeilingMph.toFixed(1)}
+                          </div>
+                          <div className="text-xs text-blue-400/80">mph</div>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Your best-case bat speed if you clean up leaks and deliver energy to the barrel.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-center">
+                    <div className="text-xs text-muted-foreground">Left on table</div>
+                    <div className="text-2xl font-bold text-orange-400">
+                      {kineticPotential.mphLeftOnTable.toFixed(1)}
+                    </div>
+                    <div className="text-xs text-orange-400/80">mph</div>
+                  </div>
+                </div>
+
+                {/* Support metrics line */}
+                <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+                  <span>
+                    Efficiency: <span className="font-medium text-foreground">{Math.round(kineticPotential.efficiency * 100)}%</span>
+                  </span>
+                  <span>
+                    MAE: <span className="font-medium text-foreground">{kineticPotential.massAdjustedEnergy.toFixed(1)} J/kg</span>
+                  </span>
+                  <span>
+                    Lever: <span className="font-medium text-foreground">{kineticPotential.leverIndex.toFixed(2)}</span>
+                  </span>
+                </div>
+
+                {/* Coach voice helper text */}
+                <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-lg">
+                  <p className="text-xs text-muted-foreground text-center italic">
+                    No bat sensor needed. This is what your engine says you should be able to swing — and how much speed you're not cashing in yet.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* TRANSFER EFFICIENCY (SECONDARY) */}
