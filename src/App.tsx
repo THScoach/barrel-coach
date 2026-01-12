@@ -42,7 +42,7 @@ import AdminHitTraxImport from "./pages/AdminHitTraxImport";
 import AdminLibrary from "./pages/AdminLibrary";
 
 // Player pages
-import PlayerHome from "./pages/player/PlayerHome";
+import PlayerDashboard4B from "./pages/player/PlayerDashboard4B";
 import PlayerData from "./pages/player/PlayerData";
 import PlayerDrills from "./pages/player/PlayerDrills";
 import PlayerMessages from "./pages/player/PlayerMessages";
@@ -78,9 +78,9 @@ const App = () => (
               <Route path="/diagnostic" element={<Diagnostic />} />
               <Route path="/coaching" element={<Coaching />} />
 
-              {/* Player Portal Routes */}
+              {/* Player Portal Routes - 4B First Dashboard */}
               <Route path="/player" element={<PlayerLayout />}>
-                <Route index element={<PlayerHome />} />
+                <Route index element={<PlayerDashboard4B />} />
                 <Route path="data" element={<PlayerData />} />
                 <Route path="drills" element={<PlayerDrills />} />
                 <Route path="messages" element={<PlayerMessages />} />

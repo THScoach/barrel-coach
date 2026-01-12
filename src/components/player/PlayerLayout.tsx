@@ -1,25 +1,29 @@
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { Home, TrendingUp, MessageSquare, User, LogOut } from "lucide-react";
+import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
+import { Home, MessageSquare, Dumbbell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
 
 export function PlayerLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/login');
   };
 
-  // Simplified baseball-first navigation: Home, Scores, Messages, Profile
-  // Drills accessible from Home's Next Actions, not as a primary tab
+  // 4B-first navigation: Dashboard (4B), Messages, Drills, Profile
+  // Dashboard now contains all 4B performance data
   const navItems = [
-    { to: '/player', icon: Home, label: 'Lab', end: true },
-    { to: '/player/data', icon: TrendingUp, label: 'Scores', end: false },
+    { to: '/player', icon: Home, label: 'Dashboard', end: true },
     { to: '/player/messages', icon: MessageSquare, label: 'Coach', end: false },
+    { to: '/player/drills', icon: Dumbbell, label: 'Drills', end: false },
     { to: '/player/profile', icon: User, label: 'Profile', end: false },
   ];
+
+  // Check if we're on the main dashboard (which has its own bottom nav)
+  const isMainDashboard = location.pathname === '/player';
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -44,26 +48,28 @@ export function PlayerLayout() {
         <Outlet />
       </main>
 
-      {/* Bottom Navigation (Mobile-First) */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-background border-t md:hidden z-50">
-        <div className="flex items-center justify-around py-2">
-          {navItems.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                `flex flex-col items-center gap-1 px-3 py-2 text-xs transition-colors ${
-                  isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-                }`
-              }
-            >
-              <item.icon className="h-5 w-5" />
-              {item.label}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
+      {/* Bottom Navigation (Mobile-First) - Hidden on main dashboard since it has its own */}
+      {!isMainDashboard && (
+        <nav className="fixed bottom-0 left-0 right-0 bg-background border-t md:hidden z-50">
+          <div className="flex items-center justify-around py-2">
+            {navItems.map(item => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  `flex flex-col items-center gap-1 px-3 py-2 text-xs transition-colors ${
+                    isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                  }`
+                }
+              >
+                <item.icon className="h-5 w-5" />
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
+        </nav>
+      )}
 
       {/* Desktop Sidebar Navigation */}
       <nav className="hidden md:flex fixed left-0 top-[57px] bottom-0 w-56 bg-muted/30 border-r flex-col p-4 gap-1">
