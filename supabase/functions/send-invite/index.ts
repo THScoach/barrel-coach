@@ -20,6 +20,24 @@ const INVITE_TYPE_PATHS: Record<string, string> = {
   beta: "/beta",
 };
 
+const INVITE_SMS_MESSAGES: Record<string, (name: string, url: string) => string> = {
+  diagnostic: (name, url) => `Hey ${name}! 🔥 You're invited to get a free swing diagnostic from Coach Rick. Upload your swing here: ${url}`,
+  assessment: (name, url) => `Hey ${name}! Ready to find out what's really happening in your swing? Complete your KRS Assessment: ${url} - Coach Rick`,
+  membership: (name, url) => `Hey ${name}! You're invited to join Catching Barrels. Get access to all drills, videos, and coaching: ${url} - Coach Rick`,
+  beta: (name, url) => `Hey ${name}! 🔥 You've been invited to beta test Catching Barrels. Jump in and let me know what you think: ${url} - Coach Rick`,
+};
+
+// Format phone number to E.164 format
+function formatPhoneNumber(phone: string): string {
+  let formatted = phone.replace(/\D/g, "");
+  if (formatted.length === 10) {
+    formatted = `+1${formatted}`;
+  } else if (!formatted.startsWith("+")) {
+    formatted = `+${formatted}`;
+  }
+  return formatted;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -29,9 +47,12 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+    const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+    const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { email, player_name, invite_type, resend_invite_id } = await req.json();
+    const { email, player_name, phone, invite_type, delivery_method = "email", resend_invite_id } = await req.json();
 
     // Get the user making the request
     const authHeader = req.headers.get("Authorization")!;
@@ -69,16 +90,27 @@ serve(async (req) => {
       invite = updatedInvite;
     } else {
       // Creating a new invite
-      if (!email || !invite_type) {
-        throw new Error("Email and invite_type are required");
+      const method = delivery_method || "email";
+      
+      // Validate required fields based on delivery method
+      if ((method === "email" || method === "both") && !email) {
+        throw new Error("Email is required for email delivery");
+      }
+      if ((method === "sms" || method === "both") && !phone) {
+        throw new Error("Phone number is required for SMS delivery");
+      }
+      if (!invite_type) {
+        throw new Error("invite_type is required");
       }
 
       const { data: newInvite, error: insertError } = await supabase
         .from("invites")
         .insert({
-          email,
+          email: email || null,
+          phone: phone || null,
           player_name: player_name || null,
           invite_type,
+          delivery_method: method,
           invited_by: user?.id || null,
         })
         .select()
@@ -93,8 +125,69 @@ serve(async (req) => {
     const invitePath = INVITE_TYPE_PATHS[invite.invite_type] || "/";
     const inviteUrl = `${origin}${invitePath}?invite=${invite.invite_token}`;
 
+    const deliveryMethod = invite.delivery_method || "email";
+    const firstName = invite.player_name?.split(" ")[0] || "there";
+    let smsSent = false;
+    let emailSent = false;
+
+    // Send SMS via Twilio
+    if ((deliveryMethod === "sms" || deliveryMethod === "both") && invite.phone) {
+      if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+        console.error("Twilio credentials not configured");
+      } else {
+        try {
+          const formattedPhone = formatPhoneNumber(invite.phone);
+          const smsMessage = INVITE_SMS_MESSAGES[invite.invite_type]?.(firstName, inviteUrl) 
+            || `Hey ${firstName}! You're invited to Catching Barrels: ${inviteUrl} - Coach Rick`;
+
+          const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
+          const twilioResponse = await fetch(twilioUrl, {
+            method: "POST",
+            headers: {
+              "Authorization": `Basic ${btoa(`${twilioAccountSid}:${twilioAuthToken}`)}`,
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+              From: twilioPhoneNumber,
+              To: formattedPhone,
+              Body: smsMessage,
+            }),
+          });
+
+          const twilioData = await twilioResponse.json();
+
+          if (!twilioResponse.ok) {
+            console.error("Twilio error:", twilioData);
+          } else {
+            console.log("SMS sent successfully to:", formattedPhone);
+            smsSent = true;
+
+            // Log to messages table
+            await supabase.from("messages").insert({
+              phone_number: formattedPhone,
+              direction: "outbound",
+              body: smsMessage,
+              twilio_sid: twilioData.sid,
+              status: "sent",
+            });
+
+            // Log to sms_logs
+            await supabase.from("sms_logs").insert({
+              phone_number: formattedPhone,
+              trigger_name: `invite_${invite.invite_type}`,
+              message_sent: smsMessage,
+              status: "sent",
+              twilio_sid: twilioData.sid,
+            });
+          }
+        } catch (smsError) {
+          console.error("Failed to send SMS:", smsError);
+        }
+      }
+    }
+
     // Send email via Resend
-    if (resendApiKey) {
+    if ((deliveryMethod === "email" || deliveryMethod === "both") && invite.email && resendApiKey) {
       const subject = INVITE_TYPE_SUBJECTS[invite.invite_type] || "You're Invited to Catching Barrels";
       const playerGreeting = invite.player_name ? `Hi ${invite.player_name.split(" ")[0]},` : "Hi there,";
 
@@ -166,13 +259,12 @@ serve(async (req) => {
           console.error("Resend API error:", errorData);
         } else {
           console.log("Email sent successfully to:", invite.email);
+          emailSent = true;
         }
       } catch (emailError) {
         console.error("Failed to send email:", emailError);
         // Don't throw - invite was created, email just failed
       }
-    } else {
-      console.log("RESEND_API_KEY not configured, skipping email");
     }
 
     return new Response(
@@ -180,6 +272,8 @@ serve(async (req) => {
         success: true, 
         invite_id: invite.id,
         invite_url: inviteUrl,
+        sms_sent: smsSent,
+        email_sent: emailSent,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );

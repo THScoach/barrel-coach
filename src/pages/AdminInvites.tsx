@@ -43,6 +43,8 @@ import {
   Trash2,
   RefreshCw,
   MailOpen,
+  MessageSquare,
+  Phone,
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
@@ -51,15 +53,18 @@ import { formatDistanceToNow, format } from "date-fns";
 
 type InviteType = "diagnostic" | "assessment" | "membership" | "beta";
 type InviteStatus = "pending" | "accepted" | "expired" | "cancelled";
+type DeliveryMethod = "email" | "sms" | "both";
 
 interface Invite {
   id: string;
-  email: string;
+  email: string | null;
+  phone: string | null;
   player_name: string | null;
   invite_type: InviteType;
   status: InviteStatus;
   invite_token: string;
   player_id: string | null;
+  delivery_method: DeliveryMethod | null;
   expires_at: string | null;
   last_sent_at: string | null;
   opened_at: string | null;
@@ -90,8 +95,10 @@ export default function AdminInvites() {
   const [showNewInvite, setShowNewInvite] = useState(false);
   const [newInvite, setNewInvite] = useState({
     email: "",
+    phone: "",
     player_name: "",
-    invite_type: "assessment" as InviteType,
+    invite_type: "beta" as InviteType,
+    delivery_method: "sms" as DeliveryMethod,
   });
 
   // Fetch invites
@@ -133,7 +140,7 @@ export default function AdminInvites() {
     onSuccess: () => {
       toast.success("Invite sent successfully!");
       setShowNewInvite(false);
-      setNewInvite({ email: "", player_name: "", invite_type: "assessment" });
+      setNewInvite({ email: "", phone: "", player_name: "", invite_type: "beta", delivery_method: "sms" });
       queryClient.invalidateQueries({ queryKey: ["invites"] });
     },
     onError: (error) => {
@@ -324,7 +331,20 @@ export default function AdminInvites() {
                         <p className="font-semibold text-white text-[15px]">
                           {invite.player_name || "—"}
                         </p>
-                        <p className="text-sm text-slate-400">{invite.email}</p>
+                        <div className="flex items-center gap-2 text-sm text-slate-400 flex-wrap">
+                          {invite.email && (
+                            <span className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {invite.email}
+                            </span>
+                          )}
+                          {invite.phone && (
+                            <span className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              {invite.phone}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -430,17 +450,60 @@ export default function AdminInvites() {
             <DialogTitle className="text-white">Send New Invite</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Delivery Method */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-300">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="player@example.com"
-                value={newInvite.email}
-                onChange={(e) => setNewInvite({ ...newInvite, email: e.target.value })}
-                className="bg-slate-800 border-slate-600 text-white"
-              />
+              <Label className="text-slate-300">Send via</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(["sms", "email", "both"] as DeliveryMethod[]).map((method) => (
+                  <Button
+                    key={method}
+                    type="button"
+                    variant={newInvite.delivery_method === method ? "default" : "outline"}
+                    onClick={() => setNewInvite({ ...newInvite, delivery_method: method })}
+                    className={newInvite.delivery_method === method 
+                      ? "bg-primary text-white" 
+                      : "border-slate-600 text-slate-300 hover:bg-slate-800"
+                    }
+                  >
+                    {method === "sms" && <MessageSquare className="h-4 w-4 mr-1.5" />}
+                    {method === "email" && <Mail className="h-4 w-4 mr-1.5" />}
+                    {method === "both" && <><MessageSquare className="h-3 w-3 mr-1" /><Mail className="h-3 w-3 mr-1" /></>}
+                    {method === "sms" ? "SMS" : method === "email" ? "Email" : "Both"}
+                  </Button>
+                ))}
+              </div>
             </div>
+            
+            {/* Phone (for SMS) */}
+            {(newInvite.delivery_method === "sms" || newInvite.delivery_method === "both") && (
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-slate-300">Phone Number *</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  value={newInvite.phone}
+                  onChange={(e) => setNewInvite({ ...newInvite, phone: e.target.value })}
+                  className="bg-slate-800 border-slate-600 text-white"
+                />
+              </div>
+            )}
+
+            {/* Email (for email) */}
+            {(newInvite.delivery_method === "email" || newInvite.delivery_method === "both") && (
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-slate-300">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="player@example.com"
+                  value={newInvite.email}
+                  onChange={(e) => setNewInvite({ ...newInvite, email: e.target.value })}
+                  className="bg-slate-800 border-slate-600 text-white"
+                />
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="name" className="text-slate-300">Player Name (optional)</Label>
               <Input
@@ -461,10 +524,10 @@ export default function AdminInvites() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-900 border-slate-700">
+                  <SelectItem value="beta">Beta Access</SelectItem>
                   <SelectItem value="diagnostic">Free Diagnostic</SelectItem>
                   <SelectItem value="assessment">$37 Assessment</SelectItem>
                   <SelectItem value="membership">Membership</SelectItem>
-                  <SelectItem value="beta">Beta Access</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -479,11 +542,17 @@ export default function AdminInvites() {
             </Button>
             <Button
               onClick={() => createInviteMutation.mutate(newInvite)}
-              disabled={!newInvite.email || createInviteMutation.isPending}
+              disabled={
+                createInviteMutation.isPending ||
+                ((newInvite.delivery_method === "sms" || newInvite.delivery_method === "both") && !newInvite.phone) ||
+                ((newInvite.delivery_method === "email" || newInvite.delivery_method === "both") && !newInvite.email)
+              }
               className="btn-primary gap-2"
             >
               {createInviteMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
+              ) : newInvite.delivery_method === "sms" ? (
+                <MessageSquare className="h-4 w-4" />
               ) : (
                 <Send className="h-4 w-4" />
               )}
