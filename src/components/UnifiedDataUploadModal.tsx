@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +49,34 @@ interface UnifiedDataUploadModalProps {
   linkVerified?: boolean; // If true, playerId is already verified as valid players.id
 }
 
+// Helper to parse height string like "5'9"" to inches
+function parseHeightToInches(heightStr: string | null | undefined): number | null {
+  if (!heightStr) return null;
+  
+  // Try to match formats like "5'9"", "5'9", "5' 9"", "5-9", "69" (already inches)
+  const ftInMatch = heightStr.match(/(\d+)['\-\s]+(\d+)/);
+  if (ftInMatch) {
+    const feet = parseInt(ftInMatch[1], 10);
+    const inches = parseInt(ftInMatch[2], 10);
+    return feet * 12 + inches;
+  }
+  
+  // If it's just a number, assume it's already inches
+  const numMatch = heightStr.match(/^(\d+)$/);
+  if (numMatch) {
+    const val = parseInt(numMatch[1], 10);
+    // If > 12, likely already inches; if <= 12, could be feet only
+    return val > 12 ? val : val * 12;
+  }
+  
+  return null;
+}
+
+interface PlayerPhysicalData {
+  heightInches: number | null;
+  weightLbs: number | null;
+}
+
 export function UnifiedDataUploadModal({
   open,
   onOpenChange,
@@ -62,11 +90,59 @@ export function UnifiedDataUploadModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
+  // Player physical data from database
+  const [playerPhysicalData, setPlayerPhysicalData] = useState<PlayerPhysicalData>({
+    heightInches: null,
+    weightLbs: null
+  });
+  
   // Processed results
   const [launchMonitorStats, setLaunchMonitorStats] = useState<LaunchMonitorSessionStats | null>(null);
   const [rebootScores, setRebootScores] = useState<RebootScores | null>(null);
   const [ikData, setIkData] = useState<Record<string, any>[] | null>(null);
   const [meData, setMeData] = useState<Record<string, any>[] | null>(null);
+  
+  // Fetch player physical data when modal opens
+  useEffect(() => {
+    async function fetchPlayerData() {
+      if (!open || !playerId) return;
+      
+      try {
+        // First try players table (has height_inches, weight_lbs as numbers)
+        const { data: playerData, error: playerError } = await supabase
+          .from('players')
+          .select('height_inches, weight_lbs')
+          .eq('id', playerId)
+          .maybeSingle();
+        
+        if (playerData) {
+          setPlayerPhysicalData({
+            heightInches: playerData.height_inches ? Number(playerData.height_inches) : null,
+            weightLbs: playerData.weight_lbs ? Number(playerData.weight_lbs) : null
+          });
+          return;
+        }
+        
+        // Fallback: check player_profiles (has height as string, weight as number)
+        const { data: profileData } = await supabase
+          .from('player_profiles')
+          .select('height, weight, players_id')
+          .eq('players_id', playerId)
+          .maybeSingle();
+        
+        if (profileData) {
+          setPlayerPhysicalData({
+            heightInches: parseHeightToInches(profileData.height),
+            weightLbs: profileData.weight ? Number(profileData.weight) : null
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching player physical data:', error);
+      }
+    }
+    
+    fetchPlayerData();
+  }, [open, playerId]);
   
   const resetState = () => {
     setDetectedFiles([]);
@@ -215,7 +291,15 @@ export function UnifiedDataUploadModal({
         setMeData(parsedMeData.length > 0 ? parsedMeData : null);
         
         if (parsedIkData.length > 0 && parsedMeData.length > 0) {
-          const scores = calculateRebootScores(parsedIkData, parsedMeData);
+          // Pass player physical data to calculations
+          const scores = calculateRebootScores(
+            parsedIkData, 
+            parsedMeData,
+            'R', // dominantHand default
+            'hs', // playerLevel default
+            playerPhysicalData.weightLbs,
+            playerPhysicalData.heightInches
+          );
           setRebootScores(scores);
         } else if (parsedIkData.length > 0 || parsedMeData.length > 0) {
           toast.warning("Reboot scoring requires both IK and ME files");
