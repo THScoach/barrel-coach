@@ -21,8 +21,8 @@ export function MobileBottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 safe-area-bottom">
-      <div className="flex items-center justify-around h-16">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-900/98 backdrop-blur-xl border-t border-slate-700/80 safe-area-bottom">
+      <div className="flex items-center justify-around" style={{ minHeight: '72px' }}>
         {navItems.map((item) => {
           const active = isActive(item.to, item.end);
           
@@ -32,12 +32,12 @@ export function MobileBottomNav() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                className="flex flex-col items-center justify-center -mt-4"
+                className="flex flex-col items-center justify-center -mt-5"
               >
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-600 to-orange-500 flex items-center justify-center shadow-lg shadow-red-900/30">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-600 to-orange-500 flex items-center justify-center shadow-xl shadow-red-900/40 border-4 border-slate-900">
                   <item.icon className="h-6 w-6 text-white" />
                 </div>
-                <span className="text-[10px] font-medium text-slate-400 mt-1">{item.label}</span>
+                <span className="text-[11px] font-medium text-slate-400 mt-1">{item.label}</span>
               </NavLink>
             );
           }
@@ -47,18 +47,23 @@ export function MobileBottomNav() {
               key={item.to}
               to={item.to}
               end={item.end}
-              className="flex flex-col items-center justify-center min-h-[44px] min-w-[44px] px-3"
+              className="flex flex-col items-center justify-center touch-target-lg"
             >
-              <item.icon 
-                className={cn(
-                  "h-6 w-6 transition-colors",
-                  active ? "text-red-500" : "text-slate-500"
-                )} 
-              />
+              <div className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                active ? "bg-red-600/20" : "bg-transparent"
+              )}>
+                <item.icon 
+                  className={cn(
+                    "h-6 w-6 transition-colors",
+                    active ? "text-red-500" : "text-slate-400"
+                  )} 
+                />
+              </div>
               <span 
                 className={cn(
-                  "text-[10px] font-medium mt-1 transition-colors",
-                  active ? "text-red-500" : "text-slate-500"
+                  "text-[11px] font-medium mt-0.5 transition-colors",
+                  active ? "text-red-500" : "text-slate-400"
                 )}
               >
                 {item.label}
