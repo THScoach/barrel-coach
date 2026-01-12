@@ -688,6 +688,7 @@ export type Database = {
         Row: {
           accepted_at: string | null
           created_at: string
+          delivery_method: string | null
           email: string
           expires_at: string | null
           id: string
@@ -696,6 +697,7 @@ export type Database = {
           invited_by: string | null
           last_sent_at: string | null
           opened_at: string | null
+          phone: string | null
           player_id: string | null
           player_name: string | null
           status: Database["public"]["Enums"]["invite_status"]
@@ -704,6 +706,7 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           created_at?: string
+          delivery_method?: string | null
           email: string
           expires_at?: string | null
           id?: string
@@ -712,6 +715,7 @@ export type Database = {
           invited_by?: string | null
           last_sent_at?: string | null
           opened_at?: string | null
+          phone?: string | null
           player_id?: string | null
           player_name?: string | null
           status?: Database["public"]["Enums"]["invite_status"]
@@ -720,6 +724,7 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           created_at?: string
+          delivery_method?: string | null
           email?: string
           expires_at?: string | null
           id?: string
@@ -728,6 +733,7 @@ export type Database = {
           invited_by?: string | null
           last_sent_at?: string | null
           opened_at?: string | null
+          phone?: string | null
           player_id?: string | null
           player_name?: string | null
           status?: Database["public"]["Enums"]["invite_status"]
