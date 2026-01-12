@@ -607,7 +607,7 @@ export default function AdminPlayerProfile() {
                   Edit Player
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  onClick={() => navigate(`/admin/new-session?player=${id}`)}
+                  onClick={() => navigate(`/admin/new-session?player=${player?.id || id!}`)}
                   className="text-slate-300 focus:bg-slate-800 focus:text-white"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -659,7 +659,7 @@ export default function AdminPlayerProfile() {
           </TabsList>
 
           <TabsContent value="activity">
-            <PlayerActivityTab playerId={id!} />
+            <PlayerActivityTab playerId={player?.id || id!} />
           </TabsContent>
 
           <TabsContent value="scores">
@@ -667,23 +667,23 @@ export default function AdminPlayerProfile() {
           </TabsContent>
 
           <TabsContent value="transfer">
-            <PlayerTransferTab playerId={id!} />
+            <PlayerTransferTab playerId={player?.players_id || id!} />
           </TabsContent>
 
           <TabsContent value="schedule">
-            <PlayerScheduleTab playerId={id!} />
+            <PlayerScheduleTab playerId={player?.id || id!} />
           </TabsContent>
 
           <TabsContent value="data">
-            <PlayerDataTab playerId={id!} playerName={getPlayerName()} />
+            <PlayerDataTab playerId={player?.id || id!} playerName={getPlayerName()} />
           </TabsContent>
 
           <TabsContent value="drills">
-            <PlayerDrillsTab playerId={id!} />
+            <PlayerDrillsTab playerId={player?.id || id!} />
           </TabsContent>
 
           <TabsContent value="communication">
-            <PlayerCommunicationTab playerId={id!} playerName={getPlayerName()} />
+            <PlayerCommunicationTab playerId={player?.id || id!} playerName={getPlayerName()} />
           </TabsContent>
         </Tabs>
       </main>
