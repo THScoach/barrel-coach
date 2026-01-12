@@ -96,7 +96,7 @@ export default function Pricing() {
               </p>
 
               <Button asChild className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold">
-                <Link to="/diagnostic">Get Free Diagnostic</Link>
+                <a href="https://link.hittingskool.com/payment-link/69657dcc94977cdce1d062c6" target="_blank" rel="noopener noreferrer">Get Free Diagnostic</a>
               </Button>
             </div>
 
@@ -133,7 +133,7 @@ export default function Pricing() {
               </p>
 
               <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                <Link to="/diagnostic">Get KRS Assessment</Link>
+                <a href="https://link.hittingskool.com/payment-link/69657e1494977c2574d06359" target="_blank" rel="noopener noreferrer">Get KRS Assessment</a>
               </Button>
             </div>
 
@@ -204,7 +204,7 @@ export default function Pricing() {
               </p>
 
               <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
-                <Link to="/coaching">Join Membership</Link>
+                <a href="https://link.hittingskool.com/payment-link/69657e5c3e9f2f549c38ab1f" target="_blank" rel="noopener noreferrer">Join Membership</a>
               </Button>
             </div>
 
