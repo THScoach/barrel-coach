@@ -663,7 +663,7 @@ export default function AdminPlayerProfile() {
           </TabsContent>
 
           <TabsContent value="scores">
-            <PlayerScoresTab playerId={id!} />
+            <PlayerScoresTab playerId={player?.players_id || id!} playerName={getPlayerName()} />
           </TabsContent>
 
           <TabsContent value="transfer">
