@@ -1,15 +1,15 @@
+/**
+ * Rick Lab Player Data Tab - Interactive Control Panel
+ * =====================================================
+ * Fast, interactive dashboard: 4B tiles → detailed reports → sessions
+ * Optimized for 3-second navigation to any data point.
+ */
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,16 +22,29 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { Upload, BarChart3, Target, Activity, Zap, Video, ChevronRight, Database, MoreVertical, Trash2, AlertCircle, LayoutDashboard, Loader2 } from "lucide-react";
+import { 
+  Upload, 
+  FileText, 
+  Video, 
+  AlertCircle, 
+  Loader2,
+  ExternalLink,
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Database
+} from "lucide-react";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
-import { getBrandDisplayName } from "@/lib/csv-detector";
-import { LaunchMonitorBrand } from "@/lib/csv-detector";
+import { getBrandDisplayName, LaunchMonitorBrand } from "@/lib/csv-detector";
 import { toast } from "sonner";
 import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
 import { RebootSessionDetail } from "@/components/RebootSessionDetail";
 import { VideoAnalyzerTab } from "@/components/video-analyzer";
-import { Player4BScorecard } from "@/components/scorecards";
 import { usePlayerScorecard } from "@/hooks/usePlayerScorecard";
+import { Interactive4BTiles } from "./Interactive4BTiles";
+import { RecentSessionsList } from "./RecentSessionsList";
+import { cn } from "@/lib/utils";
 
 interface PlayerDataTabProps {
   playerId: string; // This is player_profiles.id
@@ -42,7 +55,7 @@ type DataFilter = 'all' | 'analyzer' | 'reboot' | 'hittrax' | 'batsensor' | 'vid
 
 interface DataSession {
   id: string;
-  type: DataFilter;
+  type: 'analyzer' | 'reboot' | 'hittrax';
   typeName: string;
   date: Date;
   source?: string;
@@ -57,13 +70,12 @@ interface DataSession {
 }
 
 export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
-  const [filter, setFilter] = useState<DataFilter>('all');
   const [sessions, setSessions] = useState<DataSession[]>([]);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [deleteSession, setDeleteSession] = useState<DataSession | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [activeView, setActiveView] = useState<'scorecard' | 'data' | 'video'>('scorecard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'sessions' | 'video'>('dashboard');
   
   // playersTableId is the stable ID from the `players` table (FK target for data tables)
   const [playersTableId, setPlayersTableId] = useState<string | null>(null);
@@ -85,14 +97,9 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
 
   // Resolve or create the players_id mapping using the RPC function
   const resolvePlayersId = async (): Promise<string | null> => {
-    console.log('[PlayerDataTab] resolvePlayersId called with playerId:', playerId);
     try {
-      // Call the ensure_player_linked RPC function
-      // It checks if players_id exists, creates a new players record if not, and returns the players_id
       const { data: linkedPlayerId, error } = await supabase
         .rpc('ensure_player_linked', { p_profile_id: playerId });
-      
-      console.log('[PlayerDataTab] RPC result:', { linkedPlayerId, error });
       
       if (error) {
         console.error('[PlayerDataTab] Error ensuring player linked:', error);
@@ -101,12 +108,10 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
       }
       
       if (!linkedPlayerId) {
-        console.error('[PlayerDataTab] No linkedPlayerId returned');
         setMappingError('Failed to link player profile to players table');
         return null;
       }
       
-      console.log('[PlayerDataTab] Setting playersTableId to:', linkedPlayerId);
       setPlayersTableId(linkedPlayerId);
       return linkedPlayerId;
     } catch (error: any) {
@@ -133,9 +138,7 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
     setLoading(true);
     
     const [sessionsRes, launchRes, rebootRes] = await Promise.all([
-      // sessions table uses player_profiles.id (via player_id FK to player_profiles)
       supabase.from('sessions').select('*').eq('player_id', playerId),
-      // launch_monitor_sessions and reboot_uploads use players.id
       supabase.from('launch_monitor_sessions').select('*').eq('player_id', pId),
       supabase.from('reboot_uploads').select('*').eq('player_id', pId),
     ]);
@@ -143,7 +146,7 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
     const allSessions: DataSession[] = [
       ...(sessionsRes.data || []).map(s => ({
         id: s.id,
-        type: 'analyzer' as DataFilter,
+        type: 'analyzer' as const,
         typeName: 'Swing Analysis',
         date: new Date(s.created_at || new Date()),
         scores: {
@@ -152,10 +155,11 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
           bat: s.four_b_bat ?? undefined,
         },
         reviewed: s.status === 'completed',
+        swingCount: s.swing_count ?? undefined,
       })),
       ...(launchRes.data || []).map(s => ({
         id: s.id,
-        type: 'hittrax' as DataFilter,
+        type: 'hittrax' as const,
         typeName: getBrandDisplayName((s.source || 'generic') as LaunchMonitorBrand),
         date: new Date(s.session_date),
         source: s.source || undefined,
@@ -167,7 +171,7 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
       })),
       ...(rebootRes.data || []).map(s => ({
         id: s.id,
-        type: 'reboot' as DataFilter,
+        type: 'reboot' as const,
         typeName: s.ik_file_uploaded && s.me_file_uploaded ? 'Reboot IK+ME' : s.ik_file_uploaded ? 'Reboot IK' : 'Reboot ME',
         date: new Date(s.created_at || new Date()),
         scores: {
@@ -243,7 +247,6 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
         if (error) throw error;
         setSelectedRebootSession(data);
       } else if (session.type === 'analyzer') {
-        // TODO: Open analyzer session detail
         toast.info('Analyzer session detail coming soon');
       } else {
         toast.info('Session detail view not available for this type');
@@ -256,43 +259,16 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
     }
   };
 
-  const filteredSessions = filter === 'all'
-    ? sessions 
-    : sessions.filter(s => s.type === filter);
+  // Get latest KRS session for the "View Latest Report" button
+  const latestKRSSession = sessions.find(s => s.type === 'analyzer' || s.type === 'reboot');
 
-  const getTypeIcon = (type: DataFilter) => {
-    switch (type) {
-      case 'analyzer': return <BarChart3 className="h-4 w-4 text-primary" />;
-      case 'hittrax': return <Target className="h-4 w-4 text-emerald-500" />;
-      case 'reboot': return <Activity className="h-4 w-4 text-blue-500" />;
-      case 'batsensor': return <Zap className="h-4 w-4 text-amber-500" />;
-      case 'videos': return <Video className="h-4 w-4 text-purple-500" />;
-      default: return null;
-    }
+  // Trend helper
+  const getTrend = (current: number | null, prev: number | null) => {
+    if (current === null || prev === null) return 'flat';
+    if (current > prev) return 'up';
+    if (current < prev) return 'down';
+    return 'flat';
   };
-
-  const filterButtons: { value: DataFilter; label: string; icon: React.ReactNode }[] = [
-    { value: 'all', label: 'All Data', icon: <Database className="h-4 w-4" /> },
-    { value: 'analyzer', label: 'Analyzer', icon: <BarChart3 className="h-4 w-4" /> },
-    { value: 'reboot', label: 'Reboot', icon: <Activity className="h-4 w-4" /> },
-    { value: 'hittrax', label: 'HitTrax', icon: <Target className="h-4 w-4" /> },
-    { value: 'batsensor', label: 'Bat Sensors', icon: <Zap className="h-4 w-4" /> },
-    { value: 'videos', label: 'Videos', icon: <Video className="h-4 w-4" /> },
-  ];
-
-  const getCounts = () => {
-    const counts: Record<DataFilter, number> = {
-      all: sessions.length,
-      analyzer: sessions.filter(s => s.type === 'analyzer').length,
-      reboot: sessions.filter(s => s.type === 'reboot').length,
-      hittrax: sessions.filter(s => s.type === 'hittrax').length,
-      batsensor: sessions.filter(s => s.type === 'batsensor').length,
-      videos: sessions.filter(s => s.type === 'videos').length,
-    };
-    return counts;
-  };
-
-  const counts = getCounts();
 
   // Show error state if mapping failed
   if (mappingError) {
@@ -313,50 +289,208 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
   }
 
   return (
-    <div className="space-y-4">
-      {/* View Tabs */}
-      <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'scorecard' | 'data' | 'video')}>
-        <TabsList className="grid w-full grid-cols-3 max-w-lg">
-          <TabsTrigger value="scorecard" className="flex items-center gap-2">
-            <LayoutDashboard className="h-4 w-4" />
-            4B Card
+    <div className="space-y-6">
+      {/* ===== HERO HEADER: Catch Barrel Score + View Latest Report ===== */}
+      <Card className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-slate-700 overflow-hidden">
+        <CardContent className="p-4 md:p-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            {/* Left: Catch Barrel Score */}
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <p className="text-xs font-bold uppercase tracking-wide text-primary mb-1">
+                  CATCH BARREL SCORE
+                </p>
+                {scorecardLoading ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-500 mx-auto" />
+                ) : (
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-5xl font-black text-white">
+                      {scorecardData?.fourBScores.composite ?? '—'}
+                    </span>
+                    {scorecardData?.fourBScores.prevComposite !== null && (
+                      <>
+                        {getTrend(
+                          scorecardData?.fourBScores.composite ?? null,
+                          scorecardData?.fourBScores.prevComposite ?? null
+                        ) === 'up' && <TrendingUp className="h-4 w-4 text-emerald-500" />}
+                        {getTrend(
+                          scorecardData?.fourBScores.composite ?? null,
+                          scorecardData?.fourBScores.prevComposite ?? null
+                        ) === 'down' && <TrendingDown className="h-4 w-4 text-red-500" />}
+                      </>
+                    )}
+                  </div>
+                )}
+                {scorecardData?.fourBScores.grade && (
+                  <Badge variant="secondary" className="mt-1 text-xs">
+                    {scorecardData.fourBScores.grade}
+                  </Badge>
+                )}
+              </div>
+
+              {scorecardData?.fourBScores.weakestLink && (
+                <div className="hidden md:block border-l border-slate-700 pl-6">
+                  <Badge variant="outline" className="text-xs border-yellow-500/50 text-yellow-400">
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    Focus: {scorecardData.fourBScores.weakestLink.toUpperCase()}
+                  </Badge>
+                </div>
+              )}
+            </div>
+
+            {/* Right: Primary Actions */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="default"
+                className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white font-semibold"
+                onClick={() => {
+                  if (latestKRSSession) {
+                    handleViewSession(latestKRSSession);
+                  } else {
+                    toast.info('No KRS report available yet');
+                  }
+                }}
+                disabled={!latestKRSSession}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                View Latest KRS Report
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
+                onClick={() => {
+                  if (!playersTableId) {
+                    toast.error("Player mapping missing");
+                    return;
+                  }
+                  setUploadModalOpen(true);
+                }}
+                disabled={!playersTableId}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Data
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ===== TAB NAVIGATION ===== */}
+      <Tabs value={activeView} onValueChange={(v) => setActiveView(v as typeof activeView)}>
+        <TabsList className="grid w-full grid-cols-3 max-w-md bg-slate-800/50">
+          <TabsTrigger 
+            value="dashboard" 
+            className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
+          >
+            4B Scores
           </TabsTrigger>
-          <TabsTrigger value="data" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            Sessions
+          <TabsTrigger 
+            value="sessions" 
+            className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
+          >
+            Sessions ({sessions.length})
           </TabsTrigger>
-          <TabsTrigger value="video" className="flex items-center gap-2">
-            <Video className="h-4 w-4" />
+          <TabsTrigger 
+            value="video" 
+            className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
+          >
+            <Video className="h-4 w-4 mr-1" />
             Video
           </TabsTrigger>
         </TabsList>
 
-        {/* Scorecard Tab */}
-        <TabsContent value="scorecard" className="mt-4">
+        {/* ===== DASHBOARD TAB: Interactive 4B Tiles + Recent Sessions ===== */}
+        <TabsContent value="dashboard" className="mt-6 space-y-6">
           {scorecardLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : scorecardData ? (
-            <Player4BScorecard
-              data={scorecardData}
-              timeWindow={timeWindow}
-              onTimeWindowChange={setTimeWindow}
-              onUploadVideo={() => setActiveView('video')}
-              onUploadData={() => setUploadModalOpen(true)}
-              onViewVideoSession={() => setActiveView('video')}
-              isAdmin={true}
-            />
+            <>
+              {/* Interactive 4B Tiles */}
+              <div>
+                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
+                  4B Breakdown — Click to Expand
+                </h3>
+                <Interactive4BTiles 
+                  fourBScores={scorecardData.fourBScores}
+                />
+              </div>
+
+              {/* Recent Sessions */}
+              <div>
+                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
+                  Recent Sessions
+                </h3>
+                <RecentSessionsList
+                  sessions={sessions}
+                  loading={loading}
+                  onViewSession={handleViewSession}
+                  onViewAll={() => setActiveView('sessions')}
+                  maxItems={5}
+                />
+              </div>
+            </>
           ) : (
             <Card className="bg-slate-900/80 border-slate-800">
-              <CardContent className="py-8 text-center">
-                <p className="text-slate-400">No player data available</p>
+              <CardContent className="py-12 text-center">
+                <Database className="h-12 w-12 mx-auto text-slate-600 mb-3" />
+                <p className="text-slate-400 font-medium">No player data available</p>
+                <p className="text-sm text-slate-500 mt-1">Upload data to generate 4B scores</p>
+                <Button
+                  className="mt-4 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+                  onClick={() => setUploadModalOpen(true)}
+                  disabled={!playersTableId}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload First Session
+                </Button>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
-        <TabsContent value="video" className="mt-4">
+        {/* ===== SESSIONS TAB: Full Sessions List ===== */}
+        <TabsContent value="sessions" className="mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-white">All Sessions</h3>
+            <Button
+              onClick={() => setUploadModalOpen(true)}
+              className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+              disabled={!playersTableId}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Data
+            </Button>
+          </div>
+
+          {loading ? (
+            <Card className="bg-slate-900/80 border-slate-800">
+              <CardContent className="py-8 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-slate-500 mx-auto" />
+              </CardContent>
+            </Card>
+          ) : sessions.length === 0 ? (
+            <Card className="bg-slate-900/80 border-slate-800">
+              <CardContent className="py-12 text-center">
+                <Database className="h-12 w-12 mx-auto text-slate-600 mb-3" />
+                <p className="text-slate-400">No sessions found</p>
+                <p className="text-slate-500 text-sm mt-1">Upload data to get started</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <RecentSessionsList
+              sessions={sessions}
+              loading={loading}
+              onViewSession={handleViewSession}
+              maxItems={100}
+            />
+          )}
+        </TabsContent>
+
+        {/* ===== VIDEO TAB ===== */}
+        <TabsContent value="video" className="mt-6">
           {playersTableId ? (
             <VideoAnalyzerTab
               playerId={playersTableId}
@@ -366,161 +500,17 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
           ) : (
             <Card className="bg-slate-900/80 border-slate-800">
               <CardContent className="py-8 text-center">
-                <p className="text-slate-400">Loading player data...</p>
+                <Loader2 className="h-8 w-8 animate-spin text-slate-500 mx-auto" />
+                <p className="text-slate-400 mt-2">Loading player data...</p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
-
-        <TabsContent value="data" className="mt-4">
-          <div className="flex gap-6">
-            {/* Left Sidebar: Source Filter */}
-            <div className="w-48 space-y-1">
-              {filterButtons.map(btn => (
-                <Button
-                  key={btn.value}
-                  variant={filter === btn.value ? 'secondary' : 'ghost'}
-                  className={`w-full justify-between ${
-                    filter === btn.value 
-                      ? 'bg-slate-800 text-white' 
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                  }`}
-                  onClick={() => setFilter(btn.value)}
-                >
-                  <span className="flex items-center gap-2">
-                    {btn.icon}
-                    {btn.label}
-                  </span>
-                  <Badge variant="secondary" className="bg-slate-700 text-slate-300 text-xs">
-                    {counts[btn.value]}
-                  </Badge>
-                </Button>
-              ))}
-            </div>
-
-            {/* Right: Sessions List */}
-            <div className="flex-1">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-semibold text-white">
-            {filterButtons.find(b => b.value === filter)?.label || 'All Data'}
-          </h3>
-          <Button 
-            onClick={() => {
-              if (!playersTableId) {
-                toast.error("Player mapping missing: cannot upload data");
-                return;
-              }
-              setUploadModalOpen(true);
-            }}
-            className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
-            disabled={!playersTableId}
-          >
-            <Upload className="h-4 w-4 mr-2" /> Upload Data
-          </Button>
-        </div>
-
-        {loading ? (
-          <Card className="bg-slate-900/80 border-slate-800">
-            <CardContent className="py-8 text-center">
-              <p className="text-slate-400">Loading...</p>
-            </CardContent>
-          </Card>
-        ) : filteredSessions.length === 0 ? (
-          <Card className="bg-slate-900/80 border-slate-800">
-            <CardContent className="py-12 text-center">
-              <Database className="h-12 w-12 mx-auto text-slate-600 mb-3" />
-              <p className="text-slate-400">No data sessions found.</p>
-              <p className="text-slate-500 text-sm mt-1">Upload some data to get started.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="bg-slate-900/80 border-slate-800">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-slate-800 hover:bg-transparent">
-                  <TableHead className="text-slate-400">Type</TableHead>
-                  <TableHead className="text-slate-400">Date</TableHead>
-                  <TableHead className="text-slate-400">Scores</TableHead>
-                  <TableHead className="text-slate-400">Details</TableHead>
-                  <TableHead className="text-slate-400"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSessions.map(session => (
-                  <TableRow key={session.id} className="border-slate-800 hover:bg-slate-800/50">
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getTypeIcon(session.type)}
-                        <span className="text-white">{session.typeName}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-slate-300">{format(session.date, 'MMM d, yyyy')}</TableCell>
-                    <TableCell>
-                      {session.scores && (
-                        <div className="flex gap-1 text-xs">
-                          {session.scores.brain !== undefined && (
-                            <Badge variant="outline" className="border-slate-700 text-slate-300">B:{session.scores.brain}</Badge>
-                          )}
-                          {session.scores.body !== undefined && (
-                            <Badge variant="outline" className="border-slate-700 text-slate-300">Bo:{session.scores.body}</Badge>
-                          )}
-                          {session.scores.bat !== undefined && (
-                            <Badge variant="outline" className="border-slate-700 text-slate-300">Ba:{session.scores.bat}</Badge>
-                          )}
-                          {session.scores.ball !== undefined && (
-                            <Badge variant="outline" className="border-slate-700 text-slate-300">Ball:{session.scores.ball}</Badge>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {session.swingCount && (
-                        <span className="text-slate-400 text-sm">
-                          {session.swingCount} swings
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-slate-400 hover:text-white"
-                          onClick={() => handleViewSession(session)}
-                          disabled={loadingDetail}
-                        >
-                          View <ChevronRight className="h-4 w-4 ml-1" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-slate-900 border-slate-700">
-                            <DropdownMenuItem 
-                              onClick={() => setDeleteSession(session)}
-                              className="text-red-400 focus:text-red-300 focus:bg-slate-800"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        )}
-            </div>
-          </div>
-        </TabsContent>
       </Tabs>
 
-      {/* Upload Modal - only render if we have a valid players_id */}
+      {/* ===== MODALS ===== */}
+      
+      {/* Upload Modal */}
       {playersTableId && (
         <UnifiedDataUploadModal
           open={uploadModalOpen}
@@ -530,12 +520,13 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
           linkVerified={true}
           onSuccess={() => {
             loadSessions(playersTableId);
+            refreshScorecard();
             setUploadModalOpen(false);
           }}
         />
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation */}
       <AlertDialog open={!!deleteSession} onOpenChange={(open) => !open && setDeleteSession(null)}>
         <AlertDialogContent className="bg-slate-900 border-slate-700">
           <AlertDialogHeader>
@@ -559,7 +550,7 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Launch Monitor Session Detail Modal */}
+      {/* Launch Monitor Session Detail */}
       <LaunchMonitorSessionDetail
         open={!!selectedLaunchMonitorSession}
         onOpenChange={(open) => !open && setSelectedLaunchMonitorSession(null)}
@@ -570,7 +561,7 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
         }}
       />
 
-      {/* Reboot Session Detail Modal */}
+      {/* Reboot Session Detail */}
       <RebootSessionDetail
         open={!!selectedRebootSession}
         onOpenChange={(open) => !open && setSelectedRebootSession(null)}
