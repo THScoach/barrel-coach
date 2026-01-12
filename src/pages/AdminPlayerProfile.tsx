@@ -89,7 +89,10 @@ export default function AdminPlayerProfile() {
   const [isSendingBetaInvite, setIsSendingBetaInvite] = useState(false);
 
   const handleSendBetaInvite = async () => {
-    if (!id || isNew) return;
+    if (!id || isNew || !player?.players_id) {
+      toast.error("Player not linked to analytics profile. Link first.");
+      return;
+    }
     
     setIsSendingBetaInvite(true);
     try {
@@ -100,7 +103,7 @@ export default function AdminPlayerProfile() {
       }
 
       const response = await supabase.functions.invoke("send-beta-invite", {
-        body: { playerId: id, betaDays: 60 },
+        body: { playerId: player.players_id, betaDays: 60 },
       });
 
       if (response.error) {
