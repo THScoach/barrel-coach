@@ -38,10 +38,10 @@ export function getWeakestLink(
  * Calculate combined 4B composite score
  * 
  * Weights when all 4 scores present:
- * - Brain: 15%
- * - Body: 40%
- * - Bat: 20%
- * - Ball: 25%
+ * - Brain: 20%
+ * - Body: 35%
+ * - Bat: 30%
+ * - Ball: 15%
  */
 export function calculateComposite4B(
   brainScore: number | null,
@@ -59,10 +59,10 @@ export function calculateComposite4B(
   // If we have all 4 scores, use weighted average
   if (brainScore !== null && bodyScore !== null && batScore !== null && ballScore !== null) {
     const composite = Math.round(
-      brainScore * 0.15 +
-      bodyScore * 0.40 +
-      batScore * 0.20 +
-      ballScore * 0.25
+      brainScore * 0.20 +
+      bodyScore * 0.35 +
+      batScore * 0.30 +
+      ballScore * 0.15
     );
     return { composite, grade: getGrade(composite), hasAllScores: true };
   }

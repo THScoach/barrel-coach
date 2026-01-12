@@ -262,7 +262,7 @@ function calculate4BScores(ikData: Record<string, number | string>[], meData: Re
   const efficiencyScore = to2080Scale(transferEfficiency, THRESHOLDS.bat_efficiency.min, THRESHOLDS.bat_efficiency.max);
   const upperFlowScore = Math.round((batKEScore + efficiencyScore) / 2);
 
-  // CONSISTENCY (Brain)
+  // CONSISTENCY (Brain) - CV of pelvis/torso velocities (lower CV = higher score)
   const pelvisCV = coefficientOfVariation(pelvisVelocities);
   const torsoCV = coefficientOfVariation(torsoVelocities);
   const avgCV = (pelvisCV + torsoCV) / 2;
@@ -270,16 +270,24 @@ function calculate4BScores(ikData: Record<string, number | string>[], meData: Re
   const consistencyScore = to2080Scale(avgCV, THRESHOLDS.consistency_cv.min, THRESHOLDS.consistency_cv.max, true);
   const consistencyGrade = getConsistencyGrade(avgCV);
 
+  // BALL SCORE - Energy Delivery Consistency at Contact
+  // Measures CV of total kinetic energy at contact frame (lower CV = higher score)
+  const contactFrameKE = totalKE; // Using total KE values which represent energy at contact
+  const contactKECV = coefficientOfVariation(contactFrameKE);
+  // Map CV to 20-80 scale INVERTED: CV 5% → score 80, CV 40% → score 20
+  const ballScoreRaw = to2080Scale(contactKECV, 5, 40, true); // inverted: lower CV = higher score
+  const ballScore = Math.max(20, Math.min(80, ballScoreRaw)); // Clamp to 20-80
+
   // 4B COMPOSITE SCORES
   const brainScore = consistencyScore;
   const bodyScore = Math.round((groundFlowScore * 0.4 + coreFlowScore * 0.6));
   const batScore = upperFlowScore;
-  const ballScore = Math.round((brainScore * 0.5 + batScore * 0.5));
 
+  // Spec weights: Brain 20%, Body 35%, Bat 30%, Ball 15%
   const compositeScore = Math.round(
-    brainScore * 0.15 +
-    bodyScore * 0.45 +
-    batScore * 0.25 +
+    brainScore * 0.20 +
+    bodyScore * 0.35 +
+    batScore * 0.30 +
     ballScore * 0.15
   );
 
