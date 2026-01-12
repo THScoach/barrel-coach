@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,8 @@ import {
   BarChart3,
   Loader2,
   Flame,
-  Target as TargetIcon
+  Target as TargetIcon,
+  Plus
 } from "lucide-react";
 import { 
   LineChart, 
@@ -28,6 +30,7 @@ import { cn } from "@/lib/utils";
 
 interface PlayerScoresTabProps {
   playerId: string;
+  playerName?: string;
 }
 
 interface ScoreRecord {
@@ -53,7 +56,8 @@ const SCORE_COLORS = {
   ball: "#f59e0b",
 };
 
-export function PlayerScoresTab({ playerId }: PlayerScoresTabProps) {
+export function PlayerScoresTab({ playerId, playerName }: PlayerScoresTabProps) {
+  const navigate = useNavigate();
   const [scores, setScores] = useState<ScoreRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionRange, setSessionRange] = useState<SessionRange>(10);
@@ -318,9 +322,16 @@ export function PlayerScoresTab({ playerId }: PlayerScoresTabProps) {
       <div className="border border-slate-800 rounded-lg bg-slate-900/60 py-16 text-center">
         <BarChart3 className="h-12 w-12 mx-auto text-slate-700 mb-3" />
         <h3 className="text-lg font-semibold text-white mb-1">No sessions yet</h3>
-        <p className="text-slate-500 text-sm">
+        <p className="text-slate-500 text-sm mb-4">
           Run your first swing analysis to start your season.
         </p>
+        <Button 
+          onClick={() => navigate('/admin/new-session', { state: { playerId, playerName } })}
+          className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          New Session
+        </Button>
       </div>
     );
   }
