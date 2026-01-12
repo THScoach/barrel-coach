@@ -1,3 +1,15 @@
+/**
+ * SWING ANALYZER VIDEO UPLOAD
+ * 
+ * This modal handles uploads for HIGH-SPEED SWING ANALYSIS CLIPS only.
+ * Videos go to: video_swing_sessions + video_swings tables
+ * Storage: swing-videos bucket
+ * 
+ * DO NOT use this for instructional/drill content.
+ * For drill videos, use AdminVideos.tsx → upload-video edge function → drill_videos table
+ * 
+ * @see src/lib/video-types.ts for architecture documentation
+ */
 import { useState, useCallback } from "react";
 import {
   Dialog,

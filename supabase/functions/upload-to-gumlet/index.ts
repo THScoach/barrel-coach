@@ -1,3 +1,20 @@
+/**
+ * DRILL VIDEO UPLOAD TO GUMLET
+ * 
+ * This edge function handles uploads for INSTRUCTIONAL DRILL CONTENT only.
+ * Videos go to: drill_videos table (with Gumlet streaming URLs)
+ * Storage: videos bucket → drills/ folder
+ * 
+ * Features:
+ * - Gumlet adaptive streaming (HLS/DASH)
+ * - Auto-transcription for Ask Rick searchability
+ * - AI tagging by 4B category, problems addressed
+ * 
+ * DO NOT use this for swing analyzer clips.
+ * For swing analysis, use VideoSwingUploadModal → video_swing_sessions/video_swings
+ * 
+ * @see src/lib/video-types.ts for architecture documentation
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
