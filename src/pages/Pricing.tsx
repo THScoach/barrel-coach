@@ -21,7 +21,7 @@ const faqs = [
   },
   {
     question: "What's the $299 in-person assessment?",
-    answer: "90 minutes with me, face-to-face. Full 4B evaluation, video analysis, drill work, and a 30-day training plan you can actually use.",
+    answer: "90 minutes with me, face-to-face. Full 4B evaluation, video analysis, and clear next steps.",
   },
   {
     question: "What if I'm in-season?",
@@ -46,10 +46,10 @@ export default function Pricing() {
       <section className="pt-32 pb-16">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-6xl font-black text-white mb-6">
-            WORK WITH COACH RICK
+            CHOOSE HOW YOU WANT COACHING
           </h1>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-            Three ways to get started. No applications. No upsells. Just coaching.
+            No applications. No upsells. Just coaching.
           </p>
         </div>
       </section>
@@ -66,39 +66,40 @@ export default function Pricing() {
                   <MessageCircle className="w-4 h-4 text-slate-400" />
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Start Here</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Free Swing Diagnostic</h3>
+                <h3 className="text-xl font-bold text-white mb-2">Clarity First</h3>
                 <div className="text-4xl font-black text-white mb-2">$0</div>
-                <p className="text-slate-500 text-sm">One-time snapshot</p>
+                <p className="text-slate-500 text-sm">One-time</p>
               </div>
               
-              <p className="text-slate-400 text-sm mb-6">
-                One clear answer. No guesswork.
-              </p>
-
-              <ul className="space-y-3 mb-8 flex-grow">
+              <ul className="space-y-3 mb-6 flex-grow">
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                  Upload a swing
+                  One swing upload
                 </li>
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                  Short analysis from Rick
+                  One diagnostic response
                 </li>
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                  Delivered via SMS
+                  Direction only
                 </li>
               </ul>
 
+              <p className="text-slate-500 text-sm mb-6 border-t border-slate-800 pt-4">
+                This tells you what's wrong.<br />
+                It does not fix it.
+              </p>
+
               <Button asChild className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold">
-                <Link to="/diagnostic">Get My Free Swing Diagnostic</Link>
+                <Link to="/diagnostic">Get Free Diagnostic</Link>
               </Button>
             </div>
 
             {/* 2. Online Coaching — $99/month (FEATURED) */}
             <div className="bg-slate-900/80 border-2 border-red-500/50 rounded-2xl p-8 flex flex-col relative ring-2 ring-red-500/30">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
-                Primary Product
+                Most Popular
               </div>
               
               <div className="mb-6">
@@ -106,43 +107,44 @@ export default function Pricing() {
                   <Users className="w-4 h-4 text-red-400" />
                   <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Ongoing</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Online Coaching</h3>
+                <h3 className="text-xl font-bold text-white mb-2">Weekly Coaching</h3>
                 <div className="text-4xl font-black text-white mb-2">$99<span className="text-lg text-slate-400">/mo</span></div>
                 <p className="text-slate-500 text-sm">Cancel anytime</p>
               </div>
               
-              <p className="text-slate-400 text-sm mb-6">
-                Weekly calls. Swing feedback. Direct access.
-              </p>
-
-              <ul className="space-y-3 mb-8 flex-grow">
+              <ul className="space-y-3 mb-6 flex-grow">
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Weekly Monday night live call
+                  Weekly Monday night coaching call
                 </li>
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Swing uploads & feedback
+                  Unlimited swing uploads
                 </li>
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  SMS communication with Rick
+                  Ongoing feedback
                 </li>
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Ongoing monthly coaching
+                  Accountability
                 </li>
               </ul>
 
+              <p className="text-slate-500 text-sm mb-6 border-t border-slate-800 pt-4">
+                This is real coaching.<br />
+                Show up. Upload swings. Improve.
+              </p>
+
               <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
-                <Link to="/coaching">Join Online Coaching ($99/month)</Link>
+                <Link to="/coaching">Start Coaching</Link>
               </Button>
             </div>
 
             {/* 3. In-Person Assessment — $299 */}
             <div className="bg-slate-900/80 border border-yellow-500/30 rounded-2xl p-8 flex flex-col relative">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-yellow-500 rounded-full text-xs font-bold text-black uppercase tracking-wider">
-                Limited Time
+                Limited Availability
               </div>
               
               <div className="mb-6">
@@ -150,7 +152,7 @@ export default function Pricing() {
                   <MapPin className="w-4 h-4 text-yellow-400" />
                   <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider">In-Person</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">In-Person Assessment</h3>
+                <h3 className="text-xl font-bold text-white mb-2">One Truth Session</h3>
                 <div className="flex items-baseline gap-2 mb-2">
                   <span className="text-4xl font-black text-white">$299</span>
                   <span className="text-lg text-slate-500 line-through">$399</span>
@@ -158,32 +160,41 @@ export default function Pricing() {
                 <p className="text-slate-500 text-sm">One-time • 90 minutes</p>
               </div>
               
-              <p className="text-slate-400 text-sm mb-6">
-                Face-to-face with Rick. Full evaluation.
-              </p>
-
-              <ul className="space-y-3 mb-8 flex-grow">
+              <ul className="space-y-3 mb-6 flex-grow">
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  In-person swing evaluation
+                  90-minute in-person session
                 </li>
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  Full swing breakdown
+                  Full swing evaluation
                 </li>
                 <li className="flex items-start gap-3 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  Development recommendations
+                  Clear next steps
                 </li>
               </ul>
 
+              <p className="text-slate-500 text-sm mb-6 border-t border-slate-800 pt-4">
+                One session.<br />
+                Real answers.
+              </p>
+
               <Button asChild className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold">
-                <Link to="/assessment">Book In-Person Assessment ($299)</Link>
+                <Link to="/assessment">Book In-Person Assessment</Link>
               </Button>
-              <p className="text-xs text-slate-500 mt-3 text-center">This price is only available until I leave for spring training.</p>
             </div>
 
           </div>
+        </div>
+      </section>
+
+      {/* Bottom Note */}
+      <section className="pb-16">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <p className="text-lg text-slate-400 italic">
+            "If you want results, consistency beats information every time."
+          </p>
         </div>
       </section>
 
