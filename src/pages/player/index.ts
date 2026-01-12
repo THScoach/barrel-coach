@@ -1,4 +1,5 @@
 export { default as PlayerHome } from './PlayerHome';
+export { default as PlayerDashboard4B } from './PlayerDashboard4B';
 export { default as PlayerData } from './PlayerData';
 export { default as PlayerDrills } from './PlayerDrills';
 export { default as PlayerMessages } from './PlayerMessages';
