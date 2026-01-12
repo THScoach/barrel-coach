@@ -12,10 +12,13 @@ import {
   Clock,
   BarChart3,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Loader2,
+  Sparkles
 } from "lucide-react";
 import { VideoPlayer } from "@/components/analyzer/VideoPlayer";
 import { MomentumSequenceVisualizer } from "@/components/analyzer/MomentumSequenceVisualizer";
+import { useAnalyzeVideoSwingSession } from "@/hooks/useAnalyzeVideoSwingSession";
 import { cn } from "@/lib/utils";
 
 interface VideoSwing {
@@ -51,6 +54,8 @@ export function VideoAnalyzerDetail({ sessionId, onBack }: VideoAnalyzerDetailPr
   const [loading, setLoading] = useState(true);
   const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
+  
+  const { analyze, isAnalyzing, analyzingSessionId } = useAnalyzeVideoSwingSession();
 
   useEffect(() => {
     loadSessionData();
@@ -165,10 +170,21 @@ export function VideoAnalyzerDetail({ sessionId, onBack }: VideoAnalyzerDetailPr
     );
   }
 
+  const isSessionAnalyzing = isAnalyzing && analyzingSessionId === sessionId;
+  const isSessionAnalyzed = session.status === 'analyzed' || session.analyzed_count > 0;
+
+  const handleAnalyze = async (forceRecompute = false) => {
+    const result = await analyze(sessionId, forceRecompute);
+    if (result?.success) {
+      // Reload session data to get updated scores
+      loadSessionData();
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={onBack} className="gap-2">
             <ArrowLeft className="h-4 w-4" />
@@ -184,8 +200,58 @@ export function VideoAnalyzerDetail({ sessionId, onBack }: VideoAnalyzerDetailPr
               </Badge>
               <span>•</span>
               <span>{session.video_count} videos</span>
+              {isSessionAnalyzed && (
+                <>
+                  <span>•</span>
+                  <Badge variant="default" className="bg-green-600 text-xs">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Analyzed
+                  </Badge>
+                </>
+              )}
             </div>
           </div>
+        </div>
+        
+        {/* Analyze Button */}
+        <div className="flex items-center gap-2">
+          {isSessionAnalyzed ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleAnalyze(true)}
+              disabled={isSessionAnalyzing}
+            >
+              {isSessionAnalyzing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Re-analyzing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Re-analyze
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              onClick={() => handleAnalyze(false)}
+              disabled={isSessionAnalyzing || swings.length === 0}
+            >
+              {isSessionAnalyzing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Analyze Sequence
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
