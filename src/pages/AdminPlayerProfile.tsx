@@ -126,13 +126,27 @@ export default function AdminPlayerProfile() {
     queryKey: ['player-profile', id],
     queryFn: async () => {
       if (isNew) return null;
-      const { data, error } = await supabase
+      
+      // First try to find by player_profiles.id
+      const { data: profileById, error: profileError } = await supabase
         .from('player_profiles')
         .select('*')
         .eq('id', id)
-        .single();
-      if (error) throw error;
-      return data;
+        .maybeSingle();
+      
+      if (profileById) return profileById;
+      
+      // If not found, try to find by players_id (in case URL uses players.id)
+      const { data: profileByPlayersId, error: playersIdError } = await supabase
+        .from('player_profiles')
+        .select('*')
+        .eq('players_id', id)
+        .maybeSingle();
+      
+      if (profileByPlayersId) return profileByPlayersId;
+      
+      // If still not found, throw error
+      throw new Error(`Player profile not found for ID: ${id}`);
     },
     enabled: !isNew,
   });
