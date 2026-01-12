@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -25,11 +26,14 @@ import {
   CheckCircle, 
   Loader2,
   AlertCircle,
-  Info
+  Info,
+  Link as LinkIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 interface VideoSwingUploadModalProps {
   open: boolean;
@@ -66,6 +70,9 @@ export function VideoSwingUploadModal({
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
   const [context, setContext] = useState<string>('practice');
   const [isCreating, setIsCreating] = useState(false);
+  const [showOnformImport, setShowOnformImport] = useState(false);
+  const [onformUrls, setOnformUrls] = useState('');
+  const [importingOnform, setImportingOnform] = useState(false);
 
   const resetState = () => {
     videos.forEach(v => URL.revokeObjectURL(v.previewUrl));
@@ -121,6 +128,70 @@ export function VideoSwingUploadModal({
       if (video) URL.revokeObjectURL(video.previewUrl);
       return prev.filter(v => v.id !== id);
     });
+  };
+
+  const handleOnformImport = async () => {
+    const urlList = onformUrls
+      .split('\n')
+      .map(u => u.trim())
+      .filter(u => u.length > 0 && (u.includes('getonform.com') || u.includes('onform.com')));
+
+    if (urlList.length === 0) {
+      toast.error('Please paste valid OnForm URLs (one per line)');
+      return;
+    }
+
+    const remainingCapacity = MAX_SWINGS - videos.length;
+    if (urlList.length > remainingCapacity) {
+      toast.error(`Can only import ${remainingCapacity} more videos`);
+      return;
+    }
+
+    setImportingOnform(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/import-onform-video`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          urls: urlList, 
+          playerId, 
+          sessionId: null, // Will be created on upload
+          forSwingAnalysis: true
+        })
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Import failed');
+      }
+
+      // Add imported videos to the list
+      if (data.videos && Array.isArray(data.videos)) {
+        const newVideos: VideoFile[] = data.videos.map((v: any) => ({
+          file: new File([], v.filename || 'onform-video.mp4'),
+          id: crypto.randomUUID(),
+          previewUrl: v.url || '',
+          status: 'uploaded' as const,
+          progress: 100,
+          storagePath: v.storagePath,
+        }));
+        setVideos(prev => [...prev, ...newVideos]);
+      }
+
+      toast.success(data.message || `Imported ${urlList.length} video(s)`);
+      setOnformUrls('');
+      setShowOnformImport(false);
+    } catch (error) {
+      console.error('OnForm import error:', error);
+      toast.error(error instanceof Error ? error.message : 'Import failed');
+    } finally {
+      setImportingOnform(false);
+    }
   };
 
   const uploadVideoToStorage = async (video: VideoFile, sessionId: string, index: number): Promise<string | null> => {
@@ -315,28 +386,80 @@ export function VideoSwingUploadModal({
               )}
             </div>
             
-            <label 
-              className={cn(
-                "flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors",
-                videos.length >= MAX_SWINGS 
-                  ? "border-muted bg-muted/20 cursor-not-allowed" 
-                  : "border-muted-foreground/25 hover:border-primary/50"
-              )}
-            >
-              <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-              <span className="text-sm text-muted-foreground">
-                {videos.length >= MAX_SWINGS ? 'Maximum videos reached' : 'Click or drag videos here'}
-              </span>
-              <span className="text-xs text-muted-foreground mt-1">.mp4, .mov, .webm (max 250MB each)</span>
-              <input
-                type="file"
-                accept="video/mp4,video/quicktime,video/webm"
-                multiple
-                onChange={handleFileChange}
-                className="hidden"
-                disabled={videos.length >= MAX_SWINGS}
-              />
-            </label>
+            {showOnformImport ? (
+              <div className="space-y-3 p-4 border border-dashed rounded-lg bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Paste OnForm URLs</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowOnformImport(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Textarea
+                  placeholder="https://link.getonform.com/view?id=...&#10;https://link.getonform.com/view?id=...&#10;(one per line)"
+                  value={onformUrls}
+                  onChange={(e) => setOnformUrls(e.target.value)}
+                  rows={4}
+                  className="text-sm"
+                />
+                <Button
+                  onClick={handleOnformImport}
+                  disabled={importingOnform || !onformUrls.trim()}
+                  className="w-full"
+                >
+                  {importingOnform ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                      Import Videos
+                    </>
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label 
+                  className={cn(
+                    "flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors",
+                    videos.length >= MAX_SWINGS 
+                      ? "border-muted bg-muted/20 cursor-not-allowed" 
+                      : "border-muted-foreground/25 hover:border-primary/50"
+                  )}
+                >
+                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                  <span className="text-sm text-muted-foreground">
+                    {videos.length >= MAX_SWINGS ? 'Maximum videos reached' : 'Click or drag videos here'}
+                  </span>
+                  <span className="text-xs text-muted-foreground mt-1">.mp4, .mov, .webm (max 250MB each)</span>
+                  <input
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm"
+                    multiple
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={videos.length >= MAX_SWINGS}
+                  />
+                </label>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowOnformImport(true)}
+                  disabled={videos.length >= MAX_SWINGS}
+                  className="w-full"
+                >
+                  <LinkIcon className="h-4 w-4 mr-2" />
+                  Import from OnForm
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Video List */}
