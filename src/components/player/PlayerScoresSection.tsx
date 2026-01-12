@@ -98,8 +98,8 @@ export function PlayerScoresSection({ playerId, playerName, onAskRick }: PlayerS
         .gte('session_date', ninetyDaysAgo)
         .order('session_date', { ascending: false }),
       supabase
-        .from('fourb_scores')
-        .select('*')
+        .from('swing_4b_scores')
+        .select('id, created_at, composite_score, brain_score, body_score, bat_score, ball_score, weakest_link')
         .eq('player_id', playerId)
         .order('created_at', { ascending: false })
         .limit(90),
@@ -111,7 +111,7 @@ export function PlayerScoresSection({ playerId, playerName, onAskRick }: PlayerS
     ]);
 
     setLaunchSessions(launchRes.data || []);
-    setFourbScores(scoresRes.data || []);
+    setFourbScores((scoresRes.data || []) as FourBScore[]);
     setPlayerData(playerRes.data);
     setLoading(false);
   };
