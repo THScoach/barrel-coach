@@ -294,7 +294,12 @@ export default function AdminPlayerProfile() {
     if (player) {
       return `${player.first_name} ${player.last_name || ''}`.trim();
     }
-    return `${formData.first_name} ${formData.last_name || ''}`.trim() || 'New Player';
+    // Only show "New Player" if explicitly creating a new one (isNew is true)
+    if (isNew) {
+      return `${formData.first_name} ${formData.last_name || ''}`.trim() || 'New Player';
+    }
+    // For existing players that haven't loaded yet, show loading state
+    return 'Loading...';
   };
 
   if (isLoading) {
@@ -302,7 +307,30 @@ export default function AdminPlayerProfile() {
       <div className="min-h-screen bg-slate-950">
         <AdminHeader />
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto mb-3" />
+            <p className="text-slate-400 text-sm">Loading player profile...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle error state - player not found
+  if (!isNew && !player) {
+    return (
+      <div className="min-h-screen bg-slate-950">
+        <AdminHeader />
+        <div className="flex flex-col items-center justify-center h-64 text-center">
+          <p className="text-red-400 text-lg mb-4">Player not found</p>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/admin/players')}
+            className="text-slate-400 border-slate-700"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Players
+          </Button>
         </div>
       </div>
     );

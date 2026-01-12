@@ -123,10 +123,8 @@ export default function PlayerData() {
     <div className="container mx-auto px-4 py-6 space-y-6 md:ml-56">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">My Scores</h1>
-        <Button asChild variant="outline">
-          <Link to="/player/new-session">
-            <Upload className="h-4 w-4 mr-2" /> Upload Session
-          </Link>
+        <Button onClick={() => navigate('/player')} variant="outline">
+          <Upload className="h-4 w-4 mr-2" /> Upload Swings
         </Button>
       </div>
 
