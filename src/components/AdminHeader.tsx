@@ -21,6 +21,7 @@ export function AdminHeader() {
   const navLinks = [
     { to: "/admin", label: "Dashboard" },
     { to: "/admin/players", label: "Players" },
+    { to: "/admin/invites", label: "Invites" },
     { to: "/admin/library", label: "Library" },
   ];
 
