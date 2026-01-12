@@ -53,3 +53,9 @@ verify_jwt = false
 
 [functions.gumlet-webhook]
 verify_jwt = false
+
+[functions.ghl-webhook]
+verify_jwt = false
+
+[functions.ghl-api]
+verify_jwt = false
