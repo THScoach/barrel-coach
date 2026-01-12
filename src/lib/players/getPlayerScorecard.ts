@@ -116,8 +116,8 @@ export async function getPlayerScorecard(
     
     // 4B historical scores
     supabase
-      .from('fourb_scores')
-      .select('*')
+      .from('swing_4b_scores')
+      .select('composite_score, brain_score, body_score, bat_score, ball_score, weakest_link, grade, created_at')
       .eq('player_id', playerId)
       .order('created_at', { ascending: false })
       .limit(10),

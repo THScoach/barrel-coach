@@ -43,7 +43,7 @@ interface ScoreRecord {
   ball_score: number | null;
   grade: string | null;
   weakest_link: string | null;
-  reboot_session_id: string | null;
+  session_id: string | null;
 }
 
 type SessionRange = 5 | 10 | 30 | 'all';
@@ -74,13 +74,13 @@ export function PlayerScoresTab({ playerId, playerName }: PlayerScoresTabProps) 
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('fourb_scores')
-        .select('*')
+        .from('swing_4b_scores')
+        .select('id, created_at, composite_score, brain_score, body_score, bat_score, ball_score, grade, weakest_link, session_id')
         .eq('player_id', playerId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setScores(data || []);
+      setScores((data || []) as ScoreRecord[]);
     } catch (err) {
       console.error('Error loading scores:', err);
     } finally {

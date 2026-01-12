@@ -153,7 +153,7 @@ export default function PlayerHome() {
   const loadLatestScores = async (playerId: string) => {
     // Fetch latest two scores to calculate delta
     const { data: fourbData } = await supabase
-      .from('fourb_scores')
+      .from('swing_4b_scores')
       .select('brain_score, body_score, bat_score, ball_score, created_at')
       .eq('player_id', playerId)
       .order('created_at', { ascending: false })
@@ -235,7 +235,7 @@ export default function PlayerHome() {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const { data: recentScores } = await supabase
-      .from('fourb_scores')
+      .from('swing_4b_scores')
       .select('brain_score, body_score, bat_score, ball_score, composite_score, created_at')
       .eq('player_id', playerId)
       .gte('created_at', thirtyDaysAgo.toISOString())

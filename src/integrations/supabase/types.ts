@@ -52,6 +52,56 @@ export type Database = {
           },
         ]
       }
+      athlete_krs_models: {
+        Row: {
+          beta_0: number
+          beta_1: number
+          beta_2: number
+          beta_3: number
+          beta_4: number
+          calibrated_at: string | null
+          expires_at: string | null
+          id: string
+          player_id: string
+          r_squared: number | null
+          sample_count: number | null
+        }
+        Insert: {
+          beta_0?: number
+          beta_1?: number
+          beta_2?: number
+          beta_3?: number
+          beta_4?: number
+          calibrated_at?: string | null
+          expires_at?: string | null
+          id?: string
+          player_id: string
+          r_squared?: number | null
+          sample_count?: number | null
+        }
+        Update: {
+          beta_0?: number
+          beta_1?: number
+          beta_2?: number
+          beta_3?: number
+          beta_4?: number
+          calibrated_at?: string | null
+          expires_at?: string | null
+          id?: string
+          player_id?: string
+          r_squared?: number | null
+          sample_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_krs_models_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       batted_ball_events: {
         Row: {
           bb_type: string | null
@@ -370,108 +420,6 @@ export type Database = {
           video_url?: string | null
         }
         Relationships: []
-      }
-      fourb_scores: {
-        Row: {
-          ball_score: number | null
-          bat_ke: number | null
-          bat_score: number | null
-          body_score: number | null
-          brain_score: number | null
-          composite_score: number | null
-          consistency_cv: number | null
-          consistency_grade: string | null
-          core_flow_score: number | null
-          created_at: string | null
-          grade: string | null
-          ground_flow_score: number | null
-          id: string
-          pelvis_velocity: number | null
-          player_id: string | null
-          prescribed_drill_id: string | null
-          prescribed_drill_name: string | null
-          primary_issue_category: string | null
-          primary_issue_description: string | null
-          primary_issue_title: string | null
-          reboot_session_id: string | null
-          torso_velocity: number | null
-          transfer_efficiency: number | null
-          upper_flow_score: number | null
-          weakest_link: string | null
-          x_factor: number | null
-        }
-        Insert: {
-          ball_score?: number | null
-          bat_ke?: number | null
-          bat_score?: number | null
-          body_score?: number | null
-          brain_score?: number | null
-          composite_score?: number | null
-          consistency_cv?: number | null
-          consistency_grade?: string | null
-          core_flow_score?: number | null
-          created_at?: string | null
-          grade?: string | null
-          ground_flow_score?: number | null
-          id?: string
-          pelvis_velocity?: number | null
-          player_id?: string | null
-          prescribed_drill_id?: string | null
-          prescribed_drill_name?: string | null
-          primary_issue_category?: string | null
-          primary_issue_description?: string | null
-          primary_issue_title?: string | null
-          reboot_session_id?: string | null
-          torso_velocity?: number | null
-          transfer_efficiency?: number | null
-          upper_flow_score?: number | null
-          weakest_link?: string | null
-          x_factor?: number | null
-        }
-        Update: {
-          ball_score?: number | null
-          bat_ke?: number | null
-          bat_score?: number | null
-          body_score?: number | null
-          brain_score?: number | null
-          composite_score?: number | null
-          consistency_cv?: number | null
-          consistency_grade?: string | null
-          core_flow_score?: number | null
-          created_at?: string | null
-          grade?: string | null
-          ground_flow_score?: number | null
-          id?: string
-          pelvis_velocity?: number | null
-          player_id?: string | null
-          prescribed_drill_id?: string | null
-          prescribed_drill_name?: string | null
-          primary_issue_category?: string | null
-          primary_issue_description?: string | null
-          primary_issue_title?: string | null
-          reboot_session_id?: string | null
-          torso_velocity?: number | null
-          transfer_efficiency?: number | null
-          upper_flow_score?: number | null
-          weakest_link?: string | null
-          x_factor?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fourb_scores_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fourb_scores_reboot_session_id_fkey"
-            columns: ["reboot_session_id"]
-            isOneToOne: false
-            referencedRelation: "reboot_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       game_weekly_reports: {
         Row: {
@@ -1945,6 +1893,160 @@ export type Database = {
           trigger_name?: string
         }
         Relationships: []
+      }
+      swing_4b_scores: {
+        Row: {
+          b1_score: number | null
+          b2_score: number | null
+          b3_score: number | null
+          b4_score: number | null
+          ball_score: number | null
+          bat_ke: number | null
+          bat_score: number | null
+          body_score: number | null
+          brain_score: number | null
+          bucket_loss_breakdown: Json | null
+          composite_score: number | null
+          consistency_cv: number | null
+          consistency_grade: string | null
+          core_flow_score: number | null
+          created_at: string | null
+          four_b_ball: number | null
+          four_b_bat: number | null
+          four_b_hit: number | null
+          grade: string | null
+          ground_flow_score: number | null
+          id: string
+          mechanical_loss_mph: number | null
+          mechanical_loss_pct: number | null
+          pelvis_velocity: number | null
+          player_id: string | null
+          prescribed_drill_id: string | null
+          prescribed_drill_name: string | null
+          primary_bucket_issue: string | null
+          primary_issue_category: string | null
+          primary_issue_description: string | null
+          primary_issue_title: string | null
+          session_id: string | null
+          swing_number: number
+          torso_velocity: number | null
+          transfer_efficiency: number | null
+          updated_at: string | null
+          upper_flow_score: number | null
+          v_bat_actual_mph: number | null
+          v_bat_expected_mph: number | null
+          weakest_link: string | null
+          x_factor: number | null
+        }
+        Insert: {
+          b1_score?: number | null
+          b2_score?: number | null
+          b3_score?: number | null
+          b4_score?: number | null
+          ball_score?: number | null
+          bat_ke?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          bucket_loss_breakdown?: Json | null
+          composite_score?: number | null
+          consistency_cv?: number | null
+          consistency_grade?: string | null
+          core_flow_score?: number | null
+          created_at?: string | null
+          four_b_ball?: number | null
+          four_b_bat?: number | null
+          four_b_hit?: number | null
+          grade?: string | null
+          ground_flow_score?: number | null
+          id?: string
+          mechanical_loss_mph?: number | null
+          mechanical_loss_pct?: number | null
+          pelvis_velocity?: number | null
+          player_id?: string | null
+          prescribed_drill_id?: string | null
+          prescribed_drill_name?: string | null
+          primary_bucket_issue?: string | null
+          primary_issue_category?: string | null
+          primary_issue_description?: string | null
+          primary_issue_title?: string | null
+          session_id?: string | null
+          swing_number?: number
+          torso_velocity?: number | null
+          transfer_efficiency?: number | null
+          updated_at?: string | null
+          upper_flow_score?: number | null
+          v_bat_actual_mph?: number | null
+          v_bat_expected_mph?: number | null
+          weakest_link?: string | null
+          x_factor?: number | null
+        }
+        Update: {
+          b1_score?: number | null
+          b2_score?: number | null
+          b3_score?: number | null
+          b4_score?: number | null
+          ball_score?: number | null
+          bat_ke?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          bucket_loss_breakdown?: Json | null
+          composite_score?: number | null
+          consistency_cv?: number | null
+          consistency_grade?: string | null
+          core_flow_score?: number | null
+          created_at?: string | null
+          four_b_ball?: number | null
+          four_b_bat?: number | null
+          four_b_hit?: number | null
+          grade?: string | null
+          ground_flow_score?: number | null
+          id?: string
+          mechanical_loss_mph?: number | null
+          mechanical_loss_pct?: number | null
+          pelvis_velocity?: number | null
+          player_id?: string | null
+          prescribed_drill_id?: string | null
+          prescribed_drill_name?: string | null
+          primary_bucket_issue?: string | null
+          primary_issue_category?: string | null
+          primary_issue_description?: string | null
+          primary_issue_title?: string | null
+          session_id?: string | null
+          swing_number?: number
+          torso_velocity?: number | null
+          transfer_efficiency?: number | null
+          updated_at?: string | null
+          upper_flow_score?: number | null
+          v_bat_actual_mph?: number | null
+          v_bat_expected_mph?: number | null
+          weakest_link?: string | null
+          x_factor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swing_4b_scores_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swing_4b_scores_prescribed_drill_id_fkey"
+            columns: ["prescribed_drill_id"]
+            isOneToOne: false
+            referencedRelation: "drills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swing_4b_scores_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "reboot_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       swing_analyses: {
         Row: {

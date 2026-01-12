@@ -110,9 +110,9 @@ export default function PlayerDashboard4B() {
   };
 
   const loadSessions = async (playerId: string) => {
-    // Fetch from fourb_scores with detailed metrics
+    // Fetch from swing_4b_scores with detailed metrics
     const { data: fourbData } = await supabase
-      .from('fourb_scores')
+      .from('swing_4b_scores')
       .select(`
         id, created_at, brain_score, body_score, bat_score, ball_score, composite_score,
         consistency_cv, ground_flow_score, core_flow_score, upper_flow_score,
