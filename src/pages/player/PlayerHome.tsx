@@ -10,15 +10,14 @@ import {
   MessageSquare,
   Upload,
   Calendar,
-  CheckCircle2,
   Clock,
   Video,
   Zap,
-  AlertTriangle,
   Play
 } from "lucide-react";
 import { VideoSwingUploadModal } from "@/components/video-analyzer";
 import { calculateComposite4B, getGrade, getWeakestLink } from "@/lib/fourb-composite";
+import { MembershipUpgradeBanner } from "@/components/player/MembershipUpgradeBanner";
 
 interface LatestScores {
   brain_score: number | null;
@@ -46,6 +45,8 @@ export default function PlayerHome() {
   const [videoUploadOpen, setVideoUploadOpen] = useState(false);
   const [nextActions, setNextActions] = useState<NextAction[]>([]);
   const [weakestLink, setWeakestLink] = useState<string | null>(null);
+  const [membershipPlan, setMembershipPlan] = useState<"assessment" | "monthly" | "annual" | "none">("none");
+  const [isFoundingMember, setIsFoundingMember] = useState(false);
 
   useEffect(() => {
     loadPlayerData();
@@ -224,6 +225,12 @@ export default function PlayerHome() {
           Your current state. Your next step.
         </p>
       </div>
+
+      {/* Membership Status Banner */}
+      <MembershipUpgradeBanner 
+        currentPlan={membershipPlan} 
+        isFoundingMember={isFoundingMember} 
+      />
 
       {/* Weekly Check-In Card (for in-season players) */}
       {isInSeason && weeklyCheckinDue && (

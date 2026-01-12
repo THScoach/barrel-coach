@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { email } = await req.json();
+    const { email, priceId } = await req.json();
 
     if (!email) {
       throw new Error("Email is required");
@@ -32,13 +32,19 @@ serve(async (req) => {
 
     const origin = req.headers.get("origin") || "https://catchingbarrels.io";
 
-    // Create checkout session for $99/month online coaching subscription
+    // Default to monthly, allow annual if specified
+    const PRICE_MONTHLY = "price_1SoacUA7XlInXgw8erLx2iRH"; // $99/month
+    const PRICE_ANNUAL = "price_1SolIbA7XlInXgw8vHnx7SGP"; // $899/year founding rate
+    
+    const selectedPriceId = priceId === PRICE_ANNUAL ? PRICE_ANNUAL : PRICE_MONTHLY;
+
+    // Create checkout session for subscription
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : email,
       line_items: [
         {
-          price: "price_1SoacUA7XlInXgw8erLx2iRH", // Catching Barrels Online Coaching $99/month
+          price: selectedPriceId,
           quantity: 1,
         },
       ],
@@ -46,7 +52,8 @@ serve(async (req) => {
       success_url: `${origin}/coaching/success`,
       cancel_url: `${origin}/coaching`,
       metadata: {
-        product: "online_coaching",
+        product: "catching_barrels_membership",
+        plan: selectedPriceId === PRICE_ANNUAL ? "founding_annual" : "monthly",
       },
     });
 
