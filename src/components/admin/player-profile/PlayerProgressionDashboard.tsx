@@ -218,7 +218,7 @@ export function PlayerProgressionDashboard({
     }));
   }, [sessions]);
 
-  // Calculate trends
+  // Calculate trends (first to last)
   const trends = useMemo(() => {
     if (sessions.length < 2) return null;
 
@@ -241,6 +241,28 @@ export function PlayerProgressionDashboard({
       bat: calcTrend(last.bat, first.bat),
       ball: calcTrend(last.ball, first.ball),
     };
+  }, [sessions]);
+
+  // Calculate session-over-session delta for the latest point
+  const lastSessionDelta = useMemo(() => {
+    if (sessions.length < 2) return null;
+    const prev = sessions[sessions.length - 2];
+    const last = sessions[sessions.length - 1];
+    if (last.composite === null || prev.composite === null) return null;
+    return last.composite - prev.composite;
+  }, [sessions]);
+
+  // Detect leak changes over time
+  const leakChanges = useMemo(() => {
+    const changes: { from: string; to: string; sessionIndex: number }[] = [];
+    for (let i = 1; i < sessions.length; i++) {
+      const prev = sessions[i - 1].leakType;
+      const curr = sessions[i].leakType;
+      if (prev && curr && prev !== curr) {
+        changes.push({ from: prev, to: curr, sessionIndex: i });
+      }
+    }
+    return changes;
   }, [sessions]);
 
   // Leak frequency
@@ -330,6 +352,24 @@ export function PlayerProgressionDashboard({
         </Tabs>
       </div>
 
+      {/* GOATY-Style Summary Deltas */}
+      {trends && sessions.length >= 2 && (
+        <Card className="bg-gradient-to-r from-primary/10 via-slate-900 to-slate-900 border-primary/30">
+          <CardContent className="py-4 px-5">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <div className="text-sm font-medium text-slate-300">
+                Since first session:
+              </div>
+              <DeltaBadge label="KRS" delta={trends.composite.delta} />
+              <DeltaBadge label="Brain" delta={trends.brain.delta} color="text-purple-400" />
+              <DeltaBadge label="Body" delta={trends.body.delta} color="text-blue-400" />
+              <DeltaBadge label="Bat" delta={trends.bat.delta} color="text-orange-400" />
+              <DeltaBadge label="Ball" delta={trends.ball.delta} color="text-emerald-400" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Trend Summary Cards */}
       {trends && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -348,9 +388,26 @@ export function PlayerProgressionDashboard({
             <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
               Catch Barrel Score Over Time
             </h4>
-            <Badge variant="outline" className="text-xs border-slate-600 text-slate-400">
-              {sessions.length} sessions
-            </Badge>
+            <div className="flex items-center gap-2">
+              {lastSessionDelta !== null && (
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-xs",
+                    lastSessionDelta > 0 
+                      ? "border-emerald-500/50 text-emerald-400 bg-emerald-500/10"
+                      : lastSessionDelta < 0 
+                      ? "border-red-500/50 text-red-400 bg-red-500/10"
+                      : "border-slate-600 text-slate-400"
+                  )}
+                >
+                  Last: {lastSessionDelta > 0 ? '+' : ''}{lastSessionDelta}
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-xs border-slate-600 text-slate-400">
+                {sessions.length} sessions
+              </Badge>
+            </div>
           </div>
 
           <div className="h-64">
@@ -466,23 +523,38 @@ export function PlayerProgressionDashboard({
           </div>
 
           <div className="flex gap-1 overflow-x-auto pb-2">
-            {sessions.map((session, i) => (
-              <button
-                key={session.id}
-                className={cn(
-                  "flex-shrink-0 px-2 py-1 rounded text-[10px] font-medium border transition-all",
-                  "hover:scale-105 cursor-pointer",
-                  session.leakType 
-                    ? LEAK_COLORS[session.leakType] || LEAK_COLORS.default
-                    : "bg-slate-800 text-slate-500 border-slate-700"
-                )}
-                onClick={() => onViewSession(session.id, session.type)}
-                title={format(session.date, 'MMM d, yyyy')}
-              >
-                {session.leakType ? (LEAK_LABELS[session.leakType] || session.leakType) : '—'}
-              </button>
-            ))}
+            {sessions.map((session, i) => {
+              // Check if this session is a leak change point
+              const isChangePoint = leakChanges.some(c => c.sessionIndex === i);
+              return (
+                <button
+                  key={session.id}
+                  className={cn(
+                    "flex-shrink-0 px-2 py-1 rounded text-[10px] font-medium border transition-all",
+                    "hover:scale-105 cursor-pointer",
+                    session.leakType 
+                      ? LEAK_COLORS[session.leakType] || LEAK_COLORS.default
+                      : "bg-slate-800 text-slate-500 border-slate-700",
+                    isChangePoint && "ring-2 ring-amber-400 ring-offset-1 ring-offset-slate-900"
+                  )}
+                  onClick={() => onViewSession(session.id, session.type)}
+                  title={`${format(session.date, 'MMM d, yyyy')}${isChangePoint ? ' (Leak Changed!)' : ''}`}
+                >
+                  {session.leakType ? (LEAK_LABELS[session.leakType] || session.leakType) : '—'}
+                </button>
+              );
+            })}
           </div>
+          
+          {/* Leak change indicator */}
+          {leakChanges.length > 0 && (
+            <div className="flex items-center gap-2 mt-2 text-xs text-amber-400">
+              <AlertTriangle className="h-3 w-3" />
+              <span>
+                {leakChanges.length} leak pattern change{leakChanges.length > 1 ? 's' : ''} detected
+              </span>
+            </div>
+          )}
 
           <p className="text-[10px] text-slate-500 mt-2">
             ← Oldest to Newest → (Click to view session)
@@ -557,6 +629,29 @@ function TrendCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// Delta Badge Component for GOATY-style summaries
+function DeltaBadge({ 
+  label, 
+  delta, 
+  color = "text-primary" 
+}: { 
+  label: string; 
+  delta: number; 
+  color?: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 text-sm">
+      <span className="text-slate-500">{label}:</span>
+      <span className={cn(
+        "font-bold",
+        delta > 0 ? "text-emerald-400" : delta < 0 ? "text-red-400" : "text-slate-500"
+      )}>
+        {delta > 0 ? '+' : ''}{delta}
+      </span>
+    </span>
   );
 }
 

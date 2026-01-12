@@ -15,8 +15,10 @@ import {
   Zap,
   Play,
   User,
-  History
+  History,
+  TrendingUp
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { VideoSwingUploadModal } from "@/components/video-analyzer";
 import { calculateComposite4B, getGrade, getWeakestLink } from "@/lib/fourb-composite";
 import { MembershipUpgradeBanner } from "@/components/player/MembershipUpgradeBanner";
@@ -27,6 +29,22 @@ interface LatestScores {
   body_score: number | null;
   bat_score: number | null;
   ball_score: number | null;
+}
+
+interface PreviousSession {
+  composite: number | null;
+  brain: number | null;
+  body: number | null;
+  bat: number | null;
+  ball: number | null;
+  date: string;
+}
+
+interface RecentProgress {
+  delta30Days: number | null;
+  mostImproved: { b: string; delta: number } | null;
+  lagging: { b: string; delta: number } | null;
+  recentSessions: { date: string; composite: number }[];
 }
 
 interface NextAction {
@@ -59,6 +77,8 @@ export default function PlayerHome() {
   const [membershipPlan, setMembershipPlan] = useState<"assessment" | "monthly" | "annual" | "none">("none");
   const [isFoundingMember, setIsFoundingMember] = useState(false);
   const [sessionHistory, setSessionHistory] = useState<SessionHistory[]>([]);
+  const [previousSession, setPreviousSession] = useState<PreviousSession | null>(null);
+  const [recentProgress, setRecentProgress] = useState<RecentProgress | null>(null);
 
   useEffect(() => {
     loadPlayerData();
@@ -80,8 +100,11 @@ export default function PlayerHome() {
     if (playerData) {
       setPlayer(playerData);
       setIsInSeason(playerData.is_in_season || false);
-      await loadLatestScores(playerData.id);
-      await loadSessionHistory(playerData.id);
+      await Promise.all([
+        loadLatestScores(playerData.id),
+        loadSessionHistory(playerData.id),
+        loadProgressData(playerData.id),
+      ]);
       
       if (playerData.is_in_season) {
         await checkWeeklyCheckinStatus(playerData.id);
@@ -128,20 +151,21 @@ export default function PlayerHome() {
   };
 
   const loadLatestScores = async (playerId: string) => {
-    // First try fourb_scores table (from Reboot)
+    // Fetch latest two scores to calculate delta
     const { data: fourbData } = await supabase
       .from('fourb_scores')
-      .select('brain_score, body_score, bat_score, ball_score')
+      .select('brain_score, body_score, bat_score, ball_score, created_at')
       .eq('player_id', playerId)
       .order('created_at', { ascending: false })
-      .limit(1);
+      .limit(2);
 
     if (fourbData?.[0]) {
+      const latest = fourbData[0];
       const scores = {
-        brain_score: fourbData[0].brain_score,
-        body_score: fourbData[0].body_score,
-        bat_score: fourbData[0].bat_score,
-        ball_score: fourbData[0].ball_score,
+        brain_score: latest.brain_score,
+        body_score: latest.body_score,
+        bat_score: latest.bat_score,
+        ball_score: latest.ball_score,
       };
       setLatestScores(scores);
       setWeakestLink(getWeakestLink(
@@ -150,24 +174,38 @@ export default function PlayerHome() {
         scores.bat_score,
         scores.ball_score
       ));
+      
+      // Set previous session for delta calculation
+      if (fourbData[1]) {
+        const prev = fourbData[1];
+        setPreviousSession({
+          composite: calculateComposite4B(prev.brain_score, prev.body_score, prev.bat_score, prev.ball_score).composite,
+          brain: prev.brain_score,
+          body: prev.body_score,
+          bat: prev.bat_score,
+          ball: prev.ball_score,
+          date: prev.created_at || '',
+        });
+      }
       return;
     }
 
     // Fallback to sessions table
     const { data } = await supabase
       .from('sessions')
-      .select('four_b_brain, four_b_body, four_b_bat, four_b_ball')
+      .select('four_b_brain, four_b_body, four_b_bat, four_b_ball, created_at')
       .eq('player_id', playerId)
       .not('four_b_brain', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(1);
+      .limit(2);
 
     if (data?.[0]) {
+      const latest = data[0];
       const scores = {
-        brain_score: data[0].four_b_brain,
-        body_score: data[0].four_b_body,
-        bat_score: data[0].four_b_bat,
-        ball_score: data[0].four_b_ball,
+        brain_score: latest.four_b_brain,
+        body_score: latest.four_b_body,
+        bat_score: latest.four_b_bat,
+        ball_score: latest.four_b_ball,
       };
       setLatestScores(scores);
       setWeakestLink(getWeakestLink(
@@ -176,6 +214,72 @@ export default function PlayerHome() {
         scores.bat_score,
         scores.ball_score
       ));
+      
+      if (data[1]) {
+        const prev = data[1];
+        setPreviousSession({
+          composite: calculateComposite4B(prev.four_b_brain, prev.four_b_body, prev.four_b_bat, prev.four_b_ball).composite,
+          brain: prev.four_b_brain,
+          body: prev.four_b_body,
+          bat: prev.four_b_bat,
+          ball: prev.four_b_ball,
+          date: prev.created_at || '',
+        });
+      }
+    }
+  };
+
+  const loadProgressData = async (playerId: string) => {
+    // Get sessions from the last 30 days for progress calculation
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const { data: recentScores } = await supabase
+      .from('fourb_scores')
+      .select('brain_score, body_score, bat_score, ball_score, composite_score, created_at')
+      .eq('player_id', playerId)
+      .gte('created_at', thirtyDaysAgo.toISOString())
+      .order('created_at', { ascending: true });
+
+    if (recentScores && recentScores.length >= 2) {
+      const first = recentScores[0];
+      const last = recentScores[recentScores.length - 1];
+
+      // Calculate 30-day delta
+      const delta30Days = (last.composite_score || 0) - (first.composite_score || 0);
+
+      // Find most improved and lagging B
+      const bScores = [
+        { b: 'Brain', first: first.brain_score, last: last.brain_score },
+        { b: 'Body', first: first.body_score, last: last.body_score },
+        { b: 'Bat', first: first.bat_score, last: last.bat_score },
+        { b: 'Ball', first: first.ball_score, last: last.ball_score },
+      ].map(s => ({
+        ...s,
+        delta: (s.last || 0) - (s.first || 0),
+      }));
+
+      const sorted = [...bScores].sort((a, b) => b.delta - a.delta);
+      const mostImproved = sorted[0].delta > 0 ? { b: sorted[0].b, delta: sorted[0].delta } : null;
+      const lagging = sorted[sorted.length - 1].delta < sorted[0].delta 
+        ? { b: sorted[sorted.length - 1].b, delta: sorted[sorted.length - 1].delta }
+        : null;
+
+      // Get recent sessions for mini chart (limit to 10)
+      const recentSessions = recentScores
+        .slice(-10)
+        .filter(s => s.composite_score !== null)
+        .map(s => ({
+          date: format(new Date(s.created_at || new Date()), 'MMM d'),
+          composite: s.composite_score || 0,
+        }));
+
+      setRecentProgress({
+        delta30Days,
+        mostImproved,
+        lagging,
+        recentSessions,
+      });
     }
   };
 
@@ -330,6 +434,25 @@ export default function PlayerHome() {
               </Badge>
             </div>
           </div>
+          
+          {/* GOATY-style delta line */}
+          {previousSession && latestScores && (
+            <div className="flex items-center gap-2 text-sm mt-2">
+              <span className="text-muted-foreground">Last session: {previousSession.composite}</span>
+              <span className="text-muted-foreground">•</span>
+              <span className={cn(
+                "font-semibold",
+                (compositeData.composite - (previousSession.composite || 0)) > 0 
+                  ? "text-emerald-500" 
+                  : (compositeData.composite - (previousSession.composite || 0)) < 0 
+                  ? "text-red-500" 
+                  : "text-muted-foreground"
+              )}>
+                Change: {(compositeData.composite - (previousSession.composite || 0)) > 0 ? '+' : ''}
+                {compositeData.composite - (previousSession.composite || 0)} points
+              </span>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {/* 4B Score Grid */}
