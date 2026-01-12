@@ -676,61 +676,70 @@ export function UnifiedDataUploadModal({
                 </div>
               </div>
               
-              {/* Kinetic Potential Layer - NEW */}
+              {/* Kinetic Bat Speed Potential - LOCKED DISPLAY */}
               {rebootScores.kineticPotential?.hasProjections && (
                 <div className="border-t border-purple-200 dark:border-purple-800 pt-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <Zap className="h-4 w-4 text-amber-500" />
-                    <span className="text-sm font-medium">Kinetic Potential (Projected)</span>
+                    <span className="text-sm font-medium">Kinetic Bat Speed Potential</span>
                   </div>
                   
-                  {/* Main Bat Speed Projection */}
+                  {/* Main Bat Speed Projection - Prominently Displayed */}
                   <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 p-3 rounded-lg">
-                    <div className="flex items-center justify-center gap-3">
+                    <div className="flex items-center justify-center gap-4">
                       <div className="text-center">
-                        <div className="text-xs text-muted-foreground">Current</div>
                         <div className="text-2xl font-bold text-amber-600">
                           {rebootScores.kineticPotential.estimatedCurrentBatSpeedMph}
                         </div>
                         <div className="text-xs text-muted-foreground">mph</div>
+                        <div className="text-[10px] text-muted-foreground font-medium">Best-case swings today</div>
                       </div>
                       <div className="text-xl text-muted-foreground">→</div>
                       <div className="text-center">
-                        <div className="text-xs text-muted-foreground">Ceiling</div>
                         <div className="text-2xl font-bold text-orange-600">
                           {rebootScores.kineticPotential.projectedBatSpeedCeilingMph}
                         </div>
                         <div className="text-xs text-muted-foreground">mph</div>
+                        <div className="text-[10px] text-muted-foreground font-medium">If energy leaks close</div>
                       </div>
-                      <div className="text-center border-l pl-3 border-orange-200 dark:border-orange-800">
-                        <div className="text-xs text-muted-foreground">Left on Table</div>
+                      <div className="text-center border-l pl-4 border-orange-200 dark:border-orange-800">
                         <div className="text-xl font-bold text-green-600">
                           +{rebootScores.kineticPotential.mphLeftOnTable}
                         </div>
                         <div className="text-xs text-muted-foreground">mph</div>
+                        <div className="text-[10px] text-muted-foreground font-medium">Untapped speed</div>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Derived Metrics */}
+                  {/* Derived Metrics with Tooltips */}
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div className="text-center p-2 bg-muted/50 rounded">
+                    <div className="text-center p-2 bg-muted/50 rounded group relative">
                       <div className="font-medium">{rebootScores.kineticPotential.massAdjustedEnergy}</div>
                       <div className="text-muted-foreground">MAE (J/kg)</div>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-10 w-40 p-1.5 bg-popover text-popover-foreground text-[10px] rounded shadow-lg border">
+                        How much engine output you generate for your body size.
+                      </div>
                     </div>
-                    <div className="text-center p-2 bg-muted/50 rounded">
+                    <div className="text-center p-2 bg-muted/50 rounded group relative">
                       <div className="font-medium">{rebootScores.kineticPotential.leverIndex}</div>
                       <div className="text-muted-foreground">Lever Index</div>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-10 w-40 p-1.5 bg-popover text-popover-foreground text-[10px] rounded shadow-lg border">
+                        How your height affects your bat speed potential.
+                      </div>
                     </div>
-                    <div className="text-center p-2 bg-muted/50 rounded">
+                    <div className="text-center p-2 bg-muted/50 rounded group relative">
                       <div className="font-medium">{Math.round(rebootScores.kineticPotential.efficiency * 100)}%</div>
                       <div className="text-muted-foreground">Efficiency</div>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-10 w-40 p-1.5 bg-popover text-popover-foreground text-[10px] rounded shadow-lg border">
+                        How much of your body's energy actually reaches the hands.
+                      </div>
                     </div>
                   </div>
                   
-                  {/* Caption */}
+                  {/* MPH Left Caption - Exact Language */}
                   <p className="text-xs text-muted-foreground text-center italic">
-                    MPH left on table = speed you're leaking. Close the leak, that's the jump.
+                    Speed that becomes available as energy transfer improves.
                   </p>
                   
                   {/* Warnings if any */}
