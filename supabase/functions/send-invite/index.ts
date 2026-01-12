@@ -6,25 +6,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const INVITE_TYPE_SUBJECTS: Record<string, string> = {
-  diagnostic: "Your Free Swing Diagnostic from Catching Barrels",
-  assessment: "Complete Your KRS Assessment - Catching Barrels",
-  membership: "Welcome to Catching Barrels Membership",
-  beta: "You're Invited to Beta Test Catching Barrels",
-};
-
 const INVITE_TYPE_PATHS: Record<string, string> = {
   diagnostic: "/diagnostic",
   assessment: "/assessment",
   membership: "/pricing",
   beta: "/beta",
-};
-
-const INVITE_SMS_MESSAGES: Record<string, (name: string, url: string) => string> = {
-  diagnostic: (name, url) => `Hey ${name}! 🔥 You're invited to get a free swing diagnostic from Coach Rick. Upload your swing here: ${url}`,
-  assessment: (name, url) => `Hey ${name}! Ready to find out what's really happening in your swing? Complete your KRS Assessment: ${url} - Coach Rick`,
-  membership: (name, url) => `Hey ${name}! You're invited to join Catching Barrels. Get access to all drills, videos, and coaching: ${url} - Coach Rick`,
-  beta: (name, url) => `Hey ${name}! 🔥 You've been invited to beta test Catching Barrels. Jump in and let me know what you think: ${url} - Coach Rick`,
 };
 
 // Format phone number to E.164 format
@@ -46,13 +32,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
-    const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-    const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
+    const ghlWebhookUrl = Deno.env.get("GHL_WEBHOOK_URL");
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { email, player_name, phone, invite_type, delivery_method = "email", resend_invite_id } = await req.json();
+    const { email, player_name, phone, invite_type, resend_invite_id } = await req.json();
 
     // Get the user making the request
     const authHeader = req.headers.get("Authorization")!;
@@ -90,14 +73,9 @@ serve(async (req) => {
       invite = updatedInvite;
     } else {
       // Creating a new invite
-      const method = delivery_method || "email";
-      
-      // Validate required fields based on delivery method
-      if ((method === "email" || method === "both") && !email) {
-        throw new Error("Email is required for email delivery");
-      }
-      if ((method === "sms" || method === "both") && !phone) {
-        throw new Error("Phone number is required for SMS delivery");
+      // Validate required fields
+      if (!email && !phone) {
+        throw new Error("Either email or phone is required");
       }
       if (!invite_type) {
         throw new Error("invite_type is required");
@@ -107,10 +85,10 @@ serve(async (req) => {
         .from("invites")
         .insert({
           email: email || null,
-          phone: phone || null,
+          phone: phone ? formatPhoneNumber(phone) : null,
           player_name: player_name || null,
           invite_type,
-          delivery_method: method,
+          delivery_method: "ghl", // Mark as handled by GoHighLevel
           invited_by: user?.id || null,
         })
         .select()
@@ -125,155 +103,75 @@ serve(async (req) => {
     const invitePath = INVITE_TYPE_PATHS[invite.invite_type] || "/";
     const inviteUrl = `${origin}${invitePath}?invite=${invite.invite_token}`;
 
-    const deliveryMethod = invite.delivery_method || "email";
-    const firstName = invite.player_name?.split(" ")[0] || "there";
-    let smsSent = false;
-    let emailSent = false;
+    // Prepare contact data for GoHighLevel
+    const contactData = {
+      event: "contact_invite",
+      invite_id: invite.id,
+      invite_token: invite.invite_token,
+      invite_type: invite.invite_type,
+      invite_url: inviteUrl,
+      is_resend: isResend,
+      contact: {
+        name: invite.player_name || null,
+        first_name: invite.player_name?.split(" ")[0] || null,
+        last_name: invite.player_name?.split(" ").slice(1).join(" ") || null,
+        email: invite.email || null,
+        phone: invite.phone || null,
+      },
+      created_at: invite.created_at,
+      expires_at: invite.expires_at,
+    };
 
-    // Send SMS via Twilio
-    if ((deliveryMethod === "sms" || deliveryMethod === "both") && invite.phone) {
-      if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
-        console.error("Twilio credentials not configured");
-      } else {
-        try {
-          const formattedPhone = formatPhoneNumber(invite.phone);
-          const smsMessage = INVITE_SMS_MESSAGES[invite.invite_type]?.(firstName, inviteUrl) 
-            || `Hey ${firstName}! You're invited to Catching Barrels: ${inviteUrl} - Coach Rick`;
+    let ghlSent = false;
+    let ghlError: string | null = null;
 
-          const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
-          const twilioResponse = await fetch(twilioUrl, {
-            method: "POST",
-            headers: {
-              "Authorization": `Basic ${btoa(`${twilioAccountSid}:${twilioAuthToken}`)}`,
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-              From: twilioPhoneNumber,
-              To: formattedPhone,
-              Body: smsMessage,
-            }),
-          });
-
-          const twilioData = await twilioResponse.json();
-
-          if (!twilioResponse.ok) {
-            console.error("Twilio error:", twilioData);
-          } else {
-            console.log("SMS sent successfully to:", formattedPhone);
-            smsSent = true;
-
-            // Log to messages table
-            await supabase.from("messages").insert({
-              phone_number: formattedPhone,
-              direction: "outbound",
-              body: smsMessage,
-              twilio_sid: twilioData.sid,
-              status: "sent",
-            });
-
-            // Log to sms_logs
-            await supabase.from("sms_logs").insert({
-              phone_number: formattedPhone,
-              trigger_name: `invite_${invite.invite_type}`,
-              message_sent: smsMessage,
-              status: "sent",
-              twilio_sid: twilioData.sid,
-            });
-          }
-        } catch (smsError) {
-          console.error("Failed to send SMS:", smsError);
-        }
-      }
-    }
-
-    // Send email via Resend
-    if ((deliveryMethod === "email" || deliveryMethod === "both") && invite.email && resendApiKey) {
-      const subject = INVITE_TYPE_SUBJECTS[invite.invite_type] || "You're Invited to Catching Barrels";
-      const playerGreeting = invite.player_name ? `Hi ${invite.player_name.split(" ")[0]},` : "Hi there,";
-
-      const emailHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .logo { font-size: 24px; font-weight: bold; color: #dc2626; }
-            .content { background: #f8f9fa; border-radius: 12px; padding: 30px; margin-bottom: 20px; }
-            .button { display: inline-block; background: linear-gradient(to right, #dc2626, #ea580c); color: white !important; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; }
-            .footer { text-align: center; font-size: 12px; color: #666; margin-top: 30px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="logo">⚾ Catching Barrels</div>
-            </div>
-            <div class="content">
-              <p>${playerGreeting}</p>
-              ${invite.invite_type === 'diagnostic' ? `
-                <p>You've been invited to get a <strong>free swing diagnostic</strong> from Coach Rick at Catching Barrels.</p>
-                <p>Upload your swing video and get personalized feedback on what's holding you back.</p>
-              ` : invite.invite_type === 'assessment' ? `
-                <p>You're invited to complete your <strong>KRS Assessment</strong> with Catching Barrels.</p>
-                <p>This comprehensive swing analysis will identify your biggest opportunities for improvement.</p>
-              ` : invite.invite_type === 'membership' ? `
-                <p>You've been invited to join the <strong>Catching Barrels Membership</strong>.</p>
-                <p>Get ongoing coaching, drills, and personalized training to take your swing to the next level.</p>
-              ` : `
-                <p>You've been invited to <strong>beta test</strong> Catching Barrels!</p>
-                <p>Get early access to all features and help shape the future of hitting development.</p>
-              `}
-              <p style="text-align: center; margin-top: 25px;">
-                <a href="${inviteUrl}" class="button">Get Started →</a>
-              </p>
-            </div>
-            <div class="footer">
-              <p>Questions? Reply to this email or text Coach Rick.</p>
-              <p>© ${new Date().getFullYear()} Catching Barrels. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-
+    // Send contact data to GoHighLevel webhook
+    if (ghlWebhookUrl) {
       try {
-        const emailResponse = await fetch("https://api.resend.com/emails", {
+        console.log("Sending contact to GoHighLevel:", contactData);
+        
+        const ghlResponse = await fetch(ghlWebhookUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${resendApiKey}`,
           },
-          body: JSON.stringify({
-            from: "Catching Barrels <invites@catchingbarrels.com>",
-            to: [invite.email],
-            subject: isResend ? `[Reminder] ${subject}` : subject,
-            html: emailHtml,
-          }),
+          body: JSON.stringify(contactData),
         });
 
-        if (!emailResponse.ok) {
-          const errorData = await emailResponse.text();
-          console.error("Resend API error:", errorData);
+        if (!ghlResponse.ok) {
+          const errorText = await ghlResponse.text();
+          console.error("GHL webhook error:", errorText);
+          ghlError = `GHL webhook returned ${ghlResponse.status}`;
         } else {
-          console.log("Email sent successfully to:", invite.email);
-          emailSent = true;
+          console.log("Contact sent to GoHighLevel successfully");
+          ghlSent = true;
         }
-      } catch (emailError) {
-        console.error("Failed to send email:", emailError);
-        // Don't throw - invite was created, email just failed
+      } catch (webhookError) {
+        console.error("Failed to send to GoHighLevel:", webhookError);
+        ghlError = webhookError instanceof Error ? webhookError.message : "Unknown webhook error";
       }
+    } else {
+      console.warn("GHL_WEBHOOK_URL not configured - invite created but not sent to GHL");
+      ghlError = "GHL_WEBHOOK_URL not configured";
     }
+
+    // Log the webhook attempt to ghl_webhook_logs
+    await supabase.from("ghl_webhook_logs").insert({
+      event_type: "contact_invite",
+      player_id: null,
+      session_id: null,
+      payload: contactData,
+      status: ghlSent ? "sent" : "error",
+      error_message: ghlError,
+    });
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         invite_id: invite.id,
         invite_url: inviteUrl,
-        sms_sent: smsSent,
-        email_sent: emailSent,
+        ghl_sent: ghlSent,
+        ghl_error: ghlError,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
