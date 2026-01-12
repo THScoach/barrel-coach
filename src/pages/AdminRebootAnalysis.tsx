@@ -54,11 +54,14 @@ interface FourBScores {
   core_flow_score: number;
   upper_flow_score: number;
   weakest_link: string;
-  pelvis_velocity: number;
-  torso_velocity: number;
-  x_factor: number;
+  // Energy-based metrics (ME-first)
+  legs_ke: number;
+  torso_ke: number;
+  arms_ke: number;
   bat_ke: number;
-  transfer_efficiency: number;
+  total_ke: number;
+  legs_to_torso_transfer: number;
+  torso_to_arms_transfer: number;
   consistency_cv: number;
   consistency_grade: string;
 }
@@ -571,35 +574,48 @@ export default function AdminRebootAnalysis() {
                   />
                 </div>
 
-                {/* Detailed Metrics */}
+                {/* Energy Transfer (Primary) */}
                 <Card className="bg-slate-900/80 border-slate-800">
                   <CardHeader>
-                    <CardTitle className="text-white">Biomechanical Details</CardTitle>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-orange-500" />
+                      Energy Transfer
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div className="space-y-2">
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Pelvis Velocity</span>
-                          <span className="font-medium text-white">{results.pelvis_velocity}°/s</span>
+                          <span className="text-slate-400">Legs KE</span>
+                          <span className="font-medium text-white">{results.legs_ke || '--'} J</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Torso Velocity</span>
-                          <span className="font-medium text-white">{results.torso_velocity}°/s</span>
+                          <span className="text-slate-400">Torso KE</span>
+                          <span className="font-medium text-white">{results.torso_ke || '--'} J</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">X-Factor</span>
-                          <span className="font-medium text-white">{results.x_factor}°</span>
+                          <span className="text-slate-400">Arms KE</span>
+                          <span className="font-medium text-white">{results.arms_ke || '--'} J</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Bat KE</span>
+                          <span className="font-medium text-white">
+                            {results.bat_ke ? `${results.bat_ke} J` : 'Not Measured'}
+                          </span>
                         </div>
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Bat KE</span>
-                          <span className="font-medium text-white">{results.bat_ke} J</span>
+                          <span className="text-slate-400">Total KE</span>
+                          <span className="font-medium text-white">{results.total_ke || '--'} J</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Transfer Eff.</span>
-                          <span className="font-medium text-white">{results.transfer_efficiency}%</span>
+                          <span className="text-slate-400">Legs → Torso</span>
+                          <span className="font-medium text-white">{results.legs_to_torso_transfer || '--'}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Torso → Arms</span>
+                          <span className="font-medium text-white">{results.torso_to_arms_transfer || '--'}%</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-400">Consistency</span>
@@ -607,6 +623,9 @@ export default function AdminRebootAnalysis() {
                         </div>
                       </div>
                     </div>
+                    <p className="text-xs text-blue-400 text-center mt-4 pt-3 border-t border-slate-700">
+                      This report measures how energy moves through your body — not joint angles or bat sensors.
+                    </p>
                   </CardContent>
                 </Card>
 

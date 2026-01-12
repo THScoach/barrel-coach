@@ -7,10 +7,28 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trash2, Activity } from "lucide-react";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Loader2, Trash2, Activity, Zap, Info } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getGrade } from "@/lib/reboot-parser";
+import { Json } from "@/integrations/supabase/types";
+
+interface MEDataRow {
+  legs_kinetic_energy?: number;
+  torso_kinetic_energy?: number;
+  arms_kinetic_energy?: number;
+  larm_kinetic_energy?: number;
+  rarm_kinetic_energy?: number;
+  bat_kinetic_energy?: number;
+  total_kinetic_energy?: number;
+  lowerhalf_kinetic_energy?: number;
+}
 
 interface RebootUpload {
   id: string;
@@ -33,6 +51,7 @@ interface RebootUpload {
   weakest_link: string | null;
   ik_file_uploaded: boolean;
   me_file_uploaded: boolean;
+  me_data?: Json | null;
 }
 
 interface RebootSessionDetailProps {
@@ -40,6 +59,68 @@ interface RebootSessionDetailProps {
   onOpenChange: (open: boolean) => void;
   session: RebootUpload | null;
   onDelete: () => void;
+}
+
+// Extract peak KE values from ME data
+function extractMEMetrics(meData: Json | null | undefined): {
+  legsKE: number | null;
+  torsoKE: number | null;
+  armsKE: number | null;
+  batKE: number | null;
+  totalKE: number | null;
+  legsToTorsoTransfer: number | null;
+  torsoToArmsTransfer: number | null;
+} {
+  if (!meData || !Array.isArray(meData)) {
+    return {
+      legsKE: null,
+      torsoKE: null,
+      armsKE: null,
+      batKE: null,
+      totalKE: null,
+      legsToTorsoTransfer: null,
+      torsoToArmsTransfer: null,
+    };
+  }
+
+  const rows = meData as MEDataRow[];
+  
+  // Calculate peak values across all frames
+  let maxLegsKE = 0;
+  let maxTorsoKE = 0;
+  let maxArmsKE = 0;
+  let maxBatKE = 0;
+  let maxTotalKE = 0;
+
+  for (const row of rows) {
+    const legsKE = row.legs_kinetic_energy ?? row.lowerhalf_kinetic_energy ?? 0;
+    const torsoKE = row.torso_kinetic_energy ?? 0;
+    // Handle both combined arms_kinetic_energy and separate larm/rarm
+    const armsKE = row.arms_kinetic_energy || 
+      ((row.larm_kinetic_energy ?? 0) + (row.rarm_kinetic_energy ?? 0));
+    const batKE = row.bat_kinetic_energy ?? 0;
+    const totalKE = row.total_kinetic_energy ?? (legsKE + torsoKE + armsKE + batKE);
+
+    maxLegsKE = Math.max(maxLegsKE, legsKE);
+    maxTorsoKE = Math.max(maxTorsoKE, torsoKE);
+    maxArmsKE = Math.max(maxArmsKE, armsKE);
+    maxBatKE = Math.max(maxBatKE, batKE);
+    maxTotalKE = Math.max(maxTotalKE, totalKE);
+  }
+
+  // Calculate transfer efficiencies
+  const legsToTorsoTransfer = maxLegsKE > 0 ? Math.round((maxTorsoKE / maxLegsKE) * 100) : null;
+  const torsoToArmsTransfer = maxTorsoKE > 0 ? Math.round((maxArmsKE / maxTorsoKE) * 100) : null;
+
+  return {
+    legsKE: maxLegsKE > 0 ? Math.round(maxLegsKE) : null,
+    torsoKE: maxTorsoKE > 0 ? Math.round(maxTorsoKE) : null,
+    armsKE: maxArmsKE > 0 ? Math.round(maxArmsKE) : null,
+    batKE: maxBatKE > 0 ? Math.round(maxBatKE) : null,
+    totalKE: maxTotalKE > 0 ? Math.round(maxTotalKE) : null,
+    legsToTorsoTransfer,
+    torsoToArmsTransfer,
+  };
 }
 
 export function RebootSessionDetail({
@@ -99,6 +180,18 @@ export function RebootSessionDetail({
       setIsDeleting(false);
     }
   };
+
+  // Extract ME-based energy metrics
+  const meMetrics = extractMEMetrics(session.me_data);
+
+  // Format KE display with "Not Measured" fallback
+  const formatKE = (value: number | null, isBat: boolean = false) => {
+    if (value === null || value === 0) {
+      if (isBat) return "Not Measured";
+      return "--";
+    }
+    return `${value} J`;
+  };
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -141,62 +234,118 @@ export function RebootSessionDetail({
             </div>
           )}
           
-          {/* Biomechanics Metrics */}
+          {/* ENERGY TRANSFER (PRIMARY SECTION) - Momentum-Based */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-orange-500" />
+              <h4 className="font-medium text-sm">ENERGY TRANSFER</h4>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <div className="text-xs text-muted-foreground">Legs KE</div>
+                <div className="text-lg font-bold">{formatKE(meMetrics.legsKE)}</div>
+              </div>
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <div className="text-xs text-muted-foreground">Torso KE</div>
+                <div className="text-lg font-bold">{formatKE(meMetrics.torsoKE)}</div>
+              </div>
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <div className="text-xs text-muted-foreground">Arms KE</div>
+                <div className="text-lg font-bold">{formatKE(meMetrics.armsKE)}</div>
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-3 bg-muted/50 rounded-lg cursor-help">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        Bat KE
+                        {(meMetrics.batKE === null || meMetrics.batKE === 0) && (
+                          <Info className="h-3 w-3" />
+                        )}
+                      </div>
+                      <div className="text-lg font-bold">{formatKE(meMetrics.batKE, true)}</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Bat sensors not required for this analysis.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <div className="p-3 bg-muted/30 rounded-lg text-center">
+              <div className="text-xs text-muted-foreground">Total System Energy</div>
+              <div className="text-xl font-bold">{formatKE(meMetrics.totalKE)}</div>
+            </div>
+          </div>
+
+          {/* TRANSFER EFFICIENCY (SECONDARY) */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-3">
-              <h4 className="font-medium text-sm text-muted-foreground">BIOMECHANICS</h4>
+              <h4 className="font-medium text-sm text-muted-foreground">TRANSFER EFFICIENCY</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Pelvis Velocity:</span>
-                  <span className="font-medium">{session.pelvis_velocity ?? '--'}°/s</span>
+                  <span className="text-muted-foreground">Legs → Torso:</span>
+                  <span className="font-medium">
+                    {meMetrics.legsToTorsoTransfer !== null ? `${meMetrics.legsToTorsoTransfer}%` : '--'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Torso Velocity:</span>
-                  <span className="font-medium">{session.torso_velocity ?? '--'}°/s</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">X-Factor:</span>
-                  <span className="font-medium">{session.x_factor ?? '--'}°</span>
+                  <span className="text-muted-foreground">Torso → Arms:</span>
+                  <span className="font-medium">
+                    {meMetrics.torsoToArmsTransfer !== null ? `${meMetrics.torsoToArmsTransfer}%` : '--'}
+                  </span>
                 </div>
               </div>
             </div>
             
             <div className="space-y-3">
-              <h4 className="font-medium text-sm text-muted-foreground">ENERGY TRANSFER</h4>
+              <h4 className="font-medium text-sm text-muted-foreground">CONSISTENCY</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Bat KE:</span>
-                  <span className="font-medium">{session.bat_ke ?? '--'} J</span>
+                  <span className="text-muted-foreground">CV%:</span>
+                  <span className="font-medium">{session.consistency_cv ?? '--'}%</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Transfer Eff:</span>
-                  <span className="font-medium">{session.transfer_efficiency ?? '--'}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Consistency:</span>
-                  <span className="font-medium">{session.consistency_cv ?? '--'}% CV</span>
+                  <span className="text-muted-foreground">Grade:</span>
+                  <span className="font-medium">{session.consistency_grade ?? '--'}</span>
                 </div>
               </div>
             </div>
           </div>
           
-          {/* Sub-Scores */}
+          {/* SUB-SCORES (Energy-Based) */}
           <div className="space-y-3">
-            <h4 className="font-medium text-sm text-muted-foreground">SUB-SCORES</h4>
+            <h4 className="font-medium text-sm text-muted-foreground">FLOW SUB-SCORES</h4>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: 'Ground Flow', score: session.ground_flow_score },
-                { label: 'Core Flow', score: session.core_flow_score },
-                { label: 'Upper Flow', score: session.upper_flow_score },
-              ].map(({ label, score }) => (
-                <div key={label} className="p-2 bg-muted rounded-lg text-center">
-                  <div className="text-xs text-muted-foreground">{label}</div>
-                  <div className={`text-lg font-bold ${getScoreColor(score)}`}>
-                    {score ?? '--'}
-                  </div>
-                </div>
+                { label: 'Ground Flow', score: session.ground_flow_score, desc: 'Legs KE production' },
+                { label: 'Core Flow', score: session.core_flow_score, desc: 'Legs → Torso transfer' },
+                { label: 'Upper Flow', score: session.upper_flow_score, desc: 'Arms + delivery' },
+              ].map(({ label, score, desc }) => (
+                <TooltipProvider key={label}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="p-2 bg-muted rounded-lg text-center cursor-help">
+                        <div className="text-xs text-muted-foreground">{label}</div>
+                        <div className={`text-lg font-bold ${getScoreColor(score)}`}>
+                          {score ?? '--'}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{desc}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               ))}
             </div>
+          </div>
+
+          {/* Coach-Facing Language */}
+          <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+            <p className="text-xs text-blue-400 text-center">
+              This report measures how energy moves through your body — not joint angles or bat sensors.
+            </p>
           </div>
           
           {/* File Status */}
