@@ -32,7 +32,10 @@ export function AdminHeader() {
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-900/95 backdrop-blur-lg supports-[backdrop-filter]:bg-slate-900/80">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-8">
-          <Logo size="md" />
+          <div className="flex items-center gap-2">
+            <Logo size="md" />
+            <span className="hidden md:inline font-bold text-white">Rick Lab</span>
+          </div>
           
           {/* Desktop Nav - hidden on mobile */}
           <nav className="hidden md:flex items-center gap-1">

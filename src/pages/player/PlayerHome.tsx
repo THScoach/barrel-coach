@@ -4,30 +4,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDistanceToNow } from "date-fns";
 import { 
-  TrendingUp, 
-  Zap, 
   Target, 
   ChevronRight,
   MessageSquare,
-  BarChart3,
-  Dumbbell,
   Upload,
   Calendar,
   CheckCircle2,
   Clock,
-  Video
+  Video,
+  Zap,
+  AlertTriangle,
+  Play
 } from "lucide-react";
 import { VideoSwingUploadModal } from "@/components/video-analyzer";
-
-interface ActivityItem {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  date: Date;
-}
+import { calculateComposite4B, getGrade, getWeakestLink } from "@/lib/fourb-composite";
 
 interface LatestScores {
   brain_score: number | null;
@@ -36,22 +27,25 @@ interface LatestScores {
   ball_score: number | null;
 }
 
+interface NextAction {
+  id: string;
+  type: 'drill' | 'upload' | 'retest' | 'checkin';
+  title: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+  link?: string;
+  action?: () => void;
+}
+
 export default function PlayerHome() {
   const [player, setPlayer] = useState<any>(null);
-  const [stats, setStats] = useState({
-    latestBatSpeed: null as number | null,
-    latestExitVelo: null as number | null,
-    drillsThisWeek: 0,
-    dayStreak: 0,
-  });
-  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
-  const [unreadMessages, setUnreadMessages] = useState(0);
   const [latestScores, setLatestScores] = useState<LatestScores | null>(null);
   const [loading, setLoading] = useState(true);
   const [isInSeason, setIsInSeason] = useState(false);
   const [weeklyCheckinDue, setWeeklyCheckinDue] = useState(false);
-  const [lastCheckinDate, setLastCheckinDate] = useState<string | null>(null);
   const [videoUploadOpen, setVideoUploadOpen] = useState(false);
+  const [nextActions, setNextActions] = useState<NextAction[]>([]);
+  const [weakestLink, setWeakestLink] = useState<string | null>(null);
 
   useEffect(() => {
     loadPlayerData();
@@ -64,7 +58,6 @@ export default function PlayerHome() {
       return;
     }
 
-    // Fetch player data by email (since players table might not have user_id yet)
     const { data: playerData } = await supabase
       .from('players')
       .select('*')
@@ -74,14 +67,14 @@ export default function PlayerHome() {
     if (playerData) {
       setPlayer(playerData);
       setIsInSeason(playerData.is_in_season || false);
-      await loadStats(playerData.id);
-      await loadRecentActivity(playerData.id);
       await loadLatestScores(playerData.id);
       
-      // Check weekly check-in status
       if (playerData.is_in_season) {
         await checkWeeklyCheckinStatus(playerData.id);
       }
+      
+      // Build next actions based on player state
+      buildNextActions(playerData);
     }
     setLoading(false);
   };
@@ -102,49 +95,38 @@ export default function PlayerHome() {
 
     if (report?.status === 'completed') {
       setWeeklyCheckinDue(false);
-      setLastCheckinDate(report.completed_at);
     } else {
       setWeeklyCheckinDue(true);
     }
   };
 
-  const loadStats = async (playerId: string) => {
-    // Get latest launch monitor data for exit velo
-    const { data: launchData } = await supabase
-      .from('launch_monitor_sessions')
-      .select('avg_exit_velo')
-      .eq('player_id', playerId)
-      .order('session_date', { ascending: false })
-      .limit(1);
-
-    setStats({
-      latestBatSpeed: null, // Would come from bat sensor data
-      latestExitVelo: launchData?.[0]?.avg_exit_velo || null,
-      drillsThisWeek: 0,
-      dayStreak: 0,
-    });
-  };
-
-  const loadRecentActivity = async (playerId: string) => {
-    const { data: sessions } = await supabase
-      .from('sessions')
-      .select('id, created_at, product_type, composite_score')
+  const loadLatestScores = async (playerId: string) => {
+    // First try fourb_scores table (from Reboot)
+    const { data: fourbData } = await supabase
+      .from('fourb_scores')
+      .select('brain_score, body_score, bat_score, ball_score')
       .eq('player_id', playerId)
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(1);
 
-    const activity: ActivityItem[] = (sessions || []).map(s => ({
-      id: s.id,
-      type: 'analysis',
-      title: 'Swing Analysis',
-      description: `Score: ${s.composite_score || 'Pending'}`,
-      date: new Date(s.created_at!),
-    }));
+    if (fourbData?.[0]) {
+      const scores = {
+        brain_score: fourbData[0].brain_score,
+        body_score: fourbData[0].body_score,
+        bat_score: fourbData[0].bat_score,
+        ball_score: fourbData[0].ball_score,
+      };
+      setLatestScores(scores);
+      setWeakestLink(getWeakestLink(
+        scores.brain_score,
+        scores.body_score,
+        scores.bat_score,
+        scores.ball_score
+      ));
+      return;
+    }
 
-    setRecentActivity(activity);
-  };
-
-  const loadLatestScores = async (playerId: string) => {
+    // Fallback to sessions table
     const { data } = await supabase
       .from('sessions')
       .select('four_b_brain, four_b_body, four_b_bat, four_b_ball')
@@ -154,23 +136,73 @@ export default function PlayerHome() {
       .limit(1);
 
     if (data?.[0]) {
-      setLatestScores({
+      const scores = {
         brain_score: data[0].four_b_brain,
         body_score: data[0].four_b_body,
         bat_score: data[0].four_b_bat,
         ball_score: data[0].four_b_ball,
-      });
+      };
+      setLatestScores(scores);
+      setWeakestLink(getWeakestLink(
+        scores.brain_score,
+        scores.body_score,
+        scores.bat_score,
+        scores.ball_score
+      ));
     }
   };
 
-  const getGrade = (score: number | null) => {
-    if (!score) return { label: '--', variant: 'secondary' as const };
-    if (score >= 70) return { label: 'Plus-Plus', variant: 'default' as const };
-    if (score >= 60) return { label: 'Plus', variant: 'default' as const };
-    if (score >= 55) return { label: 'Above Avg', variant: 'secondary' as const };
-    if (score >= 45) return { label: 'Average', variant: 'secondary' as const };
-    if (score >= 40) return { label: 'Below Avg', variant: 'outline' as const };
-    return { label: 'Developing', variant: 'outline' as const };
+  const buildNextActions = (playerData: any) => {
+    const actions: NextAction[] = [];
+    
+    // Always suggest uploading if they haven't recently
+    actions.push({
+      id: 'upload',
+      type: 'upload',
+      title: 'Upload New Swings',
+      description: 'Keep me updated on your progress',
+      priority: 'high',
+      action: () => setVideoUploadOpen(true)
+    });
+
+    // If weakest link identified, suggest drill
+    if (weakestLink) {
+      const drillMap: Record<string, { title: string; desc: string }> = {
+        body: { title: 'Ground Flow Drill', desc: 'Build from the ground up' },
+        bat: { title: 'Connection Drill', desc: 'Tighten your transfer' },
+        ball: { title: 'Exit Velo Session', desc: 'Focus on barrel awareness' },
+        brain: { title: 'Timing Drill', desc: 'Sharpen your approach' }
+      };
+      const drill = drillMap[weakestLink] || { title: 'Review Drills', desc: 'Fix your weak link' };
+      actions.push({
+        id: 'drill',
+        type: 'drill',
+        title: drill.title,
+        description: drill.desc,
+        priority: 'medium',
+        link: '/player/drills'
+      });
+    }
+
+    setNextActions(actions.slice(0, 3)); // Max 3 actions
+  };
+
+  const getCompositeData = () => {
+    if (!latestScores) return { composite: 0, grade: 'No Data' };
+    return calculateComposite4B(
+      latestScores.brain_score,
+      latestScores.body_score,
+      latestScores.bat_score,
+      latestScores.ball_score
+    );
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'border-red-500/50 bg-red-500/5';
+      case 'medium': return 'border-yellow-500/50 bg-yellow-500/5';
+      default: return 'border-slate-700';
+    }
   };
 
   if (loading) {
@@ -181,46 +213,38 @@ export default function PlayerHome() {
     );
   }
 
+  const compositeData = getCompositeData();
+
   return (
     <div className="container mx-auto px-4 py-6 space-y-6 md:ml-56">
-      {/* Dashboard Header */}
+      {/* Header */}
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold">
-          Your Game
-        </h1>
+        <h1 className="text-2xl font-bold">My Swing Lab</h1>
         <p className="text-muted-foreground">
-          Trends matter more than one swing.
+          Your current state. Your next step.
         </p>
       </div>
 
       {/* Weekly Check-In Card (for in-season players) */}
-      {isInSeason && (
-        <Card className={weeklyCheckinDue ? "border-accent bg-accent/5" : ""}>
+      {isInSeason && weeklyCheckinDue && (
+        <Card className="border-accent bg-accent/5">
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {weeklyCheckinDue ? (
-                  <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-accent" />
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
-                  </div>
-                )}
+                <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-accent" />
+                </div>
                 <div>
                   <h3 className="font-semibold">Weekly Check-In</h3>
                   <p className="text-sm text-muted-foreground">
-                    {weeklyCheckinDue 
-                      ? "Coach Rick wants to hear from you" 
-                      : "Complete for this week"}
+                    How'd last week go?
                   </p>
                 </div>
               </div>
-              <Button asChild variant={weeklyCheckinDue ? "default" : "outline"}>
+              <Button asChild>
                 <Link to="/player/weekly-checkin">
                   <Calendar className="w-4 h-4 mr-2" />
-                  {weeklyCheckinDue ? "Start" : "View"}
+                  Start
                 </Link>
               </Button>
             </div>
@@ -228,104 +252,111 @@ export default function PlayerHome() {
         </Card>
       )}
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card>
-          <CardContent className="pt-4 text-center">
-            <Zap className="h-5 w-5 mx-auto mb-1 text-primary" />
-            <div className="text-2xl font-bold text-primary">
-              {stats.latestBatSpeed?.toFixed(1) || '--'}
+      {/* Catch Barrel Score Card */}
+      <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Target className="h-5 w-5 text-primary" />
+                Catch Barrel Score
+              </CardTitle>
+              <CardDescription>Your current movement pattern</CardDescription>
             </div>
-            <p className="text-xs text-muted-foreground">Bat Speed (mph)</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 text-center">
-            <Target className="h-5 w-5 mx-auto mb-1 text-primary" />
-            <div className="text-2xl font-bold text-primary">
-              {stats.latestExitVelo?.toFixed(1) || '--'}
+            <div className="text-right">
+              <div className="text-4xl font-black text-primary">
+                {compositeData.composite || '--'}
+              </div>
+              <Badge variant="outline" className="mt-1">
+                {compositeData.grade}
+              </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">Exit Velo (mph)</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 text-center">
-            <Dumbbell className="h-5 w-5 mx-auto mb-1 text-primary" />
-            <p className="text-2xl font-bold">{stats.drillsThisWeek}</p>
-            <p className="text-xs text-muted-foreground">Drills This Week</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 text-center">
-            <TrendingUp className="h-5 w-5 mx-auto mb-1 text-primary" />
-            <p className="text-2xl font-bold">{stats.dayStreak}</p>
-            <p className="text-xs text-muted-foreground">Day Streak</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Current Status Card */}
-      {latestScores && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Where You Are Right Now</CardTitle>
-            <CardDescription>This reflects your current movement pattern — not one swing.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-4 gap-2 text-center">
-              <div className="space-y-1">
-                <p className="text-2xl font-bold">{latestScores.brain_score || '--'}</p>
-                <p className="text-xs text-muted-foreground">Brain</p>
-                <Badge variant={getGrade(latestScores.brain_score).variant} className="text-xs">
-                  {getGrade(latestScores.brain_score).label}
-                </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* 4B Score Grid */}
+          {latestScores ? (
+            <>
+              <div className="grid grid-cols-4 gap-2 text-center mb-4">
+                {[
+                  { key: 'brain', label: 'Brain', score: latestScores.brain_score },
+                  { key: 'body', label: 'Body', score: latestScores.body_score },
+                  { key: 'bat', label: 'Bat', score: latestScores.bat_score },
+                  { key: 'ball', label: 'Ball', score: latestScores.ball_score },
+                ].map(item => (
+                  <div 
+                    key={item.key} 
+                    className={`p-3 rounded-lg ${weakestLink === item.key ? 'bg-red-500/10 border border-red-500/30' : 'bg-muted/50'}`}
+                  >
+                    <p className="text-2xl font-bold">{item.score || '--'}</p>
+                    <p className="text-xs text-muted-foreground">{item.label}</p>
+                    {weakestLink === item.key && (
+                      <Badge variant="destructive" className="text-[10px] mt-1">
+                        Focus
+                      </Badge>
+                    )}
+                  </div>
+                ))}
               </div>
-              <div className="space-y-1">
-                <p className="text-2xl font-bold">{latestScores.body_score || '--'}</p>
-                <p className="text-xs text-muted-foreground">Body</p>
-                <Badge variant={getGrade(latestScores.body_score).variant} className="text-xs">
-                  {getGrade(latestScores.body_score).label}
-                </Badge>
-              </div>
-              <div className="space-y-1">
-                <p className="text-2xl font-bold">{latestScores.bat_score || '--'}</p>
-                <p className="text-xs text-muted-foreground">Bat</p>
-                <Badge variant={getGrade(latestScores.bat_score).variant} className="text-xs">
-                  {getGrade(latestScores.bat_score).label}
-                </Badge>
-              </div>
-              <div className="space-y-1">
-                <p className="text-2xl font-bold">{latestScores.ball_score || '--'}</p>
-                <p className="text-xs text-muted-foreground">Ball</p>
-                <Badge variant={getGrade(latestScores.ball_score).variant} className="text-xs">
-                  {getGrade(latestScores.ball_score).label}
-                </Badge>
-              </div>
-            </div>
-            <div className="mt-4">
               <Button variant="link" className="p-0 h-auto text-sm" asChild>
-                <Link to="/player/data">View detailed breakdown →</Link>
+                <Link to="/player/data">View full breakdown →</Link>
+              </Button>
+            </>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-muted-foreground mb-3">No scores yet</p>
+              <Button onClick={() => setVideoUploadOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Your First Swing
               </Button>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Next Actions */}
+      {nextActions.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Zap className="h-5 w-5 text-yellow-500" />
+              Next Actions
+            </CardTitle>
+            <CardDescription>1-3 things to do right now</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {nextActions.map(action => (
+              <div 
+                key={action.id}
+                className={`p-4 rounded-lg border ${getPriorityColor(action.priority)} cursor-pointer hover:bg-muted/50 transition-colors`}
+                onClick={() => action.action ? action.action() : null}
+              >
+                {action.link ? (
+                  <Link to={action.link} className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{action.title}</p>
+                      <p className="text-sm text-muted-foreground">{action.description}</p>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </Link>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{action.title}</p>
+                      <p className="text-sm text-muted-foreground">{action.description}</p>
+                    </div>
+                    {action.type === 'upload' && <Upload className="h-5 w-5 text-primary" />}
+                    {action.type === 'drill' && <Play className="h-5 w-5 text-primary" />}
+                  </div>
+                )}
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
 
-      {/* Next Focus Card */}
-      <Card className="border-primary/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Fix This First</CardTitle>
-          <CardDescription>One adjustment. One priority. That's how momentum builds.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Upload swings to get your personalized focus area.
-          </p>
-        </CardContent>
-      </Card>
-
       {/* Upload Section */}
-      <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Video className="h-5 w-5 text-primary" />
@@ -336,10 +367,10 @@ export default function PlayerHome() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button onClick={() => setVideoUploadOpen(true)}>
               <Upload className="h-4 w-4 mr-2" />
-              Upload Swing Videos
+              Upload Videos
             </Button>
             <Button variant="outline" asChild>
               <Link to="/player/data?tab=video">
@@ -351,103 +382,32 @@ export default function PlayerHome() {
         </CardContent>
       </Card>
 
-      {/* Two Column: Activity + Actions */}
-      <div className="grid md:grid-cols-2 gap-4">
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentActivity.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No recent activity yet.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {recentActivity.map(item => (
-                  <div key={item.id} className="flex items-center gap-3 text-sm">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <BarChart3 className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{item.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(item.date, { addSuffix: true })}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button variant="outline" className="w-full justify-between" asChild>
-              <Link to="/player/data">
-                <span className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  View My Progress
-                </span>
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-between" asChild>
-              <Link to="/player/drills">
-                <span className="flex items-center gap-2">
-                  <Dumbbell className="h-4 w-4" />
-                  Today's Drills
-                </span>
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-between" asChild>
-              <Link to="/player/messages">
-                <span className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" />
-                  Message Coach
-                </span>
-                {unreadMessages > 0 && (
-                  <Badge variant="destructive" className="mr-2">{unreadMessages}</Badge>
-                )}
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button className="w-full" asChild>
-              <Link to="/player/new-session">
-                <Upload className="h-4 w-4 mr-2" />
-                Start New Session
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Coach Feedback (if unread) */}
-      {unreadMessages > 0 && (
-        <Card className="border-primary">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-primary" />
-              New Message from Coach
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              You have {unreadMessages} unread message{unreadMessages > 1 ? 's' : ''}.
-            </p>
-            <Button variant="link" className="p-0 h-auto text-sm mt-2" asChild>
-              <Link to="/player/messages">Read messages →</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Quick Links</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Button variant="outline" className="w-full justify-between" asChild>
+            <Link to="/player/data">
+              <span className="flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                My Scores & Progress
+              </span>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button variant="outline" className="w-full justify-between" asChild>
+            <Link to="/player/messages">
+              <span className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Message Coach Rick
+              </span>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Video Upload Modal */}
       {player && (
@@ -458,7 +418,8 @@ export default function PlayerHome() {
           playerName={player.name || 'Player'}
           source="player_upload"
           onSuccess={() => {
-            // Could navigate to the video analyzer tab
+            // Refresh data after upload
+            loadPlayerData();
           }}
         />
       )}
