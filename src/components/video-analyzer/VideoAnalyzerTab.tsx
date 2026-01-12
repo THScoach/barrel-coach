@@ -1,3 +1,14 @@
+/**
+ * SWING ANALYZER TAB
+ * 
+ * Displays video_swing_sessions for a specific player.
+ * This is for HIGH-SPEED SWING ANALYSIS (120-240fps) tied to player performance.
+ * 
+ * DO NOT confuse with drill_videos which are instructional content.
+ * This component ONLY queries: video_swing_sessions, video_swings
+ * 
+ * @see src/lib/video-types.ts for architecture documentation
+ */
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
