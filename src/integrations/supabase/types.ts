@@ -1996,6 +1996,295 @@ export type Database = {
         }
         Relationships: []
       }
+      video_swing_events: {
+        Row: {
+          created_at: string
+          frame_index: number | null
+          id: string
+          label: string | null
+          phase: string
+          swing_session_id: string
+          time_ms: number
+        }
+        Insert: {
+          created_at?: string
+          frame_index?: number | null
+          id?: string
+          label?: string | null
+          phase: string
+          swing_session_id: string
+          time_ms: number
+        }
+        Update: {
+          created_at?: string
+          frame_index?: number | null
+          id?: string
+          label?: string | null
+          phase?: string
+          swing_session_id?: string
+          time_ms?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_swing_events_swing_session_id_fkey"
+            columns: ["swing_session_id"]
+            isOneToOne: false
+            referencedRelation: "video_swing_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_swing_masks: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          frame_time_ms: number
+          id: string
+          mask_type: string
+          mask_url: string
+          prompt_box: Json | null
+          prompt_points: Json | null
+          swing_session_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          frame_time_ms: number
+          id?: string
+          mask_type: string
+          mask_url: string
+          prompt_box?: Json | null
+          prompt_points?: Json | null
+          swing_session_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          frame_time_ms?: number
+          id?: string
+          mask_type?: string
+          mask_url?: string
+          prompt_box?: Json | null
+          prompt_points?: Json | null
+          swing_session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_swing_masks_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "video_swing_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_swing_masks_swing_session_id_fkey"
+            columns: ["swing_session_id"]
+            isOneToOne: false
+            referencedRelation: "video_swing_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_swing_metrics: {
+        Row: {
+          created_at: string
+          id: string
+          metric_name: string
+          metric_units: string | null
+          metric_value: number
+          phase: string | null
+          source: string | null
+          swing_session_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metric_name: string
+          metric_units?: string | null
+          metric_value: number
+          phase?: string | null
+          source?: string | null
+          swing_session_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metric_name?: string
+          metric_units?: string | null
+          metric_value?: number
+          phase?: string | null
+          source?: string | null
+          swing_session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_swing_metrics_swing_session_id_fkey"
+            columns: ["swing_session_id"]
+            isOneToOne: false
+            referencedRelation: "video_swing_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_swing_scores: {
+        Row: {
+          barrel_quality_score: number | null
+          contact_optimization_score: number | null
+          created_at: string
+          id: string
+          notes: string | null
+          sequence_errors: Json | null
+          sequence_match: boolean | null
+          sequence_order: string[] | null
+          sequence_score: number | null
+          swing_session_id: string
+        }
+        Insert: {
+          barrel_quality_score?: number | null
+          contact_optimization_score?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          sequence_errors?: Json | null
+          sequence_match?: boolean | null
+          sequence_order?: string[] | null
+          sequence_score?: number | null
+          swing_session_id: string
+        }
+        Update: {
+          barrel_quality_score?: number | null
+          contact_optimization_score?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          sequence_errors?: Json | null
+          sequence_match?: boolean | null
+          sequence_order?: string[] | null
+          sequence_score?: number | null
+          swing_session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_swing_scores_swing_session_id_fkey"
+            columns: ["swing_session_id"]
+            isOneToOne: false
+            referencedRelation: "video_swing_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_swing_sessions: {
+        Row: {
+          analyzed_count: number | null
+          context: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          player_id: string
+          session_date: string
+          source: string | null
+          status: string | null
+          updated_at: string
+          video_count: number | null
+          video_url: string | null
+        }
+        Insert: {
+          analyzed_count?: number | null
+          context?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          player_id: string
+          session_date?: string
+          source?: string | null
+          status?: string | null
+          updated_at?: string
+          video_count?: number | null
+          video_url?: string | null
+        }
+        Update: {
+          analyzed_count?: number | null
+          context?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          player_id?: string
+          session_date?: string
+          source?: string | null
+          status?: string | null
+          updated_at?: string
+          video_count?: number | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_swing_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_swings: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          frame_rate: number | null
+          id: string
+          sequence_analysis: Json | null
+          sequence_errors: Json | null
+          sequence_score: number | null
+          session_id: string
+          status: string | null
+          swing_index: number
+          thumbnail_url: string | null
+          updated_at: string
+          video_storage_path: string | null
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          frame_rate?: number | null
+          id?: string
+          sequence_analysis?: Json | null
+          sequence_errors?: Json | null
+          sequence_score?: number | null
+          session_id: string
+          status?: string | null
+          swing_index?: number
+          thumbnail_url?: string | null
+          updated_at?: string
+          video_storage_path?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          frame_rate?: number | null
+          id?: string
+          sequence_analysis?: Json | null
+          sequence_errors?: Json | null
+          sequence_score?: number | null
+          session_id?: string
+          status?: string | null
+          swing_index?: number
+          thumbnail_url?: string | null
+          updated_at?: string
+          video_storage_path?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_swings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "video_swing_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_views: {
         Row: {
           completed: boolean | null

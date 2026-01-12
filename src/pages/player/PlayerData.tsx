@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,9 +11,11 @@ import {
   ChevronRight,
   Upload,
   TrendingUp,
-  MessageCircle
+  MessageCircle,
+  Video
 } from "lucide-react";
 import { PlayerScoresSection } from "@/components/player/PlayerScoresSection";
+import { VideoAnalyzerTab } from "@/components/video-analyzer";
 import { toast } from "sonner";
 
 interface Session {
@@ -28,11 +30,26 @@ interface Session {
 }
 
 export default function PlayerData() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState<string>('');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("scores");
+  
+  // Get initial tab from URL params or default to "scores"
+  const initialTab = searchParams.get('tab') || 'scores';
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Update URL when tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value === 'scores') {
+      searchParams.delete('tab');
+    } else {
+      searchParams.set('tab', value);
+    }
+    setSearchParams(searchParams, { replace: true });
+  };
 
   useEffect(() => {
     loadData();
@@ -97,8 +114,8 @@ export default function PlayerData() {
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="scores" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
             Scores
@@ -106,6 +123,10 @@ export default function PlayerData() {
           <TabsTrigger value="sessions" className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
             Sessions
+          </TabsTrigger>
+          <TabsTrigger value="video" className="flex items-center gap-2">
+            <Video className="h-4 w-4" />
+            Video Analyzer
           </TabsTrigger>
         </TabsList>
 
@@ -166,6 +187,22 @@ export default function PlayerData() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="video" className="mt-4">
+          {playerId ? (
+            <VideoAnalyzerTab
+              playerId={playerId}
+              playerName={playerName}
+              source="player_upload"
+            />
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">No player data found</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

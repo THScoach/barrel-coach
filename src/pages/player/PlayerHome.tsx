@@ -16,8 +16,10 @@ import {
   Upload,
   Calendar,
   CheckCircle2,
-  Clock
+  Clock,
+  Video
 } from "lucide-react";
+import { VideoSwingUploadModal } from "@/components/video-analyzer";
 
 interface ActivityItem {
   id: string;
@@ -49,6 +51,7 @@ export default function PlayerHome() {
   const [isInSeason, setIsInSeason] = useState(false);
   const [weeklyCheckinDue, setWeeklyCheckinDue] = useState(false);
   const [lastCheckinDate, setLastCheckinDate] = useState<string | null>(null);
+  const [videoUploadOpen, setVideoUploadOpen] = useState(false);
 
   useEffect(() => {
     loadPlayerData();
@@ -308,6 +311,38 @@ export default function PlayerHome() {
         </Card>
       )}
 
+      {/* Video Analyzer Section */}
+      <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Video className="h-5 w-5 text-primary" />
+            Video Analyzer
+          </CardTitle>
+          <CardDescription>
+            Get detailed 4B sequence analysis from your swing videos
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Upload 5–15 swings per session. Higher frame-rate (120–240 fps) gives more accurate timing and sequence.
+            </p>
+            <div className="flex gap-2">
+              <Button onClick={() => setVideoUploadOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Swing Videos
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/player/data?tab=video">
+                  View Sessions
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Two Column: Activity + Actions */}
       <div className="grid md:grid-cols-2 gap-4">
         {/* Recent Activity */}
@@ -404,6 +439,20 @@ export default function PlayerHome() {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {/* Video Upload Modal */}
+      {player && (
+        <VideoSwingUploadModal
+          open={videoUploadOpen}
+          onOpenChange={setVideoUploadOpen}
+          playerId={player.id}
+          playerName={player.name || 'Player'}
+          source="player_upload"
+          onSuccess={() => {
+            // Could navigate to the video analyzer tab
+          }}
+        />
       )}
     </div>
   );

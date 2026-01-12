@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +29,7 @@ import { LaunchMonitorBrand } from "@/lib/csv-detector";
 import { toast } from "sonner";
 import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
 import { RebootSessionDetail } from "@/components/RebootSessionDetail";
+import { VideoAnalyzerTab } from "@/components/video-analyzer";
 
 interface PlayerDataTabProps {
   playerId: string; // This is player_profiles.id
@@ -59,6 +61,7 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
   const [loading, setLoading] = useState(true);
   const [deleteSession, setDeleteSession] = useState<DataSession | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [activeView, setActiveView] = useState<'data' | 'video'>('data');
   
   // playersTableId is the stable ID from the `players` table (FK target for data tables)
   const [playersTableId, setPlayersTableId] = useState<string | null>(null);
@@ -299,33 +302,64 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
   }
 
   return (
-    <div className="flex gap-6">
-      {/* Left Sidebar: Source Filter */}
-      <div className="w-48 space-y-1">
-        {filterButtons.map(btn => (
-          <Button
-            key={btn.value}
-            variant={filter === btn.value ? 'secondary' : 'ghost'}
-            className={`w-full justify-between ${
-              filter === btn.value 
-                ? 'bg-slate-800 text-white' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-            }`}
-            onClick={() => setFilter(btn.value)}
-          >
-            <span className="flex items-center gap-2">
-              {btn.icon}
-              {btn.label}
-            </span>
-            <Badge variant="secondary" className="bg-slate-700 text-slate-300 text-xs">
-              {counts[btn.value]}
-            </Badge>
-          </Button>
-        ))}
-      </div>
+    <div className="space-y-4">
+      {/* View Tabs */}
+      <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'data' | 'video')}>
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="data" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            Session Data
+          </TabsTrigger>
+          <TabsTrigger value="video" className="flex items-center gap-2">
+            <Video className="h-4 w-4" />
+            Video Analyzer
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Right: Sessions List */}
-      <div className="flex-1">
+        <TabsContent value="video" className="mt-4">
+          {playersTableId ? (
+            <VideoAnalyzerTab
+              playerId={playersTableId}
+              playerName={playerName}
+              source="admin_upload"
+            />
+          ) : (
+            <Card className="bg-slate-900/80 border-slate-800">
+              <CardContent className="py-8 text-center">
+                <p className="text-slate-400">Loading player data...</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="data" className="mt-4">
+          <div className="flex gap-6">
+            {/* Left Sidebar: Source Filter */}
+            <div className="w-48 space-y-1">
+              {filterButtons.map(btn => (
+                <Button
+                  key={btn.value}
+                  variant={filter === btn.value ? 'secondary' : 'ghost'}
+                  className={`w-full justify-between ${
+                    filter === btn.value 
+                      ? 'bg-slate-800 text-white' 
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  }`}
+                  onClick={() => setFilter(btn.value)}
+                >
+                  <span className="flex items-center gap-2">
+                    {btn.icon}
+                    {btn.label}
+                  </span>
+                  <Badge variant="secondary" className="bg-slate-700 text-slate-300 text-xs">
+                    {counts[btn.value]}
+                  </Badge>
+                </Button>
+              ))}
+            </div>
+
+            {/* Right: Sessions List */}
+            <div className="flex-1">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-semibold text-white">
             {filterButtons.find(b => b.value === filter)?.label || 'All Data'}
@@ -441,7 +475,10 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
             </Table>
           </Card>
         )}
-      </div>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Upload Modal - only render if we have a valid players_id */}
       {playersTableId && (
