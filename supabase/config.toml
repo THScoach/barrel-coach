@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.analyze-video-swing-session]
 verify_jwt = false
+
+[functions.import-onform-video]
+verify_jwt = false
