@@ -234,7 +234,7 @@ export default function Apply() {
             </div>
 
             <p className="text-center text-sm text-slate-500">
-              Founders / Offseason Rate: $1,299 (limited) • Standard: $1,997–$2,997
+              90-Day Small Group: $1,299 • 1-on-1 Coaching: $2,997
             </p>
           </form>
         </div>

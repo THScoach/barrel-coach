@@ -300,59 +300,59 @@ export default function Index() {
               <p className="text-xs text-slate-500 mt-4">Clarity, not coaching.</p>
             </div>
 
-            {/* In-Person Assessment */}
+            {/* 90-Day Small Group — $1,299 */}
             <div className="bg-slate-900/80 border-2 border-red-500/50 rounded-2xl p-8 text-center relative hover:-translate-y-1 transition-transform">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
-                Most Popular
+                Core Program
               </div>
-              <div className="text-red-400 font-bold text-sm uppercase tracking-wider mb-2">Truth Session</div>
-              <h3 className="text-2xl font-bold text-white mb-2">In-Person Assessment</h3>
-              <div className="text-4xl font-black text-white mb-1">$399</div>
-              <div className="text-slate-500 mb-6">one-time</div>
+              <div className="text-red-400 font-bold text-sm uppercase tracking-wider mb-2">Development</div>
+              <h3 className="text-2xl font-bold text-white mb-2">90-Day Small Group</h3>
+              <div className="text-4xl font-black text-white mb-1">$1,299</div>
+              <div className="text-slate-500 mb-6">90-day program</div>
               <ul className="text-left space-y-3 mb-8">
                 <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  90 minutes with Rick, face-to-face
+                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  90-day structured curriculum
                 </li>
                 <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  Full 4B evaluation + video analysis
+                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  Max 3 players per group
                 </li>
                 <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  30-day drill plan + follow-up support
-                </li>
-              </ul>
-              <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
-                <Link to="/assessment">Book Now</Link>
-              </Button>
-              <p className="text-xs text-slate-500 mt-4">One session. Real answers.</p>
-            </div>
-
-            {/* 90-Day Transformation */}
-            <div className="bg-gradient-to-b from-slate-900 to-slate-900/80 border border-yellow-500/30 rounded-2xl p-8 text-center hover:-translate-y-1 transition-transform">
-              <div className="text-yellow-400 font-bold text-sm uppercase tracking-wider mb-2">Flagship Program</div>
-              <h3 className="text-2xl font-bold text-white mb-2">90-Day Transformation</h3>
-              <div className="text-xl font-black text-white mb-1">Starts at $1,299</div>
-              <div className="text-slate-500 text-sm mb-6">Founders / Offseason Rate (limited)</div>
-              <ul className="text-left space-y-3 mb-8">
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  Full assessment + structured training
-                </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  Ongoing feedback loops + adjustments
-                </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                   Real change. Not a course.
                 </li>
               </ul>
-              <Button asChild className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold">
-                <Link to="/apply">Apply Now</Link>
+              <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
+                <Link to="/apply?tier=group">Apply Now</Link>
               </Button>
-              <p className="text-xs text-slate-500 mt-4">By application only.</p>
+              <p className="text-xs text-slate-500 mt-4">Limited seats. Outcome-focused.</p>
+            </div>
+
+            {/* 1-on-1 Coaching — $2,997 */}
+            <div className="bg-gradient-to-b from-slate-900 to-slate-900/80 border border-yellow-500/30 rounded-2xl p-8 text-center hover:-translate-y-1 transition-transform">
+              <div className="text-yellow-400 font-bold text-sm uppercase tracking-wider mb-2">Flagship</div>
+              <h3 className="text-2xl font-bold text-white mb-2">1-on-1 Coaching</h3>
+              <div className="text-4xl font-black text-white mb-1">$2,997</div>
+              <div className="text-slate-500 text-sm mb-6">90-day program</div>
+              <ul className="text-left space-y-3 mb-8">
+                <li className="flex items-start gap-3 text-slate-300">
+                  <Check className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  Direct access to Rick Strickland
+                </li>
+                <li className="flex items-start gap-3 text-slate-300">
+                  <Check className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  Personalized feedback + iteration
+                </li>
+                <li className="flex items-start gap-3 text-slate-300">
+                  <Check className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  Fastest results. Highest access.
+                </li>
+              </ul>
+              <Button asChild className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold">
+                <Link to="/apply?tier=1on1">Apply Now</Link>
+              </Button>
+              <p className="text-xs text-slate-500 mt-4">Limited availability by design.</p>
             </div>
           </div>
         </div>

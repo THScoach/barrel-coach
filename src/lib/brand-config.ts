@@ -63,16 +63,18 @@ export const VOICE_RULES = {
 } as const;
 
 // ============================================================
-// PRODUCT LADDER (LOCKED - 4 PRODUCTS ONLY)
+// PRODUCT LADDER (LOCKED - 4 PRODUCTS ONLY - DO NOT CHANGE)
 // ============================================================
 export const PRODUCTS = {
-  // 1️⃣ FREE — ASK RICK AI DIAGNOSTIC
-  askRickDiagnostic: {
-    id: "ask-rick-diagnostic",
-    name: "Ask Rick AI Diagnostic",
-    displayName: "Ask Rick",
+  // 1️⃣ FREE DIAGNOSTIC — $0
+  // Role: Top-of-funnel clarity
+  // Purpose: Identify one primary swing leak
+  freeDiagnostic: {
+    id: "free-diagnostic",
+    name: "Free Diagnostic",
+    displayName: "Free Diagnostic",
     price: 0,
-    priceDisplay: "FREE",
+    priceDisplay: "$0",
     type: "free",
     purpose: [
       "Orientation",
@@ -82,85 +84,94 @@ export const PRODUCTS = {
     rules: [
       "One response",
       "No back-and-forth",
-      "No drills",
-      "No full plan",
-      "No follow-up questions",
+      "No ongoing coaching",
+      "No credit card required",
     ],
     positioning: "This is a snapshot, not coaching.",
+    buyerIntent: "What's wrong?",
   },
 
-  // 2️⃣ GUIDED COACHING — $99/month
-  guidedCoaching: {
-    id: "guided-coaching",
-    name: "Guided Coaching",
-    displayName: "Guided Coaching",
+  // 2️⃣ CATCHING BARRELS LIVE — $99/month
+  // Role: Ongoing community + retention layer
+  // Purpose: Keep players sharp, accountable, and learning
+  catchingBarrelsLive: {
+    id: "catching-barrels-live",
+    name: "Catching Barrels Live",
+    displayName: "Catching Barrels Live",
     price: 99,
     priceDisplay: "$99",
     period: "month",
     type: "subscription",
     stripePriceId: null, // To be configured
     purpose: [
-      "Consistency",
+      "Stay sharp",
       "Accountability",
-      "Progress tracking",
+      "Ongoing education",
     ],
     includes: [
-      "Ongoing data uploads",
-      "Weekly AI-guided check-ins in Rick's voice",
-      "Trend tracking",
-      "Clear benchmarks",
+      "Weekly live group call (Monday nights)",
+      "Group Q&A",
+      "Ongoing education",
     ],
-    positioning: "This is where clarity becomes consistency.",
+    positioning: "Not a transformation program. Retention + community.",
+    buyerIntent: "Stay sharp",
+    note: "No individual transformation guarantee",
   },
 
-  // 3️⃣ IN-PERSON ASSESSMENT — $399
-  inPersonAssessment: {
-    id: "in-person-assessment",
-    name: "In-Person Assessment",
-    displayName: "In-Person Assessment",
-    price: 399,
-    priceDisplay: "$399",
-    period: "session",
-    type: "one-time",
-    stripePriceId: "price_1SnqwfA7XlInXgw809dC018v", // Current price
-    purpose: [
-      "Full evaluation",
-      "Context",
-      "Direction",
-    ],
-    includes: [
-      "Movement analysis",
-      "Sequence evaluation",
-      "Contact pattern assessment",
-      "Decision-making review",
-      "Game transfer analysis",
-    ],
-    positioning: "One session. Real answers.",
-    note: "This is not a lesson.",
-  },
-
-  // 4️⃣ CATCHING BARRELS — 90-DAY TRANSFORMATION (Flagship)
-  ninetyDayTransformation: {
-    id: "90-day-transformation",
-    name: "Catching Barrels 90-Day Transformation",
-    displayName: "90-Day Transformation",
-    price: null, // Not publicly listed
-    priceRange: "$1,997–$2,997",
+  // 3️⃣ 90-DAY SMALL GROUP CLASS — $1,299 total
+  // Role: Core development program
+  // Structure: 90-day, max 3 players, structured curriculum
+  ninetyDaySmallGroup: {
+    id: "90-day-small-group",
+    name: "90-Day Small Group Class",
+    displayName: "90-Day Small Group",
+    price: 1299,
+    priceDisplay: "$1,299",
     period: "program",
     type: "application",
+    stripePriceId: null, // To be configured
     purpose: [
       "Real change",
       "Structured development",
-      "Coaching depth",
+      "Group coaching",
     ],
     structure: [
-      "Assessment",
-      "Structured training",
-      "Feedback loops",
-      "Adjustments",
+      "90-day duration",
+      "Maximum 3 players per group",
+      "Structured development curriculum",
+      "Group coaching environment",
     ],
-    positioning: "This is for players who are done guessing.",
-    entry: "By application only",
+    positioning: "The main transformation product.",
+    buyerIntent: "I want change",
+    note: "Limited seats, outcome-focused",
+  },
+
+  // 4️⃣ 1-ON-1 COACHING — $2,997 (90 days)
+  // Role: Flagship premium offer
+  // Structure: 90-day, direct access, personalized
+  oneOnOneCoaching: {
+    id: "1-on-1-coaching",
+    name: "1-on-1 Coaching",
+    displayName: "1-on-1 Coaching",
+    price: 2997,
+    priceDisplay: "$2,997",
+    period: "program",
+    type: "application",
+    stripePriceId: null, // To be configured
+    purpose: [
+      "Fastest results",
+      "Direct access to Rick",
+      "Personalized feedback",
+    ],
+    structure: [
+      "90-day duration",
+      "Direct access to Rick Strickland",
+      "Personalized feedback and iteration",
+      "Scarcity-based enrollment",
+    ],
+    positioning: "Highest access. Fastest results.",
+    buyerIntent: "I want Rick",
+    note: "Limited availability by design",
   },
 } as const;
 
