@@ -16,7 +16,9 @@ import { LaunchMonitorBoxScore } from "@/components/LaunchMonitorBoxScore";
 import { 
   calculateEnhancedStats, 
   EnhancedLaunchMonitorStats,
-  PlayerLevel
+  PlayerLevel,
+  getLevelThresholds,
+  calculateScoreDrivers
 } from "@/lib/launch-monitor-metrics";
 
 interface LaunchMonitorSession {
@@ -153,7 +155,6 @@ export function LaunchMonitorSessionDetail({
     };
 
     // Get thresholds for the level
-    const { getLevelThresholds, calculateScoreDrivers } = require('@/lib/launch-monitor-metrics');
     const thresholds = getLevelThresholds(playerLevel);
     const level = (playerLevel?.toLowerCase().replace(/[\s_-]/g, '_') || 'high_school') as PlayerLevel;
     
