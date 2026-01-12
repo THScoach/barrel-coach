@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { Play, Lock, Clock, X, Brain, Dumbbell, Target, CircleDot, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { GumletVideoPlayer } from '@/components/video/GumletVideoPlayer';
 import type { Json } from '@/integrations/supabase/types';
 
 interface TranscriptSegment {
@@ -29,6 +30,9 @@ interface DrillVideo {
   duration_seconds: number | null;
   access_level: string | null;
   relevance_score?: number;
+  // Gumlet fields
+  gumlet_playback_url?: string | null;
+  gumlet_hls_url?: string | null;
 }
 
 interface VideoRecommendationsProps {
@@ -477,12 +481,19 @@ export function VideoRecommendations({
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
                 <div className="lg:col-span-2">
                   <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                    <video
-                      ref={videoRef}
-                      src={selectedVideo.video_url}
-                      controls
-                      className="w-full h-full"
-                      autoPlay
+                    <GumletVideoPlayer
+                      src={selectedVideo.gumlet_playback_url || selectedVideo.video_url}
+                      hlsSrc={selectedVideo.gumlet_hls_url || undefined}
+                      poster={selectedVideo.thumbnail_url || undefined}
+                      title={selectedVideo.title}
+                      autoPlay={true}
+                      muted={false}
+                      onTimeUpdate={(time) => {
+                        // Update videoRef simulation for transcript seek
+                        if (videoRef.current) {
+                          (videoRef.current as any).currentTime = time;
+                        }
+                      }}
                     />
                   </div>
 

@@ -37,6 +37,10 @@ interface DrillVideo {
   status: string;
   published_at: string | null;
   created_at: string;
+  // Gumlet fields
+  gumlet_asset_id?: string | null;
+  gumlet_playback_url?: string | null;
+  gumlet_hls_url?: string | null;
 }
 
 const PROBLEMS_LIST = [
@@ -63,7 +67,8 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode; color
   ready_for_review: { label: 'Ready for Review', icon: <CheckCircle2 className="h-3 w-3" />, color: 'bg-green-500' },
   draft: { label: 'Draft', icon: <Clock className="h-3 w-3" />, color: 'bg-slate-500' },
   published: { label: 'Published', icon: <Eye className="h-3 w-3" />, color: 'bg-green-600' },
-  failed: { label: 'Failed', icon: <AlertCircle className="h-3 w-3" />, color: 'bg-red-500' }
+  failed: { label: 'Failed', icon: <AlertCircle className="h-3 w-3" />, color: 'bg-red-500' },
+  processing_failed: { label: 'Gumlet Failed', icon: <AlertCircle className="h-3 w-3" />, color: 'bg-red-500' }
 };
 
 export default function AdminVideos() {

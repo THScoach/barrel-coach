@@ -241,6 +241,10 @@ export type Database = {
           drill_name: string | null
           duration_seconds: number | null
           four_b_category: string | null
+          gumlet_asset_id: string | null
+          gumlet_dash_url: string | null
+          gumlet_hls_url: string | null
+          gumlet_playback_url: string | null
           id: string
           motor_profiles: string[] | null
           player_level: string[] | null
@@ -263,6 +267,10 @@ export type Database = {
           drill_name?: string | null
           duration_seconds?: number | null
           four_b_category?: string | null
+          gumlet_asset_id?: string | null
+          gumlet_dash_url?: string | null
+          gumlet_hls_url?: string | null
+          gumlet_playback_url?: string | null
           id?: string
           motor_profiles?: string[] | null
           player_level?: string[] | null
@@ -285,6 +293,10 @@ export type Database = {
           drill_name?: string | null
           duration_seconds?: number | null
           four_b_category?: string | null
+          gumlet_asset_id?: string | null
+          gumlet_dash_url?: string | null
+          gumlet_hls_url?: string | null
+          gumlet_playback_url?: string | null
           id?: string
           motor_profiles?: string[] | null
           player_level?: string[] | null

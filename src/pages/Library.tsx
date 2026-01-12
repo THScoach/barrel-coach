@@ -11,6 +11,7 @@ import { Search, Play, Lock, Clock, X, Brain, Dumbbell, Target, CircleDot, Spark
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { VideoRecommendations } from "@/components/VideoRecommendations";
+import { GumletVideoPlayer } from "@/components/video/GumletVideoPlayer";
 import type { Json } from "@/integrations/supabase/types";
 
 // Sanitize HTML from search results
@@ -46,6 +47,11 @@ interface DrillVideo {
   tags: string[] | null;
   rank?: number;
   headline?: string;
+  // Gumlet fields
+  gumlet_asset_id?: string | null;
+  gumlet_playback_url?: string | null;
+  gumlet_hls_url?: string | null;
+  gumlet_dash_url?: string | null;
 }
 
 const parseTranscriptSegments = (segments: Json | null): TranscriptSegment[] | null => {
@@ -557,14 +563,16 @@ export default function Library() {
           
           {selectedVideo && (
             <div className="p-6 pt-4">
-              {/* Video Player */}
+              {/* Video Player - Use Gumlet if available */}
               <div className="relative aspect-video bg-black rounded-xl overflow-hidden mb-6">
-                <video
-                  ref={(ref) => setVideoRef(ref)}
-                  src={selectedVideo.video_url}
-                  controls
-                  autoPlay
-                  className="w-full h-full"
+                <GumletVideoPlayer
+                  src={selectedVideo.gumlet_playback_url || selectedVideo.video_url}
+                  hlsSrc={selectedVideo.gumlet_hls_url || undefined}
+                  poster={selectedVideo.thumbnail_url || undefined}
+                  title={selectedVideo.title}
+                  autoPlay={true}
+                  muted={false}
+                  onTimeUpdate={(time) => setVideoRef({ currentTime: time } as any)}
                 />
               </div>
 
