@@ -12,11 +12,11 @@ export function Footer() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
               <p className="text-white font-semibold">Ready to stop guessing?</p>
-              <p className="text-slate-400 text-sm">Get your free diagnostic now.</p>
+              <p className="text-slate-400 text-sm">Start with the Free Diagnostic.</p>
             </div>
             <Button asChild className="bg-red-600 hover:bg-red-700 text-white font-bold">
-              <Link to="/analyze">
-                Free Diagnostic
+              <Link to="/diagnostic">
+                Start with the Free Diagnostic
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
             </Button>
@@ -53,13 +53,16 @@ export function Footer() {
             <h4 className="font-semibold text-white mb-4">Products</h4>
             <ul className="space-y-3">
               <li>
-                <Link to="/analyze" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Free Diagnostic — $0</Link>
+                <Link to="/diagnostic" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Free Diagnostic — $0</Link>
               </li>
               <li>
-                <Link to="/assessment" className="text-slate-400 hover:text-red-500 transition-colors text-sm">In-Person Assessment — $399</Link>
+                <Link to="/live" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Catching Barrels Live — $99/mo</Link>
               </li>
               <li>
-                <Link to="/apply" className="text-slate-400 hover:text-red-500 transition-colors text-sm">90-Day Transformation — Apply</Link>
+                <Link to="/apply?tier=group" className="text-slate-400 hover:text-red-500 transition-colors text-sm">90-Day Small Group — $1,299</Link>
+              </li>
+              <li>
+                <Link to="/apply?tier=1on1" className="text-slate-400 hover:text-red-500 transition-colors text-sm">1-on-1 Coaching — $2,997</Link>
               </li>
             </ul>
           </div>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -12,40 +13,87 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, CheckCircle, Zap, ArrowRight } from "lucide-react";
+import { Loader2, CheckCircle, Zap, Crown, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+type ApplicationTier = "group" | "1on1";
+
+const tierConfig = {
+  group: {
+    title: "90-Day Small Group",
+    subtitle: "Max 3 players per group",
+    price: "$1,299",
+    icon: Zap,
+    iconColor: "text-red-400",
+    bgColor: "bg-red-500/10",
+    borderColor: "border-red-500/20",
+    buttonColor: "bg-red-600 hover:bg-red-700",
+    feedbackType: "group_application",
+  },
+  "1on1": {
+    title: "1-on-1 Coaching",
+    subtitle: "Direct access to Rick Strickland",
+    price: "$2,997",
+    icon: Crown,
+    iconColor: "text-yellow-400",
+    bgColor: "bg-yellow-500/10",
+    borderColor: "border-yellow-500/20",
+    buttonColor: "bg-yellow-500 hover:bg-yellow-600 text-black",
+    feedbackType: "1on1_application",
+  },
+};
+
 export default function Apply() {
+  const [searchParams] = useSearchParams();
+  const tierParam = searchParams.get("tier") as ApplicationTier | null;
+  const tier: ApplicationTier = tierParam === "1on1" ? "1on1" : "group";
+  const config = tierConfig[tier];
+  const IconComponent = config.icon;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
+    age: "",
     level: "",
     team: "",
     frustration: "",
-    commitment: "",
+    whyNow: "",
+    parentEmail: "",
   });
+
+  const isMinor = formData.age && parseInt(formData.age) < 18;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.email || !formData.level || !formData.frustration) {
+    const requiredFields = tier === "1on1" 
+      ? ["name", "email", "age", "level", "frustration", "whyNow"]
+      : ["name", "email", "age", "level", "frustration"];
+    
+    const missingFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
+    
+    if (missingFields.length > 0) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (isMinor && !formData.parentEmail) {
+      toast.error("Parent/guardian email is required for players under 18");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Store application in database
       const { error } = await supabase.from("chat_logs").insert({
-        messages: formData as any,
-        page_url: "/apply",
+        messages: { ...formData, tier } as any,
+        page_url: `/apply?tier=${tier}`,
         is_feedback: false,
-        feedback_type: "90day_application",
+        feedback_type: config.feedbackType,
       });
 
       if (error) throw error;
@@ -73,10 +121,12 @@ export default function Apply() {
               APPLICATION RECEIVED
             </h1>
             <p className="text-lg text-slate-300 mb-6">
-              I'll personally review your application within 48 hours. If it's a fit, I'll reach out to schedule a call.
+              If it's a fit, you'll hear from Rick.
             </p>
             <p className="text-slate-400 mb-8">
-              This program isn't for everyone — that's by design. If I can help you, you'll hear from me.
+              {tier === "1on1" 
+                ? "1-on-1 coaching spots are extremely limited. I review every application personally and only accept players I know I can help."
+                : "I'll review your application within 48 hours. The 90-Day Small Group is limited to 3 players — that's by design."}
             </p>
             <p className="text-slate-500">— Rick</p>
           </div>
@@ -93,20 +143,24 @@ export default function Apply() {
       {/* Hero */}
       <section className="pt-32 pb-12">
         <div className="max-w-2xl mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-full mb-6">
-            <Zap className="w-4 h-4 text-yellow-400" />
-            <span className="text-sm font-bold text-yellow-400 uppercase tracking-wider">90-Day Transformation</span>
+          <div className={`inline-flex items-center gap-2 px-4 py-2 ${config.bgColor} border ${config.borderColor} rounded-full mb-6`}>
+            <IconComponent className={`w-4 h-4 ${config.iconColor}`} />
+            <span className={`text-sm font-bold ${config.iconColor} uppercase tracking-wider`}>
+              {tier === "1on1" ? "Private Coaching" : "Development Program"}
+            </span>
           </div>
           
-          <h1 className="text-3xl md:text-5xl font-black text-white mb-6">
-            APPLY NOW
+          <h1 className="text-3xl md:text-5xl font-black text-white mb-4">
+            {config.title}
           </h1>
           
-          <p className="text-lg text-slate-300 mb-4">
-            This is my flagship program. Not a course. Not a subscription. Real coaching over 90 days.
-          </p>
-          <p className="text-slate-400">
-            I review every application personally. This is for serious players only — not everyone is accepted.
+          <div className="text-4xl font-black text-white mb-2">{config.price}</div>
+          <p className="text-slate-400 mb-6">{config.subtitle}</p>
+          
+          <p className="text-lg text-slate-300">
+            {tier === "1on1" 
+              ? "This is the ONLY way to access Rick directly. Not everyone is accepted."
+              : "Real coaching over 90 days. Not a course. Not a subscription."}
           </p>
         </div>
       </section>
@@ -117,14 +171,15 @@ export default function Apply() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 space-y-6">
               
+              {/* Name & Email */}
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-white">Name *</Label>
+                  <Label htmlFor="name" className="text-white">Player Name *</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Your full name"
+                    placeholder="Full name"
                     className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     required
                   />
@@ -143,16 +198,20 @@ export default function Apply() {
                 </div>
               </div>
 
+              {/* Age & Level */}
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-white">Phone (optional)</Label>
+                  <Label htmlFor="age" className="text-white">Age *</Label>
                   <Input
-                    id="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="(555) 123-4567"
+                    id="age"
+                    type="number"
+                    min="8"
+                    max="50"
+                    value={formData.age}
+                    onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+                    placeholder="Player age"
                     className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -176,17 +235,49 @@ export default function Apply() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="team" className="text-white">Current Team (optional)</Label>
-                <Input
-                  id="team"
-                  value={formData.team}
-                  onChange={(e) => setFormData({ ...formData, team: e.target.value })}
-                  placeholder="Team name, school, or organization"
-                  className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
-                />
+              {/* Parent Email (conditional) */}
+              {isMinor && (
+                <div className="space-y-2">
+                  <Label htmlFor="parentEmail" className="text-white">Parent/Guardian Email *</Label>
+                  <Input
+                    id="parentEmail"
+                    type="email"
+                    value={formData.parentEmail}
+                    onChange={(e) => setFormData({ ...formData, parentEmail: e.target.value })}
+                    placeholder="parent@email.com"
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
+                    required
+                  />
+                  <p className="text-xs text-slate-500">Required for players under 18</p>
+                </div>
+              )}
+
+              {/* Phone & Team */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="text-white">Phone (optional)</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="(555) 123-4567"
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="team" className="text-white">Current Team (optional)</Label>
+                  <Input
+                    id="team"
+                    value={formData.team}
+                    onChange={(e) => setFormData({ ...formData, team: e.target.value })}
+                    placeholder="Team or school"
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
+                  />
+                </div>
               </div>
 
+              {/* Frustration */}
               <div className="space-y-2">
                 <Label htmlFor="frustration" className="text-white">
                   What's your #1 frustration at the plate? *
@@ -201,24 +292,28 @@ export default function Apply() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="commitment" className="text-white">
-                  What are you committed to doing weekly? (optional)
-                </Label>
-                <Textarea
-                  id="commitment"
-                  value={formData.commitment}
-                  onChange={(e) => setFormData({ ...formData, commitment: e.target.value })}
-                  placeholder="How much time can you dedicate to training?"
-                  className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 min-h-[80px]"
-                />
-              </div>
+              {/* Why Now (1-on-1 only) */}
+              {tier === "1on1" && (
+                <div className="space-y-2">
+                  <Label htmlFor="whyNow" className="text-white">
+                    Why 1-on-1? Why now? *
+                  </Label>
+                  <Textarea
+                    id="whyNow"
+                    value={formData.whyNow}
+                    onChange={(e) => setFormData({ ...formData, whyNow: e.target.value })}
+                    placeholder="What makes you ready for this level of commitment?"
+                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 min-h-[100px]"
+                    required
+                  />
+                </div>
+              )}
 
               <div className="pt-4">
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold h-14 text-lg"
+                  className={`w-full ${config.buttonColor} font-bold h-14 text-lg`}
                 >
                   {isSubmitting ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -231,11 +326,10 @@ export default function Apply() {
                 </Button>
               </div>
 
+              <p className="text-center text-xs text-slate-500">
+                No payment required. Applications are reviewed manually.
+              </p>
             </div>
-
-            <p className="text-center text-sm text-slate-500">
-              90-Day Small Group: $1,299 • 1-on-1 Coaching: $2,997
-            </p>
           </form>
         </div>
       </section>

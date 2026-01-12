@@ -25,6 +25,7 @@ import SocialClips from "./pages/SocialClips";
 import Pricing from "./pages/Pricing";
 import Apply from "./pages/Apply";
 import Diagnostic from "./pages/Diagnostic";
+import Live from "./pages/Live";
 
 // Admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -75,6 +76,7 @@ const App = () => (
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/apply" element={<Apply />} />
               <Route path="/diagnostic" element={<Diagnostic />} />
+              <Route path="/live" element={<Live />} />
 
               {/* Player Portal Routes */}
               <Route path="/player" element={<PlayerLayout />}>

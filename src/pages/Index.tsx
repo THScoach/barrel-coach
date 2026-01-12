@@ -112,7 +112,7 @@ export default function Index() {
                 size="lg"
                 className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 px-8 text-lg"
               >
-                <Link to="/analyze">
+                <Link to="/diagnostic">
                   Get Your Free Diagnostic
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
@@ -123,8 +123,8 @@ export default function Index() {
                 variant="outline"
                 className="border-slate-600 text-white hover:bg-slate-800 h-14 px-8 text-lg"
               >
-                <Link to="/assessment">
-                  Book In-Person Assessment
+                <Link to="/live">
+                  Join Live Coaching — $99/mo
                 </Link>
               </Button>
             </div>
@@ -255,7 +255,7 @@ export default function Index() {
             size="lg"
             className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 px-10 text-lg"
           >
-            <Link to="/analyze">
+            <Link to="/diagnostic">
               Get Your Free Diagnostic
               <ArrowRight className="w-5 h-5 ml-2" />
             </Link>
@@ -265,94 +265,123 @@ export default function Index() {
 
       {/* ===== CHOOSE YOUR PATH ===== */}
       <section className="py-20 bg-slate-900/50 border-y border-slate-800">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-              CHOOSE YOUR NEXT MOVE
+              CHOOSE YOUR PATH
             </h2>
-            <p className="text-lg text-slate-400">Three paths. All lead to better at-bats.</p>
+            <p className="text-lg text-slate-400">Four ways to work with me. Start free. Go deeper when you're ready.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {/* Free Diagnostic */}
-            <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-8 text-center hover:-translate-y-1 transition-transform">
-              <div className="text-slate-400 font-bold text-sm uppercase tracking-wider mb-2">Entry Point</div>
-              <h3 className="text-2xl font-bold text-white mb-2">Free Diagnostic</h3>
-              <div className="text-4xl font-black text-white mb-1">$0</div>
-              <div className="text-slate-500 mb-6">one-time snapshot</div>
-              <ul className="text-left space-y-3 mb-8">
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Card 1 — Free Diagnostic */}
+            <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-6 text-center hover:-translate-y-1 transition-transform flex flex-col">
+              <div className="text-slate-400 font-bold text-xs uppercase tracking-wider mb-2">Start Here</div>
+              <h3 className="text-xl font-bold text-white mb-2">Free Diagnostic</h3>
+              <div className="text-3xl font-black text-white mb-1">$0</div>
+              <div className="text-slate-500 text-sm mb-4">one-time</div>
+              <p className="text-slate-400 text-sm mb-4">One clear answer. No guesswork.</p>
+              <ul className="text-left space-y-2 mb-6 flex-grow">
+                <li className="flex items-start gap-2 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
                   Upload your swing video
                 </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  Get clarity on what's happening
+                <li className="flex items-start gap-2 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                  Primary leak identified
                 </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                <li className="flex items-start gap-2 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
                   No credit card required
                 </li>
               </ul>
               <Button asChild className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold">
-                <Link to="/analyze">Get Free Diagnostic</Link>
+                <Link to="/diagnostic">Get Free Diagnostic</Link>
               </Button>
-              <p className="text-xs text-slate-500 mt-4">Clarity, not coaching.</p>
             </div>
 
-            {/* 90-Day Small Group — $1,299 */}
-            <div className="bg-slate-900/80 border-2 border-red-500/50 rounded-2xl p-8 text-center relative hover:-translate-y-1 transition-transform">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
-                Core Program
+            {/* Card 2 — Catching Barrels Live */}
+            <div className="bg-slate-900/80 border border-blue-500/30 rounded-2xl p-6 text-center hover:-translate-y-1 transition-transform flex flex-col">
+              <div className="text-blue-400 font-bold text-xs uppercase tracking-wider mb-2">Ongoing Support</div>
+              <h3 className="text-xl font-bold text-white mb-2">Catching Barrels Live</h3>
+              <div className="text-3xl font-black text-white mb-1">$99<span className="text-lg text-slate-400">/mo</span></div>
+              <div className="text-slate-500 text-sm mb-4">monthly</div>
+              <p className="text-slate-400 text-sm mb-4">Weekly calls. Accountability. Stay sharp.</p>
+              <ul className="text-left space-y-2 mb-6 flex-grow">
+                <li className="flex items-start gap-2 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                  Weekly live group call
+                </li>
+                <li className="flex items-start gap-2 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                  Group Q&A with Rick
+                </li>
+                <li className="flex items-start gap-2 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                  Community access
+                </li>
+              </ul>
+              <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                <Link to="/live">Join Live Coaching</Link>
+              </Button>
+              <p className="text-xs text-slate-500 mt-3">Not a transformation program</p>
+            </div>
+
+            {/* Card 3 — 90-Day Small Group */}
+            <div className="bg-slate-900/80 border-2 border-red-500/50 rounded-2xl p-6 text-center relative hover:-translate-y-1 transition-transform flex flex-col ring-2 ring-red-500/30">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
+                Most Popular
               </div>
-              <div className="text-red-400 font-bold text-sm uppercase tracking-wider mb-2">Development</div>
-              <h3 className="text-2xl font-bold text-white mb-2">90-Day Small Group</h3>
-              <div className="text-4xl font-black text-white mb-1">$1,299</div>
-              <div className="text-slate-500 mb-6">90-day program</div>
-              <ul className="text-left space-y-3 mb-8">
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="text-red-400 font-bold text-xs uppercase tracking-wider mb-2 mt-2">Development</div>
+              <h3 className="text-xl font-bold text-white mb-2">90-Day Small Group</h3>
+              <div className="text-3xl font-black text-white mb-1">$1,299</div>
+              <div className="text-slate-500 text-sm mb-4">total • max 3 players</div>
+              <p className="text-slate-400 text-sm mb-4">Real change. Not a course.</p>
+              <ul className="text-left space-y-2 mb-6 flex-grow">
+                <li className="flex items-start gap-2 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                   90-day structured curriculum
                 </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  Max 3 players per group
+                <li className="flex items-start gap-2 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  Group coaching environment
                 </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  Real change. Not a course.
+                <li className="flex items-start gap-2 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  Outcome-focused development
                 </li>
               </ul>
               <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
-                <Link to="/apply?tier=group">Apply Now</Link>
+                <Link to="/apply?tier=group">Apply for Group</Link>
               </Button>
-              <p className="text-xs text-slate-500 mt-4">Limited seats. Outcome-focused.</p>
+              <p className="text-xs text-slate-500 mt-3">Limited seats</p>
             </div>
 
-            {/* 1-on-1 Coaching — $2,997 */}
-            <div className="bg-gradient-to-b from-slate-900 to-slate-900/80 border border-yellow-500/30 rounded-2xl p-8 text-center hover:-translate-y-1 transition-transform">
-              <div className="text-yellow-400 font-bold text-sm uppercase tracking-wider mb-2">Flagship</div>
-              <h3 className="text-2xl font-bold text-white mb-2">1-on-1 Coaching</h3>
-              <div className="text-4xl font-black text-white mb-1">$2,997</div>
-              <div className="text-slate-500 text-sm mb-6">90-day program</div>
-              <ul className="text-left space-y-3 mb-8">
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  Direct access to Rick Strickland
+            {/* Card 4 — 1-on-1 Coaching */}
+            <div className="bg-gradient-to-b from-slate-900 to-slate-900/80 border border-yellow-500/30 rounded-2xl p-6 text-center hover:-translate-y-1 transition-transform flex flex-col">
+              <div className="text-yellow-400 font-bold text-xs uppercase tracking-wider mb-2">Private Coaching</div>
+              <h3 className="text-xl font-bold text-white mb-2">1-on-1 Coaching</h3>
+              <div className="text-3xl font-black text-white mb-1">$2,997</div>
+              <div className="text-slate-500 text-sm mb-4">90-day program</div>
+              <p className="text-slate-400 text-sm mb-4">Direct access. Fastest results.</p>
+              <ul className="text-left space-y-2 mb-6 flex-grow">
+                <li className="flex items-start gap-2 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  Direct access to Rick
                 </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  Personalized feedback + iteration
+                <li className="flex items-start gap-2 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  Personalized feedback
                 </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  Fastest results. Highest access.
+                <li className="flex items-start gap-2 text-slate-300 text-sm">
+                  <Check className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  Highest access level
                 </li>
               </ul>
               <Button asChild className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold">
-                <Link to="/apply?tier=1on1">Apply Now</Link>
+                <Link to="/apply?tier=1on1">Apply for 1-on-1</Link>
               </Button>
-              <p className="text-xs text-slate-500 mt-4">Limited availability by design.</p>
+              <p className="text-xs text-slate-500 mt-3">Limited availability</p>
             </div>
           </div>
         </div>
