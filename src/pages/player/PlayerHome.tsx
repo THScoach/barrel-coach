@@ -13,11 +13,14 @@ import {
   Clock,
   Video,
   Zap,
-  Play
+  Play,
+  User,
+  History
 } from "lucide-react";
 import { VideoSwingUploadModal } from "@/components/video-analyzer";
 import { calculateComposite4B, getGrade, getWeakestLink } from "@/lib/fourb-composite";
 import { MembershipUpgradeBanner } from "@/components/player/MembershipUpgradeBanner";
+import { format } from "date-fns";
 
 interface LatestScores {
   brain_score: number | null;
@@ -36,6 +39,14 @@ interface NextAction {
   action?: () => void;
 }
 
+interface SessionHistory {
+  id: string;
+  session_date: string;
+  video_count: number;
+  status: string;
+  context?: string;
+}
+
 export default function PlayerHome() {
   const [player, setPlayer] = useState<any>(null);
   const [latestScores, setLatestScores] = useState<LatestScores | null>(null);
@@ -47,6 +58,7 @@ export default function PlayerHome() {
   const [weakestLink, setWeakestLink] = useState<string | null>(null);
   const [membershipPlan, setMembershipPlan] = useState<"assessment" | "monthly" | "annual" | "none">("none");
   const [isFoundingMember, setIsFoundingMember] = useState(false);
+  const [sessionHistory, setSessionHistory] = useState<SessionHistory[]>([]);
 
   useEffect(() => {
     loadPlayerData();
@@ -69,6 +81,7 @@ export default function PlayerHome() {
       setPlayer(playerData);
       setIsInSeason(playerData.is_in_season || false);
       await loadLatestScores(playerData.id);
+      await loadSessionHistory(playerData.id);
       
       if (playerData.is_in_season) {
         await checkWeeklyCheckinStatus(playerData.id);
@@ -78,6 +91,19 @@ export default function PlayerHome() {
       buildNextActions(playerData);
     }
     setLoading(false);
+  };
+
+  const loadSessionHistory = async (playerId: string) => {
+    const { data } = await supabase
+      .from('video_swing_sessions')
+      .select('id, session_date, video_count, status, context')
+      .eq('player_id', playerId)
+      .order('session_date', { ascending: false })
+      .limit(5);
+    
+    if (data) {
+      setSessionHistory(data);
+    }
   };
 
   const checkWeeklyCheckinStatus = async (playerId: string) => {
@@ -218,10 +244,35 @@ export default function PlayerHome() {
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6 md:ml-56">
-      {/* Header */}
+      {/* Player Header */}
+      {player && (
+        <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg border">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+            <User className="h-6 w-6 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h1 className="text-xl font-bold">{player.name || 'Player'}</h1>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {player.level && (
+                <Badge variant="secondary" className="text-xs">{player.level}</Badge>
+              )}
+              {player.handedness && (
+                <Badge variant="outline" className="text-xs">
+                  {player.handedness === 'R' ? 'Right-Handed' : player.handedness === 'L' ? 'Left-Handed' : 'Switch'}
+                </Badge>
+              )}
+              {player.position && (
+                <Badge variant="outline" className="text-xs">{player.position}</Badge>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Section Title */}
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold">My Swing Lab</h1>
-        <p className="text-muted-foreground">
+        <h2 className="text-lg font-semibold text-muted-foreground">My Swing Lab</h2>
+        <p className="text-sm text-muted-foreground">
           Your current state. Your next step.
         </p>
       </div>
@@ -362,30 +413,80 @@ export default function PlayerHome() {
         </Card>
       )}
 
-      {/* Upload Section */}
-      <Card>
+      {/* Upload Section - Primary Entry Point */}
+      <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Video className="h-5 w-5 text-primary" />
+            <Upload className="h-5 w-5 text-primary" />
             Upload Swings
           </CardTitle>
           <CardDescription>
-            This is how I keep eyes on you.
+            Upload videos or import from OnForm – this is how Coach Rick keeps eyes on your progress.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => setVideoUploadOpen(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Videos
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/player/data?tab=video">
-                View Sessions
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Link>
-            </Button>
-          </div>
+          <Button 
+            onClick={() => setVideoUploadOpen(true)} 
+            size="lg"
+            className="w-full sm:w-auto"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Add New Swings
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Session History */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <History className="h-5 w-5 text-muted-foreground" />
+            Recent Sessions
+          </CardTitle>
+          <CardDescription>Your past swing analysis sessions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sessionHistory.length > 0 ? (
+            <div className="space-y-2">
+              {sessionHistory.map(session => (
+                <Link
+                  key={session.id}
+                  to={`/player/data?tab=video&session=${session.id}`}
+                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Video className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">
+                        {format(new Date(session.session_date), 'MMM d, yyyy')}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {session.video_count} video{session.video_count !== 1 ? 's' : ''} • {session.context || 'Practice'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant={session.status === 'analyzed' ? 'default' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {session.status === 'analyzed' ? 'Analyzed' : session.status === 'pending' ? 'Pending' : session.status}
+                    </Badge>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </Link>
+              ))}
+              <Button variant="link" className="p-0 h-auto text-sm" asChild>
+                <Link to="/player/data?tab=video">View all sessions →</Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center py-6 text-muted-foreground">
+              <Video className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No sessions yet</p>
+              <p className="text-xs mt-1">Upload your first swing to get started</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

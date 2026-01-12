@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -82,7 +83,7 @@ export function VideoSwingUploadModal({
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
   const [context, setContext] = useState<string>('practice');
   const [isCreating, setIsCreating] = useState(false);
-  const [showOnformImport, setShowOnformImport] = useState(false);
+  const [activeTab, setActiveTab] = useState<'upload' | 'onform'>('upload');
   const [onformUrls, setOnformUrls] = useState('');
   const [importingOnform, setImportingOnform] = useState(false);
 
@@ -187,7 +188,7 @@ export function VideoSwingUploadModal({
       if (data.sessionId) {
         toast.success(data.message || `Imported ${urlList.length} video(s)`);
         setOnformUrls('');
-        setShowOnformImport(false);
+        setActiveTab('upload');
         handleClose();
         onSuccess(data.sessionId);
       } else {
@@ -382,29 +383,56 @@ export function VideoSwingUploadModal({
             </Select>
           </div>
 
-          {/* File Upload */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Videos ({videos.length}/{MAX_SWINGS})</Label>
-              {videos.length > 0 && videos.length < MIN_SWINGS && (
-                <Badge variant="outline" className="text-amber-500 border-amber-500/50">
-                  Add {MIN_SWINGS - videos.length} more for best results
-                </Badge>
-              )}
-            </div>
+          {/* Tabbed Upload Options */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'upload' | 'onform')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="upload" className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Upload Files
+              </TabsTrigger>
+              <TabsTrigger value="onform" className="flex items-center gap-2">
+                <LinkIcon className="h-4 w-4" />
+                OnForm Link
+              </TabsTrigger>
+            </TabsList>
             
-            {showOnformImport ? (
-              <div className="space-y-3 p-4 border border-dashed rounded-lg bg-muted/20">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Paste OnForm URLs</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowOnformImport(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+            <TabsContent value="upload" className="space-y-3 mt-4">
+              <div className="flex items-center justify-between">
+                <Label>Videos ({videos.length}/{MAX_SWINGS})</Label>
+                {videos.length > 0 && videos.length < MIN_SWINGS && (
+                  <Badge variant="outline" className="text-amber-500 border-amber-500/50">
+                    Add {MIN_SWINGS - videos.length} more for best results
+                  </Badge>
+                )}
+              </div>
+              
+              <label 
+                className={cn(
+                  "flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors",
+                  videos.length >= MAX_SWINGS 
+                    ? "border-muted bg-muted/20 cursor-not-allowed" 
+                    : "border-muted-foreground/25 hover:border-primary/50"
+                )}
+              >
+                <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                <span className="text-sm text-muted-foreground">
+                  {videos.length >= MAX_SWINGS ? 'Maximum videos reached' : 'Click or drag videos here'}
+                </span>
+                <span className="text-xs text-muted-foreground mt-1">.mp4, .mov, .webm (max 250MB each)</span>
+                <input
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm"
+                  multiple
+                  onChange={handleFileChange}
+                  className="hidden"
+                  disabled={videos.length >= MAX_SWINGS}
+                />
+              </label>
+            </TabsContent>
+            
+            <TabsContent value="onform" className="space-y-3 mt-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Paste OnForm URLs (one per line)</Label>
                 <Textarea
                   placeholder="https://link.getonform.com/view?id=...&#10;https://link.getonform.com/view?id=...&#10;(one per line)"
                   value={onformUrls}
@@ -412,62 +440,26 @@ export function VideoSwingUploadModal({
                   rows={4}
                   className="text-sm"
                 />
-                <Button
-                  onClick={handleOnformImport}
-                  disabled={importingOnform || !onformUrls.trim()}
-                  className="w-full"
-                >
-                  {importingOnform ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Importing...
-                    </>
-                  ) : (
-                    <>
-                      <LinkIcon className="h-4 w-4 mr-2" />
-                      Import Videos
-                    </>
-                  )}
-                </Button>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <label 
-                  className={cn(
-                    "flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors",
-                    videos.length >= MAX_SWINGS 
-                      ? "border-muted bg-muted/20 cursor-not-allowed" 
-                      : "border-muted-foreground/25 hover:border-primary/50"
-                  )}
-                >
-                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                  <span className="text-sm text-muted-foreground">
-                    {videos.length >= MAX_SWINGS ? 'Maximum videos reached' : 'Click or drag videos here'}
-                  </span>
-                  <span className="text-xs text-muted-foreground mt-1">.mp4, .mov, .webm (max 250MB each)</span>
-                  <input
-                    type="file"
-                    accept="video/mp4,video/quicktime,video/webm"
-                    multiple
-                    onChange={handleFileChange}
-                    className="hidden"
-                    disabled={videos.length >= MAX_SWINGS}
-                  />
-                </label>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowOnformImport(true)}
-                  disabled={videos.length >= MAX_SWINGS}
-                  className="w-full"
-                >
-                  <LinkIcon className="h-4 w-4 mr-2" />
-                  Import from OnForm
-                </Button>
-              </div>
-            )}
-          </div>
+              <Button
+                onClick={handleOnformImport}
+                disabled={importingOnform || !onformUrls.trim()}
+                className="w-full"
+              >
+                {importingOnform ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Importing from OnForm...
+                  </>
+                ) : (
+                  <>
+                    <LinkIcon className="h-4 w-4 mr-2" />
+                    Import {onformUrls.trim().split('\n').filter(u => u.trim()).length || ''} Video{onformUrls.trim().split('\n').filter(u => u.trim()).length !== 1 ? 's' : ''}
+                  </>
+                )}
+              </Button>
+            </TabsContent>
+          </Tabs>
 
           {/* Video List */}
           {videos.length > 0 && (
