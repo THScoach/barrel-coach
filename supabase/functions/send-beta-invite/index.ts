@@ -73,7 +73,7 @@ serve(async (req) => {
 
     if (!player.phone) {
       return new Response(
-        JSON.stringify({ error: "Player has no phone number" }),
+        JSON.stringify({ error: `No phone number on file for ${player.name}. Add a phone number first.` }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
