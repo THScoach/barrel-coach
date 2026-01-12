@@ -141,9 +141,8 @@ export function VideoSwingUploadModal({
       return;
     }
 
-    const remainingCapacity = MAX_SWINGS - videos.length;
-    if (urlList.length > remainingCapacity) {
-      toast.error(`Can only import ${remainingCapacity} more videos`);
+    if (urlList.length > MAX_SWINGS) {
+      toast.error(`Maximum ${MAX_SWINGS} videos per session`);
       return;
     }
 
@@ -159,7 +158,9 @@ export function VideoSwingUploadModal({
         body: JSON.stringify({ 
           urls: urlList, 
           playerId, 
-          sessionId: null, // Will be created on upload
+          sessionDate,
+          context,
+          source,
           forSwingAnalysis: true
         })
       });
@@ -170,22 +171,16 @@ export function VideoSwingUploadModal({
         throw new Error(data.error || 'Import failed');
       }
 
-      // Add imported videos to the list
-      if (data.videos && Array.isArray(data.videos)) {
-        const newVideos: VideoFile[] = data.videos.map((v: any) => ({
-          file: new File([], v.filename || 'onform-video.mp4'),
-          id: crypto.randomUUID(),
-          previewUrl: v.url || '',
-          status: 'uploaded' as const,
-          progress: 100,
-          storagePath: v.storagePath,
-        }));
-        setVideos(prev => [...prev, ...newVideos]);
+      // Session was created by the edge function - trigger success callback
+      if (data.sessionId) {
+        toast.success(data.message || `Imported ${urlList.length} video(s)`);
+        setOnformUrls('');
+        setShowOnformImport(false);
+        handleClose();
+        onSuccess(data.sessionId);
+      } else {
+        throw new Error('No session was created');
       }
-
-      toast.success(data.message || `Imported ${urlList.length} video(s)`);
-      setOnformUrls('');
-      setShowOnformImport(false);
     } catch (error) {
       console.error('OnForm import error:', error);
       toast.error(error instanceof Error ? error.message : 'Import failed');

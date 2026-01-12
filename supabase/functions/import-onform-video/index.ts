@@ -48,7 +48,15 @@ serve(async (req) => {
       );
     }
 
-    const { urls, autoPublish = false } = await req.json();
+    const { 
+      urls, 
+      autoPublish = false, 
+      forSwingAnalysis = false,
+      playerId,
+      sessionDate,
+      context = 'practice',
+      source = 'admin_upload'
+    } = await req.json();
 
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
       return new Response(
@@ -57,7 +65,44 @@ serve(async (req) => {
       );
     }
 
+    // For swing analysis, playerId is required
+    if (forSwingAnalysis && !playerId) {
+      return new Response(
+        JSON.stringify({ error: "playerId is required for swing analysis imports" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+
     const results: { url: string; success: boolean; error?: string; videoId?: string }[] = [];
+    const importedVideos: { url: string; storagePath: string; filename: string }[] = [];
+    let sessionId: string | null = null;
+
+    // If for swing analysis, create a session first
+    if (forSwingAnalysis && playerId) {
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('video_swing_sessions')
+        .insert({
+          player_id: playerId,
+          session_date: sessionDate || new Date().toISOString().split('T')[0],
+          source,
+          context,
+          status: 'pending',
+          video_count: urls.length,
+        })
+        .select('id')
+        .single();
+
+      if (sessionError || !sessionData) {
+        return new Response(
+          JSON.stringify({ error: `Failed to create session: ${sessionError?.message}` }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+      sessionId = sessionData.id;
+      console.log(`Created video_swing_session: ${sessionId}`);
+    }
+
+    let swingIndex = 0;
 
     for (const onformUrl of urls) {
       try {
@@ -123,13 +168,24 @@ serve(async (req) => {
 
         // Upload to Supabase storage
         const filename = `${crypto.randomUUID()}.mp4`;
-        const storagePath = `drills/${filename}`;
+        let storagePath: string;
+        let bucket: string;
+
+        if (forSwingAnalysis && sessionId) {
+          // Store in swing-videos bucket under session folder
+          bucket = "swing-videos";
+          storagePath = `${sessionId}/${swingIndex}.mp4`;
+        } else {
+          // Store in videos bucket under drills folder
+          bucket = "videos";
+          storagePath = `drills/${filename}`;
+        }
 
         const { error: uploadError } = await supabase.storage
-          .from("videos")
+          .from(bucket)
           .upload(storagePath, new Uint8Array(videoBuffer), {
             contentType: "video/mp4",
-            upsert: false
+            upsert: true
           });
 
         if (uploadError) {
@@ -137,54 +193,89 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`Uploaded to storage: ${storagePath}`);
+        console.log(`Uploaded to storage: ${bucket}/${storagePath}`);
 
-        // Get public URL
-        const { data: publicUrlData } = supabase.storage
-          .from("videos")
-          .getPublicUrl(storagePath);
+        if (forSwingAnalysis && sessionId) {
+          // Get signed URL for the video
+          const { data: urlData } = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(storagePath, 3600 * 24 * 365); // 1 year
 
-        // Create video record in drill_videos table
-        const { data: videoRecord, error: insertError } = await supabase
-          .from("drill_videos")
-          .insert({
-            title: `OnForm Import - ${videoId}`,
-            video_url: publicUrlData.publicUrl,
-            status: "processing",
-            access_level: "paid",
-            video_type: "drill",
-          })
-          .select()
-          .single();
+          // Create video_swings record
+          const { error: swingError } = await supabase
+            .from('video_swings')
+            .insert({
+              session_id: sessionId,
+              swing_index: swingIndex,
+              video_storage_path: storagePath,
+              video_url: urlData?.signedUrl || null,
+              status: 'uploaded',
+            });
 
-        if (insertError) {
-          results.push({ url: onformUrl, success: false, error: `Database insert failed: ${insertError.message}` });
-          continue;
-        }
+          if (swingError) {
+            console.error('Error creating swing record:', swingError);
+            results.push({ url: onformUrl, success: false, error: `Swing record failed: ${swingError.message}` });
+            continue;
+          }
 
-        console.log(`Created video record: ${videoRecord.id}`);
-
-        // Trigger transcription pipeline
-        try {
-          await fetch(`${supabaseUrl}/functions/v1/upload-video`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${supabaseServiceKey}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              storage_path: storagePath,
-              original_title: `OnForm - ${videoId}`,
-              auto_publish: autoPublish,
-              video_id: videoRecord.id
-            })
+          importedVideos.push({
+            url: urlData?.signedUrl || '',
+            storagePath,
+            filename: `swing-${swingIndex}.mp4`
           });
-        } catch (pipelineError) {
-          console.error("Pipeline trigger error:", pipelineError);
-          // Don't fail the import, just log
+          
+          swingIndex++;
+          results.push({ url: onformUrl, success: true, videoId: sessionId });
+          console.log(`Created video_swing record for swing ${swingIndex - 1}`);
+
+        } else {
+          // Get public URL for drill videos
+          const { data: publicUrlData } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(storagePath);
+
+          // Create video record in drill_videos table
+          const { data: videoRecord, error: insertError } = await supabase
+            .from("drill_videos")
+            .insert({
+              title: `OnForm Import - ${videoId}`,
+              video_url: publicUrlData.publicUrl,
+              status: "processing",
+              access_level: "paid",
+              video_type: "drill",
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            results.push({ url: onformUrl, success: false, error: `Database insert failed: ${insertError.message}` });
+            continue;
+          }
+
+          console.log(`Created drill_videos record: ${videoRecord.id}`);
+
+          // Trigger transcription pipeline
+          try {
+            await fetch(`${supabaseUrl}/functions/v1/upload-video`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${supabaseServiceKey}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                storage_path: storagePath,
+                original_title: `OnForm - ${videoId}`,
+                auto_publish: autoPublish,
+                video_id: videoRecord.id
+              })
+            });
+          } catch (pipelineError) {
+            console.error("Pipeline trigger error:", pipelineError);
+          }
+
+          results.push({ url: onformUrl, success: true, videoId: videoRecord.id });
         }
 
-        results.push({ url: onformUrl, success: true, videoId: videoRecord.id });
         console.log(`Successfully imported: ${onformUrl}`);
 
       } catch (error) {
@@ -197,6 +288,15 @@ serve(async (req) => {
       }
     }
 
+    // Update session with actual count
+    if (forSwingAnalysis && sessionId) {
+      const successCount = results.filter(r => r.success).length;
+      await supabase
+        .from('video_swing_sessions')
+        .update({ video_count: successCount })
+        .eq('id', sessionId);
+    }
+
     const successCount = results.filter(r => r.success).length;
     const failCount = results.filter(r => !r.success).length;
 
@@ -204,7 +304,9 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true,
         message: `Imported ${successCount} video(s)${failCount > 0 ? `, ${failCount} failed` : ""}`,
-        results
+        results,
+        sessionId,
+        videos: importedVideos
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
