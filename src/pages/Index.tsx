@@ -52,13 +52,13 @@ const scoreboardCards = [
 
 // Who this is for / not for
 const forPlayers = [
-  "You're tired of random drills and want a real system",
-  "You've hit a wall and can't figure out what's wrong",
+  "Players who want real feedback",
+  "You're tired of random drills and want direction",
   "You want truth, not validation",
 ];
 
 const notForPlayers = [
-  "You want someone to tell you you're great",
+  "You want shortcuts or gimmicks",
   "You're not willing to put in the work",
   "You expect results without reps",
 ];
@@ -100,13 +100,13 @@ export default function Index() {
             </h1>
 
             <p className="text-xl md:text-2xl text-slate-300 mb-4 max-w-2xl leading-relaxed">
-              I'm Rick Strickland — MLB hitting coach, former scout, and the guy who's helped 78+ pros and 400+ college commits find their swing.
+              I'm Rick Strickland. I've coached thousands of hitters.
             </p>
             <p className="text-lg text-slate-400 mb-8 max-w-2xl">
-              This app is my second brain. It sees what I see. It tells you what I'd tell you in the cage.
+              This app is how I coach when I'm not standing next to you.
             </p>
 
-            {/* CTAs — Primary: Free Diagnostic, Secondary: $99/mo Coaching */}
+            {/* CTAs — Primary: Free Diagnostic, Secondary: Start Coaching */}
             <div className="flex flex-col sm:flex-row gap-4">
               <Button
                 asChild
@@ -114,7 +114,7 @@ export default function Index() {
                 className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 px-8 text-lg"
               >
                 <Link to="/diagnostic">
-                  Get Your Free Diagnostic
+                  Get Free Diagnostic
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
               </Button>
@@ -125,7 +125,7 @@ export default function Index() {
                 className="border-slate-600 text-white hover:bg-slate-800 h-14 px-8 text-lg"
               >
                 <Link to="/coaching">
-                  Join Live Coaching — $99/mo
+                  Start Online Coaching
                 </Link>
               </Button>
             </div>
@@ -151,25 +151,34 @@ export default function Index() {
         </div>
       </section>
 
-      {/* ===== THE PROBLEM ===== */}
+      {/* ===== HOW IT WORKS ===== */}
       <section className="py-20 bg-slate-900/50 border-y border-slate-800">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl md:text-4xl font-black text-white mb-8 text-center">
-            THE PROBLEM
+          <h2 className="text-3xl md:text-4xl font-black text-white mb-12 text-center">
+            HOW THIS WORKS
           </h2>
-          <div className="space-y-6 text-lg text-slate-300">
-            <p>
-              <strong className="text-white">Players are drowning in noise.</strong> YouTube drills. Instagram tips. Tech that spits out numbers but no answers.
-            </p>
-            <p>
-              You've got exit velo. You've got launch angle. You've got slow-mo video from four angles.
-            </p>
-            <p className="text-xl text-white font-semibold">
-              But you still don't know what's actually wrong.
-            </p>
-            <p className="text-slate-400">
-              That's because data without interpretation is just distraction. You don't need more information. You need someone who's seen 10,000 swings to tell you what matters.
-            </p>
+          <div className="grid md:grid-cols-3 gap-8 text-center">
+            <div className="space-y-4">
+              <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto">
+                <span className="text-2xl font-black text-red-400">1</span>
+              </div>
+              <h3 className="text-xl font-bold text-white">Upload your swing</h3>
+              <p className="text-slate-400">Send me a video. Side angle. That's it.</p>
+            </div>
+            <div className="space-y-4">
+              <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto">
+                <span className="text-2xl font-black text-red-400">2</span>
+              </div>
+              <h3 className="text-xl font-bold text-white">Get the truth</h3>
+              <p className="text-slate-400">I'll tell you what's actually happening. No sugarcoating.</p>
+            </div>
+            <div className="space-y-4">
+              <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto">
+                <span className="text-2xl font-black text-red-400">3</span>
+              </div>
+              <h3 className="text-xl font-bold text-white">Fix what's holding you back</h3>
+              <p className="text-slate-400">One clear priority. One path forward.</p>
+            </div>
           </div>
         </div>
       </section>
@@ -409,31 +418,37 @@ export default function Index() {
         </div>
       </section>
 
-      {/* ===== RICK SIGN-OFF ===== */}
+      {/* ===== CLOSING CTA ===== */}
       <section className="py-20 bg-gradient-to-b from-slate-900 to-slate-950 border-t border-slate-800">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="w-20 h-20 bg-slate-800 rounded-full mx-auto mb-8 flex items-center justify-center">
-            <span className="text-2xl font-black text-white">RS</span>
-          </div>
-          <h2 className="text-2xl md:text-3xl font-black text-white mb-4">
-            I've spent 25 years in professional baseball.
+          <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
+            I'M NOT SELLING DRILLS.
           </h2>
-          <p className="text-slate-400 text-lg mb-8 max-w-xl mx-auto">
-            Not running a YouTube channel. Not selling courses. Coaching hitters. In cages. Under pressure.
+          <p className="text-2xl text-slate-300 mb-8">
+            I'm selling coaching.
           </p>
-          <p className="text-white font-semibold text-lg mb-8">
-            This is how I coach. One swing at a time.
-          </p>
-          <Button
-            asChild
-            size="lg"
-            className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 px-10 text-lg"
-          >
-            <Link to="/diagnostic">
-              Get Your Free Diagnostic
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Link>
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              asChild
+              size="lg"
+              className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 px-10 text-lg"
+            >
+              <Link to="/diagnostic">
+                Get Free Diagnostic
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="border-slate-600 text-white hover:bg-slate-800 h-14 px-10 text-lg"
+            >
+              <Link to="/coaching">
+                Start Coaching
+              </Link>
+            </Button>
+          </div>
         </div>
       </section>
 
