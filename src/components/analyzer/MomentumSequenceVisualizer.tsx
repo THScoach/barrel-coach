@@ -134,7 +134,7 @@ export function MomentumSequenceVisualizer({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-5 w-5">
-                      <Info className="h-3 w-3 text-muted-foreground" />
+                      <Info className="h-3 w-3 text-slate-400" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-xs">
@@ -205,7 +205,7 @@ export function MomentumSequenceVisualizer({
           {/* Demo controls (only if no external analysis) */}
           {!externalAnalysis && (
             <div className="pt-3 border-t border-slate-800 space-y-2">
-              <p className="text-xs text-muted-foreground">Demo Controls:</p>
+              <p className="text-xs text-slate-400">Demo Controls:</p>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <Switch
@@ -213,7 +213,7 @@ export function MomentumSequenceVisualizer({
                     checked={useMockData}
                     onCheckedChange={setUseMockData}
                   />
-                  <Label htmlFor="mock-data" className="text-xs">Show Mock Data</Label>
+                  <Label htmlFor="mock-data" className="text-xs text-slate-300">Show Mock Data</Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch
@@ -222,7 +222,7 @@ export function MomentumSequenceVisualizer({
                     onCheckedChange={setMockSequenceErrors}
                     disabled={!useMockData}
                   />
-                  <Label htmlFor="sequence-errors" className="text-xs">Simulate Errors</Label>
+                  <Label htmlFor="sequence-errors" className="text-xs text-slate-300">Simulate Errors</Label>
                 </div>
               </div>
             </div>

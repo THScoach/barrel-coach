@@ -65,12 +65,12 @@ export function SequenceSummaryCard({ analysis, className }: SequenceSummaryCard
         <div className="space-y-2">
           {/* Ideal order */}
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground w-12">Ideal:</span>
+            <span className="text-slate-400 w-12">Ideal:</span>
             <div className="flex items-center gap-1 flex-wrap">
               {IDEAL_SEQUENCE.map((seg, idx) => (
                 <div key={seg} className="flex items-center">
-                  {idx > 0 && <ArrowRight className="h-3 w-3 mx-1 text-muted-foreground/50" />}
-                  <span className="text-xs text-muted-foreground">
+                  {idx > 0 && <ArrowRight className="h-3 w-3 mx-1 text-slate-500" />}
+                  <span className="text-xs text-slate-400">
                     {SEGMENT_DISPLAY_NAMES[seg]}
                   </span>
                 </div>
@@ -80,7 +80,7 @@ export function SequenceSummaryCard({ analysis, className }: SequenceSummaryCard
           
           {/* Actual order */}
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground w-12">Actual:</span>
+            <span className="text-slate-400 w-12">Actual:</span>
             <div className="flex items-center gap-1 flex-wrap">
               {actualOrder.map((seg, idx) => {
                 const idealIdx = IDEAL_SEQUENCE.indexOf(seg);
@@ -89,7 +89,7 @@ export function SequenceSummaryCard({ analysis, className }: SequenceSummaryCard
                 
                 return (
                   <div key={seg} className="flex items-center">
-                    {idx > 0 && <ArrowRight className="h-3 w-3 mx-1 text-muted-foreground/50" />}
+                    {idx > 0 && <ArrowRight className="h-3 w-3 mx-1 text-slate-500" />}
                     <span 
                       className={cn(
                         "text-xs font-medium px-1.5 py-0.5 rounded",
@@ -110,7 +110,7 @@ export function SequenceSummaryCard({ analysis, className }: SequenceSummaryCard
         {/* Errors list */}
         {sequenceErrors.length > 0 && (
           <div className="space-y-1.5 pt-2 border-t border-slate-800">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <p className="text-xs text-slate-400 flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" />
               Sequence Issues:
             </p>
@@ -121,13 +121,13 @@ export function SequenceSummaryCard({ analysis, className }: SequenceSummaryCard
         )}
         
         {/* Summary text */}
-        <p className="text-sm text-muted-foreground pt-2 border-t border-slate-800">
+        <p className="text-sm text-slate-300 pt-2 border-t border-slate-800">
           {summary}
         </p>
         
         {/* 4B connection note */}
         <div className="pt-2 border-t border-slate-800">
-          <p className="text-xs text-slate-500 italic">
+          <p className="text-xs text-slate-400 italic">
             4B Framework: This analyzes the Body → Bat energy transfer sequence.
           </p>
         </div>
@@ -163,7 +163,7 @@ interface SequenceInlineSummaryProps {
 export function SequenceInlineSummary({ analysis, className }: SequenceInlineSummaryProps) {
   if (!analysis) {
     return (
-      <div className={cn("text-sm text-muted-foreground", className)}>
+      <div className={cn("text-sm text-slate-400", className)}>
         No sequence analysis available
       </div>
     );
@@ -179,11 +179,11 @@ export function SequenceInlineSummary({ analysis, className }: SequenceInlineSum
       >
         {analysis.sequenceMatch ? "✓ In Sequence" : "✗ Out of Sequence"}
       </span>
-      <span className="text-muted-foreground ml-2">
+      <span className="text-slate-300 ml-2">
         Score: {analysis.sequenceScore}/100
       </span>
       {!analysis.sequenceMatch && analysis.sequenceErrors.length > 0 && (
-        <span className="text-muted-foreground ml-2">
+        <span className="text-slate-400 ml-2">
           — {analysis.sequenceErrors[0].description}
         </span>
       )}
