@@ -103,7 +103,21 @@ serve(async (req) => {
           .eq('players_id', id)
           .single()
 
-        let sessions = []
+        interface SessionData {
+          id: string
+          status: string
+          product_type: string
+          created_at: string
+          composite_score: number | null
+          report_url: string | null
+          grade: string | null
+          four_b_brain: number | null
+          four_b_body: number | null
+          four_b_bat: number | null
+          four_b_ball: number | null
+        }
+
+        let sessions: SessionData[] = []
         if (profile) {
           const { data: sessionData } = await supabase
             .from('sessions')
@@ -112,7 +126,7 @@ serve(async (req) => {
             .order('created_at', { ascending: false })
             .limit(10)
           
-          sessions = sessionData || []
+          sessions = (sessionData || []) as SessionData[]
         }
 
         return new Response(
@@ -238,7 +252,8 @@ serve(async (req) => {
         )
     }
 
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     console.error('API error:', error)
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: error.message }),

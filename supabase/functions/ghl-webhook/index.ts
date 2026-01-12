@@ -125,7 +125,8 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     console.error('Webhook processing error:', error)
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: error.message }),
