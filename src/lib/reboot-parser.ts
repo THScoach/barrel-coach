@@ -513,10 +513,15 @@ interface MERow {
   org_movement_id: string;
   time_from_max_hand?: string;
   bat_kinetic_energy?: string;
-  arms_kinetic_energy: string;
+  // Arms can be single column OR left+right separate columns
+  arms_kinetic_energy?: string;
+  larm_kinetic_energy?: string;
+  rarm_kinetic_energy?: string;
   legs_kinetic_energy: string;
   torso_kinetic_energy: string;
   total_kinetic_energy: string;
+  // Mass for body_mass_kg calculation
+  mass_total?: string;
   [key: string]: string | undefined;
 }
 
@@ -592,7 +597,15 @@ export function processMEFile(rows: MERow[]): Map<string, MESwingMetrics> {
         batKEs.push(batKE);
       }
       
-      armsKEs.push(parseFloat(f.arms_kinetic_energy || '0'));
+      // Arms KE: try combined column first, then sum left+right
+      let armsKE = parseFloat(f.arms_kinetic_energy || '0');
+      if (armsKE === 0) {
+        const larmKE = parseFloat(f.larm_kinetic_energy || '0');
+        const rarmKE = parseFloat(f.rarm_kinetic_energy || '0');
+        armsKE = larmKE + rarmKE;
+      }
+      armsKEs.push(armsKE);
+      
       legsKEs.push(parseFloat(f.legs_kinetic_energy || '0'));
       torsoKEs.push(parseFloat(f.torso_kinetic_energy || '0'));
       totalKEs.push(totalKE);
