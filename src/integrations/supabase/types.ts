@@ -2191,6 +2191,7 @@ export type Database = {
           context: string | null
           created_at: string
           id: string
+          momentum_overlays: Json | null
           notes: string | null
           player_id: string
           session_date: string
@@ -2205,6 +2206,7 @@ export type Database = {
           context?: string | null
           created_at?: string
           id?: string
+          momentum_overlays?: Json | null
           notes?: string | null
           player_id: string
           session_date?: string
@@ -2219,6 +2221,7 @@ export type Database = {
           context?: string | null
           created_at?: string
           id?: string
+          momentum_overlays?: Json | null
           notes?: string | null
           player_id?: string
           session_date?: string

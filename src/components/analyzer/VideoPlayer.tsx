@@ -4,7 +4,7 @@ import { Slider } from "@/components/ui/slider";
 import { 
   Play, Pause, SkipBack, SkipForward, Maximize, 
   ChevronLeft, ChevronRight, Volume2, VolumeX,
-  Wand2
+  Wand2, Zap
 } from "lucide-react";
 import {
   Select,
@@ -15,6 +15,9 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { SAM3OverlayCanvas, type SAM3Mode } from "./SAM3OverlayCanvas";
+import { MomentumOverlayCanvas } from "./MomentumOverlayCanvas";
+import { MomentumOverlayCaption } from "./MomentumOverlayCaption";
+import { type MomentumOverlay } from "@/lib/momentum-overlay-types";
 
 // Marker definition for swing analysis points
 export interface VideoMarker {
@@ -44,6 +47,9 @@ interface VideoPlayerProps {
   enableSAM3?: boolean;
   onAnnotationSave?: (annotation: MaskAnnotation) => void;
   savedAnnotations?: MaskAnnotation[];
+  // Momentum leak overlay props
+  momentumOverlay?: MomentumOverlay | null;
+  enableMomentumOverlay?: boolean;
 }
 
 const PLAYBACK_SPEEDS = [0.1, 0.25, 0.5, 1];
@@ -65,6 +71,8 @@ export function VideoPlayer({
   enableSAM3 = false,
   onAnnotationSave,
   savedAnnotations = [],
+  momentumOverlay = null,
+  enableMomentumOverlay = false,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -77,6 +85,9 @@ export function VideoPlayer({
   // SAM3 state
   const [sam3Active, setSam3Active] = useState(false);
   const [sam3Mode, setSam3Mode] = useState<SAM3Mode>("off");
+  
+  // Momentum overlay state
+  const [momentumOverlayActive, setMomentumOverlayActive] = useState(false);
   
   // Track if we're in the middle of a programmatic seek
   const isSeeking = useRef(false);
@@ -287,9 +298,17 @@ export function VideoPlayer({
     }
   }, [sam3Active]);
 
+  // Toggle momentum overlay
+  const toggleMomentumOverlay = useCallback(() => {
+    setMomentumOverlayActive(prev => !prev);
+  }, []);
+  
+  // Determine if momentum overlay toggle should be shown
+  const showMomentumToggle = enableMomentumOverlay && momentumOverlay !== null;
+
   return (
     <div className="space-y-3">
-      {/* Video Element with SAM3 Overlay */}
+      {/* Video Element with Overlays */}
       <div className="relative">
         <video
           ref={videoRef}
@@ -311,7 +330,22 @@ export function VideoPlayer({
             savedAnnotations={savedAnnotations}
           />
         )}
+        
+        {/* Momentum Leak Overlay */}
+        <MomentumOverlayCanvas
+          videoElement={videoRef.current}
+          overlay={momentumOverlay}
+          currentTime={currentTime}
+          isEnabled={momentumOverlayActive}
+        />
       </div>
+
+      {/* Momentum Overlay Caption */}
+      <MomentumOverlayCaption
+        overlay={momentumOverlay}
+        currentTime={currentTime}
+        isEnabled={momentumOverlayActive}
+      />
 
       {/* Frame Counter */}
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
@@ -455,6 +489,30 @@ export function VideoPlayer({
 
         {/* Right Controls */}
         <div className="flex items-center gap-1">
+          {/* Momentum Overlay Toggle */}
+          {showMomentumToggle && (
+            <Button 
+              variant={momentumOverlayActive ? "secondary" : "ghost"} 
+              size="icon" 
+              onClick={toggleMomentumOverlay} 
+              title="Show Momentum Leaks"
+              className={cn(momentumOverlayActive && "bg-amber-600 hover:bg-amber-700 text-white")}
+            >
+              <Zap className="h-4 w-4" />
+            </Button>
+          )}
+          {/* No overlay available indicator */}
+          {enableMomentumOverlay && !momentumOverlay && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              disabled
+              title="No momentum overlay generated for this session yet"
+              className="opacity-40 cursor-not-allowed"
+            >
+              <Zap className="h-4 w-4" />
+            </Button>
+          )}
           {/* SAM3 Toggle Button */}
           {enableSAM3 && (
             <Button 
