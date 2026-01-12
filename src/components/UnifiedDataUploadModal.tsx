@@ -676,6 +676,73 @@ export function UnifiedDataUploadModal({
                 </div>
               </div>
               
+              {/* Kinetic Potential Layer - NEW */}
+              {rebootScores.kineticPotential?.hasProjections && (
+                <div className="border-t border-purple-200 dark:border-purple-800 pt-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-amber-500" />
+                    <span className="text-sm font-medium">Kinetic Potential (Projected)</span>
+                  </div>
+                  
+                  {/* Main Bat Speed Projection */}
+                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 p-3 rounded-lg">
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="text-center">
+                        <div className="text-xs text-muted-foreground">Current</div>
+                        <div className="text-2xl font-bold text-amber-600">
+                          {rebootScores.kineticPotential.estimatedCurrentBatSpeedMph}
+                        </div>
+                        <div className="text-xs text-muted-foreground">mph</div>
+                      </div>
+                      <div className="text-xl text-muted-foreground">→</div>
+                      <div className="text-center">
+                        <div className="text-xs text-muted-foreground">Ceiling</div>
+                        <div className="text-2xl font-bold text-orange-600">
+                          {rebootScores.kineticPotential.projectedBatSpeedCeilingMph}
+                        </div>
+                        <div className="text-xs text-muted-foreground">mph</div>
+                      </div>
+                      <div className="text-center border-l pl-3 border-orange-200 dark:border-orange-800">
+                        <div className="text-xs text-muted-foreground">Left on Table</div>
+                        <div className="text-xl font-bold text-green-600">
+                          +{rebootScores.kineticPotential.mphLeftOnTable}
+                        </div>
+                        <div className="text-xs text-muted-foreground">mph</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Derived Metrics */}
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="text-center p-2 bg-muted/50 rounded">
+                      <div className="font-medium">{rebootScores.kineticPotential.massAdjustedEnergy}</div>
+                      <div className="text-muted-foreground">MAE (J/kg)</div>
+                    </div>
+                    <div className="text-center p-2 bg-muted/50 rounded">
+                      <div className="font-medium">{rebootScores.kineticPotential.leverIndex}</div>
+                      <div className="text-muted-foreground">Lever Index</div>
+                    </div>
+                    <div className="text-center p-2 bg-muted/50 rounded">
+                      <div className="font-medium">{Math.round(rebootScores.kineticPotential.efficiency * 100)}%</div>
+                      <div className="text-muted-foreground">Efficiency</div>
+                    </div>
+                  </div>
+                  
+                  {/* Caption */}
+                  <p className="text-xs text-muted-foreground text-center italic">
+                    MPH left on table = speed you're leaking. Close the leak, that's the jump.
+                  </p>
+                  
+                  {/* Warnings if any */}
+                  {rebootScores.kineticPotential.warnings?.length > 0 && (
+                    <div className="text-xs text-amber-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {rebootScores.kineticPotential.warnings.join(', ')}
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {/* Training Visualizer - Show the leak */}
               {rebootScores.leak && rebootScores.leak.type !== LeakType.UNKNOWN && (
                 <div className="border-t border-purple-200 dark:border-purple-800 pt-3">

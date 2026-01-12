@@ -48,6 +48,32 @@ export interface KineticProjections {
   hasProjections: boolean;
 }
 
+// NEW: Kinetic Potential Layer outputs (mass-normalized, momentum-only)
+export interface KineticPotentialLayer {
+  // Inputs
+  avgTotalKEPeak: number;
+  avgArmsKEPeak: number;
+  bodyMassKg: number;
+  heightInches: number;
+  properSequencePct: number;
+  avgLegsToTorsoTransferPct: number;
+  avgTorsoToArmsTransferPct: number;
+  
+  // Derived metrics
+  massAdjustedEnergy: number;  // avg_total_ke_peak / body_mass_kg
+  leverIndex: number;          // height_inches / 68
+  efficiency: number;          // 0-1 momentum transfer efficiency
+  
+  // Projections (mph)
+  estimatedCurrentBatSpeedMph: number;
+  projectedBatSpeedCeilingMph: number;
+  mphLeftOnTable: number;
+  
+  // Status
+  hasProjections: boolean;
+  warnings: string[];
+}
+
 export interface SwingMetrics {
   movementId: string;
   
@@ -124,8 +150,11 @@ export interface FourBScores {
     trainingMeaning: string;
   };
   
-  // Kinetic Potential projections (NEW)
+  // Kinetic Potential projections (OLD)
   projections: KineticProjections;
+  
+  // NEW: Kinetic Potential Layer (mass-normalized)
+  kineticPotential?: KineticPotentialLayer;
   
   // Data quality
   dataQuality: DataQualityFlags;
@@ -189,8 +218,11 @@ export interface RebootScores {
     trainingMeaning: string;
   };
   
-  // Kinetic Potential projections (NEW)
+  // Kinetic Potential projections (OLD)
   projections?: KineticProjections;
+  
+  // NEW: Kinetic Potential Layer (mass-normalized)
+  kineticPotential?: KineticPotentialLayer;
   
   // Data quality
   dataQuality?: DataQualityFlags;
@@ -288,7 +320,7 @@ export const WEIGHTS = {
 
 export const MIN_SWINGS_FOR_CV = 3;
 
-// Kinetic Potential projection constants
+// Kinetic Potential projection constants (OLD - kept for backward compat)
 const K_BAT_SPEED = 4.25; // tunable constant for bat speed model
 const TARGET_DELIVERY_EFFICIENCY_PCT = 55; // target if leaks closed
 
@@ -299,6 +331,13 @@ const BAT_SPEED_CLAMPS: Record<string, { min: number; max: number }> = {
   college: { min: 60, max: 105 },
   pro: { min: 65, max: 110 },
 };
+
+// ============================================================================
+// KINETIC POTENTIAL LAYER CONSTANTS (LOCKED)
+// ============================================================================
+const K_CEILING = 103.6;          // Ceiling constant for bat speed projection
+const K_CURRENT_MULT = 0.90;      // Current is 90% of ceiling max
+const BASELINE_HEIGHT_INCHES = 68; // Adult baseline for lever index
 
 export const LEAK_MESSAGES: Record<LeakType, { caption: string; training: string }> = {
   [LeakType.CLEAN_TRANSFER]: {
@@ -807,6 +846,149 @@ export function calculateKineticProjections(
 }
 
 // ============================================================================
+// KINETIC POTENTIAL LAYER (MASS-NORMALIZED, MOMENTUM-ONLY)
+// ============================================================================
+
+/**
+ * Calculate Kinetic Potential Layer - ADD-ON to existing 4B scoring
+ * Uses ONLY momentum/kinetic data (no bat sensor required)
+ * 
+ * OUTPUTS:
+ * - estimated_current_bat_speed_mph
+ * - projected_bat_speed_ceiling_mph  
+ * - mph_left_on_table
+ */
+export function calculateKineticPotentialLayer(
+  swings: SwingMetrics[],
+  playerWeightLbs: number | null,
+  playerHeightInches: number | null
+): KineticPotentialLayer {
+  const warnings: string[] = [];
+  
+  // Fallbacks for missing player data
+  const bodyMassKg = playerWeightLbs 
+    ? playerWeightLbs / 2.20462 
+    : 75; // fallback 75 kg (~165 lbs)
+  
+  const heightInches = playerHeightInches || 68; // fallback 68"
+  
+  if (!playerWeightLbs) {
+    warnings.push('Using default weight (165 lbs)');
+  }
+  if (!playerHeightInches) {
+    warnings.push('Using default height (68")');
+  }
+  
+  // Edge case: no swings
+  if (!swings.length) {
+    return {
+      avgTotalKEPeak: 0,
+      avgArmsKEPeak: 0,
+      bodyMassKg,
+      heightInches,
+      properSequencePct: 0,
+      avgLegsToTorsoTransferPct: 0,
+      avgTorsoToArmsTransferPct: 0,
+      massAdjustedEnergy: 0,
+      leverIndex: heightInches / BASELINE_HEIGHT_INCHES,
+      efficiency: 0,
+      estimatedCurrentBatSpeedMph: 0,
+      projectedBatSpeedCeilingMph: 0,
+      mphLeftOnTable: 0,
+      hasProjections: false,
+      warnings: ['No swings available'],
+    };
+  }
+  
+  // Calculate averages from swing data
+  const avgTotalKEPeak = avg(swings.map(s => s.totalKE));
+  const avgArmsKEPeak = avg(swings.map(s => s.armsKE));
+  const avgLegsKEPeak = avg(swings.map(s => s.legsKE));
+  const avgTorsoKEPeak = avg(swings.map(s => s.torsoKE));
+  
+  // Edge case: no arms energy
+  if (avgArmsKEPeak <= 0) {
+    return {
+      avgTotalKEPeak,
+      avgArmsKEPeak,
+      bodyMassKg,
+      heightInches,
+      properSequencePct: 0,
+      avgLegsToTorsoTransferPct: 0,
+      avgTorsoToArmsTransferPct: 0,
+      massAdjustedEnergy: avgTotalKEPeak / bodyMassKg,
+      leverIndex: heightInches / BASELINE_HEIGHT_INCHES,
+      efficiency: 0,
+      estimatedCurrentBatSpeedMph: 0,
+      projectedBatSpeedCeilingMph: 0,
+      mphLeftOnTable: 0,
+      hasProjections: false,
+      warnings: ['Arms kinetic energy is zero - cannot project bat speed'],
+    };
+  }
+  
+  // Calculate transfer percentages
+  const avgLegsToTorsoTransferPct = avgLegsKEPeak > 0 
+    ? (avgTorsoKEPeak / avgLegsKEPeak) * 100 
+    : 0;
+  
+  const avgTorsoToArmsTransferPct = avg(swings.map(s => s.torsoToArmsTransferPct));
+  
+  // Calculate proper sequence percentage
+  const properSequenceSwings = swings.filter(s => s.properSequence).length;
+  const properSequencePct = (properSequenceSwings / swings.length) * 100;
+  
+  // DERIVED METRICS
+  
+  // 1) Mass Adjusted Energy (MAE)
+  const massAdjustedEnergy = avgTotalKEPeak / bodyMassKg;
+  
+  // 2) Lever Index
+  const leverIndex = heightInches / BASELINE_HEIGHT_INCHES;
+  
+  // 3) Efficiency (0-1) - momentum-only, coachable, bounded
+  const effRaw =
+    0.35 * (avgLegsToTorsoTransferPct / 80) +
+    0.35 * (avgTorsoToArmsTransferPct / 150) +
+    0.30 * (properSequencePct / 100);
+  
+  const efficiency = clamp(effRaw * 1.53, 0, 1);
+  
+  // CORE FORMULAS (LOCKED)
+  
+  // A) Mass-normalized arms energy index (the key normalization layer)
+  const armsMassIndex = avgArmsKEPeak / bodyMassKg;
+  
+  // B) Projected Bat Speed Ceiling (mph)
+  const projectedBatSpeedCeilingMph = K_CEILING * Math.sqrt(armsMassIndex) * leverIndex;
+  
+  // C) Estimated Current Bat Speed (mph)
+  const estimatedCurrentBatSpeedMph = 
+    (K_CEILING * K_CURRENT_MULT) * Math.sqrt(armsMassIndex) * leverIndex * efficiency;
+  
+  // D) MPH left on the table
+  const mphLeftOnTable = projectedBatSpeedCeilingMph - estimatedCurrentBatSpeedMph;
+  
+  return {
+    avgTotalKEPeak: Math.round(avgTotalKEPeak * 10) / 10,
+    avgArmsKEPeak: Math.round(avgArmsKEPeak * 10) / 10,
+    bodyMassKg: Math.round(bodyMassKg * 10) / 10,
+    heightInches,
+    properSequencePct: Math.round(properSequencePct * 10) / 10,
+    avgLegsToTorsoTransferPct: Math.round(avgLegsToTorsoTransferPct * 10) / 10,
+    avgTorsoToArmsTransferPct: Math.round(avgTorsoToArmsTransferPct * 10) / 10,
+    massAdjustedEnergy: Math.round(massAdjustedEnergy * 100) / 100,
+    leverIndex: Math.round(leverIndex * 100) / 100,
+    efficiency: Math.round(efficiency * 100) / 100,
+    estimatedCurrentBatSpeedMph: Math.round(estimatedCurrentBatSpeedMph * 10) / 10,
+    projectedBatSpeedCeilingMph: Math.round(projectedBatSpeedCeilingMph * 10) / 10,
+    mphLeftOnTable: Math.round(mphLeftOnTable * 10) / 10,
+    hasProjections: true,
+    warnings,
+  };
+}
+
+// ============================================================================
 // LEAK DETECTION (MOMENTUM-BASED)
 // ============================================================================
 
@@ -891,7 +1073,9 @@ export function calculate4BScores(
   ikRows: IKRow[] | null,
   meRows: MERow[],
   dominantHand: 'L' | 'R' = 'R',
-  playerLevel: string = 'hs'
+  playerLevel: string = 'hs',
+  playerWeightLbs: number | null = null,
+  playerHeightInches: number | null = null
 ): FourBScores {
   // Initialize result
   const result: FourBScores = {
@@ -1177,6 +1361,9 @@ export function calculate4BScores(
   result.leak = leak;
   result.projections = projections;
   
+  // ========== KINETIC POTENTIAL LAYER ==========
+  result.kineticPotential = calculateKineticPotentialLayer(swings, playerWeightLbs, playerHeightInches);
+  
   return result;
 }
 
@@ -1291,10 +1478,12 @@ export function calculateRebootScores(
   ikData: Record<string, any>[] | null,
   meData: Record<string, any>[],
   dominantHand: 'L' | 'R' = 'R',
-  playerLevel: string = 'hs'
+  playerLevel: string = 'hs',
+  playerWeightLbs: number | null = null,
+  playerHeightInches: number | null = null
 ): RebootScores {
   // Use the momentum-first scoring function
-  const scores = calculate4BScores(ikData as any, meData as any, dominantHand, playerLevel);
+  const scores = calculate4BScores(ikData as any, meData as any, dominantHand, playerLevel, playerWeightLbs, playerHeightInches);
   
   // Determine weakest link
   const scoreMap = {
@@ -1356,6 +1545,7 @@ export function calculateRebootScores(
     // New fields
     leak: scores.leak,
     projections: scores.projections,
+    kineticPotential: scores.kineticPotential,
     dataQuality: scores.dataQuality,
     
     swingCount: scores.dataQuality.swingCount,
