@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,12 +14,19 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Sparkles
+  Sparkles,
+  Zap,
+  AlertCircle
 } from "lucide-react";
 import { VideoPlayer } from "@/components/analyzer/VideoPlayer";
 import { MomentumSequenceVisualizer } from "@/components/analyzer/MomentumSequenceVisualizer";
 import { useAnalyzeVideoSwingSession } from "@/hooks/useAnalyzeVideoSwingSession";
 import { cn } from "@/lib/utils";
+import { 
+  type MomentumOverlay, 
+  generateMockOverlay 
+} from "@/lib/momentum-overlay-types";
+import type { Json } from "@/integrations/supabase/types";
 
 interface VideoSwing {
   id: string;
@@ -40,6 +47,7 @@ interface VideoSwingSession {
   status: string;
   video_count: number;
   analyzed_count: number;
+  momentum_overlays?: Json | null;
 }
 
 interface VideoAnalyzerDetailProps {
@@ -108,6 +116,17 @@ export function VideoAnalyzerDetail({ sessionId, onBack }: VideoAnalyzerDetailPr
   };
 
   const selectedSwing = swings[selectedSwingIndex];
+  
+  // Parse momentum overlay from session data
+  const momentumOverlay = useMemo((): MomentumOverlay | null => {
+    if (!session?.momentum_overlays) return null;
+    try {
+      // The overlay is stored as JSON in the database
+      return session.momentum_overlays as unknown as MomentumOverlay;
+    } catch {
+      return null;
+    }
+  }, [session?.momentum_overlays]);
 
   const handleTimeUpdate = (time: number) => {
     setCurrentTimeMs(time * 1000);
@@ -299,6 +318,8 @@ export function VideoAnalyzerDetail({ sessionId, onBack }: VideoAnalyzerDetailPr
                     src={selectedSwing.video_url}
                     enableSAM3={true}
                     onTimeUpdate={handleTimeUpdate}
+                    momentumOverlay={momentumOverlay}
+                    enableMomentumOverlay={true}
                   />
                 ) : (
                   <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
@@ -307,6 +328,14 @@ export function VideoAnalyzerDetail({ sessionId, onBack }: VideoAnalyzerDetailPr
                 )}
               </CardContent>
             </Card>
+            
+            {/* No Momentum Overlay Note */}
+            {!momentumOverlay && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                <AlertCircle className="h-4 w-4 text-slate-400" />
+                <span>No momentum overlay generated for this session yet. Overlays are created by KRS + SAM3 analysis.</span>
+              </div>
+            )}
 
             {/* Momentum Sequence Visualizer */}
             <MomentumSequenceVisualizer

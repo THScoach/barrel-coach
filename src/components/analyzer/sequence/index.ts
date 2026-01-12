@@ -26,6 +26,10 @@ export { SequenceBar, SequenceSummaryBadge } from '../SequenceBar';
 export { SequenceSummaryCard, SequenceInlineSummary } from '../SequenceSummaryCard';
 export { SkeletonSequenceOverlay } from '../SkeletonSequenceOverlay';
 
+// Momentum Leak Overlay Components
+export { MomentumOverlayCanvas } from '../MomentumOverlayCanvas';
+export { MomentumOverlayCaption } from '../MomentumOverlayCaption';
+
 // Re-export types and utilities from the library
 export {
   type SegmentName,
@@ -41,3 +45,18 @@ export {
   getPlaybackState,
   generateMockSequenceData,
 } from '@/lib/momentum-sequence';
+
+// Re-export momentum overlay types
+export {
+  type MomentumOverlay,
+  type OverlaySegment,
+  type OverlayStyle,
+  type OverlayFrame,
+  type OverlayRegion,
+  type LeakType,
+  SEGMENT_COLORS as OVERLAY_SEGMENT_COLORS,
+  LEAK_TYPE_LABELS,
+  getActiveFrame,
+  getActiveCaption,
+  generateMockOverlay,
+} from '@/lib/momentum-overlay-types';
