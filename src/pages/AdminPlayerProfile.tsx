@@ -708,14 +708,31 @@ export default function AdminPlayerProfile() {
               </Button>
             </div>
 
-            {/* Mobile Tab Content */}
-            {mobileTab === "overview" && <PlayerActivityTab playerId={player?.id || id!} playersTableId={player?.players_id} />}
-            {mobileTab === "scores" && <PlayerScoresTab playerId={player?.players_id || id!} playerName={getPlayerName()} />}
-            {mobileTab === "drills" && <PlayerDrillsTab playerId={player?.id || id!} />}
-            {mobileTab === "data" && <PlayerDataTab playerId={player?.id || id!} playerName={getPlayerName()} />}
-            {mobileTab === "transfer" && <PlayerTransferTab playerId={player?.players_id || id!} />}
-            {mobileTab === "schedule" && <PlayerScheduleTab playerId={player?.id || id!} />}
-            {mobileTab === "communication" && <PlayerCommunicationTab playerId={player?.id || id!} playerName={getPlayerName()} />}
+            {/* Mobile Tab Content - Simplified 3-tab structure */}
+            {mobileTab === "overview" && (
+              <PlayerOverviewTab 
+                playerId={player?.id || id!} 
+                playersTableId={player?.players_id}
+                playerName={getPlayerName()}
+                playerLevel={player?.level}
+                playerBats={player?.bats}
+                playerThrows={player?.throws}
+              />
+            )}
+            {mobileTab === "scores" && (
+              <PlayerScoresTabNew 
+                playerId={player?.id || id!} 
+                playersTableId={player?.players_id}
+                playerName={getPlayerName()} 
+              />
+            )}
+            {mobileTab === "communication" && (
+              <PlayerCommunicationTabNew 
+                playerId={player?.id || id!} 
+                playersTableId={player?.players_id}
+                playerName={getPlayerName()} 
+              />
+            )}
 
             <MobileMoreSheet
               open={showMoreSheet}
