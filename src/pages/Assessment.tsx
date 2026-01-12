@@ -72,13 +72,14 @@ export default function Assessment() {
       const { data, error } = await supabase.functions.invoke('create-assessment-checkout', { body: { email } });
       if (error) throw error;
       if (data?.url) {
-        window.location.href = data.url;
+        window.open(data.url, '_blank');
       } else {
         throw new Error('No checkout URL received');
       }
     } catch (error) {
       console.error('Checkout failed:', error);
       toast.error('Failed to start checkout. Please try again.');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -95,12 +96,15 @@ export default function Assessment() {
         </div>
         <div className="max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-3xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/20 rounded-full text-yellow-400 text-sm mb-4">
+              <span className="font-bold uppercase tracking-wider">Limited Time — Spring Training Discount</span>
+            </div>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/50 rounded-full text-slate-300 text-sm mb-6">
               <Clock className="w-4 h-4 text-red-400" />
               90 Minutes • In-Person
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              In-Person Assessment
+              In-Person Swing Assessment
             </h1>
             <p className="text-xl text-slate-300 mb-4 max-w-2xl mx-auto">
               One session. Real answers.
@@ -108,9 +112,12 @@ export default function Assessment() {
             <p className="text-lg text-slate-400 mb-8 max-w-2xl mx-auto">
               90 minutes with me, face-to-face. Full 4B evaluation, video analysis, and a training plan you can actually use.
             </p>
-            <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 max-w-md mx-auto">
-              <p className="text-5xl font-bold text-white mb-2">$399</p>
-              <p className="text-slate-400 mb-6">One-time investment</p>
+            <div className="bg-slate-900/80 backdrop-blur-xl border border-yellow-500/30 rounded-2xl p-8 max-w-md mx-auto">
+              <div className="flex justify-center items-baseline gap-3 mb-2">
+                <p className="text-5xl font-bold text-white">$299</p>
+                <p className="text-xl text-slate-500 line-through">$399</p>
+              </div>
+              <p className="text-yellow-400 text-sm mb-6">This price is only available until I leave for spring training.</p>
               <Input
                 type="email"
                 placeholder="Enter your email to book"
@@ -118,8 +125,8 @@ export default function Assessment() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 mb-4"
               />
-              <Button onClick={handleBook} disabled={isLoading} className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3">
-                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : <>Book Now <ArrowRight className="ml-2 h-4 w-4" /></>}
+              <Button onClick={handleBook} disabled={isLoading} className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3">
+                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : <>Book In-Person Assessment ($299) <ArrowRight className="ml-2 h-4 w-4" /></>}
               </Button>
               <div className="flex items-center justify-center gap-2 mt-4 text-sm text-slate-400">
                 <Shield className="w-4 h-4 text-green-400" />
@@ -229,9 +236,9 @@ export default function Assessment() {
           <p className="text-slate-300 mb-8">Book your 90-minute session today.</p>
           <Button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-full font-semibold"
+            className="bg-yellow-500 hover:bg-yellow-600 text-black px-8 py-3 rounded-full font-bold"
           >
-            Book for $399 <ArrowRight className="ml-2 h-4 w-4" />
+            Book for $299 <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
       </section>

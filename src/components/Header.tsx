@@ -5,9 +5,10 @@ import { Menu, X, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 
 const navigation = [
+  { name: 'Home', href: '/' },
+  { name: 'Coaching', href: '/coaching' },
   { name: 'Pricing', href: '/pricing' },
-  { name: 'About Rick', href: '/about' },
-  { name: 'Book Assessment', href: '/assessment' },
+  { name: 'Upload Swing', href: '/analyze' },
 ];
 
 interface HeaderProps {
@@ -46,7 +47,7 @@ export function Header({ showLogin = true }: HeaderProps) {
         {/* Desktop CTA + Login */}
         <div className="hidden md:flex items-center gap-4">
           <Button asChild className="bg-red-600 hover:bg-red-700 text-white font-bold">
-            <Link to="/analyze">
+            <Link to="/diagnostic">
               Free Diagnostic
               <ArrowRight className="w-4 h-4 ml-2" />
             </Link>
@@ -87,7 +88,7 @@ export function Header({ showLogin = true }: HeaderProps) {
             ))}
             <div className="pt-4 space-y-3">
               <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
-                <Link to="/analyze" onClick={() => setMobileMenuOpen(false)}>
+                <Link to="/diagnostic" onClick={() => setMobileMenuOpen(false)}>
                   Free Diagnostic
                 </Link>
               </Button>
