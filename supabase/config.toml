@@ -47,3 +47,9 @@ verify_jwt = false
 
 [functions.import-onform-video]
 verify_jwt = false
+
+[functions.upload-to-gumlet]
+verify_jwt = false
+
+[functions.gumlet-webhook]
+verify_jwt = false
