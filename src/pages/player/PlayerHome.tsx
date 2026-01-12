@@ -186,10 +186,10 @@ export default function PlayerHome() {
       {/* Welcome Header */}
       <div className="space-y-1">
         <h1 className="text-2xl font-bold">
-          Welcome back{player?.name ? `, ${player.name.split(' ')[0]}` : ''}! 👋
+          Your Coaching Hub
         </h1>
         <p className="text-muted-foreground">
-          Here's what's happening with your training.
+          Stay active. Upload swings. Show up Mondays. That's how this works.
         </p>
       </div>
 
@@ -269,7 +269,7 @@ export default function PlayerHome() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Your 4B Scores</CardTitle>
-            <CardDescription>From your most recent assessment</CardDescription>
+            <CardDescription>This is clarity, not coaching. Join the coaching group to improve week by week.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-4 gap-2 text-center">
@@ -316,16 +316,16 @@ export default function PlayerHome() {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Video className="h-5 w-5 text-primary" />
-            Video Analyzer
+            Upload Swings
           </CardTitle>
           <CardDescription>
-            Get detailed 4B sequence analysis from your swing videos
+            This is how I keep eyes on you. Upload and I'll give feedback.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Upload 5–15 swings per session. Higher frame-rate (120–240 fps) gives more accurate timing and sequence.
+              If you want to improve week by week, keep uploading. That's the deal.
             </p>
             <div className="flex gap-2">
               <Button onClick={() => setVideoUploadOpen(true)}>
