@@ -43,8 +43,8 @@ import {
   Trash2,
   RefreshCw,
   MailOpen,
-  MessageSquare,
   Phone,
+  ExternalLink,
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
@@ -53,7 +53,6 @@ import { formatDistanceToNow, format } from "date-fns";
 
 type InviteType = "diagnostic" | "assessment" | "membership" | "beta";
 type InviteStatus = "pending" | "accepted" | "expired" | "cancelled";
-type DeliveryMethod = "email" | "sms" | "both";
 
 interface Invite {
   id: string;
@@ -64,7 +63,6 @@ interface Invite {
   status: InviteStatus;
   invite_token: string;
   player_id: string | null;
-  delivery_method: DeliveryMethod | null;
   expires_at: string | null;
   last_sent_at: string | null;
   opened_at: string | null;
@@ -98,7 +96,6 @@ export default function AdminInvites() {
     phone: "",
     player_name: "",
     invite_type: "beta" as InviteType,
-    delivery_method: "sms" as DeliveryMethod,
   });
 
   // Fetch invites
@@ -137,10 +134,16 @@ export default function AdminInvites() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      toast.success("Invite sent successfully!");
+    onSuccess: (data) => {
+      if (data?.ghl_sent) {
+        toast.success("Invite created and sent to GoHighLevel!");
+      } else {
+        toast.success("Invite created! Contact will be handled in GoHighLevel.", {
+          description: data?.ghl_error || "Check GoHighLevel for communication",
+        });
+      }
       setShowNewInvite(false);
-      setNewInvite({ email: "", phone: "", player_name: "", invite_type: "beta", delivery_method: "sms" });
+      setNewInvite({ email: "", phone: "", player_name: "", invite_type: "beta" });
       queryClient.invalidateQueries({ queryKey: ["invites"] });
     },
     onError: (error) => {
@@ -157,8 +160,12 @@ export default function AdminInvites() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      toast.success("Invite resent!");
+    onSuccess: (data) => {
+      if (data?.ghl_sent) {
+        toast.success("Invite resent to GoHighLevel!");
+      } else {
+        toast.success("Invite updated! Check GoHighLevel for communication.");
+      }
       queryClient.invalidateQueries({ queryKey: ["invites"] });
     },
     onError: (error) => {
@@ -210,7 +217,7 @@ export default function AdminInvites() {
               Invites
             </h1>
             <p className="text-slate-400 text-sm md:text-base mt-0.5">
-              Track who you've invited and their status
+              Invites are sent via GoHighLevel
             </p>
           </div>
           <Button
@@ -447,65 +454,19 @@ export default function AdminInvites() {
       <Dialog open={showNewInvite} onOpenChange={setShowNewInvite}>
         <DialogContent className="bg-slate-900 border-slate-700">
           <DialogHeader>
-            <DialogTitle className="text-white">Send New Invite</DialogTitle>
+            <DialogTitle className="text-white">Create New Invite</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {/* Delivery Method */}
-            <div className="space-y-2">
-              <Label className="text-slate-300">Send via</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {(["sms", "email", "both"] as DeliveryMethod[]).map((method) => (
-                  <Button
-                    key={method}
-                    type="button"
-                    variant={newInvite.delivery_method === method ? "default" : "outline"}
-                    onClick={() => setNewInvite({ ...newInvite, delivery_method: method })}
-                    className={newInvite.delivery_method === method 
-                      ? "bg-primary text-white" 
-                      : "border-slate-600 text-slate-300 hover:bg-slate-800"
-                    }
-                  >
-                    {method === "sms" && <MessageSquare className="h-4 w-4 mr-1.5" />}
-                    {method === "email" && <Mail className="h-4 w-4 mr-1.5" />}
-                    {method === "both" && <><MessageSquare className="h-3 w-3 mr-1" /><Mail className="h-3 w-3 mr-1" /></>}
-                    {method === "sms" ? "SMS" : method === "email" ? "Email" : "Both"}
-                  </Button>
-                ))}
+            <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-sm text-slate-400">
+              <div className="flex items-center gap-2 mb-1">
+                <ExternalLink className="h-4 w-4" />
+                <span className="font-medium text-slate-300">GoHighLevel Integration</span>
               </div>
+              <p>Contact will be created and communication handled through GoHighLevel workflows.</p>
             </div>
-            
-            {/* Phone (for SMS) */}
-            {(newInvite.delivery_method === "sms" || newInvite.delivery_method === "both") && (
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="text-slate-300">Phone Number *</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="(555) 123-4567"
-                  value={newInvite.phone}
-                  onChange={(e) => setNewInvite({ ...newInvite, phone: e.target.value })}
-                  className="bg-slate-800 border-slate-600 text-white"
-                />
-              </div>
-            )}
-
-            {/* Email (for email) */}
-            {(newInvite.delivery_method === "email" || newInvite.delivery_method === "both") && (
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-300">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="player@example.com"
-                  value={newInvite.email}
-                  onChange={(e) => setNewInvite({ ...newInvite, email: e.target.value })}
-                  className="bg-slate-800 border-slate-600 text-white"
-                />
-              </div>
-            )}
 
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-slate-300">Player Name (optional)</Label>
+              <Label htmlFor="name" className="text-slate-300">Player Name</Label>
               <Input
                 id="name"
                 placeholder="John Smith"
@@ -514,6 +475,32 @@ export default function AdminInvites() {
                 className="bg-slate-800 border-slate-600 text-white"
               />
             </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-slate-300">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="player@example.com"
+                value={newInvite.email}
+                onChange={(e) => setNewInvite({ ...newInvite, email: e.target.value })}
+                className="bg-slate-800 border-slate-600 text-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-slate-300">Phone Number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="(555) 123-4567"
+                value={newInvite.phone}
+                onChange={(e) => setNewInvite({ ...newInvite, phone: e.target.value })}
+                className="bg-slate-800 border-slate-600 text-white"
+              />
+              <p className="text-xs text-slate-500">At least email or phone is required</p>
+            </div>
+
             <div className="space-y-2">
               <Label className="text-slate-300">Invite Type</Label>
               <Select
@@ -544,19 +531,16 @@ export default function AdminInvites() {
               onClick={() => createInviteMutation.mutate(newInvite)}
               disabled={
                 createInviteMutation.isPending ||
-                ((newInvite.delivery_method === "sms" || newInvite.delivery_method === "both") && !newInvite.phone) ||
-                ((newInvite.delivery_method === "email" || newInvite.delivery_method === "both") && !newInvite.email)
+                (!newInvite.email && !newInvite.phone)
               }
               className="btn-primary gap-2"
             >
               {createInviteMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
-              ) : newInvite.delivery_method === "sms" ? (
-                <MessageSquare className="h-4 w-4" />
               ) : (
                 <Send className="h-4 w-4" />
               )}
-              Send Invite
+              Create Invite
             </Button>
           </DialogFooter>
         </DialogContent>
