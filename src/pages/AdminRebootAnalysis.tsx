@@ -6,18 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Search,
-  RefreshCw,
-  Brain,
-  Dumbbell,
-  Target,
+import { 
+  Search, 
+  RefreshCw, 
+  Brain, 
+  Dumbbell, 
+  Target, 
   CircleDot,
   Zap,
   AlertTriangle,
   Check,
   Loader2,
-  UserPlus,
+  UserPlus
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -30,7 +30,11 @@ interface Player {
   reboot_athlete_id: string | null;
 }
 
-type SessionType = string | { name?: string | null } | null | undefined;
+type SessionType =
+  | string
+  | { name?: string | null }
+  | null
+  | undefined;
 
 interface RebootSession {
   session_id: string;
@@ -92,35 +96,37 @@ const getSessionTypeLabel = (sessionType: SessionType): string => {
   return "Unknown";
 };
 
-const ScoreCard = ({
-  label,
-  score,
-  grade,
-  icon: Icon,
-  isWeakest = false,
-}: {
-  label: string;
-  score: number;
-  grade: string;
+const ScoreCard = ({ 
+  label, 
+  score, 
+  grade, 
+  icon: Icon, 
+  isWeakest = false 
+}: { 
+  label: string; 
+  score: number; 
+  grade: string; 
   icon: React.ElementType;
   isWeakest?: boolean;
 }) => (
-  <Card className={`relative bg-slate-900/80 border-slate-800 ${isWeakest ? "ring-2 ring-red-500" : ""}`}>
+  <div className={`relative p-4 rounded-xl border ${isWeakest ? 'border-red-500/50 bg-red-500/10' : 'border-slate-700 bg-slate-800/50'}`}>
     {isWeakest && (
       <div className="absolute -top-2 -right-2">
-        <Badge variant="destructive" className="text-xs">
-          <AlertTriangle className="w-3 h-3 mr-1" />
+        <div className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+          <AlertTriangle className="w-3 h-3" />
           Weakest
-        </Badge>
+        </div>
       </div>
     )}
-    <CardContent className="pt-6 text-center">
-      <Icon className={`w-8 h-8 mx-auto mb-2 ${getScoreTextColor(score)}`} />
-      <p className="text-sm font-medium text-slate-400 mb-1">{label}</p>
-      <p className={`text-4xl font-bold ${getScoreTextColor(score)}`}>{score}</p>
-      <Badge className={`mt-2 ${getScoreColor(score)} text-white`}>{grade}</Badge>
-    </CardContent>
-  </Card>
+    <div className="flex flex-col items-center gap-2">
+      <Icon className={`w-6 h-6 ${getScoreTextColor(score)}`} />
+      <div className="text-sm text-slate-400">{label}</div>
+      <div className={`text-2xl font-bold ${getScoreTextColor(score)}`}>{score}</div>
+      <Badge variant="outline" className={`${getScoreColor(score)} text-white border-0`}>
+        {grade}
+      </Badge>
+    </div>
+  </div>
 );
 
 export default function AdminRebootAnalysis() {
@@ -133,7 +139,7 @@ export default function AdminRebootAnalysis() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [results, setResults] = useState<FourBScores | null>(null);
   const [showPlayerSearch, setShowPlayerSearch] = useState(false);
-
+  
   // NEW: Manual import state
   const [manualSessionId, setManualSessionId] = useState("");
   const [manualOrgPlayerId, setManualOrgPlayerId] = useState("");
@@ -143,9 +149,9 @@ export default function AdminRebootAnalysis() {
     queryKey: ["players-search", searchQuery],
     queryFn: async () => {
       if (!searchQuery || searchQuery.length < 2) return [];
-
+      
       console.log(`[Player Search] Searching for: "${searchQuery}"`);
-
+      
       const { data, error } = await supabase
         .from("players")
         .select("id, name, level, team, reboot_athlete_id")
@@ -156,7 +162,7 @@ export default function AdminRebootAnalysis() {
         console.error("[Player Search] Error:", error);
         throw error;
       }
-
+      
       console.log(`[Player Search] Found ${data?.length || 0} players:`, data);
       return data as Player[];
     },
@@ -176,12 +182,10 @@ export default function AdminRebootAnalysis() {
     setResults(null);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
+      const { data: { session } } = await supabase.auth.getSession();
+      
       console.log("[Fetch Sessions] Fetching for player:", selectedPlayer.reboot_athlete_id);
-
+      
       const response = await supabase.functions.invoke("fetch-reboot-sessions", {
         body: { org_player_id: selectedPlayer.reboot_athlete_id },
         headers: {
@@ -192,22 +196,22 @@ export default function AdminRebootAnalysis() {
       console.log("[Fetch Sessions] Raw response:", response);
 
       if (response.error) throw new Error(response.error.message);
-
+      
       const sessions = response.data?.sessions || [];
       console.log("[Fetch Sessions] Raw sessions data:", sessions);
-
+      
       // Map sessions and handle session_type being an object or string
       const mappedSessions = sessions.map((s: any) => {
         // Extract session type name if it's an object
         let sessionTypeName = "Practice";
         if (s.session_type) {
-          if (typeof s.session_type === "object" && s.session_type.name) {
+          if (typeof s.session_type === 'object' && s.session_type.name) {
             sessionTypeName = s.session_type.name;
-          } else if (typeof s.session_type === "string") {
+          } else if (typeof s.session_type === 'string') {
             sessionTypeName = s.session_type;
           }
         }
-
+        
         return {
           session_id: s.session_id || s.id,
           session_date: s.session_date || s.created_at,
@@ -215,7 +219,7 @@ export default function AdminRebootAnalysis() {
           movement_count: s.movement_count || 0,
         };
       });
-
+      
       console.log("[Fetch Sessions] Mapped sessions:", mappedSessions);
       setRebootSessions(mappedSessions);
 
@@ -238,7 +242,7 @@ export default function AdminRebootAnalysis() {
 
     // Use manual org_player_id if provided, otherwise fall back to player's reboot_athlete_id
     const orgPlayerId = manualOrgPlayerId.trim() || selectedPlayer.reboot_athlete_id;
-
+    
     if (!orgPlayerId) {
       toast.error("No Reboot Player ID available. Please enter one manually.");
       return;
@@ -248,16 +252,14 @@ export default function AdminRebootAnalysis() {
     setResults(null);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
+      const { data: { session } } = await supabase.auth.getSession();
+      
       console.log("[Process Session] Processing:", {
         session_id: selectedSessionId,
         org_player_id: orgPlayerId,
         player_id: selectedPlayer.id,
       });
-
+      
       const response = await supabase.functions.invoke("process-reboot-session", {
         body: {
           session_id: selectedSessionId,
@@ -270,7 +272,7 @@ export default function AdminRebootAnalysis() {
       });
 
       if (response.error) throw new Error(response.error.message);
-
+      
       if (response.data?.success) {
         setResults(response.data.scores);
         toast.success(response.data.message);
@@ -287,18 +289,18 @@ export default function AdminRebootAnalysis() {
 
   const selectPlayer = (player: Player) => {
     console.log("[Player Select] Selected player:", player);
-
+    
     if (!player.reboot_athlete_id) {
       toast.warning("This player has no Reboot Athlete ID. You can still use manual import if you know the IDs.");
     }
-
+    
     setSelectedPlayer(player);
     setSearchQuery("");
     setShowPlayerSearch(false);
     setRebootSessions([]);
     setSelectedSessionId(null);
     setResults(null);
-
+    
     // Pre-fill manual org_player_id if available
     if (player.reboot_athlete_id) {
       setManualOrgPlayerId(player.reboot_athlete_id);
@@ -318,36 +320,36 @@ export default function AdminRebootAnalysis() {
   return (
     <div className="min-h-screen bg-slate-950">
       <AdminHeader />
-
-      <main className="container mx-auto px-4 py-8">
+      
+      <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white">Reboot Analysis</h1>
-          <p className="text-slate-400">Process Reboot Motion sessions and calculate 4B scores</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Reboot Analysis</h1>
+          <p className="text-slate-400">
+            Process Reboot Motion sessions and calculate 4B scores
+          </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column - Selection */}
           <div className="space-y-6">
             {/* Step 1: Select Player */}
-            <Card className="bg-slate-900/80 border-slate-800">
+            <Card className="bg-slate-900 border-slate-800">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-white">
-                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
-                    1
-                  </span>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-sm flex items-center justify-center">1</span>
                   Select Player
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {selectedPlayer ? (
-                  <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-white">{selectedPlayer.name}</p>
-                      <p className="text-sm text-slate-400">
+                      <p className="text-white font-medium">{selectedPlayer.name}</p>
+                      <p className="text-slate-400 text-sm">
                         {selectedPlayer.level} • {selectedPlayer.team}
                       </p>
                       {selectedPlayer.reboot_athlete_id && (
-                        <p className="text-xs text-green-400 flex items-center gap-1 mt-1">
+                        <p className="text-green-400 text-xs flex items-center gap-1 mt-1">
                           <Check className="w-3 h-3" />
                           Reboot ID: {selectedPlayer.reboot_athlete_id}
                         </p>
@@ -368,11 +370,11 @@ export default function AdminRebootAnalysis() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="relative">
+                  <div className="space-y-2">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                       <Input
-                        placeholder="Search players by name..."
+                        placeholder="Search players..."
                         value={searchQuery}
                         onChange={(e) => {
                           setSearchQuery(e.target.value);
@@ -382,50 +384,55 @@ export default function AdminRebootAnalysis() {
                         className="pl-10 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                       />
                     </div>
-
+                    
                     {showPlayerSearch && searchQuery.length >= 2 && (
-                      <div className="absolute z-10 w-full mt-1 bg-slate-900 border border-slate-700 rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div className="bg-slate-800 rounded-lg border border-slate-700 max-h-60 overflow-y-auto">
                         {isLoadingPlayers ? (
                           <div className="p-4 text-center text-slate-400">
-                            <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                            <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                           </div>
                         ) : players.length > 0 ? (
                           <>
                             {players.map((player) => (
-                              <button
+                              <div
                                 key={player.id}
-                                className="w-full px-4 py-3 text-left hover:bg-slate-800 transition-colors border-b border-slate-700 last:border-b-0"
+                                className="p-3 hover:bg-slate-700/50 cursor-pointer border-b border-slate-700 last:border-0"
                                 onClick={() => selectPlayer(player)}
                               >
-                                <p className="font-medium text-white">{player.name}</p>
-                                <p className="text-sm text-slate-400">
+                                <p className="text-white font-medium">{player.name}</p>
+                                <p className="text-slate-400 text-sm">
                                   {player.level} • {player.team}
                                 </p>
                                 {player.reboot_athlete_id ? (
-                                  <p className="text-xs text-green-400">Has Reboot ID</p>
+                                  <p className="text-green-400 text-xs mt-1">
+                                    Has Reboot ID
+                                  </p>
                                 ) : (
-                                  <p className="text-xs text-yellow-400">No Reboot ID</p>
+                                  <p className="text-yellow-400 text-xs mt-1">
+                                    No Reboot ID
+                                  </p>
                                 )}
-                              </button>
+                              </div>
                             ))}
-                            <button
-                              className="w-full px-4 py-3 text-left hover:bg-slate-800 transition-colors flex items-center gap-2 text-red-400"
+                            <div
+                              className="p-3 hover:bg-slate-700/50 cursor-pointer text-blue-400 flex items-center gap-2"
                               onClick={() => navigate("/admin/players")}
                             >
                               <UserPlus className="w-4 h-4" />
                               Add New Player
-                            </button>
+                            </div>
                           </>
                         ) : (
-                          <div className="p-4">
-                            <p className="text-slate-400 text-sm">No players found</p>
-                            <button
-                              className="mt-2 text-red-400 text-sm flex items-center gap-1"
+                          <div className="p-4 text-center">
+                            <p className="text-slate-400 mb-2">No players found</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => navigate("/admin/players")}
                             >
-                              <UserPlus className="w-4 h-4" />
+                              <UserPlus className="w-4 h-4 mr-2" />
                               Add New Player
-                            </button>
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -436,22 +443,20 @@ export default function AdminRebootAnalysis() {
             </Card>
 
             {/* Step 2: Select Session - UPDATED WITH MANUAL IMPORT */}
-            <Card className="bg-slate-900/80 border-slate-800">
+            <Card className="bg-slate-900 border-slate-800">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-white">
-                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
-                    2
-                  </span>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-sm flex items-center justify-center">2</span>
                   Select Session
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 {/* Auto-fetch option */}
                 <Button
+                  variant="outline"
                   onClick={fetchRebootSessions}
                   disabled={!selectedPlayer?.reboot_athlete_id || isLoadingSessions}
-                  className="w-full mb-2 border-slate-700 text-slate-300 hover:bg-slate-800"
-                  variant="outline"
+                  className="w-full border-slate-700 text-slate-300 hover:bg-slate-800"
                 >
                   {isLoadingSessions ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -460,43 +465,53 @@ export default function AdminRebootAnalysis() {
                   )}
                   Fetch Sessions from Reboot
                 </Button>
-
-                <p className="text-xs text-slate-500 text-center mb-4">(May not work for all API tiers)</p>
+                
+                <p className="text-xs text-slate-500 text-center">
+                  (May not work for all API tiers)
+                </p>
 
                 {/* Divider */}
-                <div className="relative my-6">
+                <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-slate-700"></div>
                   </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-slate-900 text-slate-400">OR Import Manually</span>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-slate-900 px-2 text-slate-500">
+                      OR Import Manually
+                    </span>
                   </div>
                 </div>
 
                 {/* Manual Import */}
-                <div className="space-y-3">
+                <div className="space-y-3 p-4 bg-slate-800/30 rounded-lg border border-slate-700">
                   <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1">Reboot Session ID</label>
+                    <label className="text-sm text-slate-400 block mb-1">
+                      Reboot Session ID
+                    </label>
                     <Input
-                      placeholder="e.g., abc123-def456..."
+                      placeholder="e.g., abc123-def456-..."
                       value={manualSessionId}
                       onChange={(e) => setManualSessionId(e.target.value)}
                       className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
-                    <p className="text-xs text-slate-500 mt-1">Find this in the Reboot Motion URL or session details</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Find this in the Reboot Motion URL or session details
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1">
+                    <label className="text-sm text-slate-400 block mb-1">
                       Reboot Player ID (org_player_id)
                     </label>
                     <Input
-                      placeholder="e.g., player_987..."
+                      placeholder="e.g., xyz789-..."
                       value={manualOrgPlayerId}
                       onChange={(e) => setManualOrgPlayerId(e.target.value)}
                       className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                     />
                     {selectedPlayer?.reboot_athlete_id && manualOrgPlayerId === selectedPlayer.reboot_athlete_id && (
-                      <p className="text-xs text-green-400 mt-1">✓ Pre-filled from player profile</p>
+                      <p className="text-xs text-green-400 mt-1">
+                        ✓ Pre-filled from player profile
+                      </p>
                     )}
                   </div>
                   <Button
@@ -521,44 +536,43 @@ export default function AdminRebootAnalysis() {
                 </div>
 
                 {/* Messages */}
-                {!selectedPlayer && <p className="text-sm text-slate-400 text-center mt-4">Select a player first</p>}
+                {!selectedPlayer && (
+                  <p className="text-yellow-400 text-sm text-center">
+                    Select a player first
+                  </p>
+                )}
 
                 {selectedPlayer && !selectedPlayer.reboot_athlete_id && (
-                  <p className="text-sm text-yellow-400 text-center mt-4">
+                  <p className="text-yellow-400 text-sm text-center">
                     This player has no Reboot Athlete ID - use manual import above
                   </p>
                 )}
 
                 {/* Auto-fetched sessions list */}
                 {rebootSessions.length > 0 && (
-                  <div className="space-y-2 mt-6">
-                    <p className="text-sm text-slate-400 mb-2">Sessions from Reboot:</p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-400">Sessions from Reboot:</p>
                     {rebootSessions.map((session) => (
                       <label
                         key={session.session_id}
-                        className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
-                          selectedSessionId === session.session_id
-                            ? "border-red-500 bg-red-500/10"
-                            : "border-slate-700 hover:bg-slate-800"
-                        }`}
+                        className="flex items-center p-3 bg-slate-800/50 rounded-lg border border-slate-700 cursor-pointer hover:border-slate-600"
                       >
                         <input
                           type="radio"
                           name="session"
-                          value={session.session_id}
                           checked={selectedSessionId === session.session_id}
                           onChange={() => setSelectedSessionId(session.session_id)}
                           className="mr-3"
                         />
-                        <div className="flex-1">
-                          <p className="font-medium text-white">
-                            {new Date(session.session_date).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
+                        <div>
+                          <p className="text-white font-medium">
+                            {new Date(session.session_date).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
                             })}
                           </p>
-                          <p className="text-sm text-slate-400">
+                          <p className="text-slate-400 text-sm">
                             {getSessionTypeLabel(session.session_type)} • {session.movement_count} swings
                           </p>
                         </div>
@@ -569,8 +583,8 @@ export default function AdminRebootAnalysis() {
 
                 {/* Selected session indicator */}
                 {selectedSessionId && (
-                  <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                    <p className="text-sm text-green-400 flex items-center gap-2">
+                  <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                    <p className="text-green-400 text-sm flex items-center gap-2">
                       <Check className="w-4 h-4" />
                       Session selected: {selectedSessionId.substring(0, 20)}...
                     </p>
@@ -580,12 +594,10 @@ export default function AdminRebootAnalysis() {
             </Card>
 
             {/* Step 3: Process */}
-            <Card className="bg-slate-900/80 border-slate-800">
+            <Card className="bg-slate-900 border-slate-800">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-white">
-                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
-                    3
-                  </span>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-sm flex items-center justify-center">3</span>
                   Process
                 </CardTitle>
               </CardHeader>
@@ -593,7 +605,7 @@ export default function AdminRebootAnalysis() {
                 <Button
                   onClick={processSession}
                   disabled={!selectedPlayer || !selectedSessionId || isProcessing}
-                  className="w-full bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+                  className="w-full bg-blue-600 hover:bg-blue-700"
                 >
                   {isProcessing ? (
                     <>
@@ -607,10 +619,16 @@ export default function AdminRebootAnalysis() {
                     </>
                   )}
                 </Button>
-
-                {!selectedPlayer && <p className="text-xs text-slate-500 text-center mt-2">Select a player first</p>}
+                
+                {!selectedPlayer && (
+                  <p className="text-yellow-400 text-sm text-center mt-2">
+                    Select a player first
+                  </p>
+                )}
                 {selectedPlayer && !selectedSessionId && (
-                  <p className="text-xs text-slate-500 text-center mt-2">Select or enter a session ID</p>
+                  <p className="text-yellow-400 text-sm text-center mt-2">
+                    Select or enter a session ID
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -621,14 +639,16 @@ export default function AdminRebootAnalysis() {
             {results ? (
               <div className="space-y-6">
                 {/* Composite Score */}
-                <Card className="bg-slate-900/80 border-slate-800">
+                <Card className="bg-slate-900 border-slate-800">
                   <CardContent className="pt-6">
                     <div className="text-center">
-                      <p className="text-sm uppercase tracking-wider text-slate-400 mb-2">Composite Score</p>
-                      <p className={`text-7xl font-bold ${getScoreTextColor(results.composite_score)}`}>
+                      <p className="text-slate-400 text-sm mb-2">
+                        Composite Score
+                      </p>
+                      <p className={`text-6xl font-bold ${getScoreTextColor(results.composite_score)}`}>
                         {results.composite_score}
                       </p>
-                      <Badge className={`mt-3 ${getScoreColor(results.composite_score)} text-white`}>
+                      <Badge className={`${getScoreColor(results.composite_score)} text-white mt-2`}>
                         {results.grade}
                       </Badge>
                     </div>
@@ -637,100 +657,74 @@ export default function AdminRebootAnalysis() {
 
                 {/* 4B Scores Grid */}
                 <div className="grid grid-cols-2 gap-4">
-                  <ScoreCard
-                    label="Brain"
-                    score={results.brain_score}
-                    grade={getGradeFromScore(results.brain_score)}
-                    icon={Brain}
-                    isWeakest={results.weakest_link === "brain"}
-                  />
-                  <ScoreCard
-                    label="Body"
-                    score={results.body_score}
-                    grade={getGradeFromScore(results.body_score)}
-                    icon={Dumbbell}
-                    isWeakest={results.weakest_link === "body"}
-                  />
-                  <ScoreCard
-                    label="Bat"
-                    score={results.bat_score}
-                    grade={getGradeFromScore(results.bat_score)}
-                    icon={Target}
-                    isWeakest={results.weakest_link === "bat"}
-                  />
-                  <ScoreCard
-                    label="Ball"
-                    score={results.ball_score}
-                    grade={getGradeFromScore(results.ball_score)}
-                    icon={CircleDot}
-                    isWeakest={results.weakest_link === "ball"}
-                  />
+                  <ScoreCard label="Brain" score={results.brain_score} grade={getGradeFromScore(results.brain_score)} icon={Brain} isWeakest={results.weakest_link === 'brain'} />
+                  <ScoreCard label="Body" score={results.body_score} grade={getGradeFromScore(results.body_score)} icon={Dumbbell} isWeakest={results.weakest_link === 'body'} />
+                  <ScoreCard label="Bat" score={results.bat_score} grade={getGradeFromScore(results.bat_score)} icon={Target} isWeakest={results.weakest_link === 'bat'} />
+                  <ScoreCard label="Ball" score={results.ball_score} grade={getGradeFromScore(results.ball_score)} icon={CircleDot} isWeakest={results.weakest_link === 'ball'} />
                 </div>
 
                 {/* Energy Transfer (Primary) */}
-                <Card className="bg-slate-900/80 border-slate-800">
+                <Card className="bg-slate-900 border-slate-800">
                   <CardHeader>
                     <CardTitle className="text-white flex items-center gap-2">
-                      <Zap className="h-5 w-5 text-orange-500" />
+                      <Zap className="w-5 h-5 text-yellow-400" />
                       Energy Transfer
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Legs KE</span>
-                          <span className="font-medium text-white">{results.legs_ke || "--"} J</span>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div className="p-2 bg-slate-800 rounded">
+                          <p className="text-xs text-slate-400">Legs KE</p>
+                          <p className="text-white font-bold">{results.legs_ke || '--'} J</p>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Torso KE</span>
-                          <span className="font-medium text-white">{results.torso_ke || "--"} J</span>
+                        <div className="p-2 bg-slate-800 rounded">
+                          <p className="text-xs text-slate-400">Torso KE</p>
+                          <p className="text-white font-bold">{results.torso_ke || '--'} J</p>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Arms KE</span>
-                          <span className="font-medium text-white">{results.arms_ke || "--"} J</span>
+                        <div className="p-2 bg-slate-800 rounded">
+                          <p className="text-xs text-slate-400">Arms KE</p>
+                          <p className="text-white font-bold">{results.arms_ke || '--'} J</p>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Bat KE</span>
-                          <span className="font-medium text-white">
-                            {results.bat_ke ? `${results.bat_ke} J` : "Not Measured"}
-                          </span>
+                        <div className="p-2 bg-slate-800 rounded">
+                          <p className="text-xs text-slate-400">Bat KE</p>
+                          <p className={`font-bold ${results.bat_ke ? 'text-white' : 'text-slate-500'}`}>
+                            {results.bat_ke ? `${results.bat_ke} J` : 'Not Measured'}
+                          </p>
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Total KE</span>
-                          <span className="font-medium text-white">{results.total_ke || "--"} J</span>
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div className="p-2 bg-blue-500/10 border border-blue-500/30 rounded">
+                          <p className="text-xs text-blue-400">Total KE</p>
+                          <p className="text-blue-400 font-bold">{results.total_ke || '--'} J</p>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Legs → Torso</span>
-                          <span className="font-medium text-white">{results.legs_to_torso_transfer || "--"}%</span>
+                        <div className="p-2 bg-slate-800 rounded">
+                          <p className="text-xs text-slate-400">Legs → Torso</p>
+                          <p className="text-white font-bold">{results.legs_to_torso_transfer || '--'}%</p>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Torso → Arms</span>
-                          <span className="font-medium text-white">{results.torso_to_arms_transfer || "--"}%</span>
+                        <div className="p-2 bg-slate-800 rounded">
+                          <p className="text-xs text-slate-400">Torso → Arms</p>
+                          <p className="text-white font-bold">{results.torso_to_arms_transfer || '--'}%</p>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Consistency</span>
-                          <span className="font-medium text-white">
-                            {results.consistency_grade} ({results.consistency_cv}%)
-                          </span>
+                        <div className="p-2 bg-slate-800 rounded">
+                          <p className="text-xs text-slate-400">Consistency</p>
+                          <p className="text-white font-bold">{results.consistency_grade} ({results.consistency_cv}%)</p>
                         </div>
                       </div>
                     </div>
-                    <p className="text-xs text-blue-400 text-center mt-4 pt-3 border-t border-slate-700">
+                    <p className="text-xs text-slate-500 mt-4 text-center">
                       This report measures how energy moves through your body — not joint angles or bat sensors.
                     </p>
                   </CardContent>
                 </Card>
 
                 {/* Flow Scores */}
-                <Card className="bg-slate-900/80 border-slate-800">
+                <Card className="bg-slate-900 border-slate-800">
                   <CardHeader>
                     <CardTitle className="text-white">Kinetic Chain Flow</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400">Ground Flow</span>
                         <div className="flex items-center gap-2">
@@ -740,7 +734,7 @@ export default function AdminRebootAnalysis() {
                               style={{ width: `${results.ground_flow_score}%` }}
                             />
                           </div>
-                          <span className="font-medium text-white w-8">{results.ground_flow_score}</span>
+                          <span className="text-white font-medium w-8">{results.ground_flow_score}</span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
@@ -752,7 +746,7 @@ export default function AdminRebootAnalysis() {
                               style={{ width: `${results.core_flow_score}%` }}
                             />
                           </div>
-                          <span className="font-medium text-white w-8">{results.core_flow_score}</span>
+                          <span className="text-white font-medium w-8">{results.core_flow_score}</span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
@@ -764,7 +758,7 @@ export default function AdminRebootAnalysis() {
                               style={{ width: `${results.upper_flow_score}%` }}
                             />
                           </div>
-                          <span className="font-medium text-white w-8">{results.upper_flow_score}</span>
+                          <span className="text-white font-medium w-8">{results.upper_flow_score}</span>
                         </div>
                       </div>
                     </div>
@@ -772,11 +766,11 @@ export default function AdminRebootAnalysis() {
                 </Card>
               </div>
             ) : (
-              <Card className="bg-slate-900/80 border-slate-800 h-full flex items-center justify-center">
-                <CardContent className="text-center py-12">
-                  <Target className="w-16 h-16 mx-auto mb-4 text-slate-600" />
-                  <h3 className="text-xl font-medium mb-2 text-white">No Results Yet</h3>
-                  <p className="text-slate-400">
+              <Card className="bg-slate-900 border-slate-800 h-full min-h-[400px] flex items-center justify-center">
+                <CardContent className="text-center">
+                  <Zap className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                  <p className="text-slate-400 text-lg">No Results Yet</p>
+                  <p className="text-slate-500 text-sm mt-2">
                     Select a player and session, then click "Calculate 4B Scores" to see results
                   </p>
                 </CardContent>
@@ -784,7 +778,7 @@ export default function AdminRebootAnalysis() {
             )}
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
