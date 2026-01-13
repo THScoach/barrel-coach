@@ -18,6 +18,7 @@ import {
   Check,
   Loader2,
   UserPlus,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -138,8 +139,15 @@ export default function AdminRebootAnalysis() {
   const [manualSessionId, setManualSessionId] = useState("");
   const [manualOrgPlayerId, setManualOrgPlayerId] = useState("");
 
+  // NEW: Sync players state
+  const [isSyncingPlayers, setIsSyncingPlayers] = useState(false);
+
   // Search players
-  const { data: players = [], isLoading: isLoadingPlayers } = useQuery({
+  const {
+    data: players = [],
+    isLoading: isLoadingPlayers,
+    refetch: refetchPlayers,
+  } = useQuery({
     queryKey: ["players-search", searchQuery],
     queryFn: async () => {
       if (!searchQuery || searchQuery.length < 2) return [];
@@ -162,6 +170,50 @@ export default function AdminRebootAnalysis() {
     },
     enabled: searchQuery.length >= 2,
   });
+
+  // NEW: Sync players from Reboot Motion
+  const syncPlayersFromReboot = async () => {
+    setIsSyncingPlayers(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      console.log("[Sync Players] Starting sync from Reboot Motion...");
+
+      const response = await supabase.functions.invoke("fetch-reboot-players", {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      console.log("[Sync Players] Response:", response);
+
+      if (response.error) throw new Error(response.error.message);
+
+      if (response.data?.success) {
+        toast.success(response.data.message || `Synced ${response.data.synced} players from Reboot Motion`);
+
+        // Show details if available
+        if (response.data.created > 0 || response.data.updated > 0) {
+          toast.info(`${response.data.created} new, ${response.data.updated} updated`);
+        }
+
+        // Refetch players if there's a search query
+        if (searchQuery.length >= 2) {
+          refetchPlayers();
+        }
+      } else {
+        throw new Error(response.data?.error || "Sync failed");
+      }
+    } catch (error: any) {
+      console.error("[Sync Players] Error:", error);
+      toast.error(`Failed to sync players: ${error.message}`);
+    } finally {
+      setIsSyncingPlayers(false);
+    }
+  };
 
   // Fetch sessions from Reboot (may not work for all API tiers)
   const fetchRebootSessions = async () => {
@@ -198,7 +250,6 @@ export default function AdminRebootAnalysis() {
 
       // Map sessions and handle session_type being an object or string
       const mappedSessions = sessions.map((s: any) => {
-        // Extract session type name if it's an object
         let sessionTypeName = "Practice";
         if (s.session_type) {
           if (typeof s.session_type === "object" && s.session_type.name) {
@@ -331,11 +382,28 @@ export default function AdminRebootAnalysis() {
             {/* Step 1: Select Player */}
             <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-white">
-                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
-                    1
-                  </span>
-                  Select Player
+                <CardTitle className="text-lg flex items-center justify-between text-white">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
+                      1
+                    </span>
+                    Select Player
+                  </div>
+                  {/* SYNC PLAYERS BUTTON */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={syncPlayersFromReboot}
+                    disabled={isSyncingPlayers}
+                    className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                  >
+                    {isSyncingPlayers ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-2" />
+                    )}
+                    {isSyncingPlayers ? "Syncing..." : "Sync from Reboot"}
+                  </Button>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -419,6 +487,7 @@ export default function AdminRebootAnalysis() {
                         ) : (
                           <div className="p-4">
                             <p className="text-slate-400 text-sm">No players found</p>
+                            <p className="text-slate-500 text-xs mt-1">Click "Sync from Reboot" to import players</p>
                             <button
                               className="mt-2 text-red-400 text-sm flex items-center gap-1"
                               onClick={() => navigate("/admin/players")}
@@ -435,7 +504,7 @@ export default function AdminRebootAnalysis() {
               </CardContent>
             </Card>
 
-            {/* Step 2: Select Session - UPDATED WITH MANUAL IMPORT */}
+            {/* Step 2: Select Session - WITH MANUAL IMPORT */}
             <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 text-white">
@@ -478,7 +547,7 @@ export default function AdminRebootAnalysis() {
                   <div>
                     <label className="block text-sm font-medium text-slate-400 mb-1">Reboot Session ID</label>
                     <Input
-                      placeholder="e.g., abc123-def456..."
+                      placeholder="e.g., 47b50ead-36b6-4299-94be-beaac6a27837"
                       value={manualSessionId}
                       onChange={(e) => setManualSessionId(e.target.value)}
                       className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
