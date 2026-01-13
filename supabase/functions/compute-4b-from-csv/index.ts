@@ -95,6 +95,15 @@ interface BucketScores {
   b4: number;
 }
 
+// Contact frame detection methods (ordered by confidence)
+type ContactFrameType = 'explicit' | 'bat_ke_peak' | 'bat_momentum_peak' | 'torso_peak' | 'frame_ratio';
+
+interface ContactFrameResult {
+  frame: number;
+  type: ContactFrameType;
+  confidence: 'high' | 'medium' | 'low';
+}
+
 interface Swing4BResult {
   b1_score: number;
   b2_score: number;
@@ -109,6 +118,8 @@ interface Swing4BResult {
   mechanical_loss_pct: number;
   primary_bucket_issue: 'B1' | 'B2' | 'B3' | 'B4';
   bucket_loss_breakdown: Record<string, number>;
+  contact_frame_type: ContactFrameType;
+  bat_speed_confidence: 'high' | 'medium' | 'low';
 }
 
 /**
@@ -442,13 +453,73 @@ function mapIKData(csvData: Record<string, number[]>): IKData {
 }
 
 /**
- * Map ME CSV data to structured MEData
+ * Detect contact frame using multiple proxy methods with confidence levels
+ * Priority: explicit > bat_ke_peak > bat_momentum_peak > torso_peak > frame_ratio
  */
-function mapMEData(csvData: Record<string, number[]>): MEData {
+function detectContactFrame(
+  csvData: Record<string, number[]>,
+  ikData?: IKData
+): ContactFrameResult {
   const frameCount = csvData['rel_frame']?.length || csvData['frame']?.length || 100;
+  
+  // Method 1: Explicit contact_frame column (highest confidence)
+  const explicitContact = csvData['contact_frame']?.[0];
+  if (explicitContact != null && !isNaN(explicitContact) && explicitContact > 0) {
+    return { frame: Math.round(explicitContact), type: 'explicit', confidence: 'high' };
+  }
+  
+  // Method 2: Peak of bat kinetic energy (high confidence)
+  const batKE = csvData['bat_kinetic_energy'] || csvData['bat_ke'] || [];
+  if (batKE.length > 0) {
+    const peakFrame = findPeakFrame(batKE);
+    // Sanity check: peak should be in the latter half of the swing
+    if (peakFrame > frameCount * 0.4) {
+      return { frame: peakFrame, type: 'bat_ke_peak', confidence: 'high' };
+    }
+  }
+  
+  // Method 3: Peak of bat linear momentum magnitude (medium-high confidence)
+  const batMomX = csvData['bat_linear_momentum_x'] || csvData['bat_mom_x'] || [];
+  const batMomY = csvData['bat_linear_momentum_y'] || csvData['bat_mom_y'] || [];
+  const batMomZ = csvData['bat_linear_momentum_z'] || csvData['bat_mom_z'] || [];
+  if (batMomX.length > 0 && batMomY.length > 0 && batMomZ.length > 0) {
+    // Calculate momentum magnitude at each frame
+    const momMag: number[] = [];
+    for (let i = 0; i < batMomX.length; i++) {
+      const x = batMomX[i] || 0;
+      const y = batMomY[i] || 0;
+      const z = batMomZ[i] || 0;
+      momMag.push(Math.sqrt(x*x + y*y + z*z));
+    }
+    const peakFrame = findPeakFrame(momMag);
+    if (peakFrame > frameCount * 0.4) {
+      return { frame: peakFrame, type: 'bat_momentum_peak', confidence: 'medium' };
+    }
+  }
+  
+  // Method 4: Peak of torso rotation from IK data (medium confidence)
+  if (ikData?.torsorot?.length) {
+    const peakFrame = findPeakFrame(ikData.torsorot);
+    // Torso typically peaks slightly before contact, so add ~5% offset
+    const adjustedFrame = Math.min(Math.round(peakFrame * 1.05), frameCount - 1);
+    if (adjustedFrame > frameCount * 0.4) {
+      return { frame: adjustedFrame, type: 'torso_peak', confidence: 'medium' };
+    }
+  }
+  
+  // Method 5: Fixed ratio fallback (low confidence)
+  return { frame: Math.floor(frameCount * 0.8), type: 'frame_ratio', confidence: 'low' };
+}
+
+/**
+ * Map ME CSV data to structured MEData with intelligent contact frame detection
+ */
+function mapMEData(csvData: Record<string, number[]>, ikData?: IKData): MEData {
+  const contactResult = detectContactFrame(csvData, ikData);
+  
   return {
     rel_frame: csvData['rel_frame'] || csvData['frame'] || [],
-    contact_frame: csvData['contact_frame']?.[0] ?? Math.floor(frameCount * 0.8),
+    contact_frame: contactResult.frame,
     bat_linear_momentum_x: csvData['bat_linear_momentum_x'] || csvData['bat_mom_x'] || [],
     bat_linear_momentum_y: csvData['bat_linear_momentum_y'] || csvData['bat_mom_y'] || [],
     bat_linear_momentum_z: csvData['bat_linear_momentum_z'] || csvData['bat_mom_z'] || [],
@@ -570,9 +641,13 @@ serve(async (req) => {
     const ikParsed = parseCSV(ikCsvContent);
     const meParsed = parseCSV(meCsvContent);
 
-    // Map to structured data
+    // Map to structured data with intelligent contact frame detection
     const ikData = mapIKData(ikParsed);
-    const meData = mapMEData(meParsed);
+    const contactFrameResult = detectContactFrame(meParsed, ikData);
+    const meData = mapMEData(meParsed, ikData);
+    
+    // Log contact frame detection method for debugging
+    console.log(`Contact frame detected: ${contactFrameResult.frame} via ${contactFrameResult.type} (${contactFrameResult.confidence} confidence)`);
 
     // Compute 4B bucket scores
     const b1 = computeB1(ikData);
@@ -706,6 +781,10 @@ serve(async (req) => {
           primaryIssue: primary,
           primaryIssueDetails: issueDetails,
           bucketBreakdown: breakdown,
+          // Contact frame detection info
+          contactFrameType: contactFrameResult.type,
+          batSpeedConfidence: contactFrameResult.confidence,
+          contactFrame: contactFrameResult.frame,
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
