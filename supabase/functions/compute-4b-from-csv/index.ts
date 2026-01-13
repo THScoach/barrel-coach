@@ -7,13 +7,13 @@ const corsHeaders = {
 };
 
 // KRS Target Vector - expected timing of segment peaks relative to contact frame
-const KRS_TARGET = {
-  max_pelvis_time: -0.20, // Pelvis peaks 20% before contact
-  max_torso_time: -0.10,  // Torso peaks 10% before contact
-  max_hip_time: -0.08,    // Ball-side hip peaks 8% before contact
-  max_knee_time: -0.05,   // Ball-side knee peaks 5% before contact
-  max_ankle_time: -0.02,  // Ball-side ankle peaks closest to contact
-  max_bat_speed_time: 0.00, // Bat speed peaks at contact
+// These are PHASE OFFSETS (negative = before contact)
+const KRS_PHASE = {
+  pelvis: -0.20,  // Pelvis peaks 20% before contact
+  torso: -0.10,   // Torso peaks 10% before contact
+  hip: -0.08,     // Ball-side hip peaks 8% before contact
+  knee: -0.05,    // Ball-side knee peaks 5% before contact
+  ankle: -0.02,   // Ball-side ankle peaks closest to contact
 };
 
 // Default bucket weights
@@ -31,6 +31,22 @@ const DEFAULT_MODEL = {
   beta_2: 0.3,  // B2 coefficient
   beta_3: 0.25, // B3 coefficient
   beta_4: 0.15, // B4 coefficient
+};
+
+// Default bat mass in kg (~31 oz bat)
+const DEFAULT_BAT_MASS_KG = 0.88;
+
+// Magnitude caps for normalization (degrees)
+const MAG_CAPS = {
+  pelvis: 60,
+  torso: 80,
+  side: 30,
+  hipFlex: 50,
+  hipAdd: 40,
+  hipRot: 45,
+  knee: 70,
+  ankleInv: 30,
+  ankleFlex: 40,
 };
 
 interface IKData {
@@ -96,6 +112,13 @@ interface Swing4BResult {
 }
 
 /**
+ * Clamp a value between 0 and 1
+ */
+function clamp01(val: number): number {
+  return Math.max(0, Math.min(1, isNaN(val) ? 0 : val));
+}
+
+/**
  * Parse CSV string into structured data
  */
 function parseCSV(csvContent: string): Record<string, number[]> {
@@ -135,43 +158,78 @@ function findPeakFrame(values: number[]): number {
 }
 
 /**
+ * Get peak absolute value from an array
+ */
+function getPeakAbs(values: number[]): number {
+  let maxVal = 0;
+  for (const val of values) {
+    const absVal = Math.abs(val || 0);
+    if (absVal > maxVal) maxVal = absVal;
+  }
+  return maxVal;
+}
+
+/**
+ * Calculate timing error using stride→contact window
+ */
+function timingError(peakFrame: number, targetFrame: number, swingWindow: number): number {
+  if (swingWindow <= 0) return 0;
+  return Math.abs(peakFrame - targetFrame) / swingWindow;
+}
+
+/**
+ * Get target frame for a given phase offset
+ */
+function getTargetFrame(contactFrame: number, strideFrame: number, phase: number): number {
+  const swingWindow = Math.max(1, contactFrame - strideFrame);
+  return Math.max(0, Math.round(contactFrame + phase * swingWindow));
+}
+
+/**
  * Compute Bucket 1: Rotational Foundation (Pelvis & Torso)
  */
 function computeB1(ikData: IKData): number {
-  const totalFrames = ikData.pelvisrot.length;
-  const swingDuration = ikData.contact_frame - ikData.stride_frame;
+  const contactI = ikData.contact_frame;
+  const strideI = ikData.stride_frame;
+  const swingWindow = Math.max(1, contactI - strideI);
   
-  // Pelvis metrics
+  // Target frames using stride→contact window
+  const pelvisTarget = getTargetFrame(contactI, strideI, KRS_PHASE.pelvis);
+  const torsoTarget = getTargetFrame(contactI, strideI, KRS_PHASE.torso);
+  
+  // Pelvis metrics with real scaling caps
   const pelvisPeakFrame = findPeakFrame(ikData.pelvisrot);
-  const pelvisMag = Math.abs(ikData.pelvisrot[pelvisPeakFrame]) / 
-    Math.max(...ikData.pelvisrot.map(Math.abs));
-  const pelvisTimingError = Math.abs(pelvisPeakFrame - 
-    (KRS_TARGET.max_pelvis_time * ikData.contact_frame + ikData.contact_frame)) / totalFrames;
+  const pelvisPeakAbs = getPeakAbs(ikData.pelvisrot);
+  const magPelvis = clamp01(pelvisPeakAbs / MAG_CAPS.pelvis);
+  const pelvisTimingErr = timingError(pelvisPeakFrame, pelvisTarget, swingWindow);
   
-  // Torso metrics
+  // Torso metrics with real scaling caps
   const torsoPeakFrame = findPeakFrame(ikData.torsorot);
-  const torsoMag = Math.abs(ikData.torsorot[torsoPeakFrame]) / 
-    Math.max(...ikData.torsorot.map(Math.abs));
-  const torsoTimingError = Math.abs(torsoPeakFrame - 
-    (KRS_TARGET.max_torso_time * ikData.contact_frame + ikData.contact_frame)) / totalFrames;
+  const torsoPeakAbs = getPeakAbs(ikData.torsorot);
+  const magTorso = clamp01(torsoPeakAbs / MAG_CAPS.torso);
+  const torsoTimingErr = timingError(torsoPeakFrame, torsoTarget, swingWindow);
   
   // Pelvis lateral shift
-  const pelvisSideMag = ikData.pelvisside.length > 0 ? 
-    Math.abs(ikData.pelvisside[findPeakFrame(ikData.pelvisside)]) / 
-    Math.max(...ikData.pelvisside.map(Math.abs)) : 0.5;
+  const sidePeakAbs = ikData.pelvisside.length > 0 ? getPeakAbs(ikData.pelvisside) : 0;
+  const magSide = clamp01(sidePeakAbs / MAG_CAPS.side);
   
-  // Bucket 1 score
-  const b1Raw = (0.5 * pelvisMag + 0.3 * torsoMag + 0.2 * pelvisSideMag) - 
-    0.3 * (pelvisTimingError + torsoTimingError);
+  // Bucket 1 score (weighted magnitude minus timing penalties)
+  const b1Raw = (0.5 * magPelvis + 0.3 * magTorso + 0.2 * magSide) - 
+    0.3 * (pelvisTimingErr + torsoTimingErr);
   
-  return Math.max(0, Math.min(1, b1Raw)) * 100;
+  return clamp01(b1Raw) * 100;
 }
 
 /**
  * Compute Bucket 2: Proximal Load Transfer (Ball-Side Hip)
  */
 function computeB2(ikData: IKData, handedness: 'L' | 'R' = 'R'): number {
-  const totalFrames = ikData.pelvisrot.length;
+  const contactI = ikData.contact_frame;
+  const strideI = ikData.stride_frame;
+  const swingWindow = Math.max(1, contactI - strideI);
+  
+  // Target frame for hip
+  const hipTarget = getTargetFrame(contactI, strideI, KRS_PHASE.hip);
   
   // Select ball-side hip data
   const hipFlex = handedness === 'R' ? ikData.righthipflex : (ikData.lefthipflex || []);
@@ -182,32 +240,35 @@ function computeB2(ikData: IKData, handedness: 'L' | 'R' = 'R'): number {
     return 50; // Default if data missing
   }
   
-  // Hip flexion metrics
+  // Hip flexion with real scaling caps
   const hipFlexPeak = findPeakFrame(hipFlex);
-  const hipFlexMag = Math.abs(hipFlex[hipFlexPeak]) / Math.max(...hipFlex.map(Math.abs));
-  const hipFlexTimingError = Math.abs(hipFlexPeak - 
-    (KRS_TARGET.max_hip_time * ikData.contact_frame + ikData.contact_frame)) / totalFrames;
+  const magHipFlex = clamp01(getPeakAbs(hipFlex) / MAG_CAPS.hipFlex);
+  const hipFlexTimingErr = timingError(hipFlexPeak, hipTarget, swingWindow);
   
-  // Hip adduction metrics
-  const hipAddPeak = findPeakFrame(hipAdd);
-  const hipAddMag = Math.abs(hipAdd[hipAddPeak]) / Math.max(...hipAdd.map(Math.abs));
+  // Hip adduction with real scaling caps
+  const magHipAdd = clamp01(getPeakAbs(hipAdd) / MAG_CAPS.hipAdd);
   
-  // Hip rotation metrics
-  const hipRotPeak = findPeakFrame(hipRot);
-  const hipRotMag = Math.abs(hipRot[hipRotPeak]) / Math.max(...hipRot.map(Math.abs));
+  // Hip rotation with real scaling caps
+  const magHipRot = clamp01(getPeakAbs(hipRot) / MAG_CAPS.hipRot);
   
   // Bucket 2 score
-  const b2Raw = (0.4 * hipFlexMag + 0.35 * hipAddMag + 0.25 * hipRotMag) - 
-    0.25 * hipFlexTimingError;
+  const b2Raw = (0.4 * magHipFlex + 0.35 * magHipAdd + 0.25 * magHipRot) - 
+    0.25 * hipFlexTimingErr;
   
-  return Math.max(0, Math.min(1, b2Raw)) * 100;
+  return clamp01(b2Raw) * 100;
 }
 
 /**
  * Compute Bucket 3: Distal Ground Connection (Ball-Side Knee & Ankle)
  */
 function computeB3(ikData: IKData, handedness: 'L' | 'R' = 'R'): number {
-  const totalFrames = ikData.pelvisrot.length;
+  const contactI = ikData.contact_frame;
+  const strideI = ikData.stride_frame;
+  const swingWindow = Math.max(1, contactI - strideI);
+  
+  // Target frames
+  const kneeTarget = getTargetFrame(contactI, strideI, KRS_PHASE.knee);
+  const ankleTarget = getTargetFrame(contactI, strideI, KRS_PHASE.ankle);
   
   // Select ball-side knee/ankle data
   const knee = handedness === 'R' ? ikData.rightknee : (ikData.leftknee || []);
@@ -218,25 +279,24 @@ function computeB3(ikData: IKData, handedness: 'L' | 'R' = 'R'): number {
     return 50; // Default if data missing
   }
   
-  // Knee metrics
+  // Knee metrics with real scaling caps
   const kneePeak = findPeakFrame(knee);
-  const kneeMag = Math.abs(knee[kneePeak]) / Math.max(...knee.map(Math.abs));
-  const kneeTimingError = Math.abs(kneePeak - 
-    (KRS_TARGET.max_knee_time * ikData.contact_frame + ikData.contact_frame)) / totalFrames;
+  const magKnee = clamp01(getPeakAbs(knee) / MAG_CAPS.knee);
+  const kneeTimingErr = timingError(kneePeak, kneeTarget, swingWindow);
   
-  // Ankle inversion metrics
-  const ankleInvMag = Math.abs(ankleInv[findPeakFrame(ankleInv)]) / 
-    Math.max(...ankleInv.map(Math.abs));
+  // Ankle inversion with real scaling caps
+  const magAnkleInv = clamp01(getPeakAbs(ankleInv) / MAG_CAPS.ankleInv);
   
-  // Ankle flexion metrics
-  const ankleFlexMag = Math.abs(ankleFlex[findPeakFrame(ankleFlex)]) / 
-    Math.max(...ankleFlex.map(Math.abs));
+  // Ankle flexion with real scaling caps
+  const anklePeak = findPeakFrame(ankleFlex);
+  const magAnkleFlex = clamp01(getPeakAbs(ankleFlex) / MAG_CAPS.ankleFlex);
+  const ankleTimingErr = timingError(anklePeak, ankleTarget, swingWindow);
   
   // Bucket 3 score
-  const b3Raw = (0.4 * kneeMag + 0.35 * ankleInvMag + 0.25 * ankleFlexMag) - 
-    0.2 * kneeTimingError;
+  const b3Raw = (0.4 * magKnee + 0.35 * magAnkleInv + 0.25 * magAnkleFlex) - 
+    0.2 * (kneeTimingErr + ankleTimingErr);
   
-  return Math.max(0, Math.min(1, b3Raw)) * 100;
+  return clamp01(b3Raw) * 100;
 }
 
 /**
@@ -265,7 +325,7 @@ function computeB4(meData: MEData): number {
   
   // Normalize peaks to [0, 1] range
   const totalFrames = meData.bat_linear_momentum_x.length;
-  const normalizedPeaks = segmentPeaks.map(p => p / totalFrames);
+  const normalizedPeaks = segmentPeaks.map(p => p / Math.max(1, totalFrames));
   
   // Calculate phase scatter (std dev of peak timings)
   const mean = normalizedPeaks.reduce((a, b) => a + b, 0) / normalizedPeaks.length;
@@ -273,33 +333,36 @@ function computeB4(meData: MEData): number {
   const stdDev = Math.sqrt(variance);
   
   // Lower scatter = higher synchronization score
-  const maxExpectedScatter = 0.3; // Maximum expected phase scatter
+  const maxExpectedScatter = 0.3;
   const b4Raw = 1 - (stdDev / maxExpectedScatter);
   
-  return Math.max(0, Math.min(1, b4Raw)) * 100;
+  return clamp01(b4Raw) * 100;
 }
 
 /**
- * Extract actual bat speed in mph from ME data
+ * Extract actual bat speed in mph from ME data - unit robust
+ * Handles both velocity (m/s) and momentum (kg·m/s) exports
  */
-function extractBatSpeed(meData: MEData): number {
-  const contactFrame = meData.contact_frame;
+function extractBatSpeed(meData: MEData, batMassKg: number = DEFAULT_BAT_MASS_KG): number {
+  const contactI = Math.max(0, Math.min(meData.bat_linear_momentum_x.length - 1, meData.contact_frame));
   
-  // Get momentum at contact
-  const momX = meData.bat_linear_momentum_x[contactFrame] || 0;
-  const momY = meData.bat_linear_momentum_y[contactFrame] || 0;
-  const momZ = meData.bat_linear_momentum_z[contactFrame] || 0;
+  const x = Number(meData.bat_linear_momentum_x[contactI] ?? 0);
+  const y = Number(meData.bat_linear_momentum_y[contactI] ?? 0);
+  const z = Number(meData.bat_linear_momentum_z[contactI] ?? 0);
   
-  const momentumMag = Math.sqrt(momX * momX + momY * momY + momZ * momZ);
+  const mag = Math.sqrt(x * x + y * y + z * z);
   
-  // Standard baseball bat mass in kg
-  const batMass = 0.879; // ~31 oz bat in kg
+  const MPS_TO_MPH = 2.236936;
   
-  // Velocity in m/s
-  const velocityMs = momentumMag / batMass;
+  // If magnitude looks like velocity (m/s range for bat: typically 20-40 m/s = 45-90 mph)
+  // We expect bat speeds between 20-50 m/s for most players
+  if (mag > 0 && mag < 80) {
+    return mag * MPS_TO_MPH;
+  }
   
-  // Convert to mph (1 m/s = 2.237 mph)
-  return velocityMs * 2.237;
+  // Otherwise treat as momentum (kg·m/s), divide by bat mass
+  const vMps = mag / Math.max(1e-6, batMassKg);
+  return vMps * MPS_TO_MPH;
 }
 
 /**
@@ -355,10 +418,11 @@ function attributeBucketLoss(
  * Map IK CSV data to structured IKData
  */
 function mapIKData(csvData: Record<string, number[]>): IKData {
+  const frameCount = csvData['rel_frame']?.length || csvData['frame']?.length || 100;
   return {
     rel_frame: csvData['rel_frame'] || csvData['frame'] || [],
-    contact_frame: csvData['contact_frame']?.[0] || Math.floor((csvData['rel_frame']?.length || 100) * 0.8),
-    stride_frame: csvData['stride_frame']?.[0] || Math.floor((csvData['rel_frame']?.length || 100) * 0.2),
+    contact_frame: csvData['contact_frame']?.[0] ?? Math.floor(frameCount * 0.8),
+    stride_frame: csvData['stride_frame']?.[0] ?? Math.floor(frameCount * 0.2),
     pelvisrot: csvData['pelvisrot'] || csvData['pelvis_rotation'] || [],
     torsorot: csvData['torsorot'] || csvData['torso_rotation'] || [],
     pelvisside: csvData['pelvisside'] || csvData['pelvis_lateral'] || [],
@@ -381,9 +445,10 @@ function mapIKData(csvData: Record<string, number[]>): IKData {
  * Map ME CSV data to structured MEData
  */
 function mapMEData(csvData: Record<string, number[]>): MEData {
+  const frameCount = csvData['rel_frame']?.length || csvData['frame']?.length || 100;
   return {
     rel_frame: csvData['rel_frame'] || csvData['frame'] || [],
-    contact_frame: csvData['contact_frame']?.[0] || Math.floor((csvData['rel_frame']?.length || 100) * 0.8),
+    contact_frame: csvData['contact_frame']?.[0] ?? Math.floor(frameCount * 0.8),
     bat_linear_momentum_x: csvData['bat_linear_momentum_x'] || csvData['bat_mom_x'] || [],
     bat_linear_momentum_y: csvData['bat_linear_momentum_y'] || csvData['bat_mom_y'] || [],
     bat_linear_momentum_z: csvData['bat_linear_momentum_z'] || csvData['bat_mom_z'] || [],
@@ -422,6 +487,35 @@ function bucketToWeakestLink(bucket: 'B1' | 'B2' | 'B3' | 'B4'): string {
   return map[bucket];
 }
 
+/**
+ * Get primary issue description for coaching feedback
+ */
+function getPrimaryIssueDetails(bucket: 'B1' | 'B2' | 'B3' | 'B4'): { title: string; description: string; category: string } {
+  const details = {
+    'B1': {
+      title: 'Rotational Foundation',
+      description: 'Late pelvis/torso rotation timing. Focus on initiating rotation earlier in the swing.',
+      category: 'body'
+    },
+    'B2': {
+      title: 'Hip Load Transfer',
+      description: 'Inefficient ball-side hip load. Work on driving the back hip through earlier.',
+      category: 'body'
+    },
+    'B3': {
+      title: 'Ground Connection',
+      description: 'Limited ankle/knee mobility affecting power transfer. Increase ankle flexibility in stride.',
+      category: 'body'
+    },
+    'B4': {
+      title: 'Temporal Synchronization',
+      description: 'Segment timing is scattered. Practice slow-motion drills to sync upper/lower half.',
+      category: 'brain'
+    },
+  };
+  return details[bucket];
+}
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -453,7 +547,7 @@ serve(async (req) => {
     // Fetch session and player info
     const { data: session, error: sessionError } = await supabase
       .from('reboot_sessions')
-      .select('*, players(id, handedness)')
+      .select('*, players(id, handedness, bat_mass_kg)')
       .eq('id', sessionId)
       .single();
 
@@ -468,6 +562,9 @@ serve(async (req) => {
     const playerId = session.player_id;
     const playerHandedness = session.players?.handedness === 'left' ? 'L' : 'R';
     const effectiveHandedness = handedness || playerHandedness;
+    
+    // Use player's bat mass if set, otherwise default
+    const batMassKg = session.players?.bat_mass_kg || DEFAULT_BAT_MASS_KG;
 
     // Parse CSV files
     const ikParsed = parseCSV(ikCsvContent);
@@ -491,8 +588,8 @@ serve(async (req) => {
     const fourBBall = fourBBat; // Same logic for now
     const fourBHit = 0.5 * fourBBat + 0.5 * fourBBall;
 
-    // Extract bat speed
-    const vBatActual = extractBatSpeed(meData);
+    // Extract bat speed with correct bat mass
+    const vBatActual = extractBatSpeed(meData, batMassKg);
 
     // Load or use default athlete model
     let model = DEFAULT_MODEL;
@@ -521,6 +618,7 @@ serve(async (req) => {
 
     // Attribute loss to buckets
     const { breakdown, primary } = attributeBucketLoss(buckets, model, mechanicalLoss);
+    const issueDetails = getPrimaryIssueDetails(primary);
 
     // Calculate legacy compatibility scores (20-80 scale)
     const compositeScore = fourBHit;
@@ -551,6 +649,10 @@ serve(async (req) => {
       mechanical_loss_pct: mechanicalLossPct,
       primary_bucket_issue: primary,
       bucket_loss_breakdown: breakdown,
+      // Enhanced diagnostic fields
+      primary_issue_title: issueDetails.title,
+      primary_issue_description: issueDetails.description,
+      primary_issue_category: issueDetails.category,
       // Legacy fields
       brain_score: brainScore,
       body_score: bodyScore,
@@ -600,7 +702,9 @@ serve(async (req) => {
           vBatActual,
           vBatExpected,
           mechanicalLoss,
+          mechanicalLossPct,
           primaryIssue: primary,
+          primaryIssueDetails: issueDetails,
           bucketBreakdown: breakdown,
         },
       }),
