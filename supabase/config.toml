@@ -59,3 +59,6 @@ verify_jwt = false
 
 [functions.ghl-api]
 verify_jwt = false
+
+[functions.fetch-reboot-players]
+verify_jwt = false
