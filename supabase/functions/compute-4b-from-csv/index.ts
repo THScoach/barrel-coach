@@ -453,62 +453,128 @@ function mapIKData(csvData: Record<string, number[]>): IKData {
 }
 
 /**
- * Detect contact frame using multiple proxy methods with confidence levels
+ * Clamp frame index to valid range
+ */
+function clampFrame(i: number, n: number): number {
+  return Math.max(0, Math.min(n - 1, i));
+}
+
+/**
+ * Get absolute value at peak index
+ */
+function peakValueAbs(values: number[], peakI: number): number {
+  return Math.abs(values[peakI] ?? 0);
+}
+
+/**
+ * After the peak, find the first frame where the signal drops to <= dropFrac * peak.
+ * This approximates "release/contact-ish" better than using the peak itself.
+ */
+function findPeakToDropFrame(
+  values: number[],
+  dropFrac = 0.90,
+  minAfterPeakFrames = 3
+): number | null {
+  if (!values?.length || values.length < 10) return null;
+
+  const peakI = findPeakFrame(values);
+  const peakV = peakValueAbs(values, peakI);
+  if (!isFinite(peakV) || peakV <= 0) return null;
+
+  const threshold = peakV * dropFrac;
+
+  for (let i = peakI + minAfterPeakFrames; i < values.length; i++) {
+    const v = Math.abs(values[i] ?? 0);
+    if (v <= threshold) return i;
+  }
+
+  // If it never drops, return null so caller can try another method.
+  return null;
+}
+
+/**
+ * Build bat momentum magnitude signal from components.
+ */
+function buildBatMomentumMag(csvData: Record<string, number[]>): number[] | null {
+  const x = csvData["bat_linear_momentum_x"] || csvData["bat_mom_x"] || [];
+  const y = csvData["bat_linear_momentum_y"] || csvData["bat_mom_y"] || [];
+  const z = csvData["bat_linear_momentum_z"] || csvData["bat_mom_z"] || [];
+  if (!x.length || !y.length || !z.length) return null;
+
+  const n = Math.min(x.length, y.length, z.length);
+  const out: number[] = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const xi = x[i] ?? 0;
+    const yi = y[i] ?? 0;
+    const zi = z[i] ?? 0;
+    out[i] = Math.sqrt(xi * xi + yi * yi + zi * zi);
+  }
+  return out;
+}
+
+/**
+ * Detect contact frame using deceleration proxy (peak→drop) methods with confidence levels
  * Priority: explicit > bat_ke_peak > bat_momentum_peak > torso_peak > frame_ratio
  */
 function detectContactFrame(
   csvData: Record<string, number[]>,
   ikData?: IKData
 ): ContactFrameResult {
-  const frameCount = csvData['rel_frame']?.length || csvData['frame']?.length || 100;
-  
-  // Method 1: Explicit contact_frame column (highest confidence)
-  const explicitContact = csvData['contact_frame']?.[0];
+  const frameCount =
+    csvData["rel_frame"]?.length || csvData["frame"]?.length || 100;
+
+  // --- 1) Explicit contact_frame column (highest confidence) ---
+  const explicitContact = csvData["contact_frame"]?.[0];
   if (explicitContact != null && !isNaN(explicitContact) && explicitContact > 0) {
-    return { frame: Math.round(explicitContact), type: 'explicit', confidence: 'high' };
+    const f = clampFrame(Math.round(explicitContact), frameCount);
+    return { frame: f, type: "explicit", confidence: "high" };
   }
-  
-  // Method 2: Peak of bat kinetic energy (high confidence)
-  const batKE = csvData['bat_kinetic_energy'] || csvData['bat_ke'] || [];
+
+  // We prefer "drop after peak" rather than the peak itself.
+  // That is your "deceleration contact proxy."
+
+  // Tunables (you can adjust later)
+  const DROP_FRAC_KE = 0.90;      // 90% of peak KE
+  const DROP_FRAC_MOM = 0.90;     // 90% of peak momentum
+  const DROP_FRAC_TORSO = 0.92;   // torso can be noisier
+  const MIN_AFTER_PEAK = 3;
+
+  // --- 2) Bat kinetic energy: peak → drop (high confidence) ---
+  const batKE = csvData["bat_kinetic_energy"] || csvData["bat_ke"] || [];
   if (batKE.length > 0) {
-    const peakFrame = findPeakFrame(batKE);
-    // Sanity check: peak should be in the latter half of the swing
-    if (peakFrame > frameCount * 0.4) {
-      return { frame: peakFrame, type: 'bat_ke_peak', confidence: 'high' };
+    const dropI = findPeakToDropFrame(batKE, DROP_FRAC_KE, MIN_AFTER_PEAK);
+    if (dropI != null && dropI > frameCount * 0.40) {
+      return { frame: clampFrame(dropI, frameCount), type: "bat_ke_peak", confidence: "high" };
     }
   }
-  
-  // Method 3: Peak of bat linear momentum magnitude (medium-high confidence)
-  const batMomX = csvData['bat_linear_momentum_x'] || csvData['bat_mom_x'] || [];
-  const batMomY = csvData['bat_linear_momentum_y'] || csvData['bat_mom_y'] || [];
-  const batMomZ = csvData['bat_linear_momentum_z'] || csvData['bat_mom_z'] || [];
-  if (batMomX.length > 0 && batMomY.length > 0 && batMomZ.length > 0) {
-    // Calculate momentum magnitude at each frame
-    const momMag: number[] = [];
-    for (let i = 0; i < batMomX.length; i++) {
-      const x = batMomX[i] || 0;
-      const y = batMomY[i] || 0;
-      const z = batMomZ[i] || 0;
-      momMag.push(Math.sqrt(x*x + y*y + z*z));
-    }
-    const peakFrame = findPeakFrame(momMag);
-    if (peakFrame > frameCount * 0.4) {
-      return { frame: peakFrame, type: 'bat_momentum_peak', confidence: 'medium' };
+
+  // --- 3) Bat momentum magnitude: peak → drop (medium confidence) ---
+  const momMag = buildBatMomentumMag(csvData);
+  if (momMag?.length) {
+    const dropI = findPeakToDropFrame(momMag, DROP_FRAC_MOM, MIN_AFTER_PEAK);
+    if (dropI != null && dropI > frameCount * 0.40) {
+      return { frame: clampFrame(dropI, frameCount), type: "bat_momentum_peak", confidence: "medium" };
     }
   }
-  
-  // Method 4: Peak of torso rotation from IK data (medium confidence)
+
+  // --- 4) Torso rotation: peak → drop (medium/low confidence) ---
   if (ikData?.torsorot?.length) {
-    const peakFrame = findPeakFrame(ikData.torsorot);
-    // Torso typically peaks slightly before contact, so add ~5% offset
-    const adjustedFrame = Math.min(Math.round(peakFrame * 1.05), frameCount - 1);
-    if (adjustedFrame > frameCount * 0.4) {
-      return { frame: adjustedFrame, type: 'torso_peak', confidence: 'medium' };
+    const dropI = findPeakToDropFrame(ikData.torsorot, DROP_FRAC_TORSO, MIN_AFTER_PEAK);
+    if (dropI != null) {
+      // torso drop happens near contact but can vary—keep it medium
+      const f = clampFrame(dropI, frameCount);
+      if (f > frameCount * 0.40) {
+        return { frame: f, type: "torso_peak", confidence: "medium" };
+      }
     }
   }
-  
-  // Method 5: Fixed ratio fallback (low confidence)
-  return { frame: Math.floor(frameCount * 0.8), type: 'frame_ratio', confidence: 'low' };
+
+  // --- 5) Fixed ratio fallback (low confidence) ---
+  return {
+    frame: clampFrame(Math.floor(frameCount * 0.80), frameCount),
+    type: "frame_ratio",
+    confidence: "low",
+  };
 }
 
 /**
@@ -783,7 +849,12 @@ serve(async (req) => {
           bucketBreakdown: breakdown,
           // Contact frame detection info
           contactFrameType: contactFrameResult.type,
-          batSpeedConfidence: contactFrameResult.confidence,
+          batSpeedConfidence:
+            contactFrameResult.type === "explicit" || contactFrameResult.type === "bat_ke_peak"
+              ? "high"
+              : contactFrameResult.type === "bat_momentum_peak"
+                ? "medium"
+                : "low",
           contactFrame: contactFrameResult.frame,
         },
       }),
