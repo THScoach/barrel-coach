@@ -1193,6 +1193,7 @@ export type Database = {
           account_type: string | null
           activated_at: string | null
           age: number | null
+          bat_mass_kg: number | null
           bbref_id: string | null
           beta_expires_at: string | null
           beta_notes: string | null
@@ -1230,6 +1231,7 @@ export type Database = {
           account_type?: string | null
           activated_at?: string | null
           age?: number | null
+          bat_mass_kg?: number | null
           bbref_id?: string | null
           beta_expires_at?: string | null
           beta_notes?: string | null
@@ -1267,6 +1269,7 @@ export type Database = {
           account_type?: string | null
           activated_at?: string | null
           age?: number | null
+          bat_mass_kg?: number | null
           bbref_id?: string | null
           beta_expires_at?: string | null
           beta_notes?: string | null
