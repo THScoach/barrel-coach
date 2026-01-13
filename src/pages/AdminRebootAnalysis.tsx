@@ -6,18 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Search, 
-  RefreshCw, 
-  Brain, 
-  Dumbbell, 
-  Target, 
+import {
+  Search,
+  RefreshCw,
+  Brain,
+  Dumbbell,
+  Target,
   CircleDot,
   Zap,
   AlertTriangle,
   Check,
   Loader2,
-  UserPlus
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -30,11 +30,7 @@ interface Player {
   reboot_athlete_id: string | null;
 }
 
-type SessionType =
-  | string
-  | { name?: string | null }
-  | null
-  | undefined;
+type SessionType = string | { name?: string | null } | null | undefined;
 
 interface RebootSession {
   session_id: string;
@@ -96,20 +92,20 @@ const getSessionTypeLabel = (sessionType: SessionType): string => {
   return "Unknown";
 };
 
-const ScoreCard = ({ 
-  label, 
-  score, 
-  grade, 
-  icon: Icon, 
-  isWeakest = false 
-}: { 
-  label: string; 
-  score: number; 
-  grade: string; 
+const ScoreCard = ({
+  label,
+  score,
+  grade,
+  icon: Icon,
+  isWeakest = false,
+}: {
+  label: string;
+  score: number;
+  grade: string;
   icon: React.ElementType;
   isWeakest?: boolean;
 }) => (
-  <Card className={`relative bg-slate-900/80 border-slate-800 ${isWeakest ? 'ring-2 ring-red-500' : ''}`}>
+  <Card className={`relative bg-slate-900/80 border-slate-800 ${isWeakest ? "ring-2 ring-red-500" : ""}`}>
     {isWeakest && (
       <div className="absolute -top-2 -right-2">
         <Badge variant="destructive" className="text-xs">
@@ -122,11 +118,7 @@ const ScoreCard = ({
       <Icon className={`w-8 h-8 mx-auto mb-2 ${getScoreTextColor(score)}`} />
       <p className="text-sm font-medium text-slate-400 mb-1">{label}</p>
       <p className={`text-4xl font-bold ${getScoreTextColor(score)}`}>{score}</p>
-      <Badge 
-        className={`mt-2 ${getScoreColor(score)} text-white`}
-      >
-        {grade}
-      </Badge>
+      <Badge className={`mt-2 ${getScoreColor(score)} text-white`}>{grade}</Badge>
     </CardContent>
   </Card>
 );
@@ -142,14 +134,18 @@ export default function AdminRebootAnalysis() {
   const [results, setResults] = useState<FourBScores | null>(null);
   const [showPlayerSearch, setShowPlayerSearch] = useState(false);
 
+  // NEW: Manual import state
+  const [manualSessionId, setManualSessionId] = useState("");
+  const [manualOrgPlayerId, setManualOrgPlayerId] = useState("");
+
   // Search players
   const { data: players = [], isLoading: isLoadingPlayers } = useQuery({
     queryKey: ["players-search", searchQuery],
     queryFn: async () => {
       if (!searchQuery || searchQuery.length < 2) return [];
-      
+
       console.log(`[Player Search] Searching for: "${searchQuery}"`);
-      
+
       const { data, error } = await supabase
         .from("players")
         .select("id, name, level, team, reboot_athlete_id")
@@ -160,14 +156,14 @@ export default function AdminRebootAnalysis() {
         console.error("[Player Search] Error:", error);
         throw error;
       }
-      
+
       console.log(`[Player Search] Found ${data?.length || 0} players:`, data);
       return data as Player[];
     },
     enabled: searchQuery.length >= 2,
   });
 
-  // Fetch sessions from Reboot
+  // Fetch sessions from Reboot (may not work for all API tiers)
   const fetchRebootSessions = async () => {
     if (!selectedPlayer?.reboot_athlete_id) {
       toast.error("Player has no Reboot Athlete ID");
@@ -180,10 +176,12 @@ export default function AdminRebootAnalysis() {
     setResults(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       console.log("[Fetch Sessions] Fetching for player:", selectedPlayer.reboot_athlete_id);
-      
+
       const response = await supabase.functions.invoke("fetch-reboot-sessions", {
         body: { org_player_id: selectedPlayer.reboot_athlete_id },
         headers: {
@@ -194,22 +192,22 @@ export default function AdminRebootAnalysis() {
       console.log("[Fetch Sessions] Raw response:", response);
 
       if (response.error) throw new Error(response.error.message);
-      
+
       const sessions = response.data?.sessions || [];
       console.log("[Fetch Sessions] Raw sessions data:", sessions);
-      
+
       // Map sessions and handle session_type being an object or string
       const mappedSessions = sessions.map((s: any) => {
         // Extract session type name if it's an object
         let sessionTypeName = "Practice";
         if (s.session_type) {
-          if (typeof s.session_type === 'object' && s.session_type.name) {
+          if (typeof s.session_type === "object" && s.session_type.name) {
             sessionTypeName = s.session_type.name;
-          } else if (typeof s.session_type === 'string') {
+          } else if (typeof s.session_type === "string") {
             sessionTypeName = s.session_type;
           }
         }
-        
+
         return {
           session_id: s.session_id || s.id,
           session_date: s.session_date || s.created_at,
@@ -217,18 +215,18 @@ export default function AdminRebootAnalysis() {
           movement_count: s.movement_count || 0,
         };
       });
-      
+
       console.log("[Fetch Sessions] Mapped sessions:", mappedSessions);
       setRebootSessions(mappedSessions);
 
       if (sessions.length === 0) {
-        toast.info("No sessions found for this player");
+        toast.info("No sessions found - try manual import instead");
       } else {
         toast.success(`Found ${sessions.length} sessions`);
       }
     } catch (error: any) {
       console.error("Error fetching sessions:", error);
-      toast.error(`Failed to fetch sessions: ${error.message}`);
+      toast.error(`Auto-fetch failed: ${error.message}. Use manual import instead.`);
     } finally {
       setIsLoadingSessions(false);
     }
@@ -238,16 +236,32 @@ export default function AdminRebootAnalysis() {
   const processSession = async () => {
     if (!selectedPlayer || !selectedSessionId) return;
 
+    // Use manual org_player_id if provided, otherwise fall back to player's reboot_athlete_id
+    const orgPlayerId = manualOrgPlayerId.trim() || selectedPlayer.reboot_athlete_id;
+
+    if (!orgPlayerId) {
+      toast.error("No Reboot Player ID available. Please enter one manually.");
+      return;
+    }
+
     setIsProcessing(true);
     setResults(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      console.log("[Process Session] Processing:", {
+        session_id: selectedSessionId,
+        org_player_id: orgPlayerId,
+        player_id: selectedPlayer.id,
+      });
+
       const response = await supabase.functions.invoke("process-reboot-session", {
         body: {
           session_id: selectedSessionId,
-          org_player_id: selectedPlayer.reboot_athlete_id,
+          org_player_id: orgPlayerId,
           player_id: selectedPlayer.id,
         },
         headers: {
@@ -256,7 +270,7 @@ export default function AdminRebootAnalysis() {
       });
 
       if (response.error) throw new Error(response.error.message);
-      
+
       if (response.data?.success) {
         setResults(response.data.scores);
         toast.success(response.data.message);
@@ -273,17 +287,22 @@ export default function AdminRebootAnalysis() {
 
   const selectPlayer = (player: Player) => {
     console.log("[Player Select] Selected player:", player);
-    
+
     if (!player.reboot_athlete_id) {
-      toast.warning("This player is not linked to Reboot Motion. They will need a Reboot Athlete ID to process sessions.");
+      toast.warning("This player has no Reboot Athlete ID. You can still use manual import if you know the IDs.");
     }
-    
+
     setSelectedPlayer(player);
     setSearchQuery("");
     setShowPlayerSearch(false);
     setRebootSessions([]);
     setSelectedSessionId(null);
     setResults(null);
+
+    // Pre-fill manual org_player_id if available
+    if (player.reboot_athlete_id) {
+      setManualOrgPlayerId(player.reboot_athlete_id);
+    }
   };
 
   const getGradeFromScore = (score: number): string => {
@@ -299,13 +318,11 @@ export default function AdminRebootAnalysis() {
   return (
     <div className="min-h-screen bg-slate-950">
       <AdminHeader />
-      
+
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white">Reboot Analysis</h1>
-          <p className="text-slate-400">
-            Process Reboot Motion sessions and calculate 4B scores
-          </p>
+          <p className="text-slate-400">Process Reboot Motion sessions and calculate 4B scores</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
@@ -315,7 +332,9 @@ export default function AdminRebootAnalysis() {
             <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 text-white">
-                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
+                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
+                    1
+                  </span>
                   Select Player
                 </CardTitle>
               </CardHeader>
@@ -334,12 +353,14 @@ export default function AdminRebootAnalysis() {
                         </p>
                       )}
                     </div>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         setSelectedPlayer(null);
                         setShowPlayerSearch(true);
+                        setManualSessionId("");
+                        setManualOrgPlayerId("");
                       }}
                       className="border-slate-700 text-slate-300 hover:bg-slate-800"
                     >
@@ -361,7 +382,7 @@ export default function AdminRebootAnalysis() {
                         className="pl-10 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
                       />
                     </div>
-                    
+
                     {showPlayerSearch && searchQuery.length >= 2 && (
                       <div className="absolute z-10 w-full mt-1 bg-slate-900 border border-slate-700 rounded-md shadow-lg max-h-60 overflow-auto">
                         {isLoadingPlayers ? (
@@ -381,13 +402,9 @@ export default function AdminRebootAnalysis() {
                                   {player.level} • {player.team}
                                 </p>
                                 {player.reboot_athlete_id ? (
-                                  <p className="text-xs text-green-400">
-                                    Has Reboot ID
-                                  </p>
+                                  <p className="text-xs text-green-400">Has Reboot ID</p>
                                 ) : (
-                                  <p className="text-xs text-yellow-400">
-                                    No Reboot ID
-                                  </p>
+                                  <p className="text-xs text-yellow-400">No Reboot ID</p>
                                 )}
                               </button>
                             ))}
@@ -418,19 +435,22 @@ export default function AdminRebootAnalysis() {
               </CardContent>
             </Card>
 
-            {/* Step 2: Select Session */}
+            {/* Step 2: Select Session - UPDATED WITH MANUAL IMPORT */}
             <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 text-white">
-                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
+                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
+                    2
+                  </span>
                   Select Session
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {/* Auto-fetch option */}
                 <Button
                   onClick={fetchRebootSessions}
                   disabled={!selectedPlayer?.reboot_athlete_id || isLoadingSessions}
-                  className="w-full mb-4 border-slate-700 text-slate-300 hover:bg-slate-800"
+                  className="w-full mb-2 border-slate-700 text-slate-300 hover:bg-slate-800"
                   variant="outline"
                 >
                   {isLoadingSessions ? (
@@ -441,20 +461,78 @@ export default function AdminRebootAnalysis() {
                   Fetch Sessions from Reboot
                 </Button>
 
-                {!selectedPlayer && (
-                  <p className="text-sm text-slate-400 text-center">
-                    Select a player first
-                  </p>
-                )}
+                <p className="text-xs text-slate-500 text-center mb-4">(May not work for all API tiers)</p>
+
+                {/* Divider */}
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-slate-700"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-slate-900 text-slate-400">OR Import Manually</span>
+                  </div>
+                </div>
+
+                {/* Manual Import */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">Reboot Session ID</label>
+                    <Input
+                      placeholder="e.g., abc123-def456..."
+                      value={manualSessionId}
+                      onChange={(e) => setManualSessionId(e.target.value)}
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Find this in the Reboot Motion URL or session details</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">
+                      Reboot Player ID (org_player_id)
+                    </label>
+                    <Input
+                      placeholder="e.g., player_987..."
+                      value={manualOrgPlayerId}
+                      onChange={(e) => setManualOrgPlayerId(e.target.value)}
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
+                    />
+                    {selectedPlayer?.reboot_athlete_id && manualOrgPlayerId === selectedPlayer.reboot_athlete_id && (
+                      <p className="text-xs text-green-400 mt-1">✓ Pre-filled from player profile</p>
+                    )}
+                  </div>
+                  <Button
+                    onClick={() => {
+                      if (!manualSessionId.trim()) {
+                        toast.error("Please enter a Session ID");
+                        return;
+                      }
+                      if (!manualOrgPlayerId.trim()) {
+                        toast.error("Please enter a Reboot Player ID");
+                        return;
+                      }
+                      setSelectedSessionId(manualSessionId.trim());
+                      toast.success("Session ID set - click Calculate 4B Scores to process");
+                    }}
+                    disabled={!manualSessionId.trim() || !manualOrgPlayerId.trim()}
+                    className="w-full border-slate-700 text-slate-300 hover:bg-slate-800"
+                    variant="outline"
+                  >
+                    Use This Session
+                  </Button>
+                </div>
+
+                {/* Messages */}
+                {!selectedPlayer && <p className="text-sm text-slate-400 text-center mt-4">Select a player first</p>}
 
                 {selectedPlayer && !selectedPlayer.reboot_athlete_id && (
-                  <p className="text-sm text-yellow-400 text-center">
-                    This player has no Reboot Athlete ID
+                  <p className="text-sm text-yellow-400 text-center mt-4">
+                    This player has no Reboot Athlete ID - use manual import above
                   </p>
                 )}
 
+                {/* Auto-fetched sessions list */}
                 {rebootSessions.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-2 mt-6">
+                    <p className="text-sm text-slate-400 mb-2">Sessions from Reboot:</p>
                     {rebootSessions.map((session) => (
                       <label
                         key={session.session_id}
@@ -474,10 +552,10 @@ export default function AdminRebootAnalysis() {
                         />
                         <div className="flex-1">
                           <p className="font-medium text-white">
-                            {new Date(session.session_date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
+                            {new Date(session.session_date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
                             })}
                           </p>
                           <p className="text-sm text-slate-400">
@@ -488,6 +566,16 @@ export default function AdminRebootAnalysis() {
                     ))}
                   </div>
                 )}
+
+                {/* Selected session indicator */}
+                {selectedSessionId && (
+                  <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                    <p className="text-sm text-green-400 flex items-center gap-2">
+                      <Check className="w-4 h-4" />
+                      Session selected: {selectedSessionId.substring(0, 20)}...
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -495,14 +583,16 @@ export default function AdminRebootAnalysis() {
             <Card className="bg-slate-900/80 border-slate-800">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 text-white">
-                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
+                  <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
+                    3
+                  </span>
                   Process
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <Button
                   onClick={processSession}
-                  disabled={!selectedSessionId || isProcessing}
+                  disabled={!selectedPlayer || !selectedSessionId || isProcessing}
                   className="w-full bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
                 >
                   {isProcessing ? (
@@ -517,6 +607,11 @@ export default function AdminRebootAnalysis() {
                     </>
                   )}
                 </Button>
+
+                {!selectedPlayer && <p className="text-xs text-slate-500 text-center mt-2">Select a player first</p>}
+                {selectedPlayer && !selectedSessionId && (
+                  <p className="text-xs text-slate-500 text-center mt-2">Select or enter a session ID</p>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -529,9 +624,7 @@ export default function AdminRebootAnalysis() {
                 <Card className="bg-slate-900/80 border-slate-800">
                   <CardContent className="pt-6">
                     <div className="text-center">
-                      <p className="text-sm uppercase tracking-wider text-slate-400 mb-2">
-                        Composite Score
-                      </p>
+                      <p className="text-sm uppercase tracking-wider text-slate-400 mb-2">Composite Score</p>
                       <p className={`text-7xl font-bold ${getScoreTextColor(results.composite_score)}`}>
                         {results.composite_score}
                       </p>
@@ -549,28 +642,28 @@ export default function AdminRebootAnalysis() {
                     score={results.brain_score}
                     grade={getGradeFromScore(results.brain_score)}
                     icon={Brain}
-                    isWeakest={results.weakest_link === 'brain'}
+                    isWeakest={results.weakest_link === "brain"}
                   />
                   <ScoreCard
                     label="Body"
                     score={results.body_score}
                     grade={getGradeFromScore(results.body_score)}
                     icon={Dumbbell}
-                    isWeakest={results.weakest_link === 'body'}
+                    isWeakest={results.weakest_link === "body"}
                   />
                   <ScoreCard
                     label="Bat"
                     score={results.bat_score}
                     grade={getGradeFromScore(results.bat_score)}
                     icon={Target}
-                    isWeakest={results.weakest_link === 'bat'}
+                    isWeakest={results.weakest_link === "bat"}
                   />
                   <ScoreCard
                     label="Ball"
                     score={results.ball_score}
                     grade={getGradeFromScore(results.ball_score)}
                     icon={CircleDot}
-                    isWeakest={results.weakest_link === 'ball'}
+                    isWeakest={results.weakest_link === "ball"}
                   />
                 </div>
 
@@ -587,39 +680,41 @@ export default function AdminRebootAnalysis() {
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-slate-400">Legs KE</span>
-                          <span className="font-medium text-white">{results.legs_ke || '--'} J</span>
+                          <span className="font-medium text-white">{results.legs_ke || "--"} J</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-400">Torso KE</span>
-                          <span className="font-medium text-white">{results.torso_ke || '--'} J</span>
+                          <span className="font-medium text-white">{results.torso_ke || "--"} J</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-400">Arms KE</span>
-                          <span className="font-medium text-white">{results.arms_ke || '--'} J</span>
+                          <span className="font-medium text-white">{results.arms_ke || "--"} J</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-400">Bat KE</span>
                           <span className="font-medium text-white">
-                            {results.bat_ke ? `${results.bat_ke} J` : 'Not Measured'}
+                            {results.bat_ke ? `${results.bat_ke} J` : "Not Measured"}
                           </span>
                         </div>
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-slate-400">Total KE</span>
-                          <span className="font-medium text-white">{results.total_ke || '--'} J</span>
+                          <span className="font-medium text-white">{results.total_ke || "--"} J</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-400">Legs → Torso</span>
-                          <span className="font-medium text-white">{results.legs_to_torso_transfer || '--'}%</span>
+                          <span className="font-medium text-white">{results.legs_to_torso_transfer || "--"}%</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-400">Torso → Arms</span>
-                          <span className="font-medium text-white">{results.torso_to_arms_transfer || '--'}%</span>
+                          <span className="font-medium text-white">{results.torso_to_arms_transfer || "--"}%</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-400">Consistency</span>
-                          <span className="font-medium text-white">{results.consistency_grade} ({results.consistency_cv}%)</span>
+                          <span className="font-medium text-white">
+                            {results.consistency_grade} ({results.consistency_cv}%)
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -640,7 +735,7 @@ export default function AdminRebootAnalysis() {
                         <span className="text-slate-400">Ground Flow</span>
                         <div className="flex items-center gap-2">
                           <div className="w-32 h-2 bg-slate-700 rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className={`h-full ${getScoreColor(results.ground_flow_score)}`}
                               style={{ width: `${results.ground_flow_score}%` }}
                             />
@@ -652,7 +747,7 @@ export default function AdminRebootAnalysis() {
                         <span className="text-slate-400">Core Flow</span>
                         <div className="flex items-center gap-2">
                           <div className="w-32 h-2 bg-slate-700 rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className={`h-full ${getScoreColor(results.core_flow_score)}`}
                               style={{ width: `${results.core_flow_score}%` }}
                             />
@@ -664,7 +759,7 @@ export default function AdminRebootAnalysis() {
                         <span className="text-slate-400">Upper Flow</span>
                         <div className="flex items-center gap-2">
                           <div className="w-32 h-2 bg-slate-700 rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className={`h-full ${getScoreColor(results.upper_flow_score)}`}
                               style={{ width: `${results.upper_flow_score}%` }}
                             />
