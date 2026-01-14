@@ -1,16 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BallPanel } from '@/lib/report-types';
+import type { BallPanel } from '@/lib/report-types';
 import { CircleDot } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
+/** Props exclude 'present' - parent handles visibility check */
 interface BallOutcomePanelProps {
-  data: BallPanel;
+  data: Omit<BallPanel, 'present'>;
 }
 
 export function BallOutcomePanel({ data }: BallOutcomePanelProps) {
-  if (!data.present || !data.outcomes || data.outcomes.length === 0) return null;
+  // Parent already checks isPresent() - only check for required data
+  if (!data.outcomes || data.outcomes.length === 0) return null;
 
-  const isProjected = data.is_projected;
+  // Nested present check for projected data (contract allows this pattern)
+  const isProjected = data.projected?.present;
 
   return (
     <Card className="bg-slate-900 border-slate-800">
