@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { mockReportData } from '@/lib/mock-report-data';
-import { SwingReportData } from '@/lib/report-types';
+import { SwingReportData, isPresent, getItems } from '@/lib/report-types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -125,7 +125,7 @@ export default function SwingReport() {
     queryKey: ['report', sessionId],
     queryFn: () => fetchReport(sessionId || 'test'),
     enabled: !!sessionId,
-    retry: 1, // Only retry once for real API calls
+    retry: 1,
   });
 
   if (isLoading) return <ReportSkeleton />;
@@ -138,48 +138,84 @@ export default function SwingReport() {
     );
   }
 
-  // Helper to check if a section is present (handles both old and new response formats)
-  const isPresent = (section: any): boolean => {
-    if (!section) return false;
-    if (typeof section === 'object' && 'present' in section) return section.present === true;
-    return true; // Legacy format without present flag
-  };
-
-  // Helper to get items from a section (handles both array and object formats)
-  const getItems = <T,>(section: T[] | { items?: T[] } | undefined): T[] => {
-    if (!section) return [];
-    if (Array.isArray(section)) return section;
-    if ('items' in section && Array.isArray(section.items)) return section.items;
-    return [];
-  };
-
   return (
     <div className="min-h-screen bg-slate-950">
       <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
         <h1 className="text-lg font-semibold text-slate-400 text-center">Swing Report</h1>
+        
+        {/* Always present: session header and scores */}
         <ReportHeader session={data.session} />
         <ScoreboardCard scores={data.scores} />
+        
+        {/* Kinetic Potential - with present flag */}
         {isPresent(data.kinetic_potential) && (
-          <PotentialVsExpressionCard potential={data.kinetic_potential} />
+          <PotentialVsExpressionCard 
+            potential={{ 
+              ceiling: data.kinetic_potential.ceiling ?? 0, 
+              current: data.kinetic_potential.current ?? 0 
+            }} 
+          />
         )}
+        
+        {/* Primary Leak - with present flag */}
         {isPresent(data.primary_leak) && (
-          <LeakCard leak={data.primary_leak} />
+          <LeakCard 
+            leak={{
+              title: data.primary_leak.title ?? '',
+              description: data.primary_leak.description ?? '',
+              why_it_matters: data.primary_leak.why_it_matters ?? '',
+              frame_url: data.primary_leak.frame_url,
+              loop_url: data.primary_leak.loop_url,
+            }} 
+          />
         )}
+        
+        {/* Fix Order - with present flag and items array */}
         {isPresent(data.fix_order) && getItems(data.fix_order).length > 0 && (
-          <FixOrderChecklist items={getItems(data.fix_order)} doNotChase={data.do_not_chase} />
+          <FixOrderChecklist 
+            items={getItems(data.fix_order)} 
+            doNotChase={data.fix_order.do_not_chase ?? []} 
+          />
         )}
-        {isPresent(data.square_up_window) && <HeatmapCard data={data.square_up_window} />}
-        {isPresent(data.weapon_panel) && <MetricsChipsPanel data={data.weapon_panel} />}
-        {isPresent(data.ball_panel) && <BallOutcomePanel data={data.ball_panel} />}
+        
+        {/* Square Up Window - with present flag */}
+        {isPresent(data.square_up_window) && (
+          <HeatmapCard data={data.square_up_window} />
+        )}
+        
+        {/* Weapon Panel - with present flag */}
+        {isPresent(data.weapon_panel) && (
+          <MetricsChipsPanel data={data.weapon_panel} />
+        )}
+        
+        {/* Ball Panel - with present flag */}
+        {isPresent(data.ball_panel) && (
+          <BallOutcomePanel data={data.ball_panel} />
+        )}
+        
+        {/* Drills - with present flag and items array */}
         {isPresent(data.drills) && getItems(data.drills).length > 0 && (
           <TrainingCard drills={getItems(data.drills)} />
         )}
+        
+        {/* Session History - with present flag and items array */}
         {isPresent(data.session_history) && getItems(data.session_history).length > 0 && (
-          <ProgressBoard history={getItems(data.session_history)} badges={data.badges} />
+          <ProgressBoard 
+            history={getItems(data.session_history)} 
+            badges={data.badges} 
+          />
         )}
+        
+        {/* Coach Note - with present flag */}
         {isPresent(data.coach_note) && (
-          <CoachNoteCard note={data.coach_note} />
+          <CoachNoteCard 
+            note={{ 
+              text: data.coach_note.text ?? '', 
+              audio_url: data.coach_note.audio_url 
+            }} 
+          />
         )}
+        
         <div className="h-8" />
       </div>
     </div>

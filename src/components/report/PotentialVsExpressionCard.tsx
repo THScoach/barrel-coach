@@ -1,15 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { KineticPotential } from '@/lib/report-types';
+import { KineticPotentialProps } from '@/lib/report-types';
 import { Zap } from 'lucide-react';
 
 interface PotentialVsExpressionCardProps {
-  potential: KineticPotential;
+  potential: KineticPotentialProps;
 }
 
 export function PotentialVsExpressionCard({ potential }: PotentialVsExpressionCardProps) {
   const { ceiling, current } = potential;
   const gap = ceiling - current;
-  const expressionPct = (current / ceiling) * 100;
 
   return (
     <Card className="bg-slate-900 border-slate-800">

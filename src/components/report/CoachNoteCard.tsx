@@ -1,10 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CoachNote } from '@/lib/report-types';
+import { CoachNoteProps } from '@/lib/report-types';
 import { MessageSquare, Play } from 'lucide-react';
 
 interface CoachNoteCardProps {
-  note: CoachNote;
+  note: CoachNoteProps;
 }
 
 export function CoachNoteCard({ note }: CoachNoteCardProps) {
