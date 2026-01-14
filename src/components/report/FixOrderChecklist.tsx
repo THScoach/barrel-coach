@@ -45,7 +45,7 @@ export function FixOrderChecklist({ items, doNotChase }: FixOrderChecklistProps)
                   </h4>
                 </div>
                 <p className="text-sm text-slate-400 italic">
-                  "{item.feelCue}"
+                  "{item.feel_cue}"
                 </p>
               </div>
             </div>

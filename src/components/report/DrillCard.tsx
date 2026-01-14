@@ -7,15 +7,15 @@ interface DrillCardProps {
 }
 
 export function DrillCard({ drill }: DrillCardProps) {
-  const { name, coachingCue, reps, loopUrl, demoUrl } = drill;
+  const { name, coaching_cue, reps, loop_url, demo_url } = drill;
 
   return (
     <div className="bg-slate-800/50 rounded-lg overflow-hidden">
       {/* Video placeholder */}
       <div className="relative aspect-video bg-slate-800">
-        {loopUrl ? (
+        {loop_url ? (
           <img 
-            src={loopUrl} 
+            src={loop_url} 
             alt={`${name} drill demo`}
             className="w-full h-full object-cover"
           />
@@ -35,12 +35,12 @@ export function DrillCard({ drill }: DrillCardProps) {
       {/* Content */}
       <div className="p-3 space-y-2">
         <h4 className="font-semibold text-white">{name}</h4>
-        <p className="text-sm text-slate-400 italic">"{coachingCue}"</p>
+        <p className="text-sm text-slate-400 italic">"{coaching_cue}"</p>
         <div className="flex items-center justify-between">
           <span className="text-xs text-slate-500 bg-slate-700/50 px-2 py-1 rounded">
             {reps}
           </span>
-          {demoUrl && (
+          {demo_url && (
             <Button 
               variant="ghost" 
               size="sm" 

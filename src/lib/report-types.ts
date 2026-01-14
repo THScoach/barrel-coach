@@ -1,5 +1,6 @@
 // ============================================================================
 // Swing Report Types - Player-facing coaching report data structure
+// Uses snake_case to match backend API contract
 // ============================================================================
 
 export interface ReportPlayer {
@@ -38,34 +39,34 @@ export interface KineticPotential {
 export interface PrimaryLeak {
   title: string;
   description: string;
-  whyItMatters: string;
-  frameUrl?: string;
-  loopUrl?: string;
+  why_it_matters: string;
+  frame_url?: string;
+  loop_url?: string;
 }
 
 export interface FixOrderItem {
   label: string;
-  feelCue: string;
+  feel_cue: string;
   completed?: boolean;
 }
 
 export interface SquareUpWindow {
   present: boolean;
   grid?: number[][]; // 3x3 or 5x5 heatmap values
-  bestZone?: string;
-  avoidZone?: string;
-  coachNote?: string;
+  best_zone?: string;
+  avoid_zone?: string;
+  coach_note?: string;
 }
 
-export interface DKMetric {
+export interface WeaponMetric {
   name: string;
   value: number | string;
   meaning: string;
 }
 
-export interface DiamondKineticsData {
+export interface WeaponPanel {
   present: boolean;
-  metrics?: DKMetric[];
+  metrics?: WeaponMetric[];
 }
 
 export interface BallOutcome {
@@ -74,25 +75,30 @@ export interface BallOutcome {
   unit?: string;
 }
 
-export interface BallData {
+export interface BallPanelProjected {
   present: boolean;
-  isProjected?: boolean;
+  outcomes?: BallOutcome[];
+}
+
+export interface BallPanel {
+  present: boolean;
+  projected?: BallPanelProjected;
   outcomes?: BallOutcome[];
 }
 
 export interface Drill {
   id: string;
   name: string;
-  coachingCue: string;
+  coaching_cue: string;
   reps: string;
-  loopUrl?: string;
-  demoUrl?: string;
+  loop_url?: string;
+  demo_url?: string;
 }
 
 export interface SessionHistoryItem {
   id: string;
   date: string;
-  compositeScore: number;
+  composite_score: number;
   delta?: number;
 }
 
@@ -100,26 +106,26 @@ export interface Badge {
   id: string;
   name: string;
   earned: boolean;
-  earnedDate?: string;
+  earned_date?: string;
 }
 
 export interface CoachNote {
   text: string;
-  audioUrl?: string;
+  audio_url?: string;
 }
 
 export interface SwingReportData {
   session: ReportSession;
   scores: FourBScoreData;
-  kineticPotential: KineticPotential;
-  primaryLeak: PrimaryLeak;
-  fixOrder: FixOrderItem[];
-  doNotChase: string[];
-  squareUpWindow?: SquareUpWindow;
-  diamondKinetics?: DiamondKineticsData;
-  ballData?: BallData;
+  kinetic_potential: KineticPotential;
+  primary_leak: PrimaryLeak;
+  fix_order: FixOrderItem[];
+  do_not_chase: string[];
+  square_up_window?: SquareUpWindow;
+  weapon_panel?: WeaponPanel;
+  ball_panel?: BallPanel;
   drills: Drill[];
-  sessionHistory: SessionHistoryItem[];
+  session_history: SessionHistoryItem[];
   badges?: Badge[];
-  coachNote: CoachNote;
+  coach_note: CoachNote;
 }

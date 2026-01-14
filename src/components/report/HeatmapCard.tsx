@@ -24,7 +24,7 @@ function getHeatOpacity(value: number): string {
 export function HeatmapCard({ data }: HeatmapCardProps) {
   if (!data.present || !data.grid) return null;
 
-  const { grid, bestZone, avoidZone, coachNote } = data;
+  const { grid, best_zone, avoid_zone, coach_note } = data;
 
   return (
     <Card className="bg-slate-900 border-slate-800">
@@ -76,24 +76,24 @@ export function HeatmapCard({ data }: HeatmapCardProps) {
 
         {/* Zone callouts */}
         <div className="flex justify-center gap-4 text-sm">
-          {bestZone && (
+          {best_zone && (
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-green-500 rounded-sm" />
-              <span className="text-slate-300">Best: {bestZone}</span>
+              <span className="text-slate-300">Best: {best_zone}</span>
             </div>
           )}
-          {avoidZone && (
+          {avoid_zone && (
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-red-500 rounded-sm opacity-50" />
-              <span className="text-slate-300">Avoid: {avoidZone}</span>
+              <span className="text-slate-300">Avoid: {avoid_zone}</span>
             </div>
           )}
         </div>
 
         {/* Coach note */}
-        {coachNote && (
+        {coach_note && (
           <p className="text-sm text-slate-400 text-center italic">
-            {coachNote}
+            {coach_note}
           </p>
         )}
       </CardContent>
