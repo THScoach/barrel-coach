@@ -338,12 +338,20 @@ function MinimalDataFrame() {
         </div>
       </Section>
 
-      {/* 6. Square-Up Window — HIDDEN (not enough data) */}
-      <div className="border-2 border-dashed border-red-300 rounded-lg p-3 bg-red-50">
-        <div className="text-[10px] font-bold text-red-400 uppercase">
-          ❌ 6. Square-Up Window — HIDDEN (Need 3+ sessions)
+      {/* 6. Square-Up Window - SHOWS AS EARLY ESTIMATE */}
+      <Section title="6. Square-Up Window (Early Estimate)">
+        <div className="grid grid-cols-3 gap-1">
+          {[...Array(9)].map((_, i) => (
+            <Box key={i} label="" height="h-10" />
+          ))}
         </div>
-      </div>
+        <div className="text-[8px] text-gray-600 text-center">
+          Label: "Early Estimate"
+        </div>
+        <div className="text-[8px] text-gray-500 italic text-center">
+          Sharpens as we collect more swings.
+        </div>
+      </Section>
 
       {/* 7. Weapon Panel — HIDDEN */}
       <div className="border-2 border-dashed border-red-300 rounded-lg p-3 bg-red-50">
