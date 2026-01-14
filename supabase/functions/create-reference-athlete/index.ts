@@ -1,6 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// =============================================================================
+// SECURITY SELF-TEST CHECKLIST
+// =============================================================================
+// ✅ 1. Admin check via is_admin() RPC happens BEFORE any database mutations
+// ✅ 2. Returns 403 { error: "Admin access required" } if is_admin() = false
+// ✅ 3. Request body fields 'is_admin', 'role', 'user_id' are explicitly IGNORED
+// ✅ 4. Uses service_role only AFTER admin verification passes
+// ✅ 5. No inserts/updates occur before admin check completes
+// =============================================================================
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -53,7 +63,7 @@ serve(async (req) => {
       );
     }
 
-    // Parse request body
+    // Parse request body - SECURITY: explicitly ignore any role/admin fields
     const body = await req.json();
     const {
       display_name,
@@ -61,8 +71,17 @@ serve(async (req) => {
       handedness,
       archetype,
       notes,
-      reboot_athlete_id
+      reboot_athlete_id,
+      // SECURITY: Destructure and IGNORE these fields - never trust client-provided auth claims
+      is_admin: _ignoredIsAdmin,
+      role: _ignoredRole,
+      user_id: _ignoredUserId,
+      ...rest
     } = body;
+    // Log if client attempted to pass privileged fields (for security audit)
+    if (_ignoredIsAdmin !== undefined || _ignoredRole !== undefined || _ignoredUserId !== undefined) {
+      console.warn('SECURITY: Client attempted to pass privileged fields - ignored');
+    }
 
     // Input validation
     if (!display_name || typeof display_name !== 'string' || display_name.trim().length === 0) {
