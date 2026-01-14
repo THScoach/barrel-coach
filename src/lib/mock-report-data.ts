@@ -141,4 +141,16 @@ export const mockReportData: SwingReportData = {
     text: "Marcus, you're making real progress. Your ground connection is locking in, and I'm starting to see that separation show up naturally. This week, focus on the hip lead drill — that's the unlock. Don't chase bat path or hand position. Trust the process.",
     audio_url: undefined,
   },
+  barrel_sling_panel: {
+    present: true,
+    barrel_sling_score: 72,
+    sling_load_score: 78,
+    sling_start_score: 68,
+    sling_deliver_score: 70,
+    notes: {
+      good: "Your load phase shows excellent x-factor separation and stable torso posture.",
+      leak: "Start timing could be earlier — pelvis translation is lagging rotation initiation.",
+    },
+    confidence: 'measured',
+  },
 };
