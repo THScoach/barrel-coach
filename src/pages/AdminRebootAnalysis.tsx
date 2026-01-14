@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { createReferenceAthlete, createReferenceSession } from "@/lib/population-queries";
+import type { ReferenceAthlete } from "@/lib/population-queries";
 
 interface Player {
   id: string;
@@ -321,32 +321,42 @@ export default function AdminRebootAnalysis() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      // Handle reference athlete import
+      // Handle reference athlete import via edge functions
       if (isReferenceImport) {
         const displayName = referenceDisplayName.trim() || `Reference ${referenceLevel} Athlete`;
         
-        console.log("[Process Reference] Creating reference athlete:", {
+        console.log("[Process Reference] Creating reference athlete via edge function:", {
           display_name: displayName,
           level: referenceLevel,
           session_id: selectedSessionId,
           org_player_id: orgPlayerId,
         });
 
-        // First, create or find the reference athlete
-        const refAthlete = await createReferenceAthlete({
-          display_name: displayName,
-          level: referenceLevel,
-          reboot_athlete_id: orgPlayerId,
+        // Step 1: Create reference athlete via edge function
+        const athleteResponse = await supabase.functions.invoke("create-reference-athlete", {
+          body: {
+            display_name: displayName,
+            level: referenceLevel,
+            reboot_athlete_id: orgPlayerId,
+          },
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
         });
 
-        // Process the session to get scores
-        const response = await supabase.functions.invoke("process-reboot-session", {
+        if (athleteResponse.error) throw new Error(athleteResponse.error.message);
+        if (!athleteResponse.data?.success) {
+          throw new Error(athleteResponse.data?.error || "Failed to create reference athlete");
+        }
+
+        const refAthlete = athleteResponse.data.athlete as ReferenceAthlete;
+
+        // Step 2: Process the session to get scores
+        const processResponse = await supabase.functions.invoke("process-reboot-session", {
           body: {
             session_id: selectedSessionId,
             org_player_id: orgPlayerId,
-            // Don't attach to any regular player
-            player_id: null,
-            // Flag for reference processing (edge function can use this)
+            player_id: null, // Don't attach to any regular player
             is_reference: true,
           },
           headers: {
@@ -354,13 +364,16 @@ export default function AdminRebootAnalysis() {
           },
         });
 
-        if (response.error) throw new Error(response.error.message);
+        if (processResponse.error) throw new Error(processResponse.error.message);
+        if (!processResponse.data?.success) {
+          throw new Error(processResponse.data?.error || "Processing failed");
+        }
 
-        if (response.data?.success) {
-          // Save to reference_sessions instead of swing_4b_scores
-          const scores = response.data.scores;
-          
-          await createReferenceSession({
+        const scores = processResponse.data.scores;
+
+        // Step 3: Save to reference_sessions via edge function
+        const sessionResponse = await supabase.functions.invoke("create-reference-session", {
+          body: {
             reference_athlete_id: refAthlete.id,
             reboot_session_id: selectedSessionId,
             session_date: new Date().toISOString().split('T')[0],
@@ -381,13 +394,19 @@ export default function AdminRebootAnalysis() {
             consistency_grade: scores.consistency_grade,
             weakest_link: scores.weakest_link,
             grade: scores.grade,
-          });
+          },
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        });
 
-          setResults(scores);
-          toast.success(`Reference session imported for ${displayName}`);
-        } else {
-          throw new Error(response.data?.error || "Processing failed");
+        if (sessionResponse.error) throw new Error(sessionResponse.error.message);
+        if (!sessionResponse.data?.success) {
+          throw new Error(sessionResponse.data?.error || "Failed to save reference session");
         }
+
+        setResults(scores);
+        toast.success(`Reference session imported for ${displayName}`);
       } else {
         // Regular player import
         console.log("[Process Session] Processing:", {
