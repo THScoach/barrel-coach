@@ -12,8 +12,8 @@ export function BallOutcomePanel({ data }: BallOutcomePanelProps) {
   // Parent already checks isPresent() - only check for required data
   if (!data.outcomes || data.outcomes.length === 0) return null;
 
-  // Nested present check for projected data (contract allows this pattern)
-  const isProjected = data.projected?.present;
+  // Use is_projected flag from flattened contract schema
+  const isProjected = data.is_projected;
 
   return (
     <Card className="bg-slate-900 border-slate-800">
