@@ -76,7 +76,7 @@ export function ProgressBoard({ history, badges }: ProgressBoardProps) {
                     'font-bold',
                     isLatest ? 'text-white' : 'text-slate-300'
                   )}>
-                    {session.compositeScore}
+                    {session.composite_score}
                   </span>
                   {session.delta !== undefined && session.delta !== 0 && (
                     <span className={cn(

@@ -20,19 +20,38 @@ import {
   CoachNoteCard,
 } from '@/components/report';
 
-// Mock fetch - replace with real API call when edge function is ready
+// Dev switch: set to true to use edge function, false to use mock data
+const USE_EDGE_FUNCTION = false;
+
 async function fetchReport(sessionId: string): Promise<SwingReportData> {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  // Return mock data with the requested sessionId
-  return {
-    ...mockReportData,
-    session: {
-      ...mockReportData.session,
-      id: sessionId,
-    },
-  };
+  if (!USE_EDGE_FUNCTION) {
+    // Return mock data immediately with the requested sessionId
+    await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for UX
+    return {
+      ...mockReportData,
+      session: {
+        ...mockReportData.session,
+        id: sessionId,
+      },
+    };
+  }
+
+  // Edge function path - ready to enable when deployment is confirmed
+  const response = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-report?sessionId=${encodeURIComponent(sessionId)}`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch report: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 function ReportSkeleton() {
@@ -111,15 +130,15 @@ export default function SwingReport() {
         <h1 className="text-lg font-semibold text-slate-400 text-center">Swing Report</h1>
         <ReportHeader session={data.session} />
         <ScoreboardCard scores={data.scores} />
-        <PotentialVsExpressionCard potential={data.kineticPotential} />
-        <LeakCard leak={data.primaryLeak} />
-        <FixOrderChecklist items={data.fixOrder} doNotChase={data.doNotChase} />
-        {data.squareUpWindow?.present && <HeatmapCard data={data.squareUpWindow} />}
-        {data.diamondKinetics?.present && <MetricsChipsPanel data={data.diamondKinetics} />}
-        {data.ballData?.present && <BallOutcomePanel data={data.ballData} />}
+        <PotentialVsExpressionCard potential={data.kinetic_potential} />
+        <LeakCard leak={data.primary_leak} />
+        <FixOrderChecklist items={data.fix_order} doNotChase={data.do_not_chase} />
+        {data.square_up_window?.present && <HeatmapCard data={data.square_up_window} />}
+        {data.weapon_panel?.present && <MetricsChipsPanel data={data.weapon_panel} />}
+        {data.ball_panel?.present && <BallOutcomePanel data={data.ball_panel} />}
         <TrainingCard drills={data.drills} />
-        <ProgressBoard history={data.sessionHistory} badges={data.badges} />
-        <CoachNoteCard note={data.coachNote} />
+        <ProgressBoard history={data.session_history} badges={data.badges} />
+        <CoachNoteCard note={data.coach_note} />
         <div className="h-8" />
       </div>
     </div>

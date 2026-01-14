@@ -7,8 +7,8 @@ interface LeakCardProps {
 }
 
 export function LeakCard({ leak }: LeakCardProps) {
-  const { title, description, whyItMatters, frameUrl, loopUrl } = leak;
-  const imageUrl = loopUrl || frameUrl;
+  const { title, description, why_it_matters, frame_url, loop_url } = leak;
+  const imageUrl = loop_url || frame_url;
 
   return (
     <Card className="bg-slate-900 border-slate-800 border-l-4 border-l-red-500">
@@ -47,7 +47,7 @@ export function LeakCard({ leak }: LeakCardProps) {
         <div className="bg-slate-800/50 rounded-lg p-3">
           <p className="text-sm text-slate-400">
             <span className="text-slate-300 font-medium">Why it matters: </span>
-            {whyItMatters}
+            {why_it_matters}
           </p>
         </div>
       </CardContent>

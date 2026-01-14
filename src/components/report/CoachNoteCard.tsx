@@ -21,7 +21,7 @@ export function CoachNoteCard({ note }: CoachNoteCardProps) {
           {note.text}
         </p>
         
-        {note.audioUrl && (
+        {note.audio_url && (
           <Button
             variant="outline"
             size="sm"

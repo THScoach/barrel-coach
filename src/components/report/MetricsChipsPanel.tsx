@@ -1,9 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DiamondKineticsData } from '@/lib/report-types';
+import { WeaponPanel } from '@/lib/report-types';
 import { Gauge } from 'lucide-react';
 
 interface MetricsChipsPanelProps {
-  data: DiamondKineticsData;
+  data: WeaponPanel;
 }
 
 export function MetricsChipsPanel({ data }: MetricsChipsPanelProps) {
