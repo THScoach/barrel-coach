@@ -35,3 +35,4 @@ export function MetricsChipsPanel({ data }: MetricsChipsPanelProps) {
       </CardContent>
     </Card>
   );
+}
