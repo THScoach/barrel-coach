@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { mockReportData } from '@/lib/mock-report-data';
-import { ReportResponse, isPresent, getItems } from '@/lib/report-types';
+import { SwingReportData, isPresent, getItems } from '@/lib/report-types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,12 +28,13 @@ import {
 // ============================================================================
 const USE_EDGE_FUNCTION = import.meta.env.VITE_USE_EDGE_FUNCTION === 'true';
 
-async function fetchReport(sessionId: string): Promise<ReportResponse> {
+async function fetchReport(sessionId: string): Promise<SwingReportData> {
   if (!USE_EDGE_FUNCTION) {
     // Return mock data immediately with the requested sessionId
     await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for UX
     return {
       ...mockReportData,
+      generated_at: new Date().toISOString(),
       session: {
         ...mockReportData.session,
         id: sessionId,
@@ -58,7 +59,7 @@ async function fetchReport(sessionId: string): Promise<ReportResponse> {
     throw new Error(errorData.error || `Failed to fetch report: ${response.status}`);
   }
 
-  const data: ReportResponse = await response.json();
+  const data: SwingReportData = await response.json();
   return data;
 }
 
@@ -197,7 +198,14 @@ export default function SwingReport() {
         
         {/* Barrel Sling Index - with present flag */}
         {isPresent(data.barrel_sling_panel) && (
-          <BarrelSlingCard data={data.barrel_sling_panel} />
+          <BarrelSlingCard data={{
+            barrel_sling_score: data.barrel_sling_panel.barrel_sling_score,
+            sling_load_score: data.barrel_sling_panel.sling_load_score,
+            sling_start_score: data.barrel_sling_panel.sling_start_score,
+            sling_deliver_score: data.barrel_sling_panel.sling_deliver_score,
+            notes: data.barrel_sling_panel.notes,
+            confidence: data.barrel_sling_panel.confidence,
+          }} />
         )}
         
         {/* Drills - with present flag and items array */}

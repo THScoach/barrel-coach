@@ -293,6 +293,10 @@ serve(async (req) => {
     // List sections use { present: boolean, items: T[] }
     // ========================================================================
     const reportData = {
+      // Contract metadata
+      contract_version: '2026-01-14',
+      generated_at: new Date().toISOString(),
+      
       session: {
         // REPORT ID RULE: session.id = reboot_uploads.id (UUID)
         // The frontend route /report/:sessionId expects a reboot_uploads UUID
@@ -321,14 +325,14 @@ serve(async (req) => {
         current: currentScore,
       },
       // ========================================================================
-      // UNFINISHED SECTIONS: present:false, minimal payload, no mock content
+      // UNFINISHED SECTIONS: present:false with complete structure
       // Each section follows canonical { present: boolean, ... } pattern
       // ========================================================================
-      primary_leak: { present: false, title: undefined, description: undefined, why_it_matters: undefined },
+      primary_leak: { present: false, title: undefined, description: undefined, why_it_matters: undefined, frame_url: undefined, loop_url: undefined },
       fix_order: { present: false, items: [], do_not_chase: [] },
       square_up_window: { present: false, grid: undefined, best_zone: undefined, avoid_zone: undefined, coach_note: undefined },
       weapon_panel: { present: false, metrics: [] },
-      ball_panel: { present: false, projected: { present: false }, outcomes: [] },
+      ball_panel: { present: false, projected: { present: false, outcomes: [] }, outcomes: [] },
       // Barrel Sling Index - calculated from Reboot metrics
       barrel_sling_panel: barrelSlingPanel,
       drills: { present: false, items: [] },
@@ -336,8 +340,8 @@ serve(async (req) => {
       session_history: hasSessionHistory 
         ? { present: true, items: sessionHistory }
         : { present: false, items: [] },
-      badges: [],
       coach_note: { present: false, text: undefined, audio_url: undefined },
+      badges: [],
     };
 
     return new Response(
