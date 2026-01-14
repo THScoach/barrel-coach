@@ -113,14 +113,9 @@ export interface BallOutcome {
   unit?: string;
 }
 
-export interface BallPanelProjected {
-  present: boolean;
-  outcomes: BallOutcome[];
-}
-
 export interface BallPanel {
   present: boolean;
-  projected: BallPanelProjected;
+  is_projected: boolean;
   outcomes: BallOutcome[];
 }
 

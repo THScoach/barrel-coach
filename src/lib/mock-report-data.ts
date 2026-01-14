@@ -89,10 +89,7 @@ export const mockReportData: SwingReportData = {
   },
   ball_panel: {
     present: true,
-    projected: {
-      present: false,
-      outcomes: [],
-    },
+    is_projected: false,
     outcomes: [
       { name: 'Exit Velo', value: 78, unit: 'mph' },
       { name: 'Launch Angle', value: 12, unit: '°' },
