@@ -1589,6 +1589,140 @@ export type Database = {
           },
         ]
       }
+      reference_athletes: {
+        Row: {
+          archetype: string | null
+          created_at: string | null
+          display_name: string
+          handedness: string | null
+          id: string
+          level: string
+          notes: string | null
+          reboot_athlete_id: string | null
+          updated_at: string | null
+          visibility: string
+        }
+        Insert: {
+          archetype?: string | null
+          created_at?: string | null
+          display_name: string
+          handedness?: string | null
+          id?: string
+          level: string
+          notes?: string | null
+          reboot_athlete_id?: string | null
+          updated_at?: string | null
+          visibility?: string
+        }
+        Update: {
+          archetype?: string | null
+          created_at?: string | null
+          display_name?: string
+          handedness?: string | null
+          id?: string
+          level?: string
+          notes?: string | null
+          reboot_athlete_id?: string | null
+          updated_at?: string | null
+          visibility?: string
+        }
+        Relationships: []
+      }
+      reference_sessions: {
+        Row: {
+          ball_score: number | null
+          bat_ke: number | null
+          bat_score: number | null
+          body_score: number | null
+          brain_score: number | null
+          captured_at: string | null
+          composite_score: number | null
+          consistency_cv: number | null
+          consistency_grade: string | null
+          core_flow_score: number | null
+          created_at: string | null
+          grade: string | null
+          ground_flow_score: number | null
+          id: string
+          metrics_json: Json | null
+          pelvis_velocity: number | null
+          reboot_session_id: string | null
+          reference_athlete_id: string
+          session_date: string | null
+          source: string
+          torso_velocity: number | null
+          transfer_efficiency: number | null
+          updated_at: string | null
+          upper_flow_score: number | null
+          weakest_link: string | null
+          x_factor: number | null
+        }
+        Insert: {
+          ball_score?: number | null
+          bat_ke?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          captured_at?: string | null
+          composite_score?: number | null
+          consistency_cv?: number | null
+          consistency_grade?: string | null
+          core_flow_score?: number | null
+          created_at?: string | null
+          grade?: string | null
+          ground_flow_score?: number | null
+          id?: string
+          metrics_json?: Json | null
+          pelvis_velocity?: number | null
+          reboot_session_id?: string | null
+          reference_athlete_id: string
+          session_date?: string | null
+          source?: string
+          torso_velocity?: number | null
+          transfer_efficiency?: number | null
+          updated_at?: string | null
+          upper_flow_score?: number | null
+          weakest_link?: string | null
+          x_factor?: number | null
+        }
+        Update: {
+          ball_score?: number | null
+          bat_ke?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          captured_at?: string | null
+          composite_score?: number | null
+          consistency_cv?: number | null
+          consistency_grade?: string | null
+          core_flow_score?: number | null
+          created_at?: string | null
+          grade?: string | null
+          ground_flow_score?: number | null
+          id?: string
+          metrics_json?: Json | null
+          pelvis_velocity?: number | null
+          reboot_session_id?: string | null
+          reference_athlete_id?: string
+          session_date?: string | null
+          source?: string
+          torso_velocity?: number | null
+          transfer_efficiency?: number | null
+          updated_at?: string | null
+          upper_flow_score?: number | null
+          weakest_link?: string | null
+          x_factor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reference_sessions_reference_athlete_id_fkey"
+            columns: ["reference_athlete_id"]
+            isOneToOne: false
+            referencedRelation: "reference_athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           email_status: string | null
