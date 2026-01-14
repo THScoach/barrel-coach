@@ -18,6 +18,7 @@ import {
   TrainingCard,
   ProgressBoard,
   CoachNoteCard,
+  BarrelSlingCard,
 } from '@/components/report';
 
 // ============================================================================
@@ -191,6 +192,11 @@ export default function SwingReport() {
         {/* Ball Panel - with present flag */}
         {isPresent(data.ball_panel) && (
           <BallOutcomePanel data={data.ball_panel} />
+        )}
+        
+        {/* Barrel Sling Index - with present flag */}
+        {isPresent(data.barrel_sling_panel) && (
+          <BarrelSlingCard data={data.barrel_sling_panel} />
         )}
         
         {/* Drills - with present flag and items array */}

@@ -168,6 +168,26 @@ export interface CoachNoteProps {
 }
 
 // ============================================================================
+// BARREL SLING INDEX TYPES
+// ============================================================================
+
+export interface BarrelSlingNotes {
+  good: string;
+  leak: string;
+}
+
+/** API response type - includes present flag */
+export interface BarrelSlingPanel {
+  present: boolean;
+  barrel_sling_score?: number;
+  sling_load_score?: number;
+  sling_start_score?: number;
+  sling_deliver_score?: number;
+  notes?: BarrelSlingNotes;
+  confidence?: 'measured' | 'estimate';
+}
+
+// ============================================================================
 // MAIN REPORT DATA STRUCTURE
 // ============================================================================
 
@@ -184,6 +204,7 @@ export interface SwingReportData {
   session_history: SessionHistorySection;
   badges?: Badge[];
   coach_note: CoachNote;
+  barrel_sling_panel: BarrelSlingPanel;
 }
 
 // ============================================================================

@@ -170,6 +170,122 @@ serve(async (req) => {
     const hasSessionHistory = sessionHistory.length > 0;
 
     // ========================================================================
+    // BARREL SLING INDEX (BSI) CALCULATION
+    // Uses available Reboot metrics to compute Load/Start/Deliver scores
+    // ========================================================================
+    const calculateBarrelSlingIndex = () => {
+      const xFactor = rebootData.x_factor;
+      const pelvisVelocity = rebootData.pelvis_velocity;
+      const torsoVelocity = rebootData.torso_velocity;
+      const transferEfficiency = rebootData.transfer_efficiency;
+      const consistencyCv = rebootData.consistency_cv;
+      const coreFlowScore = rebootData.core_flow_score;
+      const upperFlowScore = rebootData.upper_flow_score;
+      const groundFlowScore = rebootData.ground_flow_score;
+
+      // Check if we have enough data to calculate
+      const hasLoadData = xFactor !== null && xFactor !== undefined;
+      const hasStartData = pelvisVelocity !== null && pelvisVelocity !== undefined;
+      const hasDeliverData = transferEfficiency !== null || upperFlowScore !== null;
+
+      if (!hasLoadData && !hasStartData && !hasDeliverData) {
+        return { present: false };
+      }
+
+      // LOAD SCORE: Based on x-factor and core stability
+      // Higher x-factor = better hip-shoulder separation in load
+      // Typical x-factor range: 30-70 degrees
+      let slingLoadScore = 50;
+      if (hasLoadData) {
+        // Map x-factor (30-70°) to score (40-90)
+        slingLoadScore = Math.min(90, Math.max(40, 40 + ((xFactor - 30) / 40) * 50));
+        // Boost if core flow is good
+        if (coreFlowScore && coreFlowScore > 70) {
+          slingLoadScore = Math.min(95, slingLoadScore + 5);
+        }
+      }
+
+      // START SCORE: Based on pelvis velocity and sequencing
+      // Higher pelvis velocity with proper timing = better start
+      // Typical pelvis velocity range: 400-800 deg/s
+      let slingStartScore = 50;
+      if (hasStartData) {
+        // Map pelvis velocity (400-800) to score (40-90)
+        slingStartScore = Math.min(90, Math.max(40, 40 + ((pelvisVelocity - 400) / 400) * 50));
+        // Penalize if torso fires too early (low separation ratio)
+        if (torsoVelocity && pelvisVelocity) {
+          const separationRatio = pelvisVelocity / torsoVelocity;
+          if (separationRatio < 1.1) {
+            slingStartScore = Math.max(40, slingStartScore - 10); // Penalty for early torso
+          }
+        }
+        // Boost with ground flow
+        if (groundFlowScore && groundFlowScore > 70) {
+          slingStartScore = Math.min(95, slingStartScore + 5);
+        }
+      }
+
+      // DELIVER SCORE: Based on transfer efficiency and upper body control
+      // Higher transfer efficiency = better energy transfer to barrel
+      let slingDeliverScore = 50;
+      if (hasDeliverData) {
+        if (transferEfficiency) {
+          // Transfer efficiency is typically 0.7-0.95
+          slingDeliverScore = Math.min(90, Math.max(40, 40 + ((transferEfficiency - 0.7) / 0.25) * 50));
+        } else if (upperFlowScore) {
+          // Use upper flow as proxy
+          slingDeliverScore = upperFlowScore;
+        }
+        // Penalize inconsistency
+        if (consistencyCv && consistencyCv > 15) {
+          slingDeliverScore = Math.max(40, slingDeliverScore - 5);
+        }
+      }
+
+      // Overall BSI is weighted average: Load 25%, Start 35%, Deliver 40%
+      const barrelSlingScore = Math.round(
+        slingLoadScore * 0.25 + slingStartScore * 0.35 + slingDeliverScore * 0.40
+      );
+
+      // Generate coaching notes based on scores
+      const bestPhase = slingLoadScore >= slingStartScore && slingLoadScore >= slingDeliverScore ? 'load' :
+                        slingStartScore >= slingDeliverScore ? 'start' : 'deliver';
+      const worstPhase = slingLoadScore <= slingStartScore && slingLoadScore <= slingDeliverScore ? 'load' :
+                         slingStartScore <= slingDeliverScore ? 'start' : 'deliver';
+
+      const goodNotes: Record<string, string> = {
+        load: "Strong hip-shoulder separation in your load creates excellent elastic stretch.",
+        start: "Your pelvis initiates the swing well before your torso — textbook sequencing.",
+        deliver: "Efficient energy transfer from ground through barrel at contact.",
+      };
+
+      const leakNotes: Record<string, string> = {
+        load: "Load phase could use more x-factor — work on holding shoulder back longer.",
+        start: "Pelvis isn't leading enough — focus on hip-first movement initiation.",
+        deliver: "Energy is leaking before contact — maintain lead arm structure through the zone.",
+      };
+
+      // Determine confidence level
+      const measuredCount = [hasLoadData, hasStartData, hasDeliverData].filter(Boolean).length;
+      const confidence = measuredCount >= 2 ? 'measured' : 'estimate';
+
+      return {
+        present: true,
+        barrel_sling_score: barrelSlingScore,
+        sling_load_score: Math.round(slingLoadScore),
+        sling_start_score: Math.round(slingStartScore),
+        sling_deliver_score: Math.round(slingDeliverScore),
+        notes: {
+          good: goodNotes[bestPhase],
+          leak: leakNotes[worstPhase],
+        },
+        confidence,
+      };
+    };
+
+    const barrelSlingPanel = calculateBarrelSlingIndex();
+
+    // ========================================================================
     // Build the report JSON
     // PRODUCTION MODE: No mock content - only real data with present:false for unavailable sections
     // 
@@ -213,6 +329,8 @@ serve(async (req) => {
       square_up_window: { present: false },
       weapon_panel: { present: false },
       ball_panel: { present: false },
+      // Barrel Sling Index - calculated from Reboot metrics
+      barrel_sling_panel: barrelSlingPanel,
       drills: { present: false, items: [] },
       // Session history - only present if we have real data
       session_history: hasSessionHistory 
