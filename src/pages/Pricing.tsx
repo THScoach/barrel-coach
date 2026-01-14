@@ -150,7 +150,8 @@ export default function Pricing() {
                   <Users className="w-4 h-4 text-red-400" />
                   <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Ongoing</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Catching Barrels Membership</h3>
+                <h3 className="text-xl font-bold text-white mb-1">Catching Barrels Membership</h3>
+                <p className="text-sm text-slate-400 mb-3">Ongoing correction. Clear priorities. Real accountability.</p>
                 
                 {/* Pricing Options */}
                 <div className="space-y-2 mb-2">
@@ -171,7 +172,8 @@ export default function Pricing() {
                   </div>
                 </div>
               </div>
-              
+
+              <p className="text-sm text-slate-300 font-medium mb-3 border-t border-slate-800 pt-4">What's included:</p>
               <ul className="space-y-2 mb-4 flex-grow">
                 <li className="flex items-start gap-2 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
@@ -179,11 +181,11 @@ export default function Pricing() {
                 </li>
                 <li className="flex items-start gap-2 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  KRS reports included
+                  KRS reports included (no add-ons, no upsell games)
                 </li>
                 <li className="flex items-start gap-2 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Weekly group coaching calls
+                  Weekly group coaching calls (film, Q&A, corrections)
                 </li>
                 <li className="flex items-start gap-2 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
@@ -191,13 +193,22 @@ export default function Pricing() {
                 </li>
                 <li className="flex items-start gap-2 text-slate-300 text-sm">
                   <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Clear priorities, not drill overload
+                  Clear direction — not drill overload
                 </li>
               </ul>
 
-              <p className="text-slate-500 text-xs mb-4 border-t border-slate-800 pt-4">
-                Built for hitters who want ongoing correction and accountability — not just answers.<br />
-                <span className="text-slate-400">Membership can be paused anytime.</span>
+              <div className="text-xs text-slate-400 mb-3 border-t border-slate-800 pt-3">
+                <p className="font-medium text-slate-300 mb-1">This is coaching. Not drills. Not guesswork.</p>
+                <ul className="space-y-0.5 text-slate-500">
+                  <li>• Reviews are structured and intentional</li>
+                  <li>• Calls are group-based, not 1-on-1</li>
+                  <li>• Built for steady progress, not instant fixes</li>
+                </ul>
+              </div>
+
+              <p className="text-xs text-slate-500 mb-4">
+                Membership can be paused anytime.<br />
+                <span className="text-slate-600">Digital coaching only. In-person options are seasonal.</span>
               </p>
 
               <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
@@ -248,44 +259,104 @@ export default function Pricing() {
               </div>
             </div>
 
-            {/* Transformation Program Card */}
-            <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-start gap-6 opacity-90">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
-                  <Zap className="w-6 h-6 text-purple-400" />
+            {/* 90-Day Transformation Program Card */}
+            <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-6">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
+                    <Zap className="w-6 h-6 text-purple-400" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-purple-400 font-bold text-xs uppercase tracking-wider">Off-Season</span>
+                    <span className="text-xs font-bold text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded">October–February</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-white">The 90-Day Swing Transformation</h3>
+                  <p className="text-sm text-slate-400 mt-1">This is where swings actually change.</p>
                 </div>
               </div>
-              <div className="flex-grow">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-purple-400 font-bold text-xs uppercase tracking-wider">Off-Season</span>
-                  <span className="text-xs font-bold text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded">Opens October</span>
-                </div>
-                <h3 className="text-lg font-bold text-white mb-1">Transformation Program</h3>
-                <ul className="space-y-1 text-sm text-slate-300 mb-3">
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                    Multi-month swing rebuild
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                    Structured progression plan
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                    Multiple swing reviews
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                    Accountability + checkpoints
-                  </li>
+
+              <div className="flex items-baseline gap-2 mb-4">
+                <span className="text-3xl font-black text-white">$1,299</span>
+                <span className="text-slate-400">· 90 Days</span>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm text-slate-300 mb-2">This program is for hitters who:</p>
+                <ul className="space-y-1 text-sm text-slate-400 mb-3">
+                  <li>• Know something is off</li>
+                  <li>• Are tired of guessing</li>
+                  <li>• Want a real plan — not another drill</li>
                 </ul>
-                <p className="text-xs text-purple-400/80 mb-4">
-                  Offered October–February only. Designed for real change, not quick fixes.
+                <p className="text-xs text-slate-500 italic">
+                  If you want feedback once in a while, the membership is enough.<br />
+                  If you want your swing rebuilt with intention, this is it.
                 </p>
-                <Button asChild variant="outline" className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10">
-                  <a href="mailto:rick@catchingbarrels.io?subject=Transformation Program Waitlist">Join Waitlist</a>
-                </Button>
               </div>
+
+              <p className="text-sm text-slate-300 font-medium mb-2 border-t border-slate-800 pt-3">What the program includes:</p>
+              <ul className="space-y-1 text-sm text-slate-300 mb-4">
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  90-day structured swing rebuild
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  Multiple swing reviews across the program
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  Clear correction priorities (what to fix first, second, third)
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  Progress checkpoints so nothing drifts
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  Direct accountability, not endless options
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  Full access to Catching Barrels systems + tools
+                </li>
+              </ul>
+
+              <div className="text-xs text-slate-500 mb-4 border-t border-slate-800 pt-3">
+                <p className="text-slate-400 mb-2">I don't layer drills on top of a broken pattern. I strip the swing down, rebuild the sequence, and make sure it holds.</p>
+                <div className="grid grid-cols-2 gap-2 text-slate-500">
+                  <div>
+                    <p className="font-medium text-slate-400 mb-1">This is not:</p>
+                    <ul className="space-y-0.5">
+                      <li>• a drill library</li>
+                      <li>• a one-time analysis</li>
+                      <li>• a shortcut</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-400 mb-1">This is:</p>
+                    <ul className="space-y-0.5">
+                      <li>• a process</li>
+                      <li>• a plan</li>
+                      <li>• real change over time</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-purple-400/80 mb-4">
+                Built for the off-season. Runs October through February. Limited enrollment to protect coaching quality.
+              </p>
+
+              <Button asChild variant="outline" className="w-full border-purple-500/50 text-purple-400 hover:bg-purple-500/10 mb-3">
+                <a href="mailto:rick@catchingbarrels.io?subject=90-Day Transformation Application">Apply for the Transformation Program</a>
+              </Button>
+
+              <p className="text-xs text-slate-600 text-center">
+                If you want guidance month-to-month, start with the Membership.<br />
+                If you want your swing rebuilt with a plan, this is the path.
+              </p>
             </div>
 
           </div>
