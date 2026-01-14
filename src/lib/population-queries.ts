@@ -1,6 +1,7 @@
 // ============================================================================
 // Population Query Helpers
-// Ensures reference athletes are NEVER mixed with population stats
+// READ-ONLY: Ensures reference athletes are NEVER mixed with population stats
+// All writes must go through admin edge functions
 // ============================================================================
 
 import { supabase } from '@/integrations/supabase/client';
@@ -84,126 +85,100 @@ export interface ReferenceAthlete {
 }
 
 /**
- * Get reference athlete cohort stats (internal use only).
+ * Reference session type
+ */
+export interface ReferenceSession {
+  id: string;
+  reference_athlete_id: string;
+  reboot_session_id?: string | null;
+  session_date?: string | null;
+  body_score?: number | null;
+  brain_score?: number | null;
+  bat_score?: number | null;
+  ball_score?: number | null;
+  composite_score?: number | null;
+  grade?: string | null;
+  created_at?: string;
+}
+
+/**
+ * Get reference athlete cohort (READ-ONLY).
  * These are PRO/MLB athletes for validation and calibration.
+ * Uses typed Supabase client.
  */
 export async function getReferenceCohort(options?: {
   level?: 'MLB' | 'MiLB' | 'NCAA' | 'Indy' | 'International';
   archetype?: string;
-}) {
-  // Use direct REST call to avoid TS issues with ungenerated types
-  const session = await supabase.auth.getSession();
-  const token = session.data.session?.access_token;
+}): Promise<ReferenceAthlete[]> {
+  let query = supabase
+    .from('reference_athletes')
+    .select('*');
   
-  let url = `${(supabase as any).supabaseUrl}/rest/v1/reference_athletes?select=*`;
-  if (options?.level) url += `&level=eq.${options.level}`;
-  if (options?.archetype) url += `&archetype=eq.${options.archetype}`;
+  if (options?.level) {
+    query = query.eq('level', options.level);
+  }
+  if (options?.archetype) {
+    query = query.eq('archetype', options.archetype);
+  }
   
-  const response = await fetch(url, {
-    headers: {
-      'apikey': (supabase as any).supabaseKey,
-      'Authorization': `Bearer ${token}`,
-    }
-  });
+  const { data, error } = await query;
   
-  if (!response.ok) return [];
-  return response.json();
+  if (error) {
+    console.error('Error fetching reference cohort:', error);
+    return [];
+  }
+  
+  return (data || []) as ReferenceAthlete[];
 }
 
 /**
- * Create a new reference athlete.
+ * Get reference sessions for a specific athlete (READ-ONLY).
  */
-export async function createReferenceAthlete(athlete: {
-  display_name: string;
-  level: 'MLB' | 'MiLB' | 'NCAA' | 'Indy' | 'International';
-  handedness?: 'R' | 'L' | 'S';
-  archetype?: string;
-  notes?: string;
-  reboot_athlete_id?: string;
-}): Promise<ReferenceAthlete> {
-  const session = await supabase.auth.getSession();
-  const token = session.data.session?.access_token;
+export async function getReferenceSessionsForAthlete(
+  athleteId: string
+): Promise<ReferenceSession[]> {
+  const { data, error } = await supabase
+    .from('reference_sessions')
+    .select('*')
+    .eq('reference_athlete_id', athleteId)
+    .order('session_date', { ascending: false });
   
-  const insertData = {
-    display_name: athlete.display_name,
-    level: athlete.level,
-    handedness: athlete.handedness,
-    archetype: athlete.archetype,
-    notes: athlete.notes,
-    reboot_athlete_id: athlete.reboot_athlete_id,
-    visibility: 'internal_only'
-  };
-  
-  const response = await fetch(
-    `${(supabase as any).supabaseUrl}/rest/v1/reference_athletes`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': (supabase as any).supabaseKey,
-        'Authorization': `Bearer ${token}`,
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify(insertData)
-    }
-  );
-  
-  if (!response.ok) {
-    const errData = await response.json();
-    throw new Error(errData.message || 'Failed to create reference athlete');
+  if (error) {
+    console.error('Error fetching reference sessions:', error);
+    return [];
   }
   
-  const result = await response.json();
-  return (Array.isArray(result) ? result[0] : result) as ReferenceAthlete;
+  return (data || []) as ReferenceSession[];
 }
 
 /**
- * Create a reference session for a reference athlete.
+ * Get all reference sessions (READ-ONLY).
  */
-export async function createReferenceSession(session: {
-  reference_athlete_id: string;
-  reboot_session_id?: string;
-  session_date?: string;
-  body_score?: number;
-  brain_score?: number;
-  bat_score?: number;
-  ball_score?: number;
-  composite_score?: number;
-  pelvis_velocity?: number;
-  torso_velocity?: number;
-  x_factor?: number;
-  transfer_efficiency?: number;
-  bat_ke?: number;
-  ground_flow_score?: number;
-  core_flow_score?: number;
-  upper_flow_score?: number;
-  consistency_cv?: number;
-  consistency_grade?: string;
-  weakest_link?: string;
-  grade?: string;
-}) {
-  const authSession = await supabase.auth.getSession();
-  const token = authSession.data.session?.access_token;
+export async function getAllReferenceSessions(options?: {
+  level?: string;
+  limit?: number;
+}): Promise<(ReferenceSession & { athlete?: ReferenceAthlete })[]> {
+  let query = supabase
+    .from('reference_sessions')
+    .select(`
+      *,
+      reference_athletes (*)
+    `)
+    .order('created_at', { ascending: false });
   
-  const response = await fetch(
-    `${(supabase as any).supabaseUrl}/rest/v1/reference_sessions`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': (supabase as any).supabaseKey,
-        'Authorization': `Bearer ${token}`,
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify(session)
-    }
-  );
-  
-  if (!response.ok) {
-    const errData = await response.json();
-    throw new Error(errData.message || 'Failed to create reference session');
+  if (options?.limit) {
+    query = query.limit(options.limit);
   }
   
-  const result = await response.json();
-  return Array.isArray(result) ? result[0] : result;
+  const { data, error } = await query;
+  
+  if (error) {
+    console.error('Error fetching all reference sessions:', error);
+    return [];
+  }
+  
+  return (data || []).map((row: any) => ({
+    ...row,
+    athlete: row.reference_athletes
+  }));
 }
