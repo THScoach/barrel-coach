@@ -55,12 +55,14 @@ const forPlayers = [
   "Players who want real feedback",
   "You're tired of random drills and want direction",
   "You want truth, not validation",
+  "You want coaching — not just drills or opinions",
 ];
 
 const notForPlayers = [
   "You want shortcuts or gimmicks",
   "You're not willing to put in the work",
   "You expect results without reps",
+  "You expect in-person access year-round",
 ];
 
 export default function Index() {
@@ -123,6 +125,9 @@ export default function Index() {
                   Upload one swing. I'll show you what's leaking power.
                 </span>
               </div>
+              <p className="text-xs text-slate-500 mt-4 sm:mt-0 sm:ml-4 self-center">
+                Digital coaching. Real accountability. Seasonal in-person options.
+              </p>
               <Button
                 asChild
                 size="lg"
@@ -280,98 +285,200 @@ export default function Index() {
         </div>
       </section>
 
-      {/* ===== CHOOSE YOUR PATH — 3 CARDS ONLY ===== */}
+      {/* ===== CHOOSE YOUR PATH ===== */}
       <section className="py-20 bg-slate-900/50 border-y border-slate-800">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
               CHOOSE YOUR PATH
             </h2>
-            <p className="text-lg text-slate-400">Three ways to work with me. Start free. Go deeper when you're ready.</p>
+            <p className="text-lg text-slate-400">Start free. Go deeper when you're ready.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          {/* Main 3 Pricing Cards */}
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
             {/* Card 1 — Free Diagnostic */}
-            <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-8 text-center hover:-translate-y-1 transition-transform flex flex-col">
+            <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-6 text-center hover:-translate-y-1 transition-transform flex flex-col">
               <div className="text-slate-400 font-bold text-sm uppercase tracking-wider mb-2">Start Here</div>
-              <h3 className="text-2xl font-bold text-white mb-2">Free Diagnostic</h3>
+              <h3 className="text-xl font-bold text-white mb-2">Free Diagnostic</h3>
               <div className="text-4xl font-black text-white mb-1">$0</div>
               <div className="text-slate-500 mb-4">one-time</div>
               <p className="text-emerald-400 text-sm font-medium mb-4 italic">Clarity before commitment</p>
-              <ul className="text-left space-y-3 mb-8 flex-grow">
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+              <ul className="text-left space-y-2 mb-6 flex-grow text-sm">
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
                   Upload a swing
                 </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
                   Short analysis from Rick
                 </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
                   Delivered via SMS
                 </li>
               </ul>
+              <p className="text-xs text-slate-500 mb-4 border-t border-slate-800 pt-4">
+                Delivered via SMS. No drills. No guessing.
+              </p>
               <Button asChild className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold">
                 <Link to="/diagnostic">Get Your First Fix</Link>
               </Button>
             </div>
 
             {/* Card 2 — $37 KRS Assessment */}
-            <div className="bg-slate-900/80 border border-blue-500/30 rounded-2xl p-8 text-center hover:-translate-y-1 transition-transform flex flex-col">
+            <div className="bg-slate-900/80 border border-blue-500/30 rounded-2xl p-6 text-center hover:-translate-y-1 transition-transform flex flex-col">
               <div className="text-blue-400 font-bold text-sm uppercase tracking-wider mb-2">One-Time</div>
-              <h3 className="text-2xl font-bold text-white mb-2">KRS Assessment</h3>
+              <h3 className="text-xl font-bold text-white mb-2">KRS Assessment</h3>
               <div className="text-4xl font-black text-white mb-1">$37</div>
               <div className="text-slate-500 mb-4">one-time</div>
               <p className="text-blue-400 text-sm font-medium mb-4 italic">Full swing direction + fix order</p>
-              <ul className="text-left space-y-3 mb-8 flex-grow">
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <ul className="text-left space-y-2 mb-6 flex-grow text-sm">
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
                   Full KRS 4B Report
                 </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
                   AI-powered explanation
                 </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
                   Starter drills included
                 </li>
               </ul>
+              <p className="text-xs text-slate-500 mb-4 border-t border-slate-800 pt-4">
+                This is an assessment — not ongoing coaching.
+              </p>
               <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
                 <Link to="/diagnostic">Get KRS Assessment</Link>
               </Button>
             </div>
 
             {/* Card 3 — Catching Barrels Membership (FEATURED) */}
-            <div className="bg-slate-900/80 border-2 border-red-500/50 rounded-2xl p-8 text-center relative hover:-translate-y-1 transition-transform flex flex-col ring-2 ring-red-500/30">
+            <div className="bg-slate-900/80 border-2 border-red-500/50 rounded-2xl p-6 text-center relative hover:-translate-y-1 transition-transform flex flex-col ring-2 ring-red-500/30">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
                 Most Popular
               </div>
               <div className="text-red-400 font-bold text-sm uppercase tracking-wider mb-2 mt-2">Ongoing</div>
-              <h3 className="text-2xl font-bold text-white mb-2">Catching Barrels Membership</h3>
+              <h3 className="text-xl font-bold text-white mb-2">Catching Barrels Membership</h3>
               <div className="text-4xl font-black text-white mb-1">$99<span className="text-lg text-slate-400">/mo</span></div>
               <div className="text-sm text-yellow-400 mb-1">or $899/year (save ~24%)</div>
               <div className="text-slate-500 text-xs mb-4">Founding annual rate – until March 1</div>
-              <p className="text-red-400 text-sm font-medium mb-4 italic">Weekly accountability and progression</p>
-              <ul className="text-left space-y-3 mb-8 flex-grow">
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <ul className="text-left space-y-2 mb-4 flex-grow text-sm">
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  1 structured swing review per month
+                </li>
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                   KRS reports included
                 </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  Weekly Monday night calls
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  Weekly group coaching calls
                 </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  Rick AI + My Swing Lab
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  Rick AI + My Swing Lab access
+                </li>
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  Clear priorities, not drill overload
                 </li>
               </ul>
+              <p className="text-xs text-slate-500 mb-4 border-t border-slate-800 pt-4">
+                Built for hitters who want ongoing correction and accountability — not just answers.<br />
+                <span className="text-slate-400">Membership can be paused anytime.</span>
+              </p>
               <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
                 <Link to="/coaching">Join Membership</Link>
               </Button>
             </div>
+          </div>
+
+          {/* Additional Options Row */}
+          <div className="grid md:grid-cols-2 gap-6 mt-8">
+            {/* In-Person Session Card */}
+            <div className="bg-slate-900/80 border border-amber-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-start gap-6">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+                  <MapPin className="w-6 h-6 text-amber-400" />
+                </div>
+              </div>
+              <div className="flex-grow">
+                <div className="text-amber-400 font-bold text-xs uppercase tracking-wider mb-1">Limited Availability</div>
+                <h3 className="text-lg font-bold text-white mb-1">In-Person Swing Session</h3>
+                <div className="text-2xl font-black text-white mb-2">$399</div>
+                <ul className="space-y-1 text-sm text-slate-300 mb-3">
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                    1 in-person swing session
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                    High-speed video + breakdown
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                    Clear correction priorities
+                  </li>
+                </ul>
+                <p className="text-xs text-amber-400/80 mb-4">
+                  Available seasonally (October–February) or limited dates during spring training.
+                </p>
+                <Button asChild variant="outline" className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10">
+                  <a href="mailto:rick@catchingbarrels.io?subject=In-Person Session Request">Request In-Person Session</a>
+                </Button>
+              </div>
+            </div>
+
+            {/* Transformation Program Card (Pre-written, waitlist) */}
+            <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-start gap-6 opacity-90">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
+                  <Zap className="w-6 h-6 text-purple-400" />
+                </div>
+              </div>
+              <div className="flex-grow">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-purple-400 font-bold text-xs uppercase tracking-wider">Off-Season</span>
+                  <span className="text-xs font-bold text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded">Opens October</span>
+                </div>
+                <h3 className="text-lg font-bold text-white mb-1">Transformation Program</h3>
+                <ul className="space-y-1 text-sm text-slate-300 mb-3">
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                    Multi-month swing rebuild
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                    Structured progression plan
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                    Multiple swing reviews
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                    Accountability + checkpoints
+                  </li>
+                </ul>
+                <p className="text-xs text-purple-400/80 mb-4">
+                  Offered October–February only. Designed for real change, not quick fixes.
+                </p>
+                <Button asChild variant="outline" className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10">
+                  <a href="mailto:rick@catchingbarrels.io?subject=Transformation Program Waitlist">Join Waitlist</a>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Availability Notice */}
+          <div className="mt-10 text-center">
+            <p className="text-sm text-slate-500">
+              <strong className="text-slate-400">Availability Note:</strong> All programs are currently delivered digitally. In-person coaching is offered seasonally (October–February) or by limited availability.
+            </p>
           </div>
         </div>
       </section>
