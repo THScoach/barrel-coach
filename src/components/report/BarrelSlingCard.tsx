@@ -2,8 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarrelSlingPanel } from '@/lib/report-types';
 import { Target, CheckCircle, AlertCircle } from 'lucide-react';
 
+// Props exclude 'present' - parent handles visibility check
 interface BarrelSlingCardProps {
-  data: BarrelSlingPanel;
+  data: Omit<BarrelSlingPanel, 'present'>;
 }
 
 const scoreCategories = [

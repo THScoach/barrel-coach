@@ -6,6 +6,9 @@
 // List sections use { present: boolean, items: T[] }
 // ============================================================================
 
+// Contract version - update when schema changes
+export type ContractVersion = "2026-01-14";
+
 export interface ReportPlayer {
   name: string;
   age?: number | null;
@@ -101,7 +104,7 @@ export interface WeaponMetric {
 
 export interface WeaponPanel {
   present: boolean;
-  metrics?: WeaponMetric[];
+  metrics: WeaponMetric[];
 }
 
 export interface BallOutcome {
@@ -112,13 +115,13 @@ export interface BallOutcome {
 
 export interface BallPanelProjected {
   present: boolean;
-  outcomes?: BallOutcome[];
+  outcomes: BallOutcome[];
 }
 
 export interface BallPanel {
   present: boolean;
-  projected?: BallPanelProjected;
-  outcomes?: BallOutcome[];
+  projected: BallPanelProjected;
+  outcomes: BallOutcome[];
 }
 
 export interface Drill {
@@ -188,35 +191,34 @@ export interface BarrelSlingPanel {
 }
 
 // ============================================================================
-// MAIN REPORT DATA STRUCTURE
+// MAIN REPORT DATA STRUCTURE - CANONICAL SCHEMA
+// All sections MUST be present in API response (even if present:false)
 // ============================================================================
 
 export interface SwingReportData {
+  // Contract metadata
+  contract_version: ContractVersion;
+  generated_at: string;
+  
+  // Core data (always present)
   session: ReportSession;
   scores: FourBScoreData;
+  
+  // Optional sections - all MUST exist in response with { present: boolean }
   kinetic_potential: KineticPotential;
   primary_leak: PrimaryLeak;
   fix_order: FixOrderSection;
   square_up_window: SquareUpWindow;
   weapon_panel: WeaponPanel;
   ball_panel: BallPanel;
+  barrel_sling_panel: BarrelSlingPanel;
   drills: DrillsSection;
   session_history: SessionHistorySection;
-  badges?: Badge[];
   coach_note: CoachNote;
-  barrel_sling_panel: BarrelSlingPanel;
+  
+  // Badges are always an array (can be empty)
+  badges: Badge[];
 }
-
-// ============================================================================
-// API RESPONSE TYPE - Enforces complete payload from edge function
-// ============================================================================
-
-/** 
- * Complete API response from get-report edge function
- * All sections MUST be present (even if present:false)
- * Use this type for fetchReport() return type enforcement
- */
-export type ReportResponse = SwingReportData;
 
 // ============================================================================
 // HELPER FUNCTIONS for component rendering

@@ -8,6 +8,8 @@
 import { SwingReportData } from './report-types';
 
 export const mockReportData: SwingReportData = {
+  contract_version: '2026-01-14',
+  generated_at: new Date().toISOString(),
   session: {
     id: 'session-001',
     date: '2026-01-14',
@@ -89,6 +91,7 @@ export const mockReportData: SwingReportData = {
     present: true,
     projected: {
       present: false,
+      outcomes: [],
     },
     outcomes: [
       { name: 'Exit Velo', value: 78, unit: 'mph' },
