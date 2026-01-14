@@ -20,7 +20,11 @@ import {
   CoachNoteCard,
 } from '@/components/report';
 
-// Dev switch: set to true to use edge function, false to use mock data
+// ============================================================================
+// DEV SWITCH: Toggle between mock data and real edge function
+// Set to true to fetch from get-report edge function (requires deployed function)
+// Set to false to use local mock data for UI development
+// ============================================================================
 const USE_EDGE_FUNCTION = false;
 
 async function fetchReport(sessionId: string): Promise<SwingReportData> {
@@ -36,7 +40,8 @@ async function fetchReport(sessionId: string): Promise<SwingReportData> {
     };
   }
 
-  // Edge function path - ready to enable when deployment is confirmed
+  // Edge function path - fetches real data from reboot_uploads
+  // sessionId should be a reboot_uploads.id (UUID)
   const response = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-report?sessionId=${encodeURIComponent(sessionId)}`,
     {
@@ -48,7 +53,8 @@ async function fetchReport(sessionId: string): Promise<SwingReportData> {
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch report: ${response.status}`);
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Failed to fetch report: ${response.status}`);
   }
 
   return response.json();
@@ -92,7 +98,7 @@ function ReportSkeleton() {
   );
 }
 
-function ReportError({ onRetry }: { onRetry: () => void }) {
+function ReportError({ onRetry, message }: { onRetry: () => void; message?: string }) {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
       <Card className="bg-slate-900 border-slate-800 max-w-sm w-full">
@@ -100,7 +106,7 @@ function ReportError({ onRetry }: { onRetry: () => void }) {
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
           <h2 className="text-lg font-semibold text-white">Report Unavailable</h2>
           <p className="text-sm text-slate-400">
-            We couldn't load this report. Please try again.
+            {message || "We couldn't load this report. Please try again."}
           </p>
           <Button onClick={onRetry} variant="outline" className="gap-2">
             <RefreshCw className="h-4 w-4" />
@@ -115,14 +121,22 @@ function ReportError({ onRetry }: { onRetry: () => void }) {
 export default function SwingReport() {
   const { sessionId } = useParams<{ sessionId: string }>();
   
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['report', sessionId],
     queryFn: () => fetchReport(sessionId || 'test'),
     enabled: !!sessionId,
+    retry: 1, // Only retry once for real API calls
   });
 
   if (isLoading) return <ReportSkeleton />;
-  if (isError || !data) return <ReportError onRetry={() => refetch()} />;
+  if (isError || !data) {
+    return (
+      <ReportError 
+        onRetry={() => refetch()} 
+        message={error instanceof Error ? error.message : undefined}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -131,14 +145,22 @@ export default function SwingReport() {
         <ReportHeader session={data.session} />
         <ScoreboardCard scores={data.scores} />
         <PotentialVsExpressionCard potential={data.kinetic_potential} />
-        <LeakCard leak={data.primary_leak} />
-        <FixOrderChecklist items={data.fix_order} doNotChase={data.do_not_chase} />
+        {data.primary_leak && (data.primary_leak as any).present !== false && (
+          <LeakCard leak={data.primary_leak} />
+        )}
+        {data.fix_order && data.fix_order.length > 0 && (
+          <FixOrderChecklist items={data.fix_order} doNotChase={data.do_not_chase} />
+        )}
         {data.square_up_window?.present && <HeatmapCard data={data.square_up_window} />}
         {data.weapon_panel?.present && <MetricsChipsPanel data={data.weapon_panel} />}
         {data.ball_panel?.present && <BallOutcomePanel data={data.ball_panel} />}
-        <TrainingCard drills={data.drills} />
-        <ProgressBoard history={data.session_history} badges={data.badges} />
-        <CoachNoteCard note={data.coach_note} />
+        {data.drills && data.drills.length > 0 && <TrainingCard drills={data.drills} />}
+        {data.session_history && data.session_history.length > 0 && (
+          <ProgressBoard history={data.session_history} badges={data.badges} />
+        )}
+        {data.coach_note && (data.coach_note as any).present !== false && (
+          <CoachNoteCard note={data.coach_note} />
+        )}
         <div className="h-8" />
       </div>
     </div>
