@@ -6,6 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Search,
   RefreshCw,
@@ -19,9 +28,11 @@ import {
   Loader2,
   UserPlus,
   Download,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { createReferenceAthlete, createReferenceSession } from "@/lib/population-queries";
 
 interface Player {
   id: string;
@@ -141,6 +152,11 @@ export default function AdminRebootAnalysis() {
 
   // NEW: Sync players state
   const [isSyncingPlayers, setIsSyncingPlayers] = useState(false);
+
+  // Reference athlete import state
+  const [isReferenceImport, setIsReferenceImport] = useState(false);
+  const [referenceLevel, setReferenceLevel] = useState<'MLB' | 'MiLB' | 'NCAA' | 'Indy' | 'International'>('MLB');
+  const [referenceDisplayName, setReferenceDisplayName] = useState("");
 
   // Search players
   const {
@@ -283,12 +299,14 @@ export default function AdminRebootAnalysis() {
     }
   };
 
-  // Process session
+  // Process session (regular or reference)
   const processSession = async () => {
-    if (!selectedPlayer || !selectedSessionId) return;
+    // For reference imports, we don't need a selected player
+    if (!isReferenceImport && !selectedPlayer) return;
+    if (!selectedSessionId) return;
 
     // Use manual org_player_id if provided, otherwise fall back to player's reboot_athlete_id
-    const orgPlayerId = manualOrgPlayerId.trim() || selectedPlayer.reboot_athlete_id;
+    const orgPlayerId = manualOrgPlayerId.trim() || selectedPlayer?.reboot_athlete_id;
 
     if (!orgPlayerId) {
       toast.error("No Reboot Player ID available. Please enter one manually.");
@@ -303,30 +321,100 @@ export default function AdminRebootAnalysis() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      console.log("[Process Session] Processing:", {
-        session_id: selectedSessionId,
-        org_player_id: orgPlayerId,
-        player_id: selectedPlayer.id,
-      });
-
-      const response = await supabase.functions.invoke("process-reboot-session", {
-        body: {
+      // Handle reference athlete import
+      if (isReferenceImport) {
+        const displayName = referenceDisplayName.trim() || `Reference ${referenceLevel} Athlete`;
+        
+        console.log("[Process Reference] Creating reference athlete:", {
+          display_name: displayName,
+          level: referenceLevel,
           session_id: selectedSessionId,
           org_player_id: orgPlayerId,
-          player_id: selectedPlayer.id,
-        },
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-      });
+        });
 
-      if (response.error) throw new Error(response.error.message);
+        // First, create or find the reference athlete
+        const refAthlete = await createReferenceAthlete({
+          display_name: displayName,
+          level: referenceLevel,
+          reboot_athlete_id: orgPlayerId,
+        });
 
-      if (response.data?.success) {
-        setResults(response.data.scores);
-        toast.success(response.data.message);
+        // Process the session to get scores
+        const response = await supabase.functions.invoke("process-reboot-session", {
+          body: {
+            session_id: selectedSessionId,
+            org_player_id: orgPlayerId,
+            // Don't attach to any regular player
+            player_id: null,
+            // Flag for reference processing (edge function can use this)
+            is_reference: true,
+          },
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        });
+
+        if (response.error) throw new Error(response.error.message);
+
+        if (response.data?.success) {
+          // Save to reference_sessions instead of swing_4b_scores
+          const scores = response.data.scores;
+          
+          await createReferenceSession({
+            reference_athlete_id: refAthlete.id,
+            reboot_session_id: selectedSessionId,
+            session_date: new Date().toISOString().split('T')[0],
+            body_score: scores.body_score,
+            brain_score: scores.brain_score,
+            bat_score: scores.bat_score,
+            ball_score: scores.ball_score,
+            composite_score: scores.composite_score,
+            pelvis_velocity: scores.pelvis_velocity,
+            torso_velocity: scores.torso_velocity,
+            x_factor: scores.x_factor,
+            transfer_efficiency: scores.transfer_efficiency,
+            bat_ke: scores.bat_ke,
+            ground_flow_score: scores.ground_flow_score,
+            core_flow_score: scores.core_flow_score,
+            upper_flow_score: scores.upper_flow_score,
+            consistency_cv: scores.consistency_cv,
+            consistency_grade: scores.consistency_grade,
+            weakest_link: scores.weakest_link,
+            grade: scores.grade,
+          });
+
+          setResults(scores);
+          toast.success(`Reference session imported for ${displayName}`);
+        } else {
+          throw new Error(response.data?.error || "Processing failed");
+        }
       } else {
-        throw new Error(response.data?.error || "Processing failed");
+        // Regular player import
+        console.log("[Process Session] Processing:", {
+          session_id: selectedSessionId,
+          org_player_id: orgPlayerId,
+          player_id: selectedPlayer?.id,
+        });
+
+        const response = await supabase.functions.invoke("process-reboot-session", {
+          body: {
+            session_id: selectedSessionId,
+            org_player_id: orgPlayerId,
+            player_id: selectedPlayer?.id,
+          },
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        });
+
+        if (response.error) throw new Error(response.error.message);
+
+        if (response.data?.success) {
+          setResults(response.data.scores);
+          toast.success(response.data.message);
+        } else {
+          throw new Error(response.data?.error || "Processing failed");
+        }
       }
     } catch (error: any) {
       console.error("Error processing session:", error);
@@ -658,16 +746,77 @@ export default function AdminRebootAnalysis() {
                   Process
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {/* Reference Athlete Import Option */}
+                <div className="p-4 border border-amber-500/30 bg-amber-500/10 rounded-lg space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="reference-import"
+                      checked={isReferenceImport}
+                      onCheckedChange={(checked) => setIsReferenceImport(checked === true)}
+                    />
+                    <Label 
+                      htmlFor="reference-import" 
+                      className="text-amber-400 font-medium flex items-center gap-2 cursor-pointer"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      Import as Reference Athlete (Internal)
+                    </Label>
+                  </div>
+                  
+                  {isReferenceImport && (
+                    <div className="space-y-3 pt-2 border-t border-amber-500/20">
+                      <p className="text-xs text-amber-300/70">
+                        Reference athletes are internal validation models (MLB/Pro).
+                        They will NOT appear in player leaderboards, averages, or youth comparisons.
+                      </p>
+                      
+                      <div>
+                        <Label className="text-sm text-slate-400 mb-1 block">Display Name</Label>
+                        <Input
+                          placeholder="e.g., MLB Reference Swing #1"
+                          value={referenceDisplayName}
+                          onChange={(e) => setReferenceDisplayName(e.target.value)}
+                          className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label className="text-sm text-slate-400 mb-1 block">Level</Label>
+                        <Select 
+                          value={referenceLevel} 
+                          onValueChange={(v) => setReferenceLevel(v as typeof referenceLevel)}
+                        >
+                          <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="MLB">MLB</SelectItem>
+                            <SelectItem value="MiLB">MiLB</SelectItem>
+                            <SelectItem value="NCAA">NCAA</SelectItem>
+                            <SelectItem value="Indy">Independent</SelectItem>
+                            <SelectItem value="International">International</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <Button
                   onClick={processSession}
-                  disabled={!selectedPlayer || !selectedSessionId || isProcessing}
+                  disabled={(!isReferenceImport && !selectedPlayer) || !selectedSessionId || isProcessing}
                   className="w-full bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
                 >
                   {isProcessing ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Processing...
+                    </>
+                  ) : isReferenceImport ? (
+                    <>
+                      <ShieldCheck className="w-4 h-4 mr-2" />
+                      Import as Reference Athlete
                     </>
                   ) : (
                     <>
@@ -677,9 +826,11 @@ export default function AdminRebootAnalysis() {
                   )}
                 </Button>
 
-                {!selectedPlayer && <p className="text-xs text-slate-500 text-center mt-2">Select a player first</p>}
-                {selectedPlayer && !selectedSessionId && (
-                  <p className="text-xs text-slate-500 text-center mt-2">Select or enter a session ID</p>
+                {!isReferenceImport && !selectedPlayer && (
+                  <p className="text-xs text-slate-500 text-center">Select a player first (or enable Reference Import)</p>
+                )}
+                {(selectedPlayer || isReferenceImport) && !selectedSessionId && (
+                  <p className="text-xs text-slate-500 text-center">Select or enter a session ID</p>
                 )}
               </CardContent>
             </Card>
