@@ -45,7 +45,7 @@ export function BarrelSlingCard({ data }: BarrelSlingCardProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wide flex items-center gap-2">
             <Target className="h-4 w-4 text-primary" />
-            Barrel Sling Index
+            Load → Start → Deliver Index
           </CardTitle>
           {isEstimate && (
             <span className="text-xs text-yellow-400/80 bg-yellow-500/10 px-2 py-0.5 rounded">

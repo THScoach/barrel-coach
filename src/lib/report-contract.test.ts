@@ -69,7 +69,7 @@ function buildEdgeResponse(): SwingReportData {
     fix_order: { present: false, items: [], do_not_chase: [] },
     square_up_window: { present: false, grid: undefined, best_zone: undefined, avoid_zone: undefined, coach_note: undefined },
     weapon_panel: { present: false, metrics: [] },
-    ball_panel: { present: false, projected: { present: false, outcomes: [] }, outcomes: [] },
+    ball_panel: { present: false, is_projected: false, outcomes: [] },
     barrel_sling_panel: { present: false },
     drills: { present: false, items: [] },
     session_history: { present: false, items: [] },
@@ -166,10 +166,8 @@ describe('Report Contract', () => {
       expect(Array.isArray(edgeResponse.ball_panel.outcomes)).toBe(true);
     });
 
-    it('ball_panel.projected is always an object with present and outcomes', () => {
-      expect(edgeResponse.ball_panel.projected).toHaveProperty('present');
-      expect(typeof edgeResponse.ball_panel.projected.present).toBe('boolean');
-      expect(Array.isArray(edgeResponse.ball_panel.projected.outcomes)).toBe(true);
+    it('ball_panel.is_projected is a boolean', () => {
+      expect(typeof edgeResponse.ball_panel.is_projected).toBe('boolean');
     });
   });
 });

@@ -332,7 +332,7 @@ serve(async (req) => {
       fix_order: { present: false, items: [], do_not_chase: [] },
       square_up_window: { present: false, grid: undefined, best_zone: undefined, avoid_zone: undefined, coach_note: undefined },
       weapon_panel: { present: false, metrics: [] },
-      ball_panel: { present: false, projected: { present: false, outcomes: [] }, outcomes: [] },
+      ball_panel: { present: false, is_projected: false, outcomes: [] },
       // Barrel Sling Index - calculated from Reboot metrics
       barrel_sling_panel: barrelSlingPanel,
       drills: { present: false, items: [] },

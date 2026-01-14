@@ -10,7 +10,7 @@ interface BallOutcomePanelProps {
 export function BallOutcomePanel({ data }: BallOutcomePanelProps) {
   if (!data.present || !data.outcomes || data.outcomes.length === 0) return null;
 
-  const isProjected = data.projected?.present;
+  const isProjected = data.is_projected;
 
   return (
     <Card className="bg-slate-900 border-slate-800">
