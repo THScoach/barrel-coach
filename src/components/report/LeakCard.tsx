@@ -1,9 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PrimaryLeak } from '@/lib/report-types';
+import { PrimaryLeakProps } from '@/lib/report-types';
 import { AlertCircle } from 'lucide-react';
 
 interface LeakCardProps {
-  leak: PrimaryLeak;
+  leak: PrimaryLeakProps;
 }
 
 export function LeakCard({ leak }: LeakCardProps) {

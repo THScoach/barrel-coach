@@ -169,11 +169,17 @@ serve(async (req) => {
     // Determine if we have real session history
     const hasSessionHistory = sessionHistory.length > 0;
 
+    // ========================================================================
     // Build the report JSON
     // PRODUCTION MODE: No mock content - only real data with present:false for unavailable sections
+    // 
+    // CANONICAL SCHEMA: All optional sections use { present: boolean } pattern
+    // List sections use { present: boolean, items: T[] }
+    // ========================================================================
     const reportData = {
       session: {
         // REPORT ID RULE: session.id = reboot_uploads.id (UUID)
+        // The frontend route /report/:sessionId expects a reboot_uploads UUID
         id: rebootData.id,
         date: rebootData.session_date,
         player: {
@@ -183,6 +189,7 @@ serve(async (req) => {
           handedness: playerInfo.handedness,
         },
       },
+      // Scores are always present - core data
       scores: {
         body: rebootData.body_score || 0,
         brain: rebootData.brain_score || 0,
@@ -191,6 +198,7 @@ serve(async (req) => {
         composite: currentScore,
         deltas,
       },
+      // Kinetic Potential - DETERMINISTIC: ceiling = min(100, composite + 15)
       kinetic_potential: {
         present: true,
         ceiling,
@@ -198,14 +206,15 @@ serve(async (req) => {
       },
       // ========================================================================
       // UNFINISHED SECTIONS: present:false, minimal payload, no mock content
+      // Each section follows canonical { present: boolean, ... } pattern
       // ========================================================================
       primary_leak: { present: false },
-      fix_order: { present: false, items: [] },
-      do_not_chase: [], // Keep as empty array
+      fix_order: { present: false, items: [], do_not_chase: [] },
       square_up_window: { present: false },
       weapon_panel: { present: false },
       ball_panel: { present: false },
       drills: { present: false, items: [] },
+      // Session history - only present if we have real data
       session_history: hasSessionHistory 
         ? { present: true, items: sessionHistory }
         : { present: false, items: [] },
