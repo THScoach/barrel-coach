@@ -103,21 +103,26 @@ export default function Index() {
               I'm Rick Strickland. I've coached thousands of hitters.
             </p>
             <p className="text-lg text-slate-400 mb-8 max-w-2xl">
-              This app is how I coach when I'm not standing next to you.
+              This is how I coach when I'm not standing next to you — clear direction, one priority at a time.
             </p>
 
-            {/* CTAs — Primary: Free Diagnostic, Secondary: Start Coaching */}
+            {/* CTAs — Primary: Get Your First Fix */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button
-                asChild
-                size="lg"
-                className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 px-8 text-lg"
-              >
-                <Link to="/diagnostic">
-                  Get Free Diagnostic
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
-              </Button>
+              <div className="flex flex-col">
+                <Button
+                  asChild
+                  size="lg"
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 px-8 text-lg"
+                >
+                  <Link to="/diagnostic">
+                    Get Your First Fix
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Link>
+                </Button>
+                <span className="text-sm text-slate-500 mt-2 text-center">
+                  Upload one swing. I'll show you what's leaking power.
+                </span>
+              </div>
               <Button
                 asChild
                 size="lg"
@@ -183,22 +188,24 @@ export default function Index() {
         </div>
       </section>
 
-      {/* ===== WHAT'S DIFFERENT HERE ===== */}
+      {/* ===== WHAT YOU GET ===== */}
       <section className="py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-4 text-center">
-            WHAT'S DIFFERENT HERE
+            WHAT YOU GET
           </h2>
           <p className="text-xl text-slate-400 text-center mb-12">
-            I don't start with drills. I start with truth.
+            No charts. No noise. Just direction.
           </p>
 
-          <div className="grid sm:grid-cols-2 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { label: "MOVEMENT", desc: "How your body organizes force" },
-              { label: "SEQUENCE", desc: "When each segment fires — and if it's costing you" },
-              { label: "DECISION", desc: "What you're chasing and why" },
-              { label: "CONTACT QUALITY", desc: "What happens when bat meets ball" },
+              { label: "MOTOR PROFILE", desc: "How your body naturally moves" },
+              { label: "POWER LEAK", desc: "Where your power is bleeding out" },
+              { label: "FIRST FIX", desc: "The one thing to fix first" },
+              { label: "WHAT NOT TO CHANGE", desc: "What's already working for you" },
+              { label: "MATCHED DRILLS", desc: "Drills matched to your swing" },
+              { label: "COACH EXPLANATION", desc: "Short voice or video from Rick" },
             ].map((item, i) => (
               <div key={i} className="bg-slate-900/80 border border-slate-800 rounded-xl p-6">
                 <div className="text-red-400 font-bold text-sm uppercase tracking-wider mb-2">
@@ -251,13 +258,13 @@ export default function Index() {
           </div>
 
           <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-            FREE SWING DIAGNOSTIC
+            GET YOUR FIRST FIX
           </h2>
           <p className="text-lg text-slate-400 mb-4">
-            Upload your swing. I'll look at it and tell you what's happening.
+            Upload your swing. I'll show you what's leaking power and what to fix first.
           </p>
-          <p className="text-slate-500 mb-8 text-sm">
-            This is a single response — not a back-and-forth conversation. It's clarity, not coaching.
+          <p className="text-slate-500 mb-8 text-sm italic">
+            This isn't a score. It's a direction.
           </p>
 
           <Button
@@ -266,7 +273,7 @@ export default function Index() {
             className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 px-10 text-lg"
           >
             <Link to="/diagnostic">
-              Get My Free Swing Diagnostic
+              Get Your First Fix
               <ArrowRight className="w-5 h-5 ml-2" />
             </Link>
           </Button>
@@ -289,8 +296,8 @@ export default function Index() {
               <div className="text-slate-400 font-bold text-sm uppercase tracking-wider mb-2">Start Here</div>
               <h3 className="text-2xl font-bold text-white mb-2">Free Diagnostic</h3>
               <div className="text-4xl font-black text-white mb-1">$0</div>
-              <div className="text-slate-500 mb-6">one-time</div>
-              <p className="text-slate-400 text-sm mb-4">One clear answer. No guesswork.</p>
+              <div className="text-slate-500 mb-4">one-time</div>
+              <p className="text-emerald-400 text-sm font-medium mb-4 italic">Clarity before commitment</p>
               <ul className="text-left space-y-3 mb-8 flex-grow">
                 <li className="flex items-start gap-3 text-slate-300">
                   <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
@@ -306,7 +313,7 @@ export default function Index() {
                 </li>
               </ul>
               <Button asChild className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold">
-                <Link to="/diagnostic">Get Free Diagnostic</Link>
+                <Link to="/diagnostic">Get Your First Fix</Link>
               </Button>
             </div>
 
@@ -315,8 +322,8 @@ export default function Index() {
               <div className="text-blue-400 font-bold text-sm uppercase tracking-wider mb-2">One-Time</div>
               <h3 className="text-2xl font-bold text-white mb-2">KRS Assessment</h3>
               <div className="text-4xl font-black text-white mb-1">$37</div>
-              <div className="text-slate-500 mb-6">one-time</div>
-              <p className="text-slate-400 text-sm mb-4">Full report. Clear direction.</p>
+              <div className="text-slate-500 mb-4">one-time</div>
+              <p className="text-blue-400 text-sm font-medium mb-4 italic">Full swing direction + fix order</p>
               <ul className="text-left space-y-3 mb-8 flex-grow">
                 <li className="flex items-start gap-3 text-slate-300">
                   <Check className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
@@ -345,8 +352,8 @@ export default function Index() {
               <h3 className="text-2xl font-bold text-white mb-2">Catching Barrels Membership</h3>
               <div className="text-4xl font-black text-white mb-1">$99<span className="text-lg text-slate-400">/mo</span></div>
               <div className="text-sm text-yellow-400 mb-1">or $899/year (save ~24%)</div>
-              <div className="text-slate-500 text-xs mb-6">Founding annual rate – until March 1</div>
-              <p className="text-slate-400 text-sm mb-4">Full coaching. Weekly calls. Direct access.</p>
+              <div className="text-slate-500 text-xs mb-4">Founding annual rate – until March 1</div>
+              <p className="text-red-400 text-sm font-medium mb-4 italic">Weekly accountability and progression</p>
               <ul className="text-left space-y-3 mb-8 flex-grow">
                 <li className="flex items-start gap-3 text-slate-300">
                   <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
