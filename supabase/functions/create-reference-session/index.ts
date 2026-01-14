@@ -4,7 +4,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
+
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Validate score is a number or null
+function isValidScore(value: unknown): boolean {
+  return value === null || value === undefined || (typeof value === 'number' && !isNaN(value));
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -53,11 +62,26 @@ serve(async (req) => {
     const body = await req.json();
     const { reference_athlete_id, ...sessionData } = body;
 
-    if (!reference_athlete_id) {
+    // Validate reference_athlete_id is a valid UUID
+    if (!reference_athlete_id || typeof reference_athlete_id !== 'string' || !UUID_REGEX.test(reference_athlete_id)) {
       return new Response(
-        JSON.stringify({ error: 'reference_athlete_id is required' }),
+        JSON.stringify({ error: 'reference_athlete_id must be a valid UUID' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Validate score fields are numbers or null
+    const scoreFields = ['composite_score', 'body_score', 'brain_score', 'bat_score', 'ball_score', 
+                         'pelvis_velocity', 'torso_velocity', 'x_factor', 'transfer_efficiency', 
+                         'bat_ke', 'ground_flow_score', 'core_flow_score', 'upper_flow_score', 'consistency_cv'];
+    
+    for (const field of scoreFields) {
+      if (sessionData[field] !== undefined && !isValidScore(sessionData[field])) {
+        return new Response(
+          JSON.stringify({ error: `${field} must be a number or null` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Use service role key for insert
@@ -106,9 +130,9 @@ serve(async (req) => {
       .single();
 
     if (error) {
-      console.error('Insert error:', error);
+      console.error('Insert error:', error.message);
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ error: 'Failed to create reference session' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -118,9 +142,9 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Unexpected error in create-reference-session');
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'An unexpected error occurred' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

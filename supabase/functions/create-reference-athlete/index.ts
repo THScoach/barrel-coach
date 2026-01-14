@@ -4,7 +4,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
+
+// Valid levels for reference athletes
+const VALID_LEVELS = ['MLB', 'MiLB', 'NCAA', 'Indy', 'International'] as const;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -60,9 +64,17 @@ serve(async (req) => {
       reboot_athlete_id
     } = body;
 
-    if (!display_name || !level) {
+    // Input validation
+    if (!display_name || typeof display_name !== 'string' || display_name.trim().length === 0) {
       return new Response(
-        JSON.stringify({ error: 'display_name and level are required' }),
+        JSON.stringify({ error: 'display_name is required and must be a non-empty string' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!level || !VALID_LEVELS.includes(level as typeof VALID_LEVELS[number])) {
+      return new Response(
+        JSON.stringify({ error: `level must be one of: ${VALID_LEVELS.join(', ')}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -85,9 +97,9 @@ serve(async (req) => {
       .single();
 
     if (error) {
-      console.error('Insert error:', error);
+      console.error('Insert error:', error.message);
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ error: 'Failed to create reference athlete' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -97,9 +109,9 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Unexpected error in create-reference-athlete');
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'An unexpected error occurred' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
