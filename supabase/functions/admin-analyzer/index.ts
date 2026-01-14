@@ -1,3 +1,14 @@
+// =============================================================================
+// SECURITY SELF-TEST CHECKLIST
+// =============================================================================
+// ✅ 1. Admin check via is_admin() RPC happens BEFORE any database mutations
+// ✅ 2. Returns 401 { error: "Unauthorized: Admin access required" } if not admin
+// ✅ 3. Uses anon key + user token for auth verification (not service_role)
+// ✅ 4. Service_role client created ONLY AFTER admin verification passes (line 54-57)
+// ✅ 5. No inserts/updates occur before admin check completes (line 45-51)
+// ✅ 6. Request body is parsed AFTER admin verification (line 60)
+// =============================================================================
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
