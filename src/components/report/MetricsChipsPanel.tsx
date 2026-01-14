@@ -1,13 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { WeaponPanel } from '@/lib/report-types';
+import type { WeaponPanel } from '@/lib/report-types';
 import { Gauge } from 'lucide-react';
 
+/** Props exclude 'present' - parent handles visibility check */
 interface MetricsChipsPanelProps {
-  data: WeaponPanel;
+  data: Omit<WeaponPanel, 'present'>;
 }
 
 export function MetricsChipsPanel({ data }: MetricsChipsPanelProps) {
-  if (!data.present || !data.metrics || data.metrics.length === 0) return null;
+  // Parent already checks isPresent() - only check for required data
+  if (!data.metrics || data.metrics.length === 0) return null;
 
   return (
     <Card className="bg-slate-900 border-slate-800">
@@ -33,4 +35,3 @@ export function MetricsChipsPanel({ data }: MetricsChipsPanelProps) {
       </CardContent>
     </Card>
   );
-}
