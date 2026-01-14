@@ -21,11 +21,11 @@ import {
 } from '@/components/report';
 
 // ============================================================================
-// DEV SWITCH: Toggle between mock data and real edge function
-// Set to true to fetch from get-report edge function (requires deployed function)
-// Set to false to use local mock data for UI development
+// ENV SWITCH: Toggle between mock data and real edge function
+// Set VITE_USE_EDGE_FUNCTION=true in .env to fetch from get-report edge function
+// Default: false (uses local mock data for UI development)
 // ============================================================================
-const USE_EDGE_FUNCTION = false;
+const USE_EDGE_FUNCTION = import.meta.env.VITE_USE_EDGE_FUNCTION === 'true';
 
 async function fetchReport(sessionId: string): Promise<SwingReportData> {
   if (!USE_EDGE_FUNCTION) {
@@ -138,27 +138,46 @@ export default function SwingReport() {
     );
   }
 
+  // Helper to check if a section is present (handles both old and new response formats)
+  const isPresent = (section: any): boolean => {
+    if (!section) return false;
+    if (typeof section === 'object' && 'present' in section) return section.present === true;
+    return true; // Legacy format without present flag
+  };
+
+  // Helper to get items from a section (handles both array and object formats)
+  const getItems = <T,>(section: T[] | { items?: T[] } | undefined): T[] => {
+    if (!section) return [];
+    if (Array.isArray(section)) return section;
+    if ('items' in section && Array.isArray(section.items)) return section.items;
+    return [];
+  };
+
   return (
     <div className="min-h-screen bg-slate-950">
       <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
         <h1 className="text-lg font-semibold text-slate-400 text-center">Swing Report</h1>
         <ReportHeader session={data.session} />
         <ScoreboardCard scores={data.scores} />
-        <PotentialVsExpressionCard potential={data.kinetic_potential} />
-        {data.primary_leak && (data.primary_leak as any).present !== false && (
+        {isPresent(data.kinetic_potential) && (
+          <PotentialVsExpressionCard potential={data.kinetic_potential} />
+        )}
+        {isPresent(data.primary_leak) && (
           <LeakCard leak={data.primary_leak} />
         )}
-        {data.fix_order && data.fix_order.length > 0 && (
-          <FixOrderChecklist items={data.fix_order} doNotChase={data.do_not_chase} />
+        {isPresent(data.fix_order) && getItems(data.fix_order).length > 0 && (
+          <FixOrderChecklist items={getItems(data.fix_order)} doNotChase={data.do_not_chase} />
         )}
-        {data.square_up_window?.present && <HeatmapCard data={data.square_up_window} />}
-        {data.weapon_panel?.present && <MetricsChipsPanel data={data.weapon_panel} />}
-        {data.ball_panel?.present && <BallOutcomePanel data={data.ball_panel} />}
-        {data.drills && data.drills.length > 0 && <TrainingCard drills={data.drills} />}
-        {data.session_history && data.session_history.length > 0 && (
-          <ProgressBoard history={data.session_history} badges={data.badges} />
+        {isPresent(data.square_up_window) && <HeatmapCard data={data.square_up_window} />}
+        {isPresent(data.weapon_panel) && <MetricsChipsPanel data={data.weapon_panel} />}
+        {isPresent(data.ball_panel) && <BallOutcomePanel data={data.ball_panel} />}
+        {isPresent(data.drills) && getItems(data.drills).length > 0 && (
+          <TrainingCard drills={getItems(data.drills)} />
         )}
-        {data.coach_note && (data.coach_note as any).present !== false && (
+        {isPresent(data.session_history) && getItems(data.session_history).length > 0 && (
+          <ProgressBoard history={getItems(data.session_history)} badges={data.badges} />
+        )}
+        {isPresent(data.coach_note) && (
           <CoachNoteCard note={data.coach_note} />
         )}
         <div className="h-8" />

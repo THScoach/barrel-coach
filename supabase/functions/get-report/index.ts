@@ -6,31 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Fallback mock data for sections we don't have real data for yet
-const mockSections = {
-  kinetic_potential: {
-    ceiling: 85,
-    current: 70,
-  },
-  primary_leak: {
-    present: false,
-    title: 'Analysis Pending',
-    description: 'Detailed leak analysis will be available after video review.',
-    why_it_matters: 'Understanding your primary leak helps prioritize training.',
-  },
-  fix_order: [],
-  do_not_chase: [],
-  square_up_window: { present: false },
-  weapon_panel: { present: false },
-  ball_panel: { present: false },
-  drills: [],
-  session_history: [],
-  badges: [],
-  coach_note: {
-    present: false,
-    text: 'Coach notes will be added after review.',
-  },
-};
+// ============================================================================
+// Report Endpoint: Fetches real session data from reboot_uploads
+// 
+// REPORT ID RULE: sessionId = reboot_uploads.id (UUID)
+// The frontend route /report/:sessionId expects a reboot_uploads UUID.
+// ============================================================================
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -181,12 +162,18 @@ serve(async (req) => {
     }
 
     // Calculate kinetic potential based on actual scores
+    // DETERMINISTIC: ceiling = min(100, round(composite_score) + 15) - NO randomness
     const currentScore = Math.round(rebootData.composite_score || 0);
-    const ceiling = Math.min(100, currentScore + 15 + Math.floor(Math.random() * 10)); // Estimate ceiling
+    const ceiling = Math.min(100, currentScore + 15);
+
+    // Determine if we have real session history
+    const hasSessionHistory = sessionHistory.length > 0;
 
     // Build the report JSON
+    // PRODUCTION MODE: No mock content - only real data with present:false for unavailable sections
     const reportData = {
       session: {
+        // REPORT ID RULE: session.id = reboot_uploads.id (UUID)
         id: rebootData.id,
         date: rebootData.session_date,
         player: {
@@ -201,24 +188,29 @@ serve(async (req) => {
         brain: rebootData.brain_score || 0,
         bat: rebootData.bat_score || 0,
         ball: 0, // No ball score from Reboot - would come from HitTrax/launch monitor
-        composite: Math.round(rebootData.composite_score || 0),
+        composite: currentScore,
         deltas,
       },
       kinetic_potential: {
+        present: true,
         ceiling,
         current: currentScore,
       },
-      // Sections not yet populated from real data
-      primary_leak: mockSections.primary_leak,
-      fix_order: mockSections.fix_order,
-      do_not_chase: mockSections.do_not_chase,
-      square_up_window: mockSections.square_up_window,
-      weapon_panel: mockSections.weapon_panel,
-      ball_panel: mockSections.ball_panel,
-      drills: mockSections.drills,
-      session_history: sessionHistory.length > 0 ? sessionHistory : mockSections.session_history,
-      badges: mockSections.badges,
-      coach_note: mockSections.coach_note,
+      // ========================================================================
+      // UNFINISHED SECTIONS: present:false, minimal payload, no mock content
+      // ========================================================================
+      primary_leak: { present: false },
+      fix_order: { present: false, items: [] },
+      do_not_chase: [], // Keep as empty array
+      square_up_window: { present: false },
+      weapon_panel: { present: false },
+      ball_panel: { present: false },
+      drills: { present: false, items: [] },
+      session_history: hasSessionHistory 
+        ? { present: true, items: sessionHistory }
+        : { present: false, items: [] },
+      badges: [],
+      coach_note: { present: false },
     };
 
     return new Response(
