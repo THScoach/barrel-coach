@@ -1,10 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { SquareUpWindow } from '@/lib/report-types';
+import type { SquareUpWindow } from '@/lib/report-types';
 import { Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+/** Props exclude 'present' - parent handles visibility check */
 interface HeatmapCardProps {
-  data: SquareUpWindow;
+  data: Omit<SquareUpWindow, 'present'>;
 }
 
 function getHeatColor(value: number): string {
@@ -22,7 +23,8 @@ function getHeatOpacity(value: number): string {
 }
 
 export function HeatmapCard({ data }: HeatmapCardProps) {
-  if (!data.present || !data.grid) return null;
+  // Parent already checks isPresent() - only check for required data
+  if (!data.grid) return null;
 
   const { grid, best_zone, avoid_zone, coach_note } = data;
 
