@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Check, MessageCircle, Zap, Users, Clock } from 'lucide-react';
+import { Check, MessageCircle, Zap, Users, Clock, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const plans = [
@@ -16,13 +16,14 @@ const plans = [
     features: [
       { text: 'One swing upload', included: true },
       { text: 'Primary leak identified', included: true },
-      { text: 'No credit card required', included: true },
+      { text: 'Delivered via SMS', included: true },
       { text: 'Ongoing coaching', included: false },
       { text: 'Drill prescriptions', included: false },
     ],
     cta: 'Get Free Diagnostic',
     ctaLink: '/diagnostic',
     ctaStyle: 'bg-slate-700 hover:bg-slate-600',
+    note: 'Delivered via SMS. No drills. No guessing.',
   },
   {
     name: 'KRS Assessment',
@@ -44,29 +45,30 @@ const plans = [
     cta: 'Get KRS Assessment',
     ctaLink: '/diagnostic',
     ctaStyle: 'bg-blue-600 hover:bg-blue-700',
+    note: 'This is an assessment — not ongoing coaching.',
   },
   {
     name: 'Catching Barrels Membership',
     price: 99,
     period: 'per month',
     annualPrice: 899,
-    description: 'Full coaching. Weekly calls. Direct access.',
+    description: 'Ongoing correction and accountability',
     featured: true,
     icon: Users,
     iconColor: 'text-red-400',
     borderColor: 'border-red-500/50',
     checkColor: 'text-red-400',
     features: [
-      { text: 'Full KRS reports included', included: true },
-      { text: 'My Swing Lab access', included: true },
-      { text: 'Weekly Monday night coaching calls', included: true },
-      { text: 'Rick AI for instant answers', included: true },
-      { text: 'Monthly retests to track progress', included: true },
+      { text: '1 structured swing review per month', included: true },
+      { text: 'KRS reports included', included: true },
+      { text: 'Weekly group coaching calls', included: true },
+      { text: 'Rick AI + My Swing Lab access', included: true },
+      { text: 'Clear priorities, not drill overload', included: true },
     ],
     cta: 'Join Membership',
     ctaLink: '/coaching',
     ctaStyle: 'bg-red-600 hover:bg-red-700',
-    note: 'Cancel anytime',
+    note: 'Membership can be paused anytime.',
   },
 ];
 
@@ -83,7 +85,7 @@ export function PricingSection() {
             PICK YOUR PATH
           </h2>
           <p className="text-xl text-gray-400">
-            Three ways to work with me. Start free. Go deeper when you're ready.
+            Start free. Go deeper when you're ready.
           </p>
         </div>
 
@@ -130,7 +132,7 @@ export function PricingSection() {
 
                 <p className="text-gray-400 text-sm mb-4">{plan.description}</p>
 
-                <ul className="text-left space-y-2 mb-6 flex-grow">
+                <ul className="text-left space-y-2 mb-4 flex-grow">
                   {plan.features.map((feature, i) => (
                     <li 
                       key={i} 
@@ -144,26 +146,106 @@ export function PricingSection() {
                   ))}
                 </ul>
 
+                {plan.note && (
+                  <p className="text-xs text-gray-500 mb-4 border-t border-slate-800 pt-4">{plan.note}</p>
+                )}
+
                 <Button asChild className={`w-full font-bold ${plan.ctaStyle}`}>
                   <Link to={plan.ctaLink}>{plan.cta}</Link>
                 </Button>
-                
-                {plan.note && (
-                  <p className="text-xs text-gray-500 mt-3">{plan.note}</p>
-                )}
               </div>
             );
           })}
         </div>
 
-        {/* Founding Annual Note */}
-        <div className="mt-12 max-w-3xl mx-auto text-center">
+        {/* Additional Options Row */}
+        <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto mt-8">
+          {/* In-Person Session */}
+          <div className="bg-slate-900/80 border border-amber-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-start gap-6">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+                <MapPin className="w-6 h-6 text-amber-400" />
+              </div>
+            </div>
+            <div className="flex-grow">
+              <div className="text-amber-400 font-bold text-xs uppercase tracking-wider mb-1">Limited Availability</div>
+              <h3 className="text-lg font-bold text-white mb-1">In-Person Swing Session</h3>
+              <div className="text-2xl font-black text-white mb-2">$399</div>
+              <ul className="space-y-1 text-sm text-slate-300 mb-3">
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  1 in-person swing session
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  High-speed video + breakdown
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  Clear correction priorities
+                </li>
+              </ul>
+              <p className="text-xs text-amber-400/80 mb-4">
+                Available seasonally (October–February) or limited dates during spring training.
+              </p>
+              <Button asChild variant="outline" className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10">
+                <a href="mailto:rick@catchingbarrels.io?subject=In-Person Session Request">Request In-Person Session</a>
+              </Button>
+            </div>
+          </div>
+
+          {/* Transformation Program */}
+          <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-start gap-6 opacity-90">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
+                <Zap className="w-6 h-6 text-purple-400" />
+              </div>
+            </div>
+            <div className="flex-grow">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-purple-400 font-bold text-xs uppercase tracking-wider">Off-Season</span>
+                <span className="text-xs font-bold text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded">Opens October</span>
+              </div>
+              <h3 className="text-lg font-bold text-white mb-1">Transformation Program</h3>
+              <ul className="space-y-1 text-sm text-slate-300 mb-3">
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  Multi-month swing rebuild
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  Structured progression plan
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  Multiple swing reviews
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  Accountability + checkpoints
+                </li>
+              </ul>
+              <p className="text-xs text-purple-400/80 mb-4">
+                Offered October–February only. Designed for real change, not quick fixes.
+              </p>
+              <Button asChild variant="outline" className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10">
+                <a href="mailto:rick@catchingbarrels.io?subject=Transformation Program Waitlist">Join Waitlist</a>
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Founding Annual Note + Availability */}
+        <div className="mt-12 max-w-3xl mx-auto text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
             <Clock className="w-4 h-4 text-yellow-400" />
             <span className="text-sm text-yellow-400">
               Founding annual rate ($899/year) available until March 1 – locked in as long as you stay active
             </span>
           </div>
+          <p className="text-sm text-slate-500">
+            <strong className="text-slate-400">Availability Note:</strong> All programs are currently delivered digitally. In-person coaching is offered seasonally (October–February) or by limited availability.
+          </p>
         </div>
 
         {/* Ascension Logic */}
