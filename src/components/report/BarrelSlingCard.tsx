@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { BarrelSlingPanel } from '@/lib/report-types';
 import { Target, CheckCircle, AlertCircle } from 'lucide-react';
 
