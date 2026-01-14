@@ -1,132 +1,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Mock report data - snake_case to match frontend contract
-const mockReportData = {
-  session: {
-    id: 'session-001',
-    date: '2026-01-14',
-    player: {
-      name: 'Marcus Johnson',
-      age: 14,
-      level: '14U',
-      handedness: 'R',
-    },
-  },
-  scores: {
-    body: 72,
-    brain: 68,
-    bat: 75,
-    ball: 64,
-    composite: 70,
-    deltas: {
-      body: 4,
-      brain: 2,
-      bat: -1,
-      ball: 6,
-      composite: 3,
-    },
-  },
+// Fallback mock data for sections we don't have real data for yet
+const mockSections = {
   kinetic_potential: {
     ceiling: 85,
     current: 70,
   },
   primary_leak: {
-    title: 'Early Torso Fire',
-    description: 'Your upper body is rotating before your hips finish loading.',
-    why_it_matters: 'This robs power from your swing and makes timing harder.',
-    frame_url: '/placeholder.svg',
+    present: false,
+    title: 'Analysis Pending',
+    description: 'Detailed leak analysis will be available after video review.',
+    why_it_matters: 'Understanding your primary leak helps prioritize training.',
   },
-  fix_order: [
-    {
-      label: 'Ground Connection',
-      feel_cue: 'Feel your back foot "grab" the ground before you rotate.',
-      completed: true,
-    },
-    {
-      label: 'Hip Lead',
-      feel_cue: 'Let your belt buckle turn before your chest.',
-      completed: false,
-    },
-    {
-      label: 'Torso Separation',
-      feel_cue: 'Feel the stretch across your core like a rubber band.',
-      completed: false,
-    },
-  ],
-  do_not_chase: ['hands', 'bat path', 'swing harder'],
-  square_up_window: {
-    present: true,
-    grid: [
-      [20, 45, 30],
-      [55, 85, 60],
-      [25, 40, 20],
-    ],
-    best_zone: 'Middle-Middle',
-    avoid_zone: 'Low-Away',
-    coach_note: 'You square up best on pitches middle-in. Avoid chasing low and away.',
-  },
-  weapon_panel: {
-    present: true,
-    metrics: [
-      { name: 'WIP Index', value: 78, meaning: 'Higher = better whip' },
-      { name: 'Plane Integrity', value: 82, meaning: 'Bat stays on plane' },
-      { name: 'Square-Up', value: 71, meaning: 'Contact consistency' },
-      { name: 'Impact Momentum', value: 68, meaning: 'Power at contact' },
-    ],
-  },
-  ball_panel: {
-    present: true,
-    projected: {
-      present: false,
-    },
-    outcomes: [
-      { name: 'Exit Velo', value: 78, unit: 'mph' },
-      { name: 'Launch Angle', value: 12, unit: '°' },
-      { name: 'Barrel Rate', value: 18, unit: '%' },
-    ],
-  },
-  drills: [
-    {
-      id: 'drill-1',
-      name: 'Hip Hinge Load',
-      coaching_cue: 'Load into your back hip, not your back leg.',
-      reps: '3 sets of 8',
-      loop_url: '/placeholder.svg',
-    },
-    {
-      id: 'drill-2',
-      name: 'Separation Holds',
-      coaching_cue: 'Pause at max separation for 2 seconds before swinging.',
-      reps: '2 sets of 6',
-      loop_url: '/placeholder.svg',
-    },
-    {
-      id: 'drill-3',
-      name: 'Ground Punch',
-      coaching_cue: 'Push your back foot into the ground as you start.',
-      reps: '3 sets of 10',
-      loop_url: '/placeholder.svg',
-    },
-  ],
-  session_history: [
-    { id: 's-1', date: '2026-01-14', composite_score: 70, delta: 3 },
-    { id: 's-2', date: '2026-01-07', composite_score: 67, delta: 2 },
-    { id: 's-3', date: '2025-12-28', composite_score: 65, delta: -1 },
-    { id: 's-4', date: '2025-12-20', composite_score: 66 },
-  ],
-  badges: [
-    { id: 'b-1', name: 'Foundation Fixed', earned: true, earned_date: '2026-01-07' },
-    { id: 'b-2', name: 'Engine Online', earned: false },
-    { id: 'b-3', name: 'Weapon Unlocked', earned: false },
-  ],
+  fix_order: [],
+  do_not_chase: [],
+  square_up_window: { present: false },
+  weapon_panel: { present: false },
+  ball_panel: { present: false },
+  drills: [],
+  session_history: [],
+  badges: [],
   coach_note: {
-    text: "Marcus, you're making real progress. Your ground connection is locking in, and I'm starting to see that separation show up naturally. This week, focus on the hip lead drill — that's the unlock. Don't chase bat path or hand position. Trust the process.",
-    audio_url: null,
+    present: false,
+    text: 'Coach notes will be added after review.',
   },
 };
 
@@ -164,14 +66,159 @@ serve(async (req) => {
       );
     }
 
-    // For now, return mock data regardless of sessionId
-    // TODO: Fetch real data from database based on sessionId
+    // Create Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Query reboot_uploads for the session scores
+    // Using reboot_uploads.id as the report identifier
+    const { data: rebootData, error: rebootError } = await supabase
+      .from('reboot_uploads')
+      .select(`
+        id,
+        player_id,
+        session_date,
+        body_score,
+        brain_score,
+        bat_score,
+        composite_score,
+        grade,
+        weakest_link,
+        pelvis_velocity,
+        torso_velocity,
+        x_factor,
+        bat_ke,
+        transfer_efficiency,
+        ground_flow_score,
+        core_flow_score,
+        upper_flow_score,
+        consistency_cv,
+        consistency_grade,
+        created_at
+      `)
+      .eq('id', sessionId)
+      .single();
+
+    if (rebootError || !rebootData) {
+      console.error('Error fetching reboot data:', rebootError);
+      return new Response(
+        JSON.stringify({ error: 'Report not found', details: rebootError?.message }),
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Get player info if available
+    let playerInfo: { name: string; age: number | null; level: string | null; handedness: string | null } = { 
+      name: 'Player', 
+      age: null, 
+      level: null, 
+      handedness: null 
+    };
+    if (rebootData.player_id) {
+      const { data: playerData } = await supabase
+        .from('players')
+        .select('name, age, level, handedness')
+        .eq('id', rebootData.player_id)
+        .single();
+      
+      if (playerData) {
+        playerInfo = {
+          name: playerData.name || 'Player',
+          age: playerData.age,
+          level: playerData.level,
+          handedness: playerData.handedness === 'left' ? 'L' : playerData.handedness === 'right' ? 'R' : null,
+        };
+      }
+    }
+
+    // Try to get previous session for delta calculation
+    let deltas = { body: 0, brain: 0, bat: 0, ball: 0, composite: 0 };
+    if (rebootData.player_id) {
+      const { data: prevSession } = await supabase
+        .from('reboot_uploads')
+        .select('body_score, brain_score, bat_score, composite_score')
+        .eq('player_id', rebootData.player_id)
+        .lt('created_at', rebootData.created_at)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (prevSession) {
+        deltas = {
+          body: (rebootData.body_score || 0) - (prevSession.body_score || 0),
+          brain: (rebootData.brain_score || 0) - (prevSession.brain_score || 0),
+          bat: (rebootData.bat_score || 0) - (prevSession.bat_score || 0),
+          ball: 0, // No ball score in reboot_uploads
+          composite: Math.round(((rebootData.composite_score || 0) - (prevSession.composite_score || 0)) * 10) / 10,
+        };
+      }
+    }
+
+    // Get session history for progress board
+    let sessionHistory: Array<{id: string; date: string; composite_score: number; delta?: number}> = [];
+    if (rebootData.player_id) {
+      const { data: historyData } = await supabase
+        .from('reboot_uploads')
+        .select('id, session_date, composite_score, created_at')
+        .eq('player_id', rebootData.player_id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (historyData && historyData.length > 0) {
+        sessionHistory = historyData.map((h, idx, arr) => ({
+          id: h.id,
+          date: h.session_date,
+          composite_score: Math.round(h.composite_score || 0),
+          delta: idx < arr.length - 1 
+            ? Math.round(((h.composite_score || 0) - (arr[idx + 1]?.composite_score || 0)) * 10) / 10
+            : undefined,
+        }));
+      }
+    }
+
+    // Calculate kinetic potential based on actual scores
+    const currentScore = Math.round(rebootData.composite_score || 0);
+    const ceiling = Math.min(100, currentScore + 15 + Math.floor(Math.random() * 10)); // Estimate ceiling
+
+    // Build the report JSON
     const reportData = {
-      ...mockReportData,
       session: {
-        ...mockReportData.session,
-        id: sessionId,
+        id: rebootData.id,
+        date: rebootData.session_date,
+        player: {
+          name: playerInfo.name,
+          age: playerInfo.age,
+          level: playerInfo.level,
+          handedness: playerInfo.handedness,
+        },
       },
+      scores: {
+        body: rebootData.body_score || 0,
+        brain: rebootData.brain_score || 0,
+        bat: rebootData.bat_score || 0,
+        ball: 0, // No ball score from Reboot - would come from HitTrax/launch monitor
+        composite: Math.round(rebootData.composite_score || 0),
+        deltas,
+      },
+      kinetic_potential: {
+        ceiling,
+        current: currentScore,
+      },
+      // Sections not yet populated from real data
+      primary_leak: mockSections.primary_leak,
+      fix_order: mockSections.fix_order,
+      do_not_chase: mockSections.do_not_chase,
+      square_up_window: mockSections.square_up_window,
+      weapon_panel: mockSections.weapon_panel,
+      ball_panel: mockSections.ball_panel,
+      drills: mockSections.drills,
+      session_history: sessionHistory.length > 0 ? sessionHistory : mockSections.session_history,
+      badges: mockSections.badges,
+      coach_note: mockSections.coach_note,
     };
 
     return new Response(
@@ -183,8 +230,9 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error fetching report:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: 'Failed to fetch report' }),
+      JSON.stringify({ error: 'Failed to fetch report', details: errorMessage }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
