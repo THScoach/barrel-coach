@@ -101,6 +101,27 @@ serve(async (req) => {
       );
     }
 
+    // Check for duplicate reboot_session_id if provided
+    if (sessionData.reboot_session_id) {
+      const { data: existingSession } = await adminClient
+        .from('reference_sessions')
+        .select('id, reference_athlete_id')
+        .eq('reboot_session_id', sessionData.reboot_session_id)
+        .maybeSingle();
+
+      if (existingSession) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            already_imported: true,
+            message: 'Already imported',
+            existing_session_id: existingSession.id 
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     const { data, error } = await adminClient
       .from('reference_sessions')
       .insert({
@@ -130,6 +151,17 @@ serve(async (req) => {
       .single();
 
     if (error) {
+      // Handle unique constraint violation at DB level as fallback
+      if (error.code === '23505') {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            already_imported: true,
+            message: 'Already imported' 
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       console.error('Insert error:', error.message);
       return new Response(
         JSON.stringify({ error: 'Failed to create reference session' }),
