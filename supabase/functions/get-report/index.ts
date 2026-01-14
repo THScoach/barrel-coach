@@ -324,11 +324,11 @@ serve(async (req) => {
       // UNFINISHED SECTIONS: present:false, minimal payload, no mock content
       // Each section follows canonical { present: boolean, ... } pattern
       // ========================================================================
-      primary_leak: { present: false },
+      primary_leak: { present: false, title: undefined, description: undefined, why_it_matters: undefined },
       fix_order: { present: false, items: [], do_not_chase: [] },
-      square_up_window: { present: false },
-      weapon_panel: { present: false },
-      ball_panel: { present: false },
+      square_up_window: { present: false, grid: undefined, best_zone: undefined, avoid_zone: undefined, coach_note: undefined },
+      weapon_panel: { present: false, metrics: [] },
+      ball_panel: { present: false, projected: { present: false }, outcomes: [] },
       // Barrel Sling Index - calculated from Reboot metrics
       barrel_sling_panel: barrelSlingPanel,
       drills: { present: false, items: [] },
@@ -337,7 +337,7 @@ serve(async (req) => {
         ? { present: true, items: sessionHistory }
         : { present: false, items: [] },
       badges: [],
-      coach_note: { present: false },
+      coach_note: { present: false, text: undefined, audio_url: undefined },
     };
 
     return new Response(

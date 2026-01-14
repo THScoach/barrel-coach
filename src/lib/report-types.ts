@@ -208,6 +208,17 @@ export interface SwingReportData {
 }
 
 // ============================================================================
+// API RESPONSE TYPE - Enforces complete payload from edge function
+// ============================================================================
+
+/** 
+ * Complete API response from get-report edge function
+ * All sections MUST be present (even if present:false)
+ * Use this type for fetchReport() return type enforcement
+ */
+export type ReportResponse = SwingReportData;
+
+// ============================================================================
 // HELPER FUNCTIONS for component rendering
 // ============================================================================
 
@@ -219,4 +230,13 @@ export function isPresent<T extends { present: boolean }>(section: T | undefined
 /** Get items from a section with items array */
 export function getItems<T>(section: { present: boolean; items: T[] } | undefined): T[] {
   return section?.items ?? [];
+}
+
+/** Safe accessor for optional section data - returns undefined if not present */
+export function getSectionData<T extends { present: boolean }>(
+  section: T | undefined
+): Omit<T, 'present'> | undefined {
+  if (!section?.present) return undefined;
+  const { present, ...data } = section;
+  return data as Omit<T, 'present'>;
 }

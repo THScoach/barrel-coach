@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { mockReportData } from '@/lib/mock-report-data';
-import { SwingReportData, isPresent, getItems } from '@/lib/report-types';
+import { ReportResponse, isPresent, getItems } from '@/lib/report-types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,7 +28,7 @@ import {
 // ============================================================================
 const USE_EDGE_FUNCTION = import.meta.env.VITE_USE_EDGE_FUNCTION === 'true';
 
-async function fetchReport(sessionId: string): Promise<SwingReportData> {
+async function fetchReport(sessionId: string): Promise<ReportResponse> {
   if (!USE_EDGE_FUNCTION) {
     // Return mock data immediately with the requested sessionId
     await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for UX
@@ -58,7 +58,8 @@ async function fetchReport(sessionId: string): Promise<SwingReportData> {
     throw new Error(errorData.error || `Failed to fetch report: ${response.status}`);
   }
 
-  return response.json();
+  const data: ReportResponse = await response.json();
+  return data;
 }
 
 function ReportSkeleton() {
