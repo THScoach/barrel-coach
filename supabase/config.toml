@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.fetch-reboot-players]
 verify_jwt = false
+
+[functions.get-report]
+verify_jwt = false
