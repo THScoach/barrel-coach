@@ -12,3 +12,8 @@ export { PlayerProgressionDashboard } from './PlayerProgressionDashboard';
 export { PlayerOverviewTab } from './PlayerOverviewTab';
 export { PlayerScoresTabNew } from './PlayerScoresTabNew';
 export { PlayerCommunicationTabNew } from './PlayerCommunicationTabNew';
+// Video upload tab
+export { PlayerVideoTab } from './PlayerVideoTab';
+export { PlayerVideoUpload } from './PlayerVideoUpload';
+export { PlayerUploadHistory } from './PlayerUploadHistory';
+export { RebootConnectionStatus } from './RebootConnectionStatus';
