@@ -33,7 +33,9 @@ import {
   Loader2,
   Link2,
   Download,
+  UserCheck,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AdminHeader } from "@/components/AdminHeader";
 import { ProfileLinkingManager } from "@/components/admin/ProfileLinkingManager";
 import { RebootPlayerImportModal } from "@/components/admin/RebootPlayerImportModal";
@@ -70,11 +72,44 @@ type PlayerOnlyRow = PlayerRosterRow & {
 
 export default function AdminPlayers() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState("");
   const [orgFilter, setOrgFilter] = useState<string>("all");
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const [showRebootImport, setShowRebootImport] = useState(false);
+  const [activatingPlayerId, setActivatingPlayerId] = useState<string | null>(null);
+
+  const handleActivatePlayer = async (player: PlayerOnlyRow, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click navigation
+    setActivatingPlayerId(player.id);
+
+    try {
+      const { error } = await supabase.from("player_profiles").insert({
+        first_name: player.first_name,
+        last_name: player.last_name,
+        organization: player.organization,
+        current_team: player.current_team,
+        level: player.level,
+        position: player.position,
+        phone: player.phone,
+        email: player.email,
+        players_id: player.players_id,
+        is_active: true,
+      });
+
+      if (error) throw error;
+
+      toast.success(`${player.first_name} ${player.last_name || ""} activated as roster member!`);
+      queryClient.invalidateQueries({ queryKey: ["admin-player-roster"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-player-filter-options"] });
+    } catch (err: any) {
+      console.error("Failed to activate player:", err);
+      toast.error(err.message || "Failed to activate player");
+    } finally {
+      setActivatingPlayerId(null);
+    }
+  };
 
   const { data: players, isLoading, error, refetch } = useQuery({
     queryKey: ["admin-player-roster", searchQuery, orgFilter, levelFilter],
@@ -442,7 +477,26 @@ export default function AdminPlayers() {
                           </Badge>
                         </TableCell>
                         <TableCell className="pr-4">
-                          <ChevronRight className="h-5 w-5 text-slate-500" />
+                          <div className="flex items-center gap-2 justify-end">
+                            {player.source === "player" && (
+                              <Button
+                                size="sm"
+                                onClick={(e) => handleActivatePlayer(player as PlayerOnlyRow, e)}
+                                disabled={activatingPlayerId === player.id}
+                                className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-medium shadow-sm"
+                              >
+                                {activatingPlayerId === player.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <>
+                                    <UserCheck className="h-3.5 w-3.5 mr-1.5" />
+                                    Activate
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                            <ChevronRight className="h-5 w-5 text-slate-500" />
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
