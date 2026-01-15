@@ -250,11 +250,12 @@ async function getOrCreateRebootPlayer(
 async function createMocapSession(sessionDate: string, sessionTypeId: number = 1): Promise<RebootMocapSession> {
   const headers = await getRebootHeaders();
   
+  // mocap_type_id: 1 = video upload, 2 = hawkeye (JSON)
   const response = await fetch(`${REBOOT_API_BASE}/mocap_session`, {
     method: "POST",
     headers,
     body: JSON.stringify({
-      mocap_type_id: 2,
+      mocap_type_id: 1,
       session_date: sessionDate,
       session_type_id: sessionTypeId
     }),
