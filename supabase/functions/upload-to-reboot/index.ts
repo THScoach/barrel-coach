@@ -2,8 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const REBOOT_API_BASE = "https://api.rebootmotion.com";
-const REBOOT_API_KEY = Deno.env.get("REBOOT_API_KEY")!;
-const REBOOT_ORG_ID = Deno.env.get("REBOOT_ORG_ID")!;
+const REBOOT_USERNAME = Deno.env.get("REBOOT_USERNAME")!;
+const REBOOT_PASSWORD = Deno.env.get("REBOOT_PASSWORD")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -14,12 +14,12 @@ const corsHeaders = {
 
 // Types
 interface UploadRequest {
-  player_id: string;          // Catching Barrels player ID
-  video_url: string;          // URL to video file (from storage)
-  filename: string;           // Original filename
-  session_type?: 'practice' | 'game';  // Optional, default 'practice'
-  frame_rate?: number;        // Optional - default to 240 if not provided
-  upload_source?: string;     // 'onform', 'hittrax', 'direct_upload', 'api'
+  player_id: string;
+  video_url: string;
+  filename: string;
+  session_type?: 'practice' | 'game';
+  frame_rate?: number;
+  upload_source?: string;
 }
 
 interface RebootPlayer {
@@ -33,9 +33,76 @@ interface RebootMocapSession {
   id: string;
   session_id: string;
   status: string;
+  org_id?: string;
 }
 
-// Verify authenticated user (not requiring admin for video uploads)
+interface RebootTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+// Player data type for DB response
+interface PlayerData {
+  id: string;
+  name: string;
+  reboot_player_id: string | null;
+  reboot_athlete_id: string | null;
+  height_inches: number | null;
+  weight_lbs: number | null;
+  handedness: string | null;
+}
+
+// Cache for access token (valid for 24h per Reboot docs)
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+// Get OAuth access token from Reboot
+async function getRebootAccessToken(): Promise<string> {
+  // Check if we have a valid cached token
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    return cachedToken.token;
+  }
+
+  console.log("[Auth] Fetching new Reboot access token");
+  
+  const response = await fetch(`${REBOOT_API_BASE}/oauth/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      username: REBOOT_USERNAME,
+      password: REBOOT_PASSWORD,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Reboot OAuth error (${response.status}): ${error}`);
+  }
+
+  const data: RebootTokenResponse = await response.json();
+  
+  // Cache the token (expire 1 hour early to be safe)
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in - 3600) * 1000,
+  };
+
+  return data.access_token;
+}
+
+// Get auth headers for Reboot API calls
+async function getRebootHeaders(): Promise<Record<string, string>> {
+  const token = await getRebootAccessToken();
+  return {
+    "Authorization": `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+}
+
+// Verify authenticated user
 async function verifyUser(req: Request): Promise<string> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
@@ -58,12 +125,11 @@ async function verifyUser(req: Request): Promise<string> {
 
 // Fetch all players from Reboot Motion API
 async function fetchRebootPlayers(): Promise<RebootPlayer[]> {
+  const headers = await getRebootHeaders();
+  
   const response = await fetch(`${REBOOT_API_BASE}/players`, {
     method: "GET",
-    headers: {
-      "X-Api-Key": REBOOT_API_KEY,
-      "Content-Type": "application/json",
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -73,7 +139,6 @@ async function fetchRebootPlayers(): Promise<RebootPlayer[]> {
 
   const data = await response.json();
 
-  // Handle both array response and object with players array
   if (Array.isArray(data)) {
     return data;
   } else if (data.players && Array.isArray(data.players)) {
@@ -91,14 +156,12 @@ async function createRebootPlayer(player: {
   throws?: string | null;
   bats?: string | null;
 }): Promise<string> {
+  const headers = await getRebootHeaders();
+  
   const response = await fetch(`${REBOOT_API_BASE}/players`, {
     method: "POST",
-    headers: {
-      "X-Api-Key": REBOOT_API_KEY,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({
-      org_id: REBOOT_ORG_ID,
       name: player.name,
       height_in: player.height_inches,
       weight_lb: player.weight_lbs,
@@ -116,23 +179,11 @@ async function createRebootPlayer(player: {
   return newPlayer.org_player_id || newPlayer.id;
 }
 
-// Player data type for DB response
-interface PlayerData {
-  id: string;
-  name: string;
-  reboot_player_id: string | null;
-  reboot_athlete_id: string | null;
-  height_inches: number | null;
-  weight_lbs: number | null;
-  handedness: string | null;
-}
-
 // Get or create Reboot player ID for a Catching Barrels player
 async function getOrCreateRebootPlayer(
   supabase: any,
   catchingBarrelsPlayerId: string
 ): Promise<string> {
-  // 1. Get player from local DB
   const { data: player, error: playerError } = await supabase
     .from("players")
     .select("id, name, reboot_player_id, reboot_athlete_id, height_inches, weight_lbs, handedness")
@@ -143,15 +194,12 @@ async function getOrCreateRebootPlayer(
     throw new Error(`Player not found: ${catchingBarrelsPlayerId}`);
   }
 
-  // 2. Check if player already has reboot_player_id
   if (player.reboot_player_id) {
     console.log(`[Upload] Player ${player.name} already has reboot_player_id: ${player.reboot_player_id}`);
     return player.reboot_player_id;
   }
 
-  // 3. Check if player has reboot_athlete_id (from sync)
   if (player.reboot_athlete_id) {
-    // Update reboot_player_id to match
     await supabase
       .from("players")
       .update({ reboot_player_id: player.reboot_athlete_id } as any)
@@ -161,7 +209,6 @@ async function getOrCreateRebootPlayer(
     return player.reboot_athlete_id;
   }
 
-  // 4. Search Reboot for existing player by name
   const rebootPlayers = await fetchRebootPlayers();
   const match = rebootPlayers.find(
     (p: RebootPlayer) => {
@@ -172,8 +219,7 @@ async function getOrCreateRebootPlayer(
   );
 
   if (match) {
-    const rebootId = match.org_player_id || (match as any).id;
-    // Update local record with reboot_player_id
+    const rebootId = match.org_player_id;
     await supabase
       .from("players")
       .update({ reboot_player_id: rebootId, reboot_athlete_id: rebootId } as any)
@@ -183,7 +229,6 @@ async function getOrCreateRebootPlayer(
     return rebootId;
   }
 
-  // 5. Create new player in Reboot
   console.log(`[Upload] Creating new player in Reboot: ${player.name}`);
   const newRebootId = await createRebootPlayer({
     name: player.name,
@@ -192,7 +237,6 @@ async function getOrCreateRebootPlayer(
     bats: player.handedness,
   });
 
-  // Update local record
   await supabase
     .from("players")
     .update({ reboot_player_id: newRebootId, reboot_athlete_id: newRebootId } as any)
@@ -204,17 +248,15 @@ async function getOrCreateRebootPlayer(
 
 // Create a mocap session in Reboot
 async function createMocapSession(sessionDate: string, sessionTypeId: number = 1): Promise<RebootMocapSession> {
+  const headers = await getRebootHeaders();
+  
   const response = await fetch(`${REBOOT_API_BASE}/mocap_session`, {
     method: "POST",
-    headers: {
-      "X-Api-Key": REBOOT_API_KEY,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({
-      org_id: REBOOT_ORG_ID,
-      mocap_type_id: 2,              // 2 = rebootmotion (single camera video)
-      session_date: sessionDate,     // YYYY-MM-DD format
-      session_type_id: sessionTypeId // 1 = practice
+      mocap_type_id: 2,
+      session_date: sessionDate,
+      session_type_id: sessionTypeId
     }),
   });
 
@@ -228,12 +270,11 @@ async function createMocapSession(sessionDate: string, sessionTypeId: number = 1
 
 // Get pre-signed upload URL for video
 async function getUploadUrl(sessionId: string, filename: string, frameRate: number): Promise<string> {
+  const headers = await getRebootHeaders();
+  
   const response = await fetch(`${REBOOT_API_BASE}/mocap_session_file`, {
     method: "POST",
-    headers: {
-      "X-Api-Key": REBOOT_API_KEY,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({
       session_id: sessionId,
       filenames: [filename],
@@ -247,8 +288,6 @@ async function getUploadUrl(sessionId: string, filename: string, frameRate: numb
   }
 
   const data = await response.json();
-
-  // Response format: { "filename.mp4": "https://presigned-url..." }
   const uploadUrl = data[filename];
   if (!uploadUrl) {
     throw new Error(`No upload URL returned for ${filename}`);
@@ -261,7 +300,6 @@ async function getUploadUrl(sessionId: string, filename: string, frameRate: numb
 async function uploadVideoToS3(videoUrl: string, presignedUrl: string): Promise<void> {
   console.log(`[Upload] Fetching video from: ${videoUrl}`);
 
-  // Fetch the video from source
   const videoResponse = await fetch(videoUrl);
   if (!videoResponse.ok) {
     throw new Error(`Failed to fetch video from source (${videoResponse.status})`);
@@ -272,7 +310,6 @@ async function uploadVideoToS3(videoUrl: string, presignedUrl: string): Promise<
 
   console.log(`[Upload] Uploading ${videoBlob.size} bytes to S3`);
 
-  // Upload to S3
   const uploadResponse = await fetch(presignedUrl, {
     method: "PUT",
     headers: {
@@ -296,7 +333,6 @@ serve(async (req) => {
   }
 
   try {
-    // Verify user authentication
     const userId = await verifyUser(req);
 
     const body: UploadRequest = await req.json();
@@ -309,7 +345,6 @@ serve(async (req) => {
       upload_source = 'direct_upload'
     } = body;
 
-    // Validate required fields
     if (!player_id) {
       return new Response(
         JSON.stringify({ error: "player_id is required" }),
@@ -331,7 +366,6 @@ serve(async (req) => {
       );
     }
 
-    // Validate frame rate
     const validFrameRates = [120, 240, 480, 600];
     if (!validFrameRates.includes(frame_rate)) {
       return new Response(
@@ -342,13 +376,10 @@ serve(async (req) => {
 
     console.log(`[Upload] Starting upload for player ${player_id}, file: ${filename}`);
 
-    // Connect to Supabase with service role
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    // 1. Get or create Reboot player ID
     const rebootPlayerId = await getOrCreateRebootPlayer(supabase, player_id);
 
-    // 2. Create upload tracking record
     const sessionDate = new Date().toISOString().split('T')[0];
     const { data: uploadRecord, error: insertError } = await supabase
       .from("reboot_uploads")
@@ -373,38 +404,31 @@ serve(async (req) => {
     console.log(`[Upload] Created upload record: ${uploadId}`);
 
     try {
-      // 3. Verify video is accessible
       const videoCheckResponse = await fetch(video_url, { method: 'HEAD' });
       if (!videoCheckResponse.ok) {
         throw new Error(`Video not accessible at URL: ${videoCheckResponse.status}`);
       }
 
-      // 4. Create Reboot mocap session
-      const sessionTypeId = session_type === 'game' ? 2 : 1; // Assuming 2 = game, 1 = practice
+      const sessionTypeId = session_type === 'game' ? 2 : 1;
       const mocapSession = await createMocapSession(sessionDate, sessionTypeId);
       const rebootSessionId = mocapSession.session_id || mocapSession.id;
 
       console.log(`[Upload] Created Reboot session: ${rebootSessionId}`);
 
-      // Update upload record with session ID
       await supabase
         .from("reboot_uploads")
         .update({ reboot_session_id: rebootSessionId })
         .eq("id", uploadId);
 
-      // 5. Get pre-signed upload URL
       const presignedUrl = await getUploadUrl(rebootSessionId, filename, frame_rate);
 
-      // 6. Stream video to S3
       await uploadVideoToS3(video_url, presignedUrl);
 
-      // 7. Update status to processing
       await supabase
         .from("reboot_uploads")
         .update({ processing_status: 'processing' })
         .eq("id", uploadId);
 
-      // 8. Log activity
       await supabase.from("activity_log").insert({
         action: "reboot_video_uploaded",
         description: `Video uploaded to Reboot: ${filename}`,
@@ -418,7 +442,6 @@ serve(async (req) => {
         },
       });
 
-      // 9. Return success with session ID for polling
       return new Response(
         JSON.stringify({
           success: true,
@@ -432,7 +455,6 @@ serve(async (req) => {
       );
 
     } catch (uploadError) {
-      // Update upload record with error
       const errorMessage = uploadError instanceof Error ? uploadError.message : 'Unknown error';
       await supabase
         .from("reboot_uploads")

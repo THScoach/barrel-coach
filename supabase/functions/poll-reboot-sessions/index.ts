@@ -6,16 +6,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
  *
  * Cron job that checks for completed Reboot sessions and triggers processing.
  * Should be scheduled to run every 5 minutes via Supabase cron or external scheduler.
- *
- * Flow:
- * 1. Query reboot_uploads where processing_status = 'processing'
- * 2. For each, call Reboot API to check session status
- * 3. If status = 'complete', trigger process-reboot-session
- * 4. Update reboot_uploads status accordingly
  */
 
 const REBOOT_API_BASE = "https://api.rebootmotion.com";
-const REBOOT_API_KEY = Deno.env.get("REBOOT_API_KEY")!;
+const REBOOT_USERNAME = Deno.env.get("REBOOT_USERNAME")!;
+const REBOOT_PASSWORD = Deno.env.get("REBOOT_PASSWORD")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -29,7 +24,6 @@ interface RebootSession {
   session_id: string;
   status: string;
   org_player_id?: string;
-  created_at?: string;
 }
 
 interface PendingUpload {
@@ -45,16 +39,67 @@ interface PendingUpload {
   };
 }
 
-// Verify admin user or allow service key for cron
-async function verifyAdminOrCron(req: Request): Promise<boolean> {
-  const authHeader = req.headers.get("Authorization");
+interface RebootTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
 
-  // Check for cron secret header (for scheduled jobs)
+// Cache for access token
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+// Get OAuth access token from Reboot
+async function getRebootAccessToken(): Promise<string> {
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    return cachedToken.token;
+  }
+
+  console.log("[Auth] Fetching new Reboot access token");
+  
+  const response = await fetch(`${REBOOT_API_BASE}/oauth/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      username: REBOOT_USERNAME,
+      password: REBOOT_PASSWORD,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Reboot OAuth error (${response.status}): ${error}`);
+  }
+
+  const data: RebootTokenResponse = await response.json();
+  
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in - 3600) * 1000,
+  };
+
+  return data.access_token;
+}
+
+// Get auth headers for Reboot API calls
+async function getRebootHeaders(): Promise<Record<string, string>> {
+  const token = await getRebootAccessToken();
+  return {
+    "Authorization": `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+}
+
+// Verify admin user or allow cron secret
+async function verifyAdminOrCron(req: Request): Promise<boolean> {
   const cronSecret = req.headers.get("X-Cron-Secret");
   if (cronSecret && cronSecret === Deno.env.get("CRON_SECRET")) {
     return true;
   }
 
+  const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     throw new Error("Unauthorized");
   }
@@ -80,14 +125,11 @@ async function verifyAdminOrCron(req: Request): Promise<boolean> {
 
 // Fetch sessions for a player from Reboot API
 async function fetchRebootSessions(orgPlayerId: string): Promise<RebootSession[]> {
+  const headers = await getRebootHeaders();
+  
   const response = await fetch(
     `${REBOOT_API_BASE}/sessions?org_player_id=${orgPlayerId}&limit=50`,
-    {
-      headers: {
-        "X-Api-Key": REBOOT_API_KEY,
-        "Content-Type": "application/json",
-      },
-    }
+    { headers }
   );
 
   if (!response.ok) {
@@ -97,7 +139,6 @@ async function fetchRebootSessions(orgPlayerId: string): Promise<RebootSession[]
 
   const data = await response.json();
 
-  // Handle both array and object responses
   if (Array.isArray(data)) {
     return data;
   } else if (data.sessions && Array.isArray(data.sessions)) {
@@ -107,7 +148,7 @@ async function fetchRebootSessions(orgPlayerId: string): Promise<RebootSession[]
   return [];
 }
 
-// Get session status directly by session ID
+// Get session status
 async function getSessionStatus(sessionId: string, orgPlayerId: string): Promise<string | null> {
   try {
     const sessions = await fetchRebootSessions(orgPlayerId);
@@ -131,7 +172,6 @@ async function triggerProcessing(
   console.log(`[Poll] Triggering processing for session ${rebootSessionId}`);
 
   try {
-    // Call the process-reboot-session function directly
     const processUrl = `${SUPABASE_URL}/functions/v1/process-reboot-session`;
 
     const response = await fetch(processUrl, {
@@ -169,15 +209,12 @@ serve(async (req) => {
   }
 
   try {
-    // Verify admin or cron access
     await verifyAdminOrCron(req);
 
     console.log("[Poll] Starting poll for processing sessions...");
 
-    // Connect to Supabase with service role
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    // 1. Query pending uploads that are still processing
     const { data: pendingUploads, error: queryError } = await supabase
       .from("reboot_uploads")
       .select(`
@@ -227,7 +264,6 @@ serve(async (req) => {
       message?: string;
     }> = [];
 
-    // 2. Check each pending upload
     for (const upload of pendingUploads) {
       const orgPlayerId = upload.players.reboot_player_id || upload.players.reboot_athlete_id;
 
@@ -238,11 +274,9 @@ serve(async (req) => {
 
       console.log(`[Poll] Checking session ${upload.reboot_session_id} for player ${upload.players.name}`);
 
-      // Check session status in Reboot
       const status = await getSessionStatus(upload.reboot_session_id, orgPlayerId);
 
       if (status === "complete" || status === "completed") {
-        // Session is complete, trigger processing
         console.log(`[Poll] Session ${upload.reboot_session_id} is complete, triggering processing`);
 
         const processResult = await triggerProcessing(
@@ -253,7 +287,6 @@ serve(async (req) => {
         );
 
         if (processResult.success) {
-          // Update upload status to complete
           await supabase
             .from("reboot_uploads")
             .update({
@@ -270,7 +303,6 @@ serve(async (req) => {
             message: "Processing completed successfully",
           });
 
-          // Log activity
           await supabase.from("activity_log").insert({
             action: "reboot_processing_complete",
             description: `Reboot session processed: ${upload.reboot_session_id}`,
@@ -281,7 +313,6 @@ serve(async (req) => {
             },
           });
         } else {
-          // Processing failed
           await supabase
             .from("reboot_uploads")
             .update({
@@ -300,7 +331,6 @@ serve(async (req) => {
         }
 
       } else if (status === "failed" || status === "error") {
-        // Session failed in Reboot
         await supabase
           .from("reboot_uploads")
           .update({
@@ -318,7 +348,6 @@ serve(async (req) => {
         });
 
       } else if (status === "pending" || status === "processing") {
-        // Still processing
         stillProcessing++;
         results.push({
           upload_id: upload.id,
@@ -328,7 +357,6 @@ serve(async (req) => {
         });
 
       } else if (!status) {
-        // Could not get status - might be transient, leave as processing
         console.log(`[Poll] Could not get status for session ${upload.reboot_session_id}`);
         stillProcessing++;
         results.push({
@@ -338,7 +366,6 @@ serve(async (req) => {
           message: "Could not retrieve session status",
         });
 
-        // If it's been more than 2 hours, mark as failed
         const createdAt = new Date(upload.created_at);
         const now = new Date();
         const hoursSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
@@ -356,14 +383,11 @@ serve(async (req) => {
         }
       }
 
-      // Small delay between API calls to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
-    // 3. Log summary
     console.log(`[Poll] Completed check: ${completed} completed, ${failed} failed, ${stillProcessing} still processing`);
 
-    // Log activity for the poll run
     await supabase.from("activity_log").insert({
       action: "reboot_poll_completed",
       description: `Poll check: ${completed} completed, ${failed} failed, ${stillProcessing} processing`,
