@@ -37,32 +37,76 @@ async function verifyAdmin(req: Request): Promise<string> {
   return claimsData.user.id;
 }
 
-// Fetch players from Reboot Motion API
+// Fetch players from Reboot Motion API with pagination
 async function fetchRebootPlayers(): Promise<any[]> {
-  const response = await fetch(`${REBOOT_API_BASE}/players`, {
-    method: "GET",
-    headers: {
-      "X-Api-Key": REBOOT_API_KEY,
-      "Content-Type": "application/json",
-    },
-  });
+  const allPlayers: any[] = [];
+  let page = 1;
+  const pageSize = 100;
+  let hasMore = true;
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Reboot API error (${response.status}): ${error}`);
+  while (hasMore) {
+    console.log(`[Fetch Reboot Players] Fetching page ${page}...`);
+    
+    const url = new URL(`${REBOOT_API_BASE}/players`);
+    url.searchParams.set("page", page.toString());
+    url.searchParams.set("page_size", pageSize.toString());
+    // Also try limit/offset in case that's the format
+    url.searchParams.set("limit", pageSize.toString());
+    url.searchParams.set("offset", ((page - 1) * pageSize).toString());
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        "X-Api-Key": REBOOT_API_KEY,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Reboot API error (${response.status}): ${error}`);
+    }
+
+    const data = await response.json();
+    
+    // Handle different response formats
+    let players: any[] = [];
+    if (Array.isArray(data)) {
+      players = data;
+    } else if (data.players && Array.isArray(data.players)) {
+      players = data.players;
+    } else if (data.data && Array.isArray(data.data)) {
+      players = data.data;
+    } else if (data.results && Array.isArray(data.results)) {
+      players = data.results;
+    } else {
+      console.log("Unexpected response format:", JSON.stringify(data).substring(0, 500));
+      break;
+    }
+
+    console.log(`[Fetch Reboot Players] Page ${page} returned ${players.length} players`);
+    
+    if (players.length === 0) {
+      hasMore = false;
+    } else {
+      allPlayers.push(...players);
+      
+      // Check if we got a full page (might have more)
+      if (players.length < pageSize) {
+        hasMore = false;
+      } else {
+        page++;
+        // Safety limit to prevent infinite loops
+        if (page > 50) {
+          console.log("[Fetch Reboot Players] Reached page limit of 50");
+          hasMore = false;
+        }
+      }
+    }
   }
 
-  const data = await response.json();
-  
-  // Handle both array response and object with players array
-  if (Array.isArray(data)) {
-    return data;
-  } else if (data.players && Array.isArray(data.players)) {
-    return data.players;
-  } else {
-    console.log("Unexpected response format:", JSON.stringify(data).substring(0, 500));
-    return [];
-  }
+  console.log(`[Fetch Reboot Players] Total players fetched: ${allPlayers.length}`);
+  return allPlayers;
 }
 
 // Convert height string to inches (e.g., "6 ft 0 in" -> 72)
