@@ -40,8 +40,11 @@ import { RebootPlayerImportModal } from "@/components/admin/RebootPlayerImportMo
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-interface PlayerProfile {
+interface PlayerRosterRow {
+  /** Route param to open the player detail page (can be profile id OR players.id) */
   id: string;
+  source: "profile" | "player";
+
   first_name: string;
   last_name: string | null;
   organization: string | null;
@@ -55,6 +58,16 @@ interface PlayerProfile {
   created_at: string;
 }
 
+type PlayerProfileRow = PlayerRosterRow & {
+  source: "profile";
+  players_id: string | null;
+};
+
+type PlayerOnlyRow = PlayerRosterRow & {
+  source: "player";
+  players_id: string;
+};
+
 export default function AdminPlayers() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -64,47 +77,144 @@ export default function AdminPlayers() {
   const [showRebootImport, setShowRebootImport] = useState(false);
 
   const { data: players, isLoading, error, refetch } = useQuery({
-    queryKey: ["player-profiles", searchQuery, orgFilter, levelFilter],
+    queryKey: ["admin-player-roster", searchQuery, orgFilter, levelFilter],
     queryFn: async () => {
-      let query = supabase
+      // 1) Load roster profiles (CRM/intake table)
+      let profilesQuery = supabase
         .from("player_profiles")
-        .select("*")
+        .select(
+          "id, first_name, last_name, organization, current_team, level, position, phone, email, total_sessions, is_active, created_at, players_id"
+        )
         .eq("is_active", true)
         .order("created_at", { ascending: false });
 
       if (searchQuery) {
-        query = query.or(
+        profilesQuery = profilesQuery.or(
           `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`
         );
       }
 
       if (orgFilter && orgFilter !== "all") {
-        query = query.eq("organization", orgFilter);
+        profilesQuery = profilesQuery.eq("organization", orgFilter);
       }
 
       if (levelFilter && levelFilter !== "all") {
-        query = query.eq("level", levelFilter);
+        profilesQuery = profilesQuery.eq("level", levelFilter);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as PlayerProfile[];
+      const { data: profileData, error: profileError } = await profilesQuery;
+      if (profileError) throw profileError;
+
+      const profileRows: PlayerProfileRow[] = (profileData || []).map((p) => ({
+        id: p.id,
+        source: "profile",
+        first_name: p.first_name,
+        last_name: p.last_name,
+        organization: p.organization,
+        current_team: p.current_team,
+        level: p.level,
+        position: p.position,
+        phone: p.phone,
+        email: p.email,
+        total_sessions: p.total_sessions || 0,
+        is_active: p.is_active ?? true,
+        created_at: p.created_at,
+        players_id: p.players_id,
+      }));
+
+      // 2) Load players that exist in analytics identity (e.g., imported from Reboot)
+      // but do NOT yet have a corresponding player_profiles row.
+      // This is the missing piece that caused "Import Successful" players to be invisible in the roster.
+      const linkedPlayerIds = new Set(
+        profileRows.map((p) => p.players_id).filter(Boolean) as string[]
+      );
+
+      let playersQuery = supabase
+        .from("players")
+        .select("id, name, team, level, position, phone, email, created_at")
+        .order("created_at", { ascending: false })
+        .limit(1000);
+
+      // Apply the same filters to the raw players list, mapping team -> organization.
+      if (searchQuery) {
+        playersQuery = playersQuery.ilike("name", `%${searchQuery}%`);
+      }
+
+      if (orgFilter && orgFilter !== "all") {
+        playersQuery = playersQuery.eq("team", orgFilter);
+      }
+
+      if (levelFilter && levelFilter !== "all") {
+        playersQuery = playersQuery.eq("level", levelFilter);
+      }
+
+      const { data: playerData, error: playerError } = await playersQuery;
+      if (playerError) throw playerError;
+
+      const playerOnlyRows: PlayerOnlyRow[] = (playerData || [])
+        .filter((p) => !linkedPlayerIds.has(p.id))
+        .map((p) => {
+          const fullName = (p.name || "").trim();
+          const parts = fullName.split(/\s+/).filter(Boolean);
+          const first = parts[0] || fullName || "Unknown";
+          const last = parts.length > 1 ? parts.slice(1).join(" ") : null;
+
+          return {
+            // IMPORTANT: use players.id as the route param; AdminPlayerProfile supports dual-lookup
+            id: p.id,
+            source: "player",
+            first_name: first,
+            last_name: last,
+            organization: p.team || null,
+            current_team: p.team || null,
+            level: p.level || null,
+            position: p.position || null,
+            phone: p.phone || null,
+            email: p.email || null,
+            total_sessions: 0,
+            is_active: true,
+            created_at: p.created_at || new Date(0).toISOString(),
+            players_id: p.id,
+          };
+        });
+
+      const combined = [...profileRows, ...playerOnlyRows].sort((a, b) => {
+        const aTime = new Date(a.created_at).getTime();
+        const bTime = new Date(b.created_at).getTime();
+        return bTime - aTime;
+      });
+
+      return combined;
     },
   });
 
   const { data: filterOptions } = useQuery({
-    queryKey: ["player-filter-options"],
+    queryKey: ["admin-player-filter-options"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("player_profiles")
-        .select("organization, level")
-        .eq("is_active", true);
+      const [{ data: profileData, error: profileError }, { data: playerData, error: playerError }] = await Promise.all([
+        supabase
+          .from("player_profiles")
+          .select("organization, level")
+          .eq("is_active", true),
+        supabase
+          .from("players")
+          .select("team, level")
+          .order("created_at", { ascending: false })
+          .limit(1000),
+      ]);
+
+      if (profileError) throw profileError;
+      if (playerError) throw playerError;
+
+      const orgsFromProfiles = profileData?.map((p) => p.organization).filter(Boolean) || [];
+      const orgsFromPlayers = playerData?.map((p) => p.team).filter(Boolean) || [];
+
+      const levelsFromProfiles = profileData?.map((p) => p.level).filter(Boolean) || [];
+      const levelsFromPlayers = playerData?.map((p) => p.level).filter(Boolean) || [];
 
       return {
-        organizations: [
-          ...new Set(data?.map((p) => p.organization).filter(Boolean) || []),
-        ],
-        levels: [...new Set(data?.map((p) => p.level).filter(Boolean) || [])],
+        organizations: [...new Set([...orgsFromProfiles, ...orgsFromPlayers])],
+        levels: [...new Set([...levelsFromProfiles, ...levelsFromPlayers])],
       };
     },
   });
@@ -257,7 +367,7 @@ export default function AdminPlayers() {
                   <TableBody>
                     {players.map((player, index) => (
                       <TableRow
-                        key={player.id}
+                        key={`${player.source}-${player.id}`}
                         className={`cursor-pointer border-slate-800 hover:bg-slate-800 transition-colors ${
                           index % 2 === 0 ? 'bg-slate-900' : 'bg-slate-900/60'
                         }`}

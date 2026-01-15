@@ -125,7 +125,8 @@ export function RebootPlayerImportModal({
     },
     onSuccess: (data) => {
       toast.success(`Imported ${data.created} new players, updated ${data.updated}`);
-      queryClient.invalidateQueries({ queryKey: ["player-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-player-roster"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-player-filter-options"] });
       queryClient.invalidateQueries({ queryKey: ["existing-reboot-players"] });
       setSelectedIds(new Set());
       onOpenChange(false);
