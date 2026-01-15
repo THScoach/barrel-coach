@@ -247,17 +247,24 @@ async function getOrCreateRebootPlayer(
 }
 
 // Create a mocap session in Reboot
-async function createMocapSession(sessionDate: string, sessionTypeId: number = 1): Promise<RebootMocapSession> {
+async function createMocapSession(
+  orgPlayerId: string,
+  sessionDate: string,
+  sessionTypeId: number = 1
+): Promise<RebootMocapSession> {
   const headers = await getRebootHeaders();
-  
-  // mocap_type_id: 1 = video upload, 2 = hawkeye (JSON)
+
+  // Reboot API only supports certain mocap types for this endpoint.
+  // 2 = hawkeye (expects .action JSON uploads)
+  // 67 = video upload (accepts video file uploads)
   const response = await fetch(`${REBOOT_API_BASE}/mocap_session`, {
     method: "POST",
     headers,
     body: JSON.stringify({
-      mocap_type_id: 1,
+      org_player_id: orgPlayerId,
+      mocap_type_id: 67,
       session_date: sessionDate,
-      session_type_id: sessionTypeId
+      session_type_id: sessionTypeId,
     }),
   });
 
@@ -411,7 +418,7 @@ serve(async (req) => {
       }
 
       const sessionTypeId = session_type === 'game' ? 2 : 1;
-      const mocapSession = await createMocapSession(sessionDate, sessionTypeId);
+      const mocapSession = await createMocapSession(rebootPlayerId, sessionDate, sessionTypeId);
       const rebootSessionId = mocapSession.session_id || mocapSession.id;
 
       console.log(`[Upload] Created Reboot session: ${rebootSessionId}`);
