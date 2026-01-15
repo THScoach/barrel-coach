@@ -105,7 +105,19 @@ serve(async (req) => {
     // Verify admin access
     await verifyAdmin(req);
 
-    console.log("[Fetch Reboot Players] Starting sync...");
+    // Parse request body for options
+    let previewOnly = false;
+    let selectedPlayerIds: string[] = [];
+    
+    try {
+      const body = await req.json();
+      previewOnly = body?.preview_only === true;
+      selectedPlayerIds = body?.player_ids || [];
+    } catch {
+      // No body or invalid JSON - use defaults
+    }
+
+    console.log(`[Fetch Reboot Players] Mode: ${previewOnly ? 'preview' : 'sync'}, Selected IDs: ${selectedPlayerIds.length}`);
 
     // 1. Fetch players from Reboot Motion
     const rebootPlayers = await fetchRebootPlayers();
@@ -116,12 +128,56 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           message: "No players found in Reboot Motion",
+          players: [],
           synced: 0,
           created: 0,
           updated: 0
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // If preview_only, return the list without syncing
+    if (previewOnly) {
+      // Normalize player data for frontend consumption
+      const normalizedPlayers = rebootPlayers.map(player => {
+        const rebootId = player.org_player_id || player.id || player.player_id;
+        const firstName = player.first_name || player.firstName || "";
+        const lastName = player.last_name || player.lastName || "";
+        const fullName = player.name || `${firstName} ${lastName}`.trim();
+        
+        return {
+          reboot_id: rebootId,
+          name: fullName,
+          first_name: firstName,
+          last_name: lastName,
+          height: player.height || null,
+          weight: player.weight || null,
+          bats: player.bats || player.hitting_hand || player.hits || null,
+          level: player.level || null,
+          team: player.team || player.organization || null,
+        };
+      }).filter(p => p.reboot_id && p.name);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          preview: true,
+          players: normalizedPlayers,
+          total: normalizedPlayers.length,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Filter to selected players if specific IDs were provided
+    let playersToSync = rebootPlayers;
+    if (selectedPlayerIds.length > 0) {
+      playersToSync = rebootPlayers.filter(player => {
+        const rebootId = player.org_player_id || player.id || player.player_id;
+        return selectedPlayerIds.includes(rebootId);
+      });
+      console.log(`[Fetch Reboot Players] Filtered to ${playersToSync.length} selected players`);
     }
 
     // 2. Connect to Supabase with service role
@@ -132,7 +188,7 @@ serve(async (req) => {
     let errors: string[] = [];
 
     // 3. Sync each player
-    for (const player of rebootPlayers) {
+    for (const player of playersToSync) {
       try {
         // Get the Reboot player ID (could be org_player_id, id, or player_id)
         const rebootId = player.org_player_id || player.id || player.player_id;

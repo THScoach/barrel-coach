@@ -32,9 +32,11 @@ import {
   ChevronRight,
   Loader2,
   Link2,
+  Download,
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { ProfileLinkingManager } from "@/components/admin/ProfileLinkingManager";
+import { RebootPlayerImportModal } from "@/components/admin/RebootPlayerImportModal";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -59,6 +61,7 @@ export default function AdminPlayers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [orgFilter, setOrgFilter] = useState<string>("all");
   const [levelFilter, setLevelFilter] = useState<string>("all");
+  const [showRebootImport, setShowRebootImport] = useState(false);
 
   const { data: players, isLoading, error, refetch } = useQuery({
     queryKey: ["player-profiles", searchQuery, orgFilter, levelFilter],
@@ -131,14 +134,25 @@ export default function AdminPlayers() {
             </h1>
             <p className="text-slate-400 text-sm md:text-base mt-0.5">Manage your player database</p>
           </div>
-          <Button
-            onClick={() => navigate("/admin/players/new")}
-            className="btn-primary gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Player</span>
-            <span className="sm:hidden">Add</span>
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowRebootImport(true)}
+              className="border-slate-600 text-slate-300 hover:bg-slate-800 gap-2"
+            >
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">Import from Reboot</span>
+              <span className="sm:hidden">Import</span>
+            </Button>
+            <Button
+              onClick={() => navigate("/admin/players/new")}
+              className="btn-primary gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Player</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
+          </div>
         </div>
 
         {/* Main Tabs - Higher Contrast */}
@@ -380,6 +394,13 @@ export default function AdminPlayers() {
 
       {/* Mobile Bottom Nav */}
       {isMobile && <MobileBottomNav />}
+
+      {/* Reboot Import Modal */}
+      <RebootPlayerImportModal
+        open={showRebootImport}
+        onOpenChange={setShowRebootImport}
+        onImportComplete={() => refetch()}
+      />
     </div>
   );
 }
