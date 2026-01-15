@@ -1221,6 +1221,7 @@ export type Database = {
           phone: string | null
           position: string | null
           reboot_athlete_id: string | null
+          reboot_player_id: string | null
           stripe_customer_id: string | null
           team: string | null
           updated_at: string | null
@@ -1259,6 +1260,7 @@ export type Database = {
           phone?: string | null
           position?: string | null
           reboot_athlete_id?: string | null
+          reboot_player_id?: string | null
           stripe_customer_id?: string | null
           team?: string | null
           updated_at?: string | null
@@ -1297,6 +1299,7 @@ export type Database = {
           phone?: string | null
           position?: string | null
           reboot_athlete_id?: string | null
+          reboot_player_id?: string | null
           stripe_customer_id?: string | null
           team?: string | null
           updated_at?: string | null
@@ -1503,11 +1506,14 @@ export type Database = {
           bat_score: number | null
           body_score: number | null
           brain_score: number | null
+          completed_at: string | null
           composite_score: number | null
           consistency_cv: number | null
           consistency_grade: string | null
           core_flow_score: number | null
           created_at: string | null
+          error_message: string | null
+          frame_rate: number | null
           grade: string | null
           ground_flow_score: number | null
           id: string
@@ -1517,11 +1523,17 @@ export type Database = {
           me_file_uploaded: boolean | null
           pelvis_velocity: number | null
           player_id: string | null
+          processing_status: string | null
+          reboot_session_id: string | null
           session_date: string
           torso_velocity: number | null
           transfer_efficiency: number | null
           updated_at: string | null
+          upload_source: string | null
+          uploaded_at: string | null
           upper_flow_score: number | null
+          video_filename: string | null
+          video_url: string | null
           weakest_link: string | null
           x_factor: number | null
         }
@@ -1530,11 +1542,14 @@ export type Database = {
           bat_score?: number | null
           body_score?: number | null
           brain_score?: number | null
+          completed_at?: string | null
           composite_score?: number | null
           consistency_cv?: number | null
           consistency_grade?: string | null
           core_flow_score?: number | null
           created_at?: string | null
+          error_message?: string | null
+          frame_rate?: number | null
           grade?: string | null
           ground_flow_score?: number | null
           id?: string
@@ -1544,11 +1559,17 @@ export type Database = {
           me_file_uploaded?: boolean | null
           pelvis_velocity?: number | null
           player_id?: string | null
+          processing_status?: string | null
+          reboot_session_id?: string | null
           session_date: string
           torso_velocity?: number | null
           transfer_efficiency?: number | null
           updated_at?: string | null
+          upload_source?: string | null
+          uploaded_at?: string | null
           upper_flow_score?: number | null
+          video_filename?: string | null
+          video_url?: string | null
           weakest_link?: string | null
           x_factor?: number | null
         }
@@ -1557,11 +1578,14 @@ export type Database = {
           bat_score?: number | null
           body_score?: number | null
           brain_score?: number | null
+          completed_at?: string | null
           composite_score?: number | null
           consistency_cv?: number | null
           consistency_grade?: string | null
           core_flow_score?: number | null
           created_at?: string | null
+          error_message?: string | null
+          frame_rate?: number | null
           grade?: string | null
           ground_flow_score?: number | null
           id?: string
@@ -1571,11 +1595,17 @@ export type Database = {
           me_file_uploaded?: boolean | null
           pelvis_velocity?: number | null
           player_id?: string | null
+          processing_status?: string | null
+          reboot_session_id?: string | null
           session_date?: string
           torso_velocity?: number | null
           transfer_efficiency?: number | null
           updated_at?: string | null
+          upload_source?: string | null
+          uploaded_at?: string | null
           upper_flow_score?: number | null
+          video_filename?: string | null
+          video_url?: string | null
           weakest_link?: string | null
           x_factor?: number | null
         }

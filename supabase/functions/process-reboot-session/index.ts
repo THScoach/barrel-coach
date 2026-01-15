@@ -28,6 +28,7 @@ interface ProcessRequest {
   session_id: string;
   org_player_id: string;
   player_id?: string;
+  upload_id?: string;  // Optional: link to reboot_uploads record for automated flow
 }
 
 interface FourBScores {
@@ -50,20 +51,27 @@ interface FourBScores {
   consistency_grade: string;
 }
 
-// Verify admin user
-async function verifyAdmin(req: Request): Promise<string> {
+// Verify admin user or service role (for automated polling)
+async function verifyAdminOrService(req: Request): Promise<string | null> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     throw new Error("Unauthorized");
+  }
+
+  const token = authHeader.replace("Bearer ", "");
+
+  // Check if this is a service role token (used by poll-reboot-sessions)
+  if (token === SUPABASE_SERVICE_KEY) {
+    console.log("[Process] Authorized via service role key");
+    return null; // Service role doesn't have a user ID
   }
 
   const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: authHeader } },
   });
 
-  const token = authHeader.replace("Bearer ", "");
   const { data: claimsData, error: claimsError } = await supabase.auth.getUser(token);
-  
+
   if (claimsError || !claimsData?.user) {
     throw new Error("Unauthorized");
   }
@@ -102,7 +110,7 @@ async function getRebootExportUrl(
   }
 
   const data: RebootExportResponse = await response.json();
-  
+
   if (!data.download_urls || data.download_urls.length === 0) {
     throw new Error(`No download URL returned for ${dataType}`);
   }
@@ -130,13 +138,13 @@ function parseCsv(csvText: string): Record<string, number | string>[] {
   for (let i = 1; i < lines.length; i++) {
     const values = lines[i].split(",").map((v) => v.trim().replace(/"/g, ""));
     const row: Record<string, number | string> = {};
-    
+
     headers.forEach((header, idx) => {
       const value = values[idx];
       const num = parseFloat(value);
       row[header] = isNaN(num) ? value : num;
     });
-    
+
     rows.push(row);
   }
 
@@ -271,19 +279,16 @@ function calculate4BScores(ikData: Record<string, number | string>[], meData: Re
   const consistencyGrade = getConsistencyGrade(avgCV);
 
   // BALL SCORE - Energy Delivery Consistency at Contact
-  // Measures CV of total kinetic energy at contact frame (lower CV = higher score)
-  const contactFrameKE = totalKE; // Using total KE values which represent energy at contact
+  const contactFrameKE = totalKE;
   const contactKECV = coefficientOfVariation(contactFrameKE);
-  // Map CV to 20-80 scale INVERTED: CV 5% → score 80, CV 40% → score 20
-  const ballScoreRaw = to2080Scale(contactKECV, 5, 40, true); // inverted: lower CV = higher score
-  const ballScore = Math.max(20, Math.min(80, ballScoreRaw)); // Clamp to 20-80
+  const ballScoreRaw = to2080Scale(contactKECV, 5, 40, true);
+  const ballScore = Math.max(20, Math.min(80, ballScoreRaw));
 
   // 4B COMPOSITE SCORES
   const brainScore = consistencyScore;
   const bodyScore = Math.round((groundFlowScore * 0.4 + coreFlowScore * 0.6));
   const batScore = upperFlowScore;
 
-  // Spec weights: Brain 20%, Body 35%, Bat 30%, Ball 15%
   const compositeScore = Math.round(
     brainScore * 0.20 +
     bodyScore * 0.35 +
@@ -323,10 +328,10 @@ serve(async (req) => {
   }
 
   try {
-    // Verify admin access
-    await verifyAdmin(req);
+    // Verify admin or service role access
+    await verifyAdminOrService(req);
 
-    const { session_id, org_player_id, player_id }: ProcessRequest = await req.json();
+    const { session_id, org_player_id, player_id, upload_id }: ProcessRequest = await req.json();
 
     if (!session_id || !org_player_id) {
       return new Response(
@@ -364,7 +369,7 @@ serve(async (req) => {
         .select("id")
         .eq("reboot_athlete_id", org_player_id)
         .single();
-      
+
       internalPlayerId = player?.id;
     }
 
@@ -413,12 +418,61 @@ serve(async (req) => {
         console.error("Error inserting 4B scores:", scoresError);
       }
 
+      // If this was triggered from video upload flow, update the upload record with scores
+      if (upload_id) {
+        const { error: uploadUpdateError } = await supabase
+          .from("reboot_uploads")
+          .update({
+            brain_score: scores.brain_score,
+            body_score: scores.body_score,
+            bat_score: scores.bat_score,
+            composite_score: scores.composite_score,
+            grade: scores.grade,
+            ground_flow_score: scores.ground_flow_score,
+            core_flow_score: scores.core_flow_score,
+            upper_flow_score: scores.upper_flow_score,
+            weakest_link: scores.weakest_link,
+            pelvis_velocity: scores.pelvis_velocity,
+            torso_velocity: scores.torso_velocity,
+            x_factor: scores.x_factor,
+            bat_ke: scores.bat_ke,
+            transfer_efficiency: scores.transfer_efficiency,
+            consistency_cv: scores.consistency_cv,
+            consistency_grade: scores.consistency_grade,
+            processing_status: "complete",
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", upload_id);
+
+        if (uploadUpdateError) {
+          console.error("Error updating reboot_uploads:", uploadUpdateError);
+        } else {
+          console.log(`[Process] Updated reboot_uploads record ${upload_id} with scores`);
+        }
+      }
+
+      // Update player's latest scores
+      const { error: playerUpdateError } = await supabase
+        .from("players")
+        .update({
+          latest_brain_score: scores.brain_score,
+          latest_body_score: scores.body_score,
+          latest_bat_score: scores.bat_score,
+          latest_ball_score: scores.ball_score,
+          latest_composite_score: scores.composite_score,
+        })
+        .eq("id", internalPlayerId);
+
+      if (playerUpdateError) {
+        console.error("Error updating player scores:", playerUpdateError);
+      }
+
       // Log activity
       await supabase.from("activity_log").insert({
         action: "reboot_session_processed",
         description: `4B Score: ${scores.composite_score} (${scores.grade})`,
         player_id: internalPlayerId,
-        metadata: { session_id, org_player_id, scores },
+        metadata: { session_id, org_player_id, scores, upload_id },
       });
     }
 
