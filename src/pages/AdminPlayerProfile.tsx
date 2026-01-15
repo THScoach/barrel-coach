@@ -49,6 +49,7 @@ import {
   PlayerOverviewTab,
   PlayerScoresTabNew,
   PlayerCommunicationTabNew,
+  PlayerVideoTab,
 } from "@/components/admin/player-profile";
 
 const LEVELS = ['Youth', 'High School', 'Travel Ball', 'College', 'Independent', 'MiLB', 'MLB'];
@@ -751,6 +752,9 @@ export default function AdminPlayerProfile() {
               <TabsTrigger value="scores" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Scores
               </TabsTrigger>
+              <TabsTrigger value="video" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Video
+              </TabsTrigger>
               <TabsTrigger value="communication" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Communication
               </TabsTrigger>
@@ -768,6 +772,13 @@ export default function AdminPlayerProfile() {
             </TabsContent>
             <TabsContent value="scores">
               <PlayerScoresTabNew 
+                playerId={player?.id || id!} 
+                playersTableId={player?.players_id}
+                playerName={getPlayerName()} 
+              />
+            </TabsContent>
+            <TabsContent value="video">
+              <PlayerVideoTab 
                 playerId={player?.id || id!} 
                 playersTableId={player?.players_id}
                 playerName={getPlayerName()} 
