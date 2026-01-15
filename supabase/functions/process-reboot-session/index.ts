@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const REBOOT_API_BASE = "https://api.rebootmotion.com";
-const REBOOT_API_KEY = Deno.env.get("REBOOT_API_KEY")!;
+const REBOOT_USERNAME = Deno.env.get("REBOOT_USERNAME")!;
+const REBOOT_PASSWORD = Deno.env.get("REBOOT_PASSWORD")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -13,7 +14,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Types
 interface RebootExportResponse {
   session_id: string;
   movement_type_id: number;
@@ -28,7 +28,7 @@ interface ProcessRequest {
   session_id: string;
   org_player_id: string;
   player_id?: string;
-  upload_id?: string;  // Optional: link to reboot_uploads record for automated flow
+  upload_id?: string;
 }
 
 interface FourBScores {
@@ -51,7 +51,60 @@ interface FourBScores {
   consistency_grade: string;
 }
 
-// Verify admin user or service role (for automated polling)
+interface RebootTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+// Cache for access token
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+// Get OAuth access token from Reboot
+async function getRebootAccessToken(): Promise<string> {
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    return cachedToken.token;
+  }
+
+  console.log("[Auth] Fetching new Reboot access token");
+  
+  const response = await fetch(`${REBOOT_API_BASE}/oauth/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      username: REBOOT_USERNAME,
+      password: REBOOT_PASSWORD,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Reboot OAuth error (${response.status}): ${error}`);
+  }
+
+  const data: RebootTokenResponse = await response.json();
+  
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in - 3600) * 1000,
+  };
+
+  return data.access_token;
+}
+
+// Get auth headers for Reboot API calls
+async function getRebootHeaders(): Promise<Record<string, string>> {
+  const token = await getRebootAccessToken();
+  return {
+    "Authorization": `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+}
+
+// Verify admin user or service role
 async function verifyAdminOrService(req: Request): Promise<string | null> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
@@ -60,10 +113,9 @@ async function verifyAdminOrService(req: Request): Promise<string | null> {
 
   const token = authHeader.replace("Bearer ", "");
 
-  // Check if this is a service role token (used by poll-reboot-sessions)
   if (token === SUPABASE_SERVICE_KEY) {
     console.log("[Process] Authorized via service role key");
-    return null; // Service role doesn't have a user ID
+    return null;
   }
 
   const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -90,12 +142,11 @@ async function getRebootExportUrl(
   orgPlayerId: string,
   dataType: "inverse-kinematics" | "momentum-energy"
 ): Promise<string> {
+  const headers = await getRebootHeaders();
+  
   const response = await fetch(`${REBOOT_API_BASE}/data_export`, {
     method: "POST",
-    headers: {
-      "X-Api-Key": REBOOT_API_KEY,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({
       session_id: sessionId,
       org_player_id: orgPlayerId,
@@ -215,7 +266,6 @@ function coefficientOfVariation(arr: number[]): number {
 
 // Main 4B scoring calculation
 function calculate4BScores(ikData: Record<string, number | string>[], meData: Record<string, number | string>[]): FourBScores {
-  // GROUND FLOW (Pelvis/Lower Body)
   const pelvisRotations = ikData
     .filter((row) => row.pelvis_rot !== undefined && typeof row.pelvis_rot === 'number')
     .map((row) => (row.pelvis_rot as number) * (180 / Math.PI));
@@ -232,7 +282,6 @@ function calculate4BScores(ikData: Record<string, number | string>[], meData: Re
   const legsScore = to2080Scale(legsKEMax, THRESHOLDS.legs_ke.min, THRESHOLDS.legs_ke.max);
   const groundFlowScore = Math.round((pelvisScore + legsScore) / 2);
 
-  // CORE FLOW (Torso/X-Factor)
   const torsoRotations = ikData
     .filter((row) => row.torso_rot !== undefined && typeof row.torso_rot === 'number')
     .map((row) => (row.torso_rot as number) * (180 / Math.PI));
@@ -254,7 +303,6 @@ function calculate4BScores(ikData: Record<string, number | string>[], meData: Re
   const stretchScore = to2080Scale(stretchRate, THRESHOLDS.stretch_rate.min, THRESHOLDS.stretch_rate.max);
   const coreFlowScore = Math.round((torsoScore + xFactorScore + stretchScore) / 3);
 
-  // UPPER FLOW (Bat/Arms)
   const batKE = meData
     .filter((row) => row.bat_kinetic_energy !== undefined && typeof row.bat_kinetic_energy === 'number')
     .map((row) => row.bat_kinetic_energy as number);
@@ -270,7 +318,6 @@ function calculate4BScores(ikData: Record<string, number | string>[], meData: Re
   const efficiencyScore = to2080Scale(transferEfficiency, THRESHOLDS.bat_efficiency.min, THRESHOLDS.bat_efficiency.max);
   const upperFlowScore = Math.round((batKEScore + efficiencyScore) / 2);
 
-  // CONSISTENCY (Brain) - CV of pelvis/torso velocities (lower CV = higher score)
   const pelvisCV = coefficientOfVariation(pelvisVelocities);
   const torsoCV = coefficientOfVariation(torsoVelocities);
   const avgCV = (pelvisCV + torsoCV) / 2;
@@ -278,13 +325,11 @@ function calculate4BScores(ikData: Record<string, number | string>[], meData: Re
   const consistencyScore = to2080Scale(avgCV, THRESHOLDS.consistency_cv.min, THRESHOLDS.consistency_cv.max, true);
   const consistencyGrade = getConsistencyGrade(avgCV);
 
-  // BALL SCORE - Energy Delivery Consistency at Contact
   const contactFrameKE = totalKE;
   const contactKECV = coefficientOfVariation(contactFrameKE);
   const ballScoreRaw = to2080Scale(contactKECV, 5, 40, true);
   const ballScore = Math.max(20, Math.min(80, ballScoreRaw));
 
-  // 4B COMPOSITE SCORES
   const brainScore = consistencyScore;
   const bodyScore = Math.round((groundFlowScore * 0.4 + coreFlowScore * 0.6));
   const batScore = upperFlowScore;
@@ -296,7 +341,6 @@ function calculate4BScores(ikData: Record<string, number | string>[], meData: Re
     ballScore * 0.15
   );
 
-  // WEAKEST LINK
   const scores = { brain: brainScore, body: bodyScore, bat: batScore, ball: ballScore };
   const weakestLink = Object.entries(scores).reduce((a, b) => (a[1] < b[1] ? a : b))[0];
 
@@ -328,7 +372,6 @@ serve(async (req) => {
   }
 
   try {
-    // Verify admin or service role access
     await verifyAdminOrService(req);
 
     const { session_id, org_player_id, player_id, upload_id }: ProcessRequest = await req.json();
@@ -342,24 +385,19 @@ serve(async (req) => {
 
     console.log(`Processing session ${session_id} for player ${org_player_id}`);
 
-    // 1. Get download URLs from Reboot API
     const ikUrl = await getRebootExportUrl(session_id, org_player_id, "inverse-kinematics");
     const meUrl = await getRebootExportUrl(session_id, org_player_id, "momentum-energy");
 
-    // 2. Download CSVs
     const [ikCsv, meCsv] = await Promise.all([
       downloadCsv(ikUrl),
       downloadCsv(meUrl),
     ]);
 
-    // 3. Parse CSVs
     const ikData = parseCsv(ikCsv);
     const meData = parseCsv(meCsv);
 
-    // 4. Calculate 4B Scores
     const scores = calculate4BScores(ikData, meData);
 
-    // 5. Save to Database
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
     let internalPlayerId = player_id;
@@ -374,7 +412,6 @@ serve(async (req) => {
     }
 
     if (internalPlayerId) {
-      // Create reboot_session record
       const { data: newSession, error: sessionError } = await supabase
         .from("reboot_sessions")
         .insert({
@@ -390,10 +427,9 @@ serve(async (req) => {
         console.error("Error creating reboot session:", sessionError);
       }
 
-      // Insert 4B scores
-      const { error: scoresError } = await supabase.from("fourb_scores").insert({
+      const { error: scoresError } = await supabase.from("swing_4b_scores").insert({
         player_id: internalPlayerId,
-        reboot_session_id: newSession?.id,
+        session_id: newSession?.id,
         brain_score: scores.brain_score,
         body_score: scores.body_score,
         bat_score: scores.bat_score,
@@ -418,7 +454,6 @@ serve(async (req) => {
         console.error("Error inserting 4B scores:", scoresError);
       }
 
-      // If this was triggered from video upload flow, update the upload record with scores
       if (upload_id) {
         const { error: uploadUpdateError } = await supabase
           .from("reboot_uploads")
@@ -451,7 +486,6 @@ serve(async (req) => {
         }
       }
 
-      // Update player's latest scores
       const { error: playerUpdateError } = await supabase
         .from("players")
         .update({
@@ -467,7 +501,6 @@ serve(async (req) => {
         console.error("Error updating player scores:", playerUpdateError);
       }
 
-      // Log activity
       await supabase.from("activity_log").insert({
         action: "reboot_session_processed",
         description: `4B Score: ${scores.composite_score} (${scores.grade})`,
@@ -476,7 +509,6 @@ serve(async (req) => {
       });
     }
 
-    // 6. Return Results
     return new Response(
       JSON.stringify({
         success: true,
