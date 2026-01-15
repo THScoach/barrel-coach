@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,13 @@ import {
   ArrowRight, 
   Dumbbell,
   TrendingUp,
-  Play
+  Play,
+  Loader2
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 
 // TypeScript type for Free Diagnostic data
 export type FreeDiagnosticData = {
@@ -45,29 +47,6 @@ export type FreeDiagnosticData = {
     description: string;
     thumbnailUrl?: string;
   } | null;
-};
-
-// Mock data - replace with real data later
-const mockData: FreeDiagnosticData = {
-  player: {
-    name: "Beckett Walters",
-    level: "Youth 14U",
-    bats: "L",
-    throws: "L",
-  },
-  sessionDate: new Date().toISOString(),
-  snapshotBarrelScore: 42,
-  unlockedB: 'body',
-  unlockedScore: 36,
-  unlockedLabel: "Movement & Sequencing",
-  mainLeak: "Torso Bypass",
-  coachingSentence: "Your legs create energy, but your core isn't catching enough before your arms swing. This is costing you bat speed and consistency.",
-  potentialExitVelo: 93,
-  teaserDrill: {
-    title: "Core Catch & Turn",
-    description: "Fixes torso bypass by teaching your core to catch and transfer leg energy before your arms fire.",
-    thumbnailUrl: undefined,
-  },
 };
 
 // 4B Category config
@@ -257,13 +236,160 @@ function UnlockedBCardSmall({
   );
 }
 
+// Processing State Component
+function ProcessingState() {
+  return (
+    <div className="min-h-screen bg-slate-950">
+      <Header />
+      <main className="pt-24 pb-32 px-4">
+        <div className="max-w-md mx-auto text-center space-y-6">
+          <div className="flex justify-center">
+            <div className="relative">
+              <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center">
+                <Loader2 className="w-12 h-12 text-red-500 animate-spin" />
+              </div>
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-white">Analyzing Your Swing...</h1>
+          <p className="text-slate-400">
+            We're processing your video and generating your free diagnostic report. 
+            This usually takes 2-5 minutes.
+          </p>
+          <p className="text-slate-500 text-sm">
+            You'll receive an SMS when your report is ready.
+          </p>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+// Not Found State Component
+function NotFoundState() {
+  return (
+    <div className="min-h-screen bg-slate-950">
+      <Header />
+      <main className="pt-24 pb-32 px-4">
+        <div className="max-w-md mx-auto text-center space-y-6">
+          <h1 className="text-2xl font-bold text-white">Report Not Found</h1>
+          <p className="text-slate-400">
+            We couldn't find a diagnostic report for this session. 
+            Please check the link or contact support.
+          </p>
+          <Button asChild className="bg-red-600 hover:bg-red-700">
+            <Link to="/diagnostic">Get Your Free Diagnostic</Link>
+          </Button>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
 export default function FreeDiagnosticReport() {
-  const { sessionId } = useParams();
-  const data = mockData; // Will be replaced with real data fetch
+  const { sessionId } = useParams<{ sessionId: string }>();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<FreeDiagnosticData | null>(null);
+  const [status, setStatus] = useState<'loading' | 'processing' | 'ready' | 'not_found'>('loading');
+
+  useEffect(() => {
+    async function fetchReport() {
+      if (!sessionId) {
+        setStatus('not_found');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Query swing_analyses for the free diagnostic report
+        const { data: analysisData, error } = await supabase
+          .from('swing_analyses')
+          .select(`
+            *,
+            sessions:session_id (
+              player_name,
+              player_level,
+              created_at
+            )
+          `)
+          .eq('session_id', sessionId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error || !analysisData) {
+          console.error('Error fetching report:', error);
+          setStatus('not_found');
+          setLoading(false);
+          return;
+        }
+
+        // Check the free_diagnostic_report status
+        const fdr = analysisData.free_diagnostic_report as Record<string, unknown> | null;
+        
+        if (!fdr || fdr.status === 'processing') {
+          setStatus('processing');
+          setLoading(false);
+          return;
+        }
+
+        // Parse the report data
+        const session = analysisData.sessions as { player_name: string; player_level: string; created_at: string } | null;
+        
+        const reportData: FreeDiagnosticData = {
+          player: {
+            name: (fdr.player_name as string) || session?.player_name || 'Player',
+            level: (fdr.player_level as string) || session?.player_level || 'Youth',
+            bats: (fdr.bats as string) || 'R',
+            throws: (fdr.throws as string) || 'R',
+          },
+          sessionDate: session?.created_at || new Date().toISOString(),
+          snapshotBarrelScore: (fdr.snapshot_barrel_score as number) || analysisData.overall_score || 50,
+          unlockedB: (fdr.unlocked_b as 'brain' | 'body' | 'bat' | 'ball') || 'body',
+          unlockedScore: (fdr.unlocked_score as number) || analysisData.body_score || 50,
+          unlockedLabel: (fdr.unlocked_label as string) || 'Movement & Sequencing',
+          mainLeak: (fdr.main_leak as string) || analysisData.primary_problem || 'Unknown',
+          coachingSentence: (fdr.coaching_sentence as string) || 'Analysis in progress.',
+          potentialExitVelo: (fdr.potential_exit_velo as number) || null,
+          teaserDrill: fdr.teaser_drill as FreeDiagnosticData['teaserDrill'] || null,
+        };
+
+        setData(reportData);
+        setStatus('ready');
+      } catch (err) {
+        console.error('Unexpected error:', err);
+        setStatus('not_found');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchReport();
+  }, [sessionId]);
 
   const scrollToCTA = () => {
     document.getElementById('upgrade-cta')?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-red-500 animate-spin" />
+      </div>
+    );
+  }
+
+  // Processing state
+  if (status === 'processing') {
+    return <ProcessingState />;
+  }
+
+  // Not found state
+  if (status === 'not_found' || !data) {
+    return <NotFoundState />;
+  }
 
   const formattedDate = format(new Date(data.sessionDate), 'MMMM d, yyyy');
   const unlockedConfig = categoryConfig[data.unlockedB];
@@ -483,32 +609,64 @@ export default function FreeDiagnosticReport() {
                 size="lg"
                 className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 text-lg"
               >
-                <Link to="/diagnostic?upgrade=assessment">
+                <Link to={`/checkout/krs?session=${sessionId}`}>
                   Unlock Full KRS Report – $37
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
               </Button>
 
-              <Link 
-                to="/coaching" 
-                className="text-slate-400 hover:text-white transition-colors text-sm underline underline-offset-4"
-              >
-                Skip straight to Coaching – $99/month includes your full KRS report and ongoing sessions
-              </Link>
+              <div className="flex items-center gap-3 justify-center text-slate-500 text-sm">
+                <div className="flex -space-x-2">
+                  {[1, 2, 3].map(i => (
+                    <div 
+                      key={i} 
+                      className="w-6 h-6 rounded-full bg-slate-700 border-2 border-slate-900"
+                    />
+                  ))}
+                </div>
+                <span>432 hitters unlocked this month</span>
+              </div>
             </div>
           </div>
+
+          {/* What's Included in Full Report */}
+          <Card className="bg-slate-900/50 border-slate-800">
+            <CardContent className="p-6">
+              <h3 className="font-bold text-white mb-4">What's in the Full KRS Report?</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                {[
+                  { icon: Brain, label: "Full Brain Score", desc: "Timing & Recognition metrics" },
+                  { icon: Activity, label: "Full Body Score", desc: "Complete sequencing analysis" },
+                  { icon: Zap, label: "Full Bat Score", desc: "Barrel delivery breakdown" },
+                  { icon: Target, label: "Full Ball Score", desc: "Contact quality & outcomes" },
+                  { icon: Dumbbell, label: "8 Personalized Drills", desc: "Targeted to your leaks" },
+                  { icon: TrendingUp, label: "Progress Tracking", desc: "Compare session over session" },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div className="bg-slate-800 rounded-lg p-2">
+                      <item.icon className="w-4 h-4 text-slate-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-white text-sm">{item.label}</p>
+                      <p className="text-slate-500 text-xs">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
         </div>
       </main>
 
-      {/* Mobile Sticky CTA */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-slate-950/95 backdrop-blur-sm border-t border-slate-800 md:hidden z-50">
+      {/* Sticky Mobile CTA */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-slate-950/95 backdrop-blur border-t border-slate-800 md:hidden">
         <Button
           asChild
           size="lg"
           className="w-full bg-red-600 hover:bg-red-700 text-white font-bold h-12"
         >
-          <Link to="/diagnostic?upgrade=assessment">
+          <Link to={`/checkout/krs?session=${sessionId}`}>
             Unlock Full Report – $37
             <ArrowRight className="w-4 h-4 ml-2" />
           </Link>

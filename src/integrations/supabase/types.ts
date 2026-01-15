@@ -2194,9 +2194,11 @@ export type Database = {
           brain_score: number | null
           coach_notes: string | null
           created_at: string | null
+          free_diagnostic_report: Json | null
           id: string
           motor_profile: string | null
           overall_score: number | null
+          player_id: string | null
           primary_problem: string
           private_notes: string | null
           recommended_drill_ids: string[] | null
@@ -2204,7 +2206,10 @@ export type Database = {
           results_sent_at: string | null
           secondary_problems: string[] | null
           session_id: string
+          thumbnail_url: string | null
           updated_at: string | null
+          video_name: string | null
+          video_url: string | null
           weakest_category: string | null
         }
         Insert: {
@@ -2215,9 +2220,11 @@ export type Database = {
           brain_score?: number | null
           coach_notes?: string | null
           created_at?: string | null
+          free_diagnostic_report?: Json | null
           id?: string
           motor_profile?: string | null
           overall_score?: number | null
+          player_id?: string | null
           primary_problem: string
           private_notes?: string | null
           recommended_drill_ids?: string[] | null
@@ -2225,7 +2232,10 @@ export type Database = {
           results_sent_at?: string | null
           secondary_problems?: string[] | null
           session_id: string
+          thumbnail_url?: string | null
           updated_at?: string | null
+          video_name?: string | null
+          video_url?: string | null
           weakest_category?: string | null
         }
         Update: {
@@ -2236,9 +2246,11 @@ export type Database = {
           brain_score?: number | null
           coach_notes?: string | null
           created_at?: string | null
+          free_diagnostic_report?: Json | null
           id?: string
           motor_profile?: string | null
           overall_score?: number | null
+          player_id?: string | null
           primary_problem?: string
           private_notes?: string | null
           recommended_drill_ids?: string[] | null
@@ -2246,10 +2258,20 @@ export type Database = {
           results_sent_at?: string | null
           secondary_problems?: string[] | null
           session_id?: string
+          thumbnail_url?: string | null
           updated_at?: string | null
+          video_name?: string | null
+          video_url?: string | null
           weakest_category?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "swing_analyses_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "swing_analyses_session_id_fkey"
             columns: ["session_id"]

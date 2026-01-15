@@ -63,10 +63,14 @@ serve(async (req) => {
       urls, 
       autoPublish = false, 
       forSwingAnalysis = false,
+      forFreeDiagnostic = false,
       playerId,
       sessionDate,
       context = 'practice',
-      source = 'admin_upload'
+      source = 'admin_upload',
+      playerName,
+      playerEmail,
+      playerLevel = 'youth',
     } = await req.json();
 
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
@@ -76,30 +80,28 @@ serve(async (req) => {
       );
     }
 
-    // For swing analysis, playerId is required
-    if (forSwingAnalysis && !playerId) {
-      return new Response(
-        JSON.stringify({ error: "playerId is required for swing analysis imports" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
-    }
-
     const results: { url: string; success: boolean; error?: string; videoId?: string }[] = [];
     const importedVideos: { url: string; storagePath: string; filename: string }[] = [];
     let sessionId: string | null = null;
 
-    // If for swing analysis, create a session first
-    if (forSwingAnalysis && playerId) {
+    // For swing analysis or free diagnostic, create a session in the `sessions` table
+    if (forSwingAnalysis || forFreeDiagnostic) {
+      const sessionInsert: Record<string, unknown> = {
+        product_type: forFreeDiagnostic ? 'free_diagnostic' : 'krs_assessment',
+        player_name: playerName || 'Unknown',
+        player_email: playerEmail || 'unknown@example.com',
+        player_level: playerLevel,
+        environment: 'production',
+        status: 'pending_analysis',
+        swing_count: urls.length,
+        player_id: playerId || null,
+        created_by: user.id,
+        user_id: user.id,
+      };
+
       const { data: sessionData, error: sessionError } = await supabase
-        .from('video_swing_sessions')
-        .insert({
-          player_id: playerId,
-          session_date: sessionDate || new Date().toISOString().split('T')[0],
-          source,
-          context,
-          status: 'pending',
-          video_count: urls.length,
-        })
+        .from('sessions')
+        .insert(sessionInsert)
         .select('id')
         .single();
 
@@ -110,7 +112,7 @@ serve(async (req) => {
         );
       }
       sessionId = sessionData.id;
-      console.log(`Created video_swing_session: ${sessionId}`);
+      console.log(`Created session: ${sessionId}`);
     }
 
     let swingIndex = 0;
@@ -182,7 +184,7 @@ serve(async (req) => {
         let storagePath: string;
         let bucket: string;
 
-        if (forSwingAnalysis && sessionId) {
+        if ((forSwingAnalysis || forFreeDiagnostic) && sessionId) {
           // Store in swing-videos bucket under session folder
           bucket = "swing-videos";
           storagePath = `${sessionId}/${swingIndex}.mp4`;
@@ -206,22 +208,25 @@ serve(async (req) => {
 
         console.log(`Uploaded to storage: ${bucket}/${storagePath}`);
 
-        if (forSwingAnalysis && sessionId) {
+        if ((forSwingAnalysis || forFreeDiagnostic) && sessionId) {
           // Get signed URL for the video
           const { data: urlData } = await supabase.storage
             .from(bucket)
             .createSignedUrl(storagePath, 3600 * 24 * 365); // 1 year
 
-          // Create video_swings record
-          const { error: swingError } = await supabase
-            .from('video_swings')
+          const signedVideoUrl = urlData?.signedUrl || null;
+
+          // Create swings record in production `swings` table
+          const { data: swingData, error: swingError } = await supabase
+            .from('swings')
             .insert({
               session_id: sessionId,
               swing_index: swingIndex,
-              video_storage_path: storagePath,
-              video_url: urlData?.signedUrl || null,
+              video_url: signedVideoUrl,
               status: 'uploaded',
-            });
+            })
+            .select('id')
+            .single();
 
           if (swingError) {
             console.error('Error creating swing record:', swingError);
@@ -229,15 +234,40 @@ serve(async (req) => {
             continue;
           }
 
+          // For free diagnostic, also upsert swing_analyses with processing status
+          if (forFreeDiagnostic && swingData) {
+            const { error: analysisError } = await supabase
+              .from('swing_analyses')
+              .insert({
+                session_id: sessionId,
+                player_id: playerId || null,
+                video_url: signedVideoUrl,
+                video_name: `OnForm-${videoId}`,
+                primary_problem: 'pending', // Required field
+                free_diagnostic_report: {
+                  status: 'processing',
+                  created_at: new Date().toISOString(),
+                  source: 'onform',
+                },
+              });
+
+            if (analysisError) {
+              console.error('Error creating swing_analyses record:', analysisError);
+              // Non-fatal, continue
+            } else {
+              console.log('Created swing_analyses record for free diagnostic');
+            }
+          }
+
           importedVideos.push({
-            url: urlData?.signedUrl || '',
+            url: signedVideoUrl || '',
             storagePath,
             filename: `swing-${swingIndex}.mp4`
           });
           
           swingIndex++;
           results.push({ url: onformUrl, success: true, videoId: sessionId });
-          console.log(`Created video_swing record for swing ${swingIndex - 1}`);
+          console.log(`Created swing record for swing ${swingIndex - 1}`);
 
         } else {
           // Get public URL for drill videos
@@ -300,11 +330,11 @@ serve(async (req) => {
     }
 
     // Update session with actual count
-    if (forSwingAnalysis && sessionId) {
+    if ((forSwingAnalysis || forFreeDiagnostic) && sessionId) {
       const successCount = results.filter(r => r.success).length;
       await supabase
-        .from('video_swing_sessions')
-        .update({ video_count: successCount })
+        .from('sessions')
+        .update({ swing_count: successCount })
         .eq('id', sessionId);
     }
 
