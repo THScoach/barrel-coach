@@ -88,19 +88,12 @@ export default function AdminPlayers() {
       const { error } = await supabase.from("player_profiles").insert({
         first_name: player.first_name,
         last_name: player.last_name,
-        organization: player.organization,
-        current_team: player.current_team,
-        level: player.level,
-        position: player.position,
-        phone: player.phone,
-        email: player.email,
         players_id: player.players_id,
-        is_active: true,
       });
 
       if (error) throw error;
 
-      toast.success(`${player.first_name} ${player.last_name || ""} activated as roster member!`);
+      toast.success(`${player.first_name} ${player.last_name || ""} activated!`);
       queryClient.invalidateQueries({ queryKey: ["admin-player-roster"] });
       queryClient.invalidateQueries({ queryKey: ["admin-player-filter-options"] });
     } catch (err: any) {
