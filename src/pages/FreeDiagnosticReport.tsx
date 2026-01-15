@@ -294,6 +294,8 @@ export default function FreeDiagnosticReport() {
   const [status, setStatus] = useState<'loading' | 'processing' | 'ready' | 'not_found'>('loading');
 
   useEffect(() => {
+    let pollInterval: NodeJS.Timeout | null = null;
+
     async function fetchReport() {
       if (!sessionId) {
         setStatus('not_found');
@@ -316,10 +318,16 @@ export default function FreeDiagnosticReport() {
           .eq('session_id', sessionId)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
-        if (error || !analysisData) {
+        if (error) {
           console.error('Error fetching report:', error);
+          setStatus('not_found');
+          setLoading(false);
+          return;
+        }
+
+        if (!analysisData) {
           setStatus('not_found');
           setLoading(false);
           return;
@@ -331,7 +339,17 @@ export default function FreeDiagnosticReport() {
         if (!fdr || fdr.status === 'processing') {
           setStatus('processing');
           setLoading(false);
+          // Start polling every 10 seconds if not already polling
+          if (!pollInterval) {
+            pollInterval = setInterval(fetchReport, 10000);
+          }
           return;
+        }
+
+        // Report is ready - stop polling
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
         }
 
         // Parse the report data
@@ -366,6 +384,13 @@ export default function FreeDiagnosticReport() {
     }
 
     fetchReport();
+
+    // Cleanup polling on unmount
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
   }, [sessionId]);
 
   const scrollToCTA = () => {
