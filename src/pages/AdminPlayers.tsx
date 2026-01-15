@@ -68,6 +68,7 @@ type PlayerProfileRow = PlayerRosterRow & {
 type PlayerOnlyRow = PlayerRosterRow & {
   source: "player";
   players_id: string;
+  reboot_athlete_id: string | null;
 };
 
 export default function AdminPlayers() {
@@ -85,6 +86,7 @@ export default function AdminPlayers() {
     setActivatingPlayerId(player.id);
 
     try {
+      // Step 1: Create the player_profiles record
       const { error } = await supabase.from("player_profiles").insert({
         first_name: player.first_name,
         last_name: player.last_name,
@@ -96,6 +98,69 @@ export default function AdminPlayers() {
       toast.success(`${player.first_name} ${player.last_name || ""} activated!`);
       queryClient.invalidateQueries({ queryKey: ["admin-player-roster"] });
       queryClient.invalidateQueries({ queryKey: ["admin-player-filter-options"] });
+
+      // Step 2: If player has a Reboot athlete ID, fetch and process their sessions
+      if (player.reboot_athlete_id) {
+        toast.info("Fetching session history from Reboot Motion...");
+        
+        try {
+          // Fetch sessions from Reboot
+          const { data: sessionData, error: sessionError } = await supabase.functions.invoke(
+            "fetch-reboot-sessions",
+            { body: { org_player_id: player.reboot_athlete_id } }
+          );
+
+          if (sessionError) throw sessionError;
+
+          const sessions = sessionData?.sessions || [];
+          
+          if (sessions.length === 0) {
+            toast.info("No Reboot sessions found for this player.");
+          } else {
+            // Process each completed session
+            let processedCount = 0;
+            let errorCount = 0;
+
+            for (const session of sessions) {
+              // Only process completed sessions
+              if (session.status === "complete" || session.mocap_status === "complete") {
+                try {
+                  const { error: processError } = await supabase.functions.invoke(
+                    "process-reboot-session",
+                    {
+                      body: {
+                        session_id: session.id || session.session_id,
+                        org_player_id: player.reboot_athlete_id,
+                        player_id: player.players_id,
+                      },
+                    }
+                  );
+
+                  if (processError) {
+                    console.error("Failed to process session:", session.id, processError);
+                    errorCount++;
+                  } else {
+                    processedCount++;
+                  }
+                } catch (procErr) {
+                  console.error("Error processing session:", procErr);
+                  errorCount++;
+                }
+              }
+            }
+
+            if (processedCount > 0) {
+              toast.success(`Imported ${processedCount} session${processedCount > 1 ? "s" : ""} from Reboot Motion!`);
+            }
+            if (errorCount > 0) {
+              toast.warning(`${errorCount} session${errorCount > 1 ? "s" : ""} could not be processed.`);
+            }
+          }
+        } catch (rebootErr: any) {
+          console.error("Failed to fetch Reboot sessions:", rebootErr);
+          toast.warning("Player activated, but could not fetch Reboot session history.");
+        }
+      }
     } catch (err: any) {
       console.error("Failed to activate player:", err);
       toast.error(err.message || "Failed to activate player");
@@ -159,7 +224,7 @@ export default function AdminPlayers() {
 
       let playersQuery = supabase
         .from("players")
-        .select("id, name, team, level, position, phone, email, created_at")
+        .select("id, name, team, level, position, phone, email, created_at, reboot_athlete_id")
         .order("created_at", { ascending: false })
         .limit(1000);
 
@@ -203,7 +268,8 @@ export default function AdminPlayers() {
             is_active: true,
             created_at: p.created_at || new Date(0).toISOString(),
             players_id: p.id,
-          };
+            reboot_athlete_id: p.reboot_athlete_id || null,
+          } as PlayerOnlyRow;
         });
 
       const combined = [...profileRows, ...playerOnlyRows].sort((a, b) => {
