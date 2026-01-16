@@ -1,6 +1,7 @@
 // Report components barrel export
 export { ReportHeader } from './ReportHeader';
 export { ScoreboardCard } from './ScoreboardCard';
+export { FourBScoreboardExpanded } from './FourBScoreboardExpanded';
 export { PotentialVsExpressionCard } from './PotentialVsExpressionCard';
 export { LeakCard } from './LeakCard';
 export { FixOrderChecklist } from './FixOrderChecklist';
@@ -12,3 +13,7 @@ export { TrainingCard } from './TrainingCard';
 export { ProgressBoard } from './ProgressBoard';
 export { CoachNoteCard } from './CoachNoteCard';
 export { BarrelSlingCard } from './BarrelSlingCard';
+export { UnifiedMetricsCard } from './UnifiedMetricsCard';
+export { LeadLegBrakingCard } from './LeadLegBrakingCard';
+export { FreemanComparisonCard } from './FreemanComparisonCard';
+export { MotorProfileCard } from './MotorProfileCard';

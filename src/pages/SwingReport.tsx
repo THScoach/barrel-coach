@@ -8,25 +8,17 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import {
   ReportHeader,
-  ScoreboardCard,
-  PotentialVsExpressionCard,
   LeakCard,
   FixOrderChecklist,
-  HeatmapCard,
-  MetricsChipsPanel,
-  BallOutcomePanel,
   TrainingCard,
-  ProgressBoard,
-  CoachNoteCard,
-  BarrelSlingCard,
+  FourBScoreboardExpanded,
 } from '@/components/report';
-import { UnifiedMetricsCard } from '@/components/report/UnifiedMetricsCard';
-import { LeadLegBrakingCard } from '@/components/report/LeadLegBrakingCard';
-import { FreemanComparisonCard } from '@/components/report/FreemanComparisonCard';
 import { MotorProfileCard } from '@/components/report/MotorProfileCard';
 import type { UnifiedMetrics, LeadLegBraking, FreemanComparison, MotorProfile, DataSource, ViewerTier } from '@/lib/unified-metrics-types';
 
-// Mock data for new unified metrics components
+// ============================================================================
+// MOCK DATA - Unified metrics that feed the 4B calculations
+// ============================================================================
 const mockUnifiedData = {
   data_source: '2d_video' as DataSource,
   viewer_tier: 'krs' as ViewerTier,
@@ -58,21 +50,26 @@ const mockUnifiedData = {
     present: true,
     suggested: 'spinner' as const,
     confidence: 'hint' as const,
-    reasoning: 'Based on your rotation-dominant load pattern.'
-  } as MotorProfile
+    reasoning: 'Based on your rotation-dominant load pattern.',
+    characteristics: [
+      'Rotation-dominant energy transfer',
+      'Quick hip turn initiates the swing',
+      'Benefits from rotational drills'
+    ]
+  } as MotorProfile,
+  // BAT and BALL scores from existing data sources
+  bat_score: 58,
+  ball_score: 52
 };
 
 // ============================================================================
 // ENV SWITCH: Toggle between mock data and real edge function
-// Set VITE_USE_EDGE_FUNCTION=true in .env to fetch from get-report edge function
-// Default: false (uses local mock data for UI development)
 // ============================================================================
 const USE_EDGE_FUNCTION = import.meta.env.VITE_USE_EDGE_FUNCTION === 'true';
 
 async function fetchReport(sessionId: string): Promise<SwingReportData> {
   if (!USE_EDGE_FUNCTION) {
-    // Return mock data immediately with the requested sessionId
-    await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for UX
+    await new Promise(resolve => setTimeout(resolve, 100));
     return {
       ...mockReportData,
       generated_at: new Date().toISOString(),
@@ -83,8 +80,6 @@ async function fetchReport(sessionId: string): Promise<SwingReportData> {
     };
   }
 
-  // Edge function path - fetches real data from reboot_uploads
-  // sessionId should be a reboot_uploads.id (UUID)
   const response = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-report?sessionId=${encodeURIComponent(sessionId)}`,
     {
@@ -100,8 +95,7 @@ async function fetchReport(sessionId: string): Promise<SwingReportData> {
     throw new Error(errorData.error || `Failed to fetch report: ${response.status}`);
   }
 
-  const data: SwingReportData = await response.json();
-  return data;
+  return await response.json();
 }
 
 function ReportSkeleton() {
@@ -124,7 +118,7 @@ function ReportSkeleton() {
             </div>
             <div className="space-y-3">
               {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-6 w-full bg-slate-800" />
+                <Skeleton key={i} className="h-12 w-full bg-slate-800 rounded-lg" />
               ))}
             </div>
           </CardContent>
@@ -162,6 +156,10 @@ function ReportError({ onRetry, message }: { onRetry: () => void; message?: stri
   );
 }
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
 export default function SwingReport() {
   const { sessionId } = useParams<{ sessionId: string }>();
   
@@ -187,37 +185,20 @@ export default function SwingReport() {
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
         <h1 className="text-lg font-semibold text-slate-400 text-center">Swing Report</h1>
         
-        {/* Always present: session header and scores */}
+        {/* 1. Header - Player info and session details */}
         <ReportHeader session={data.session} />
         
-        {/* NEW: Unified Metrics Components */}
-        <UnifiedMetricsCard 
-          metrics={mockUnifiedData.unified_metrics} 
-          dataSource={mockUnifiedData.data_source} 
+        {/* 2. 4B Scoreboard with expandable details */}
+        <FourBScoreboardExpanded 
+          unifiedMetrics={mockUnifiedData.unified_metrics}
+          leadLegBraking={mockUnifiedData.lead_leg_braking}
+          freemanComparison={mockUnifiedData.freeman_comparison}
+          dataSource={mockUnifiedData.data_source}
+          batScore={mockUnifiedData.bat_score}
+          ballScore={mockUnifiedData.ball_score}
         />
         
-        <LeadLegBrakingCard braking={mockUnifiedData.lead_leg_braking} />
-        
-        <FreemanComparisonCard comparison={mockUnifiedData.freeman_comparison} />
-        
-        <MotorProfileCard 
-          profile={mockUnifiedData.motor_profile} 
-          viewerTier={mockUnifiedData.viewer_tier} 
-        />
-        
-        <ScoreboardCard scores={data.scores} />
-        
-        {/* Kinetic Potential - with present flag */}
-        {isPresent(data.kinetic_potential) && (
-          <PotentialVsExpressionCard 
-            potential={{ 
-              ceiling: data.kinetic_potential.ceiling ?? 0, 
-              current: data.kinetic_potential.current ?? 0 
-            }} 
-          />
-        )}
-        
-        {/* Primary Leak - with present flag */}
+        {/* 3. Primary Leak */}
         {isPresent(data.primary_leak) && (
           <LeakCard 
             leak={{
@@ -230,7 +211,7 @@ export default function SwingReport() {
           />
         )}
         
-        {/* Fix Order - with present flag and items array */}
+        {/* 4. Fix Order Checklist */}
         {isPresent(data.fix_order) && getItems(data.fix_order).length > 0 && (
           <FixOrderChecklist 
             items={getItems(data.fix_order)} 
@@ -238,54 +219,15 @@ export default function SwingReport() {
           />
         )}
         
-        {/* Square Up Window - with present flag */}
-        {isPresent(data.square_up_window) && (
-          <HeatmapCard data={data.square_up_window} />
-        )}
+        {/* 5. Motor Profile */}
+        <MotorProfileCard 
+          profile={mockUnifiedData.motor_profile} 
+          viewerTier={mockUnifiedData.viewer_tier} 
+        />
         
-        {/* Weapon Panel - with present flag */}
-        {isPresent(data.weapon_panel) && (
-          <MetricsChipsPanel data={data.weapon_panel} />
-        )}
-        
-        {/* Ball Panel - with present flag */}
-        {isPresent(data.ball_panel) && (
-          <BallOutcomePanel data={data.ball_panel} />
-        )}
-        
-        {/* Barrel Sling Index - with present flag */}
-        {isPresent(data.barrel_sling_panel) && (
-          <BarrelSlingCard data={{
-            barrel_sling_score: data.barrel_sling_panel.barrel_sling_score,
-            sling_load_score: data.barrel_sling_panel.sling_load_score,
-            sling_start_score: data.barrel_sling_panel.sling_start_score,
-            sling_deliver_score: data.barrel_sling_panel.sling_deliver_score,
-            notes: data.barrel_sling_panel.notes,
-            confidence: data.barrel_sling_panel.confidence,
-          }} />
-        )}
-        
-        {/* Drills - with present flag and items array */}
+        {/* 6. Drills Section */}
         {isPresent(data.drills) && getItems(data.drills).length > 0 && (
           <TrainingCard drills={getItems(data.drills)} />
-        )}
-        
-        {/* Session History - with present flag and items array */}
-        {isPresent(data.session_history) && getItems(data.session_history).length > 0 && (
-          <ProgressBoard 
-            history={getItems(data.session_history)} 
-            badges={data.badges} 
-          />
-        )}
-        
-        {/* Coach Note - with present flag */}
-        {isPresent(data.coach_note) && (
-          <CoachNoteCard 
-            note={{ 
-              text: data.coach_note.text ?? '', 
-              audio_url: data.coach_note.audio_url 
-            }} 
-          />
         )}
         
         <div className="h-8" />
