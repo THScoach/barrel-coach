@@ -258,7 +258,7 @@ export function PlayerScoresTab({ playerId, playerName }: PlayerScoresTabProps) 
           <span className="text-slate-500">AVG </span>
           <span className="text-slate-300 font-medium">{avg ?? '—'}</span>
         </div>
-        <div className="text-slate-700">|</div>
+        <div className="text-slate-500">|</div>
         <div>
           <span className="text-slate-500">BEST </span>
           <span className="text-slate-300 font-medium">{best ?? '—'}</span>
@@ -292,7 +292,7 @@ export function PlayerScoresTab({ playerId, playerName }: PlayerScoresTabProps) 
 
   // Score cell with color coding
   const ScoreCell = ({ value, prevValue }: { value: number | null; prevValue?: number | null }) => {
-    if (value == null) return <span className="text-slate-600">—</span>;
+    if (value == null) return <span className="text-slate-500">—</span>;
     
     const isUp = prevValue != null && value > prevValue;
     const isDown = prevValue != null && value < prevValue;
@@ -320,7 +320,7 @@ export function PlayerScoresTab({ playerId, playerName }: PlayerScoresTabProps) 
   if (scores.length === 0) {
     return (
       <div className="border border-slate-800 rounded-lg bg-slate-900/60 py-16 text-center">
-        <BarChart3 className="h-12 w-12 mx-auto text-slate-700 mb-3" />
+        <BarChart3 className="h-12 w-12 mx-auto text-slate-500 mb-3" />
         <h3 className="text-lg font-semibold text-white mb-1">No sessions yet</h3>
         <p className="text-slate-500 text-sm mb-4">
           Run your first swing analysis to start your season.

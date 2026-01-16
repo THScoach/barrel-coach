@@ -83,8 +83,8 @@ export function Interactive4BDiamond() {
         <div className="relative max-w-4xl mx-auto h-[600px] md:h-[700px]">
           {/* Center Diamond */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-40 md:h-40 rounded-full bg-navy-800 border-2 border-navy-700 flex flex-col items-center justify-center z-10">
-            <Target className="w-10 h-10 text-gray-600 mb-1" />
-            <span className="text-xs text-gray-500 uppercase tracking-wider">4B Score</span>
+            <Target className="w-10 h-10 text-slate-400 mb-1" />
+            <span className="text-xs text-slate-400 uppercase tracking-wider">4B Score</span>
           </div>
 
           {/* Connection Lines (Visual only) */}
@@ -145,11 +145,11 @@ export function Interactive4BDiamond() {
               <div className="flex justify-center gap-8 mb-4">
                 <div className="text-center">
                   <div className={`text-3xl font-bold ${activeNode.color}`}>{activeNode.score}</div>
-                  <div className="text-xs text-gray-500 uppercase">Current</div>
+                  <div className="text-xs text-slate-400 uppercase">Current</div>
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-success">70</div>
-                  <div className="text-xs text-gray-500 uppercase">Target</div>
+                  <div className="text-xs text-slate-400 uppercase">Target</div>
                 </div>
               </div>
 
@@ -205,7 +205,7 @@ function NodeButton({
       <span className={`text-sm font-bold uppercase tracking-wider ${node.color}`}>
         {node.label}
       </span>
-      <span className="text-xs text-gray-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <span className="text-xs text-slate-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
         Click to explore
       </span>
     </button>
