@@ -134,7 +134,7 @@ export function Interactive4BTiles({ fourBScores, onViewDetails }: Interactive4B
                   <TrendIcon trend={trend} />
                 </div>
                 
-                <p className="text-[10px] text-slate-400 mt-2 line-clamp-1">
+                <p className="text-[10px] text-slate-300 mt-2 line-clamp-1">
                   {config.description}
                 </p>
               </CardContent>

@@ -317,7 +317,7 @@ export function PlayerOverviewTab({
       ) : (
         <Card className="bg-slate-900/80 border-slate-800">
           <CardContent className="py-12 text-center">
-            <ClipboardList className="h-12 w-12 mx-auto text-slate-600 mb-3" />
+            <ClipboardList className="h-12 w-12 mx-auto text-slate-500 mb-3" />
             <p className="text-slate-400 font-medium">No player data available</p>
             <p className="text-sm text-slate-500 mt-1">Upload data to generate 4B scores</p>
             <Button
@@ -350,7 +350,7 @@ export function PlayerOverviewTab({
               {todo.completed ? (
                 <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
               ) : (
-                <Circle className="h-4 w-4 text-slate-600 group-hover:text-slate-400 shrink-0" />
+                <Circle className="h-4 w-4 text-slate-500 group-hover:text-slate-400 shrink-0" />
               )}
               <span className={`text-sm ${todo.completed ? 'text-slate-500 line-through' : 'text-slate-300'}`}>
                 {todo.label}
