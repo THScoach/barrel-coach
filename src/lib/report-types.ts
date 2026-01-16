@@ -52,6 +52,100 @@ export interface RebootAnalysisMeta {
   csp_file_url?: string;
 }
 
+// ============================================================================
+// UNIFIED METRICS - Source-agnostic measurement types
+// ============================================================================
+
+/** A single metric with source-aware confidence */
+export interface UnifiedMetric<T = number> {
+  value: T;
+  confidence: MeasurementConfidence;
+  source: DataSource;
+  /** Unit of measurement (e.g., 'mph', 'deg', 'ms') */
+  unit?: string;
+  /** Raw value before normalization (if applicable) */
+  raw_value?: number;
+}
+
+/** Timing metric in milliseconds relative to contact */
+export interface TimingMetric extends UnifiedMetric<number> {
+  unit: 'ms';
+  /** Frame number if from video */
+  frame?: number;
+  /** Phase name (e.g., 'load', 'stride', 'contact') */
+  phase?: string;
+}
+
+/** Angular metric in degrees */
+export interface AngularMetric extends UnifiedMetric<number> {
+  unit: 'deg';
+  /** Peak value during swing */
+  peak?: number;
+  /** Frame/time at peak */
+  peak_at?: number;
+}
+
+/** Velocity metric */
+export interface VelocityMetric extends UnifiedMetric<number> {
+  unit: 'mph' | 'deg/s' | 'rad/s';
+  /** Peak value during swing */
+  peak?: number;
+}
+
+/** Kinetic energy metric */
+export interface EnergyMetric extends UnifiedMetric<number> {
+  unit: 'J' | 'normalized';
+  /** Segment this energy belongs to */
+  segment?: 'pelvis' | 'torso' | 'arms' | 'bat' | 'total';
+}
+
+/** Unified biomechanics data structure (works for both 2D and 3D) */
+export interface UnifiedBiomechanics {
+  /** Pelvis rotation metrics */
+  pelvis_rotation?: AngularMetric;
+  pelvis_velocity?: VelocityMetric;
+  
+  /** Torso/trunk metrics */
+  torso_rotation?: AngularMetric;
+  torso_velocity?: VelocityMetric;
+  
+  /** X-factor (hip-shoulder separation) */
+  x_factor?: AngularMetric;
+  x_factor_stretch?: AngularMetric;
+  
+  /** Bat metrics */
+  bat_speed?: VelocityMetric;
+  bat_angle?: AngularMetric;
+  
+  /** Timing relative to contact (negative = before) */
+  pelvis_peak_timing?: TimingMetric;
+  torso_peak_timing?: TimingMetric;
+  hands_peak_timing?: TimingMetric;
+  
+  /** Kinetic chain energy flow */
+  pelvis_ke?: EnergyMetric;
+  torso_ke?: EnergyMetric;
+  arms_ke?: EnergyMetric;
+  bat_ke?: EnergyMetric;
+  
+  /** Contact frame detection method */
+  contact_detection_method?: 'explicit' | 'hand_decel' | 'bat_ke_peak' | 'torso_peak' | 'frame_ratio';
+}
+
+/** Source-aware 4B scores with confidence */
+export interface Unified4BScores {
+  brain: UnifiedMetric;
+  body: UnifiedMetric;
+  bat: UnifiedMetric;
+  ball: UnifiedMetric;
+  composite: UnifiedMetric;
+  
+  /** Expected vs actual bat speed (for mechanical loss) */
+  bat_speed_actual?: VelocityMetric;
+  bat_speed_expected?: VelocityMetric;
+  mechanical_loss_mph?: UnifiedMetric;
+}
+
 export interface ReportPlayer {
   name: string;
   age?: number | null;
