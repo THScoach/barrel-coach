@@ -1,17 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Brain, Activity, Timer, Gauge, Target } from "lucide-react";
-import { 
+import { Brain, Activity, Timer, Gauge, Target, Video, Box } from "lucide-react";
+import type { 
   BrainMetrics, 
   MetricValue, 
-  GradeLabel,
-  getGradeLabel 
+  GradeLabel 
 } from "@/lib/unified-metrics-types";
+import { getGradeLabel } from "@/lib/unified-metrics-types";
 import { cn } from "@/lib/utils";
+
+type DataSource = '2d_video' | '3d_reboot';
 
 interface UnifiedMetricsCardProps {
   metrics: BrainMetrics;
+  dataSource: DataSource;
   compositeScore?: number;
   className?: string;
 }
@@ -117,7 +120,10 @@ function CompositeScoreDisplay({ score }: { score: number }) {
   );
 }
 
-export function UnifiedMetricsCard({ metrics, compositeScore, className }: UnifiedMetricsCardProps) {
+export function UnifiedMetricsCard({ metrics, dataSource, compositeScore, className }: UnifiedMetricsCardProps) {
+  const SourceIcon = dataSource === '3d_reboot' ? Box : Video;
+  const sourceLabel = dataSource === '3d_reboot' ? '3D Reboot' : '2D Video';
+
   if (!metrics.present) {
     return (
       <Card className={cn("bg-slate-900 border-slate-800", className)}>
@@ -125,6 +131,10 @@ export function UnifiedMetricsCard({ metrics, compositeScore, className }: Unifi
           <CardTitle className="flex items-center gap-2 text-slate-200">
             <Brain className="h-5 w-5 text-cyan-400" />
             Brain Metrics
+            <Badge variant="outline" className="ml-auto text-xs border-slate-700 text-slate-400">
+              <SourceIcon className="h-3 w-3 mr-1" />
+              {sourceLabel}
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -142,7 +152,10 @@ export function UnifiedMetricsCard({ metrics, compositeScore, className }: Unifi
         <CardTitle className="flex items-center gap-2 text-slate-200">
           <Brain className="h-5 w-5 text-cyan-400" />
           Brain Metrics
-          <span className="text-xs font-normal text-slate-500 ml-auto">Timing & Sequencing</span>
+          <Badge variant="outline" className="ml-auto text-xs border-slate-700 text-slate-400">
+            <SourceIcon className="h-3 w-3 mr-1" />
+            {sourceLabel}
+          </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
