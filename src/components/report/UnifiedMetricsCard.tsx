@@ -22,19 +22,23 @@ interface UnifiedMetricsCardProps {
 
 const gradeColors: Record<GradeLabel, string> = {
   'Well Below': 'text-red-400',
-  'Below Avg': 'text-orange-400',
+  'Below Average': 'text-red-400',
+  'Fringe': 'text-orange-400',
   'Average': 'text-yellow-400',
-  'Above Avg': 'text-emerald-400',
+  'Above Average': 'text-emerald-400',
   'Plus': 'text-cyan-400',
+  'Plus Plus': 'text-blue-400',
   'Elite': 'text-purple-400',
 };
 
 const gradeBgColors: Record<GradeLabel, string> = {
   'Well Below': 'bg-red-500/20',
-  'Below Avg': 'bg-orange-500/20',
+  'Below Average': 'bg-red-500/20',
+  'Fringe': 'bg-orange-500/20',
   'Average': 'bg-yellow-500/20',
-  'Above Avg': 'bg-emerald-500/20',
+  'Above Average': 'bg-emerald-500/20',
   'Plus': 'bg-cyan-500/20',
+  'Plus Plus': 'bg-blue-500/20',
   'Elite': 'bg-purple-500/20',
 };
 
@@ -132,7 +136,7 @@ export function UnifiedMetricsCard({
     );
   }
 
-  const displayComposite = compositeScore ?? metrics.brain_score ?? metrics.sync_score.score_20_80;
+  const displayComposite = compositeScore ?? metrics.brain_score?.score_20_80 ?? metrics.sync_score.score_20_80;
 
   return (
     <Card className={cn("bg-slate-900 border-slate-800", className)}>
