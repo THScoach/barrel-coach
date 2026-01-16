@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Brain, Video, Box } from "lucide-react";
 import type { UnifiedMetrics, MetricValue, DataSource } from "@/lib/unified-metrics-types";
 import { cn } from "@/lib/utils";
@@ -67,7 +66,9 @@ function MetricCard({
 }
 
 function CompositeBar({ score }: { score: number }) {
-  const progressValue = ((score - 20) / 60) * 100;
+  // Calculate progress: score 20 = 0%, score 80 = 100%
+  // For score 56: (56-20)/(80-20) = 36/60 = 60%
+  const progressValue = Math.max(0, Math.min(100, ((score - 20) / 60) * 100));
   const scoreColor = getScoreColor(score);
   const bgColor = getScoreBgColor(score);
   
@@ -85,7 +86,17 @@ function CompositeBar({ score }: { score: number }) {
         </Badge>
       </div>
       <div className="relative">
-        <Progress value={progressValue} className="h-3 bg-slate-700" />
+        {/* Custom progress bar with proper fill color */}
+        <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
+          <div 
+            className={cn("h-full rounded-full transition-all", 
+              score >= 70 ? 'bg-emerald-500' : 
+              score >= 55 ? 'bg-yellow-500' : 
+              score >= 45 ? 'bg-orange-500' : 'bg-red-500'
+            )}
+            style={{ width: `${progressValue}%` }}
+          />
+        </div>
         <div className="flex justify-between text-[10px] text-slate-600 mt-1.5 px-0.5">
           <span>20</span>
           <span>35</span>

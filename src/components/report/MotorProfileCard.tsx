@@ -37,7 +37,7 @@ function ProfileIcon({
   const sizeClasses = {
     sm: 'w-10 h-10 text-xl',
     md: 'w-14 h-14 text-2xl',
-    lg: 'w-20 h-20 text-4xl',
+    lg: 'w-24 h-24 text-5xl',
   };
   
   return (
@@ -78,8 +78,16 @@ export function MotorProfileCard({ profile, viewerTier, className }: MotorProfil
     ? `You ARE a ${typeConfig.label}` 
     : `You might be a ${typeConfig.label}`;
 
+  // Add profile-specific glow/border styling
+  const profileGlowClasses: Record<MotorProfileType, string> = {
+    spinner: 'border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.15)]',
+    slingshotter: 'border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.15)]',
+    whipper: 'border-yellow-500/30 shadow-[0_0_15px_rgba(234,179,8,0.15)]',
+    titan: 'border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.15)]',
+  };
+
   return (
-    <Card className={cn("bg-slate-900 border-slate-800", className)}>
+    <Card className={cn("bg-slate-900 border", profileGlowClasses[profile.suggested], className)}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-slate-200">
