@@ -124,7 +124,7 @@ export function Interactive4BTiles({ fourBScores, onViewDetails }: Interactive4B
                       {config.label}
                     </span>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-slate-500" />
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
                 </div>
                 
                 <div className="flex items-center gap-2">
