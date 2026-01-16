@@ -24,7 +24,7 @@ export function PlayerDrillsTab({ playerId }: PlayerDrillsTabProps) {
       
       <Card className="bg-slate-900/80 border-slate-800">
         <CardContent className="py-12 text-center">
-          <BookOpen className="h-12 w-12 mx-auto text-slate-600 mb-3" />
+          <BookOpen className="h-12 w-12 mx-auto text-slate-500 mb-3" />
           <p className="text-slate-400">No drill programs assigned yet.</p>
           <p className="text-slate-500 text-sm mt-1">
             Assign programs from the library to track player progress.
