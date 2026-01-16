@@ -42,19 +42,34 @@ interface FourBScoreboardProps {
 // HELPER FUNCTIONS
 // ============================================================================
 
+/**
+ * Calculate lead leg braking score from brace timing (ms relative to hip peak)
+ * Negative = early brace (good), Positive = late brace (bad)
+ */
+function calculateLeadLegBrakingScore(timingMs: number): number {
+  // Elite early brace: < -50ms → 80-100 (interpolate: -100ms = 100, -50ms = 80)
+  if (timingMs < -50) {
+    return Math.min(100, Math.max(80, 100 + (timingMs + 100) * 0.4));
+  }
+  // Good early brace: -50 to -30ms → 70-80 (interpolate: -50ms = 80, -30ms = 70)
+  if (timingMs < -30) {
+    return 80 - ((timingMs + 50) / 20) * 10;
+  }
+  // Borderline/on-time: -30 to +30ms → 50-70 (interpolate: -30ms = 70, +30ms = 50)
+  if (timingMs <= 30) {
+    return 70 - ((timingMs + 30) / 60) * 20;
+  }
+  // Late brace: > +30ms → 30-50 (interpolate: +30ms = 50, +80ms = 30)
+  return Math.max(30, 50 - ((timingMs - 30) / 50) * 20);
+}
+
 function calculateBodyScore(metrics: UnifiedMetrics, braking: LeadLegBraking): number {
   const loadSeq = metrics.load_sequence?.score_20_80 ?? 50;
   const separation = metrics.separation?.score_20_80 ?? 50;
   
-  // Lead leg braking score based on timing
-  let brakingScore = 50;
-  if (braking.present) {
-    const timing = braking.brace_timing_ms;
-    if (timing < -50) brakingScore = 80;
-    else if (timing < -30) brakingScore = 70;
-    else if (timing <= 30) brakingScore = 55;
-    else brakingScore = 35;
-  }
+  const brakingScore = braking.present 
+    ? calculateLeadLegBrakingScore(braking.brace_timing_ms)
+    : 50; // Default when no braking data
   
   return Math.round((loadSeq * 0.30) + (separation * 0.30) + (brakingScore * 0.40));
 }
