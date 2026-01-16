@@ -29,6 +29,7 @@ import Coaching from "./pages/Coaching";
 import FreeDiagnosticReport from "./pages/FreeDiagnosticReport";
 import SwingReport from "./pages/SwingReport";
 import ReportWireframes from "./pages/ReportWireframes";
+import MyData from "./pages/MyData";
 
 // Admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -84,6 +85,7 @@ const App = () => (
               <Route path="/coaching" element={<Coaching />} />
               <Route path="/report/:sessionId" element={<SwingReport />} />
               <Route path="/wireframes/report" element={<ReportWireframes />} />
+              <Route path="/my-data" element={<MyData />} />
 
               {/* Player Portal Routes - 4B First Dashboard */}
               <Route path="/player" element={<PlayerLayout />}>

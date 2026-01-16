@@ -1,7 +1,8 @@
-import { Check } from 'lucide-react';
+import { Check, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Product, PRODUCTS } from '@/types/analysis';
+import { Badge } from '@/components/ui/badge';
+import { Product, PRODUCTS, ASSESSMENT_3D } from '@/types/analysis';
 import { cn } from '@/lib/utils';
 
 interface ProductSelectorProps {
@@ -20,7 +21,8 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+      {/* Main Products Grid */}
+      <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-8">
         {PRODUCTS.map((product, index) => (
           <ProductCard
             key={product.id}
@@ -31,8 +33,43 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
         ))}
       </div>
 
+      {/* 3D Assessment Card */}
+      <div className="max-w-md mx-auto mb-16">
+        <Card className="relative p-6 border-2 border-yellow-500/30 bg-gradient-to-br from-yellow-500/5 to-orange-500/5">
+          <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold">
+            IN-PERSON
+          </Badge>
+          
+          <div className="text-center mb-4 pt-2">
+            <h3 className="text-xl font-bold mb-1">{ASSESSMENT_3D.name}</h3>
+            <p className="text-sm text-muted-foreground">Seasonal: Oct-Feb</p>
+          </div>
+
+          <ul className="space-y-2 mb-6">
+            {ASSESSMENT_3D.features.map((feature, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <Check className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />
+                <span className="text-sm">{feature}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="text-center mb-4">
+            <span className="text-3xl font-bold">${ASSESSMENT_3D.price}</span>
+          </div>
+
+          <Button 
+            variant="outline"
+            className="w-full border-yellow-500/50 hover:bg-yellow-500/10"
+            onClick={() => window.location.href = '/apply'}
+          >
+            Apply for Session
+          </Button>
+        </Card>
+      </div>
+
       {/* Social Proof */}
-      <div className="mt-16 text-center">
+      <div className="text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface border border-border">
           <span className="text-sm text-muted-foreground">
             Trusted by <span className="font-semibold text-foreground">400+</span> college commits and{' '}
@@ -67,6 +104,8 @@ interface ProductCardProps {
 }
 
 function ProductCard({ product, popular, onSelect }: ProductCardProps) {
+  const isMembership = product.id === 'complete_review';
+
   return (
     <Card 
       className={cn(
@@ -83,14 +122,26 @@ function ProductCard({ product, popular, onSelect }: ProductCardProps) {
         </div>
       )}
 
-      <div className="text-center mb-6">
-        <h3 className="text-xl font-bold mb-2">{product.name}</h3>
-        <p className="text-muted-foreground">
-          {product.swingsRequired} swing{product.swingsRequired > 1 ? 's' : ''}
-        </p>
+      <div className="text-center mb-4">
+        <h3 className="text-xl font-bold mb-1">{product.name}</h3>
+        {isMembership ? (
+          <p className="text-xs text-muted-foreground">Monthly membership</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">One-time purchase</p>
+        )}
       </div>
 
-      <ul className="space-y-3 mb-8">
+      {/* Membership Headline */}
+      {isMembership && (
+        <div className="text-center mb-4 p-3 rounded-lg bg-accent/10 border border-accent/20">
+          <p className="text-sm font-bold text-accent">YOU BRING THE DATA. WE SCORE IT.</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Your 4B Score gets stronger with every data source you connect.
+          </p>
+        </div>
+      )}
+
+      <ul className="space-y-3 mb-6">
         {product.features.map((feature, i) => (
           <li key={i} className="flex items-start gap-3">
             <Check className="h-5 w-5 text-success shrink-0 mt-0.5" />
@@ -101,6 +152,7 @@ function ProductCard({ product, popular, onSelect }: ProductCardProps) {
 
       <div className="text-center mb-6">
         <span className="text-4xl font-bold">${product.price}</span>
+        {isMembership && <span className="text-muted-foreground">/mo</span>}
       </div>
 
       <Button 
@@ -112,7 +164,7 @@ function ProductCard({ product, popular, onSelect }: ProductCardProps) {
           onSelect();
         }}
       >
-        GET STARTED
+        {isMembership ? 'JOIN NOW' : 'GET STARTED'}
       </Button>
     </Card>
   );

@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
-import { Home, MessageSquare, Dumbbell, User, LogOut } from "lucide-react";
+import { Home, MessageSquare, Dumbbell, User, LogOut, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
@@ -13,10 +13,11 @@ export function PlayerLayout() {
     navigate('/login');
   };
 
-  // 4B-first navigation: Dashboard (4B), Messages, Drills, Profile
+  // 4B-first navigation: Dashboard (4B), Data, Messages, Drills, Profile
   // Dashboard now contains all 4B performance data
   const navItems = [
     { to: '/player', icon: Home, label: 'Dashboard', end: true },
+    { to: '/player/data', icon: Database, label: 'My Data', end: false },
     { to: '/player/messages', icon: MessageSquare, label: 'Coach', end: false },
     { to: '/player/drills', icon: Dumbbell, label: 'Drills', end: false },
     { to: '/player/profile', icon: User, label: 'Profile', end: false },
