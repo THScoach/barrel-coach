@@ -16,6 +16,9 @@ export type ContractVersion = "2026-01-14";
 /** Data source identifier for analysis origin */
 export type DataSource = '2d_video' | '3d_reboot';
 
+/** Product tier for access control and feature gating */
+export type ProductTier = 'free' | 'krs' | 'membership' | 'assessment';
+
 /** Confidence level for measurements based on data source */
 export type MeasurementConfidence = 'measured' | 'estimate' | 'inferred';
 
