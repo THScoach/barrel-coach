@@ -193,6 +193,52 @@ export default function Index() {
         </div>
       </section>
 
+      {/* ===== YOUR DATA. YOUR SCORE. ===== */}
+      <section className="py-20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
+              YOUR DATA. YOUR SCORE.
+            </h2>
+            <p className="text-lg text-slate-400">
+              The more you bring, the clearer your path.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Column 1 - Start with Video */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 text-center">
+              <div className="text-5xl mb-4">📹</div>
+              <h3 className="text-xl font-bold text-white mb-3">START WITH VIDEO</h3>
+              <p className="text-slate-400">
+                Upload any swing video. Get your <span className="text-blue-400 font-semibold">BODY</span> and{' '}
+                <span className="text-purple-400 font-semibold">BRAIN</span> scores instantly.
+              </p>
+            </div>
+
+            {/* Column 2 - Add Your Sensors */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 text-center">
+              <div className="text-5xl mb-4">🦇</div>
+              <h3 className="text-xl font-bold text-white mb-3">ADD YOUR SENSORS</h3>
+              <p className="text-slate-400">
+                Connect Diamond Kinetics or upload Hittrax data. Unlock{' '}
+                <span className="text-orange-400 font-semibold">BAT</span> and{' '}
+                <span className="text-green-400 font-semibold">BALL</span> scores.
+              </p>
+            </div>
+
+            {/* Column 3 - Complete Your 4B */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 text-center">
+              <div className="text-5xl mb-4">🎯</div>
+              <h3 className="text-xl font-bold text-white mb-3">COMPLETE YOUR 4B</h3>
+              <p className="text-slate-400">
+                The more data you bring, the clearer your path to catching barrels.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ===== WHAT YOU GET ===== */}
       <section className="py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">

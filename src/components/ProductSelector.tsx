@@ -34,7 +34,7 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
       </div>
 
       {/* 3D Assessment Card */}
-      <div className="max-w-md mx-auto mb-16">
+      <div className="max-w-md mx-auto mb-10">
         <Card className="relative p-6 border-2 border-yellow-500/30 bg-gradient-to-br from-yellow-500/5 to-orange-500/5">
           <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold">
             IN-PERSON
@@ -45,7 +45,7 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
             <p className="text-sm text-muted-foreground">Seasonal: Oct-Feb</p>
           </div>
 
-          <ul className="space-y-2 mb-6">
+          <ul className="space-y-2 mb-4">
             {ASSESSMENT_3D.features.map((feature, i) => (
               <li key={i} className="flex items-start gap-2">
                 <Check className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />
@@ -53,6 +53,10 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
               </li>
             ))}
           </ul>
+
+          <p className="text-xs text-muted-foreground text-center mb-4 border-t border-yellow-500/20 pt-3">
+            Perfect for: {ASSESSMENT_3D.perfectFor}
+          </p>
 
           <div className="text-center mb-4">
             <span className="text-3xl font-bold">${ASSESSMENT_3D.price}</span>
@@ -66,6 +70,17 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
             Apply for Session
           </Button>
         </Card>
+      </div>
+
+      {/* Not Sure Note */}
+      <div className="text-center mb-12">
+        <p className="text-slate-400 text-sm">
+          Not sure which to pick?{' '}
+          <a href="/diagnostic" className="text-red-400 hover:text-red-300 font-medium underline">
+            Start with the FREE diagnostic
+          </a>
+          . See your first leak in 60 seconds.
+        </p>
       </div>
 
       {/* Social Proof */}
@@ -141,7 +156,7 @@ function ProductCard({ product, popular, onSelect }: ProductCardProps) {
         </div>
       )}
 
-      <ul className="space-y-3 mb-6">
+      <ul className="space-y-3 mb-4">
         {product.features.map((feature, i) => (
           <li key={i} className="flex items-start gap-3">
             <Check className="h-5 w-5 text-success shrink-0 mt-0.5" />
@@ -149,6 +164,12 @@ function ProductCard({ product, popular, onSelect }: ProductCardProps) {
           </li>
         ))}
       </ul>
+
+      {product.perfectFor && (
+        <p className="text-xs text-muted-foreground text-center mb-4 border-t border-border pt-3">
+          Perfect for: {product.perfectFor}
+        </p>
+      )}
 
       <div className="text-center mb-6">
         <span className="text-4xl font-bold">${product.price}</span>
