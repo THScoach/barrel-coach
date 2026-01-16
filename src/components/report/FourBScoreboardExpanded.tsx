@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { cn } from '@/lib/utils';
 import { 
   TrendingUp, TrendingDown, Minus, ChevronDown, 
@@ -16,6 +17,22 @@ import type {
   MetricValue 
 } from '@/lib/unified-metrics-types';
 import { FREEMAN_BENCHMARKS } from '@/lib/unified-metrics-types';
+
+// ============================================================================
+// INFO TOOLTIP CONTENT
+// ============================================================================
+const TOOLTIPS = {
+  fourBAnalysis: "Your 4B Score measures four parts of your swing: Body (how you move), Brain (your timing), Bat (how you deliver), Ball (your results).",
+  body: "Body score measures how well you create and transfer energy from the ground up. Higher = more efficient movement.",
+  brain: "Brain score measures your timing and rhythm. It's about WHEN things happen, not how hard you swing.",
+  bat: "Bat score measures how you deliver the barrel to the ball. Requires Diamond Kinetics sensor data.",
+  ball: "Ball score measures what actually happens when you make contact. Requires batted ball data (Hittrax, Rapsodo, etc).",
+  loadSequence: "Time between your hips moving forward and shoulders starting to rotate. Positive = good (hips lead).",
+  separation: "The gap between hip and shoulder rotation at front foot strike. More separation = more stored energy.",
+  leadLegBraking: "When your front leg firms up relative to hip peak. Negative = early (good). Positive = late (leak).",
+  tempo: "Ratio of load time to launch time. Elite is 2:1 to 3:1. Too high = rushing.",
+  syncScore: "How well your body segments fire in sequence. Higher = smoother energy transfer.",
+};
 
 // ============================================================================
 // TYPES
@@ -130,11 +147,14 @@ function DeltaBadge({ delta }: { delta?: number }) {
   );
 }
 
-function MetricDetail({ label, metric }: { label: string; metric?: MetricValue }) {
+function MetricDetail({ label, metric, tooltip }: { label: string; metric?: MetricValue; tooltip?: string }) {
   if (!metric) {
     return (
       <div className="flex items-center justify-between py-1.5 px-2 bg-slate-800/40 rounded">
-        <span className="text-xs text-slate-500">{label}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-slate-500">{label}</span>
+          {tooltip && <InfoTooltip content={tooltip} />}
+        </div>
         <span className="text-sm text-slate-600">--</span>
       </div>
     );
@@ -142,7 +162,10 @@ function MetricDetail({ label, metric }: { label: string; metric?: MetricValue }
 
   return (
     <div className="flex items-center justify-between py-1.5 px-2 bg-slate-800/40 rounded">
-      <span className="text-xs text-slate-400">{label}</span>
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-slate-400">{label}</span>
+        {tooltip && <InfoTooltip content={tooltip} />}
+      </div>
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-500">{metric.raw}</span>
         <Badge 
@@ -166,7 +189,10 @@ function LeadLegDetail({ braking }: { braking: LeadLegBraking }) {
   if (!braking.present) {
     return (
       <div className="flex items-center justify-between py-1.5 px-2 bg-slate-800/40 rounded">
-        <span className="text-xs text-slate-500">Lead Leg Braking</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-slate-500">Lead Leg Braking</span>
+          <InfoTooltip content={TOOLTIPS.leadLegBraking} />
+        </div>
         <span className="text-sm text-slate-600">--</span>
       </div>
     );
@@ -178,7 +204,10 @@ function LeadLegDetail({ braking }: { braking: LeadLegBraking }) {
   
   return (
     <div className="flex items-center justify-between py-1.5 px-2 bg-slate-800/40 rounded">
-      <span className="text-xs text-slate-400">Lead Leg Braking</span>
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-slate-400">Lead Leg Braking</span>
+        <InfoTooltip content={TOOLTIPS.leadLegBraking} />
+      </div>
       <div className="flex items-center gap-2">
         <span className={cn(
           "text-xs",
@@ -240,12 +269,13 @@ interface ScoreRowProps {
   delta?: number;
   isExpanded: boolean;
   onToggle: () => void;
+  tooltip?: string;
   children?: React.ReactNode;
 }
 
 function ScoreRow({ 
   label, score, icon, color, bgColor, delta, 
-  isExpanded, onToggle, children 
+  isExpanded, onToggle, tooltip, children 
 }: ScoreRowProps) {
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggle}>
@@ -257,6 +287,7 @@ function ScoreRow({
                 {icon}
               </div>
               <span className="text-sm font-medium text-slate-200">{label}</span>
+              {tooltip && <InfoTooltip content={tooltip} />}
             </div>
             <div className="flex items-center gap-2">
               <span className={cn("text-xl font-bold tabular-nums", getScoreColor(score))}>
@@ -317,9 +348,12 @@ export function FourBScoreboardExpanded({
     <Card className={cn("bg-slate-900 border-slate-800", className)}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wide">
-            4B Analysis
-          </CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wide">
+              4B Analysis
+            </CardTitle>
+            <InfoTooltip content={TOOLTIPS.fourBAnalysis} />
+          </div>
           <Badge 
             variant="outline" 
             className={cn(
@@ -374,9 +408,10 @@ export function FourBScoreboardExpanded({
             delta={deltas?.body}
             isExpanded={expanded === 'body'}
             onToggle={() => toggleExpand('body')}
+            tooltip={TOOLTIPS.body}
           >
-            <MetricDetail label="Load Sequence" metric={unifiedMetrics.load_sequence} />
-            <MetricDetail label="Separation" metric={unifiedMetrics.separation} />
+            <MetricDetail label="Load Sequence" metric={unifiedMetrics.load_sequence} tooltip={TOOLTIPS.loadSequence} />
+            <MetricDetail label="Separation" metric={unifiedMetrics.separation} tooltip={TOOLTIPS.separation} />
             <LeadLegDetail braking={leadLegBraking} />
             <FreemanComparisonDetail comparison={freemanComparison} />
           </ScoreRow>
@@ -391,9 +426,10 @@ export function FourBScoreboardExpanded({
             delta={deltas?.brain}
             isExpanded={expanded === 'brain'}
             onToggle={() => toggleExpand('brain')}
+            tooltip={TOOLTIPS.brain}
           >
-            <MetricDetail label="Tempo" metric={unifiedMetrics.tempo} />
-            <MetricDetail label="Sync Score" metric={unifiedMetrics.sync_score} />
+            <MetricDetail label="Tempo" metric={unifiedMetrics.tempo} tooltip={TOOLTIPS.tempo} />
+            <MetricDetail label="Sync Score" metric={unifiedMetrics.sync_score} tooltip={TOOLTIPS.syncScore} />
           </ScoreRow>
 
           {/* BAT */}
@@ -406,6 +442,7 @@ export function FourBScoreboardExpanded({
             delta={deltas?.bat}
             isExpanded={expanded === 'bat'}
             onToggle={() => toggleExpand('bat')}
+            tooltip={TOOLTIPS.bat}
           >
             <div className="py-1.5 px-2 bg-slate-800/40 rounded">
               <span className="text-xs text-slate-500">Bat speed, hand speed, energy transfer metrics</span>
@@ -422,6 +459,7 @@ export function FourBScoreboardExpanded({
             delta={deltas?.ball}
             isExpanded={expanded === 'ball'}
             onToggle={() => toggleExpand('ball')}
+            tooltip={TOOLTIPS.ball}
           >
             <div className="py-1.5 px-2 bg-slate-800/40 rounded">
               <span className="text-xs text-slate-500">Exit velo, launch angle, distance metrics</span>
