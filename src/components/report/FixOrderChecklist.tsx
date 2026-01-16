@@ -1,7 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { FixOrderItem } from '@/lib/report-types';
 import { CheckCircle2, Circle, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const FIX_ORDER_TOOLTIP = "Do these in order. Don't skip ahead. The foundation has to be solid before you build on top.";
 
 interface FixOrderChecklistProps {
   items: FixOrderItem[];
@@ -12,8 +15,9 @@ export function FixOrderChecklist({ items, doNotChase }: FixOrderChecklistProps)
   return (
     <Card className="bg-slate-900 border-slate-800">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wide">
+        <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wide flex items-center gap-2">
           Fix Order (Do These In Order)
+          <InfoTooltip content={FIX_ORDER_TOOLTIP} />
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

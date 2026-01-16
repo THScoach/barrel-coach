@@ -1,6 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { PrimaryLeakProps } from '@/lib/report-types';
 import { AlertCircle } from 'lucide-react';
+
+const LEAK_TOOLTIP = "Your primary leak is the ONE thing costing you the most power right now. Fix this first.";
 
 interface LeakCardProps {
   leak: PrimaryLeakProps;
@@ -16,6 +19,7 @@ export function LeakCard({ leak }: LeakCardProps) {
         <CardTitle className="text-sm font-medium text-red-400 uppercase tracking-wide flex items-center gap-2">
           <AlertCircle className="h-4 w-4" />
           Primary Leak
+          <InfoTooltip content={LEAK_TOOLTIP} />
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

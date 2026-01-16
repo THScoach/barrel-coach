@@ -1,9 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Sparkles, CheckCircle2 } from "lucide-react";
 import type { MotorProfile, MotorProfileType, ViewerTier } from "@/lib/unified-metrics-types";
 import { cn } from "@/lib/utils";
+
+const MOTOR_PROFILE_TOOLTIP = "Your Motor Profile is your natural movement signature. We don't change it — we optimize it.";
 
 interface MotorProfileCardProps {
   profile: MotorProfile;
@@ -61,6 +64,7 @@ export function MotorProfileCard({ profile, viewerTier, className }: MotorProfil
           <CardTitle className="flex items-center gap-2 text-slate-200">
             <Sparkles className="h-5 w-5 text-purple-400" />
             Motor Profile
+            <InfoTooltip content={MOTOR_PROFILE_TOOLTIP} />
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -93,6 +97,7 @@ export function MotorProfileCard({ profile, viewerTier, className }: MotorProfil
           <CardTitle className="flex items-center gap-2 text-slate-200">
             <Sparkles className="h-5 w-5 text-purple-400" />
             Motor Profile
+            <InfoTooltip content={MOTOR_PROFILE_TOOLTIP} />
           </CardTitle>
           <Badge 
             variant="outline" 
