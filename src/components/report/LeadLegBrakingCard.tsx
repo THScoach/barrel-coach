@@ -18,61 +18,66 @@ interface LeadLegBrakingCardProps {
   className?: string;
 }
 
-const braceStatusConfig: Record<BraceStatus, { 
+// Status thresholds: <-30ms = Elite, -30 to +30ms = Borderline, >+30ms = Late
+function getBraceStatus(timingMs: number): { 
   label: string; 
   color: string; 
   bgColor: string;
   icon: typeof CheckCircle2;
-}> = {
-  early_brace: { 
-    label: 'Elite', 
-    color: 'text-emerald-400', 
-    bgColor: 'bg-emerald-500/20',
-    icon: CheckCircle2 
-  },
-  on_time: { 
-    label: 'On Time', 
-    color: 'text-yellow-400', 
-    bgColor: 'bg-yellow-500/20',
-    icon: TrendingUp 
-  },
-  late_brace: { 
-    label: 'Late', 
-    color: 'text-red-400', 
-    bgColor: 'bg-red-500/20',
-    icon: AlertTriangle 
-  },
-};
+} {
+  if (timingMs < -30) {
+    return { 
+      label: 'ELITE BRACE', 
+      color: 'text-emerald-400', 
+      bgColor: 'bg-emerald-500/20',
+      icon: CheckCircle2 
+    };
+  } else if (timingMs <= 30) {
+    return { 
+      label: 'BORDERLINE', 
+      color: 'text-yellow-400', 
+      bgColor: 'bg-yellow-500/20',
+      icon: TrendingUp 
+    };
+  } else {
+    return { 
+      label: 'LATE BRACE', 
+      color: 'text-red-400', 
+      bgColor: 'bg-red-500/20',
+      icon: AlertTriangle 
+    };
+  }
+}
 
 function TimingTimeline({ timingMs }: { timingMs: number }) {
   // Map -100ms to +100ms onto 0-100%
   const position = ((timingMs + 100) / 200) * 100;
-  const clampedPosition = Math.max(0, Math.min(100, position));
+  const clampedPosition = Math.max(2, Math.min(98, position));
   
   return (
     <div className="space-y-2">
-      <div className="relative h-3 bg-slate-800 rounded-full overflow-hidden">
-        {/* Gradient zones */}
+      <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden">
+        {/* Zone gradients: Elite (<-30), Borderline (-30 to +30), Late (>+30) */}
         <div className="absolute inset-0 flex">
-          <div className="w-1/4 bg-emerald-500/30" /> {/* -100 to -50: Elite */}
-          <div className="w-1/4 bg-yellow-500/20" />  {/* -50 to 0: Good */}
-          <div className="w-1/4 bg-orange-500/20" />  {/* 0 to +50: Borderline */}
-          <div className="w-1/4 bg-red-500/20" />     {/* +50 to +100: Late */}
+          <div className="flex-[35] bg-emerald-500/25" />  {/* -100 to -30: Elite zone */}
+          <div className="flex-[30] bg-yellow-500/20" />   {/* -30 to +30: Borderline zone */}
+          <div className="flex-[35] bg-red-500/20" />      {/* +30 to +100: Late zone */}
         </div>
-        {/* Center line (hip peak = 0ms) */}
-        <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-slate-600 -translate-x-1/2" />
-        {/* Player marker */}
+        {/* Hip peak marker at center (0ms) */}
+        <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/40 -translate-x-1/2" />
+        <div className="absolute left-1/2 -top-0.5 -translate-x-1/2 text-[8px] text-slate-400">▼</div>
+        {/* Player's brace timing marker */}
         <div 
-          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg border-2 border-cyan-400"
+          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg border-2 border-cyan-400 z-10"
           style={{ left: `${clampedPosition}%`, transform: 'translate(-50%, -50%)' }}
         />
       </div>
       {/* Scale labels */}
-      <div className="flex justify-between text-[10px] text-slate-500">
+      <div className="flex justify-between text-[10px] text-slate-500 px-1">
         <span>-100ms</span>
-        <span>-50ms</span>
-        <span className="text-slate-400">0 (Hip Peak)</span>
-        <span>+50ms</span>
+        <span className="text-emerald-400">-30</span>
+        <span className="text-slate-300 font-medium">0 (Hip Peak)</span>
+        <span className="text-red-400">+30</span>
         <span>+100ms</span>
       </div>
     </div>
@@ -116,8 +121,9 @@ export function LeadLegBrakingCard({ metrics, threeDPrecise, className }: LeadLe
     );
   }
 
-  const statusConfig = braceStatusConfig[metrics.brace_timing_status];
+  const statusConfig = getBraceStatus(metrics.brace_timing_ms);
   const StatusIcon = statusConfig.icon;
+  const timingDisplay = `${metrics.brace_timing_ms > 0 ? '+' : ''}${metrics.brace_timing_ms}ms`;
 
   return (
     <Card className={cn("bg-slate-900 border-slate-800", className)}>
@@ -129,16 +135,15 @@ export function LeadLegBrakingCard({ metrics, threeDPrecise, className }: LeadLe
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* Brace Timing Header */}
+        {/* Primary Brace Timing Display */}
         <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-2">
-            <span className={cn("text-3xl font-bold tabular-nums", statusConfig.color)}>
-              {metrics.brace_timing_ms > 0 ? '+' : ''}{metrics.brace_timing_ms}
+          <div className="flex items-baseline gap-1">
+            <span className={cn("text-4xl font-bold tabular-nums tracking-tight", statusConfig.color)}>
+              {timingDisplay}
             </span>
-            <span className="text-sm text-slate-400">ms</span>
           </div>
-          <Badge className={cn("border-0 gap-1", statusConfig.bgColor, statusConfig.color)}>
-            <StatusIcon className="h-3 w-3" />
+          <Badge className={cn("border-0 gap-1.5 text-xs font-semibold uppercase tracking-wide", statusConfig.bgColor, statusConfig.color)}>
+            <StatusIcon className="h-3.5 w-3.5" />
             {statusConfig.label}
           </Badge>
         </div>
