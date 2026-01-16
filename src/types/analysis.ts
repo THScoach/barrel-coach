@@ -120,14 +120,14 @@ export interface AnalysisState {
 export const PRODUCTS: Product[] = [
   {
     id: 'single_swing',
-    name: 'KRS Assessment',
+    name: 'KRS Report',
     price: 37,
     swingsRequired: 1,
     swingsMaxAllowed: 15,
     features: [
-      'Full KRS 4B Report',
-      'AI-powered explanation',
-      'Starter drills included',
+      'One swing. One report. See your first leak.',
+      'Full 4B Score breakdown',
+      'Primary drill recommendation',
       'PDF report emailed'
     ]
   },
@@ -138,14 +138,31 @@ export const PRODUCTS: Product[] = [
     swingsRequired: 1,
     swingsMaxAllowed: 15,
     features: [
-      'Everything in KRS Assessment',
-      'Weekly Monday night calls',
-      'My Swing Lab access',
-      'Rick AI for instant answers',
-      'Monthly retests'
+      'Unlimited swing uploads',
+      'BODY + BRAIN scores from video',
+      'Connect Diamond Kinetics → unlock BAT score',
+      'Upload Hittrax/Rapsodo → unlock BALL score',
+      'Upload Reboot Motion → upgrade to 3D precision',
+      'Session history & progress tracking',
+      'Weekly live calls with Coach Rick',
+      'Rick AI chat for drill questions'
     ]
   }
 ];
+
+// Third product for 3D Assessment (used in pricing displays)
+export const ASSESSMENT_3D = {
+  id: '3d_assessment',
+  name: '3D Assessment',
+  price: 299,
+  features: [
+    'Includes full Reboot Motion capture',
+    'Motor Profile CONFIRMED (not just a hint)',
+    '1-hour video review with Coach Rick',
+    'Full 4B Report with 3D precision',
+    'Personalized drill program'
+  ]
+};
 
 export const LEVELS: { value: PlayerLevel; label: string }[] = [
   { value: 'youth', label: 'Youth (12U)' },

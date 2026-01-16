@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -14,7 +15,11 @@ import {
   MessageCircle,
   Video,
   Loader2,
-  LayoutDashboard
+  LayoutDashboard,
+  Database,
+  CheckCircle2,
+  Lock,
+  ArrowRight
 } from "lucide-react";
 import { PlayerScoresSection } from "@/components/player/PlayerScoresSection";
 import { VideoAnalyzerTab } from "@/components/video-analyzer";
@@ -129,22 +134,26 @@ export default function PlayerData() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="scorecard" className="flex items-center gap-2">
-            <LayoutDashboard className="h-4 w-4" />
-            4B Card
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="scorecard" className="flex items-center gap-1 text-xs">
+            <LayoutDashboard className="h-3 w-3" />
+            <span className="hidden sm:inline">4B Card</span>
           </TabsTrigger>
-          <TabsTrigger value="scores" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Trends
+          <TabsTrigger value="sources" className="flex items-center gap-1 text-xs">
+            <Database className="h-3 w-3" />
+            <span className="hidden sm:inline">Sources</span>
           </TabsTrigger>
-          <TabsTrigger value="sessions" className="flex items-center gap-2">
-            <Activity className="h-4 w-4" />
-            Sessions
+          <TabsTrigger value="scores" className="flex items-center gap-1 text-xs">
+            <TrendingUp className="h-3 w-3" />
+            <span className="hidden sm:inline">Trends</span>
           </TabsTrigger>
-          <TabsTrigger value="video" className="flex items-center gap-2">
-            <Video className="h-4 w-4" />
-            Video
+          <TabsTrigger value="sessions" className="flex items-center gap-1 text-xs">
+            <Activity className="h-3 w-3" />
+            <span className="hidden sm:inline">Sessions</span>
+          </TabsTrigger>
+          <TabsTrigger value="video" className="flex items-center gap-1 text-xs">
+            <Video className="h-3 w-3" />
+            <span className="hidden sm:inline">Video</span>
           </TabsTrigger>
         </TabsList>
 
@@ -178,6 +187,10 @@ export default function PlayerData() {
           )}
         </TabsContent>
 
+        {/* Data Sources Tab */}
+        <TabsContent value="sources" className="mt-4">
+          <DataSourcesSection onUploadData={() => setUploadModalOpen(true)} />
+        </TabsContent>
         <TabsContent value="scores" className="mt-4">
           {playerId ? (
             <PlayerScoresSection 
@@ -267,6 +280,171 @@ export default function PlayerData() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+// ===== Data Sources Section Component =====
+interface DataSource {
+  id: string;
+  name: string;
+  icon: string;
+  status: 'connected' | 'available';
+  statusText: string;
+  description: string;
+  buttonText: string;
+  metrics?: string[];
+  badge?: string;
+}
+
+const dataSources: DataSource[] = [
+  {
+    id: 'video',
+    name: 'VIDEO ANALYSIS',
+    icon: '📹',
+    status: 'connected',
+    statusText: 'Connected',
+    description: 'Powers your BODY and BRAIN scores',
+    buttonText: 'Upload Video',
+  },
+  {
+    id: 'diamond-kinetics',
+    name: 'DIAMOND KINETICS',
+    icon: '🦇',
+    status: 'available',
+    statusText: 'Connect DK Account',
+    description: 'Powers your BAT score with real sensor data',
+    buttonText: 'Connect Diamond Kinetics',
+    metrics: ['Bat Speed', 'Attack Angle', 'Hand Speed'],
+  },
+  {
+    id: 'batted-ball',
+    name: 'BATTED BALL DATA',
+    icon: '⚾',
+    status: 'available',
+    statusText: 'Upload Data',
+    description: 'Powers your BALL score with real outcomes',
+    buttonText: 'Upload Batted Ball Data',
+    metrics: ['Exit Velo', 'Launch Angle', 'Distance'],
+  },
+  {
+    id: 'reboot',
+    name: 'REBOOT MOTION',
+    icon: '🎯',
+    status: 'available',
+    statusText: 'Upload 3D Capture',
+    description: 'Upgrades BODY and BRAIN to precise 3D measurement',
+    buttonText: 'Upload Reboot File',
+    badge: 'PRO',
+  },
+];
+
+const dataCoverage = [
+  { score: 'BODY', percentage: 75, source: 'video', color: 'bg-blue-500' },
+  { score: 'BRAIN', percentage: 75, source: 'video', color: 'bg-purple-500' },
+  { score: 'BAT', percentage: 0, source: 'no DK connected', color: 'bg-orange-500' },
+  { score: 'BALL', percentage: 0, source: 'no batted ball data', color: 'bg-green-500' },
+];
+
+function DataSourcesSection({ onUploadData }: { onUploadData: () => void }) {
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h2 className="text-xl font-bold text-white mb-2">MY DATA SOURCES</h2>
+        <p className="text-sm text-muted-foreground">
+          The more data you connect, the stronger your 4B Score becomes.
+        </p>
+      </div>
+
+      {/* Data Source Cards */}
+      <div className="grid sm:grid-cols-2 gap-4">
+        {dataSources.map((source) => (
+          <Card key={source.id} className="relative bg-slate-900/50 border-slate-700 p-4">
+            {source.badge && (
+              <Badge className="absolute top-3 right-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-black text-xs">
+                {source.badge}
+              </Badge>
+            )}
+
+            <div className="flex items-start gap-3 mb-3">
+              <div className="text-2xl">{source.icon}</div>
+              <div className="flex-1">
+                <h3 className="font-bold text-white text-sm">{source.name}</h3>
+                <div className="flex items-center gap-1 mt-0.5">
+                  {source.status === 'connected' ? (
+                    <>
+                      <CheckCircle2 className="w-3 h-3 text-green-500" />
+                      <span className="text-xs text-green-500">{source.statusText}</span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-slate-400">{source.statusText}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-400 mb-3">{source.description}</p>
+
+            {source.id === 'batted-ball' && source.status !== 'connected' && (
+              <p className="text-[10px] text-slate-500 mb-3">
+                Accepts: Hittrax, Rapsodo, Trackman CSV
+              </p>
+            )}
+
+            <Button 
+              size="sm"
+              className={`w-full text-xs ${
+                source.status === 'connected' 
+                  ? 'bg-green-600 hover:bg-green-700' 
+                  : 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700'
+              }`}
+              onClick={source.id === 'video' || source.id === 'batted-ball' ? onUploadData : undefined}
+            >
+              {source.status === 'connected' ? (
+                <>
+                  <Upload className="w-3 h-3 mr-1" />
+                  Upload More
+                </>
+              ) : (
+                source.buttonText
+              )}
+            </Button>
+          </Card>
+        ))}
+      </div>
+
+      {/* Coverage Section */}
+      <Card className="bg-slate-900/50 border-slate-700 p-4">
+        <h3 className="font-bold text-white text-sm mb-4 text-center">YOUR 4B DATA COVERAGE</h3>
+        
+        <div className="space-y-3">
+          {dataCoverage.map((item) => (
+            <div key={item.score} className="space-y-1">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-white">{item.score}</span>
+                <span className="text-slate-400">
+                  {item.percentage}% ({item.source})
+                </span>
+              </div>
+              <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full ${item.color} transition-all duration-500`}
+                  style={{ width: `${item.percentage}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 text-center">
+          <p className="text-xs text-slate-400 flex items-center justify-center gap-1">
+            <ArrowRight className="w-3 h-3 text-orange-400" />
+            <span className="text-orange-400 font-medium">Connect Diamond Kinetics</span>
+            <span>to complete your BAT score</span>
+          </p>
+        </div>
+      </Card>
     </div>
   );
 }
