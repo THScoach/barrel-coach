@@ -7,11 +7,25 @@
 // Core Type Definitions
 // ============================================================================
 
-/** Grade labels for 20-80 scouting scale */
-export type GradeLabel = 'Well Below' | 'Below Avg' | 'Average' | 'Above Avg' | 'Plus' | 'Elite';
+/** Data source for metrics */
+export type DataSource = '2d_video' | '3d_reboot';
 
-/** Grade values on 20-80 scale */
-export type Grade = '20' | '30' | '40' | '50' | '60' | '70' | '80';
+/** Product tier for access control */
+export type ProductTier = 'free' | 'krs' | 'membership' | 'assessment';
+
+/** Grade values on 20-80 scouting scale (with half grades) */
+export type Grade = '20' | '30' | '40' | '45' | '50' | '55' | '60' | '65' | '70' | '80';
+
+/** Grade labels for 20-80 scouting scale */
+export type GradeLabel = 
+  | 'Well Below' 
+  | 'Below Average' 
+  | 'Fringe' 
+  | 'Average' 
+  | 'Above Average' 
+  | 'Plus' 
+  | 'Plus Plus' 
+  | 'Elite';
 
 /** Comparison status against benchmarks */
 export type ComparisonStatus = 'similar' | 'above' | 'below' | 'room_to_grow';
@@ -83,8 +97,10 @@ export interface BrainMetrics {
   separation: MetricValue;
   /** Overall synchronization score */
   sync_score: MetricValue;
-  /** Optional composite brain score 0-100 */
-  brain_score?: number;
+  /** Optional brain score as MetricValue */
+  brain_score?: MetricValue;
+  /** Composite brain score combining all brain metrics */
+  composite: MetricValue;
   
   /** Benchmark comparisons for each metric */
   benchmarks: {
@@ -118,11 +134,13 @@ export interface MotorProfile {
 
 /**
  * Lead leg braking mechanics - front leg data
+ * Negative brace_timing_ms = early brace (good, before hip peak)
+ * Positive brace_timing_ms = late brace (needs work, after hip peak)
  */
 export interface LeadLegBrakingMetrics {
   /** Whether lead leg metrics are available */
   present: boolean;
-  /** Brace timing in ms - negative = early (good) */
+  /** Brace timing in ms - negative = early (good), positive = late (bad) */
   brace_timing_ms: number;
   /** Brace timing classification */
   brace_timing_status: BraceStatus;
@@ -176,28 +194,35 @@ export interface BodyMetrics {
 /**
  * Convert a raw value to 20-80 scouting scale
  * @param value - Raw numeric value
- * @param min - Minimum value (maps to 20)
- * @param max - Maximum value (maps to 80)
+ * @param min - Minimum value (maps to 20, or 80 if inverted)
+ * @param max - Maximum value (maps to 80, or 20 if inverted)
+ * @param inverted - If true, lower values score higher (e.g., mechanical loss)
  * @returns Score on 20-80 scale
  */
-export function to2080Scale(value: number, min: number, max: number): number {
+export function to2080Scale(value: number, min: number, max: number, inverted: boolean = false): number {
   if (max === min) return 50; // Avoid division by zero
   const normalized = (value - min) / (max - min);
   const clamped = Math.max(0, Math.min(1, normalized));
-  return Math.round(20 + clamped * 60);
+  const score = inverted 
+    ? Math.round(80 - clamped * 60)  // Inverted: high value = low score
+    : Math.round(20 + clamped * 60); // Normal: high value = high score
+  return Math.max(20, Math.min(80, score));
 }
 
 /**
- * Get grade from 20-80 score
+ * Get grade from 20-80 score (with half grades)
  * @param score - Score on 20-80 scale
  * @returns Grade string
  */
 export function getGrade(score: number): Grade {
   if (score < 25) return '20';
   if (score < 35) return '30';
-  if (score < 45) return '40';
-  if (score < 55) return '50';
-  if (score < 65) return '60';
+  if (score < 42) return '40';
+  if (score < 48) return '45';
+  if (score < 52) return '50';
+  if (score < 58) return '55';
+  if (score < 62) return '60';
+  if (score < 68) return '65';
   if (score < 75) return '70';
   return '80';
 }
@@ -208,29 +233,33 @@ export function getGrade(score: number): Grade {
  * @returns Human-readable grade label
  */
 export function getGradeLabel(score: number): GradeLabel {
-  if (score < 30) return 'Well Below';
-  if (score < 40) return 'Below Avg';
-  if (score < 50) return 'Average';
-  if (score < 60) return 'Above Avg';
-  if (score < 70) return 'Plus';
+  if (score < 25) return 'Well Below';
+  if (score < 35) return 'Below Average';
+  if (score < 42) return 'Fringe';
+  if (score < 52) return 'Average';
+  if (score < 58) return 'Above Average';
+  if (score < 65) return 'Plus';
+  if (score < 75) return 'Plus Plus';
   return 'Elite';
 }
 
 /**
  * Create a complete MetricValue from raw inputs
- * @param rawDisplay - Display string (e.g., "+75ms", "2.1:1")
+ * @param rawDisplay - Display string (e.g., "+75ms", "2.1:1", "26°")
  * @param numericValue - Numeric value
  * @param min - Minimum value for scaling
  * @param max - Maximum value for scaling
+ * @param inverted - If true, lower values score higher
  * @returns Complete MetricValue object
  */
 export function createMetricValue(
   rawDisplay: string,
   numericValue: number,
   min: number,
-  max: number
+  max: number,
+  inverted: boolean = false
 ): MetricValue {
-  const score = to2080Scale(numericValue, min, max);
+  const score = to2080Scale(numericValue, min, max, inverted);
   return {
     raw: rawDisplay,
     value: numericValue,
@@ -238,4 +267,16 @@ export function createMetricValue(
     grade: getGrade(score),
     grade_label: getGradeLabel(score),
   };
+}
+
+/**
+ * Get brace status from timing in milliseconds
+ * Negative = early brace (good), Positive = late brace (bad)
+ * @param timingMs - Brace timing relative to hip peak
+ * @returns BraceStatus classification
+ */
+export function getBraceStatus(timingMs: number): BraceStatus {
+  if (timingMs < -30) return 'early_brace';
+  if (timingMs <= 30) return 'on_time';
+  return 'late_brace';
 }
