@@ -35,6 +35,7 @@ export interface Product {
   swingsRequired: number;
   swingsMaxAllowed: number;
   features: string[];
+  perfectFor?: string;
 }
 
 export interface PlayerInfo {
@@ -125,11 +126,12 @@ export const PRODUCTS: Product[] = [
     swingsRequired: 1,
     swingsMaxAllowed: 15,
     features: [
-      'One swing. One report. See your first leak.',
+      'One swing. One report. One truth.',
       'Full 4B Score breakdown',
       'Primary drill recommendation',
       'PDF report emailed'
-    ]
+    ],
+    perfectFor: 'First-time analysis, tryout prep, second opinion'
   },
   {
     id: 'complete_review',
@@ -146,7 +148,8 @@ export const PRODUCTS: Product[] = [
       'Session history & progress tracking',
       'Weekly live calls with Coach Rick',
       'Rick AI chat for drill questions'
-    ]
+    ],
+    perfectFor: 'Serious players training weekly, travel ball, HS varsity'
   }
 ];
 
@@ -156,12 +159,13 @@ export const ASSESSMENT_3D = {
   name: '3D Assessment',
   price: 299,
   features: [
-    'Includes full Reboot Motion capture',
+    'Full Reboot Motion capture session',
     'Motor Profile CONFIRMED (not just a hint)',
     '1-hour video review with Coach Rick',
-    'Full 4B Report with 3D precision',
-    'Personalized drill program'
-  ]
+    '90-day personalized drill program',
+    'Full 4B Report with 3D precision'
+  ],
+  perfectFor: 'College commits, pro prospects, off-season deep dive'
 };
 
 export const LEVELS: { value: PlayerLevel; label: string }[] = [
