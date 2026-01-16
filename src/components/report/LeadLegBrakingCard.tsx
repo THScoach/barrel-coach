@@ -1,20 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Footprints, CheckCircle2, AlertTriangle, Minus } from "lucide-react";
-import type { LeadLegBrakingMetrics } from "@/lib/unified-metrics-types";
+import type { LeadLegBraking } from "@/lib/unified-metrics-types";
 import { cn } from "@/lib/utils";
 
-interface ThreeDPreciseMetrics {
-  grf_peak_n?: number;
-  grf_timing_ms?: number;
-  pelvis_decel_rate?: number;
-  knee_valgus_deg?: number;
-  ankle_stiffness?: number;
-}
-
 interface LeadLegBrakingCardProps {
-  metrics: LeadLegBrakingMetrics;
-  threeDPrecise?: ThreeDPreciseMetrics;
+  braking: LeadLegBraking;
   className?: string;
 }
 
@@ -22,103 +13,98 @@ interface LeadLegBrakingCardProps {
  * Get brace status based on timing
  * Negative timing = GOOD (brace happens BEFORE hip peak)
  * Positive timing = BAD (brace happens AFTER hip peak)
- * 
- * Thresholds:
- * - ELITE BRACE: < -30ms (green) - early brace, excellent
- * - BORDERLINE: -30ms to +30ms (yellow) - acceptable range
- * - LATE BRACE: > +30ms (red) - late brace, needs work
  */
-function getBraceStatus(timingMs: number) {
+function getBraceConfig(timingMs: number) {
   if (timingMs < -30) {
     return { 
       label: 'ELITE BRACE', 
       color: 'text-emerald-400', 
       bgColor: 'bg-emerald-500/20',
-      icon: CheckCircle2 
+      Icon: CheckCircle2 
     };
   } else if (timingMs <= 30) {
     return { 
       label: 'BORDERLINE', 
       color: 'text-yellow-400', 
       bgColor: 'bg-yellow-500/20',
-      icon: Minus 
+      Icon: Minus 
     };
   } else {
     return { 
       label: 'LATE BRACE', 
       color: 'text-red-400', 
       bgColor: 'bg-red-500/20',
-      icon: AlertTriangle 
+      Icon: AlertTriangle 
     };
   }
 }
 
 function TimingTimeline({ timingMs }: { timingMs: number }) {
   // Map -100ms to +100ms onto 0-100%
-  // -100ms = 0%, 0ms = 50%, +100ms = 100%
   const position = ((timingMs + 100) / 200) * 100;
   const clampedPosition = Math.max(4, Math.min(96, position));
   
   return (
     <div className="space-y-2">
-      <div className="relative h-5 bg-slate-800 rounded-full overflow-hidden">
-        {/* Zone backgrounds: Elite (left/green) -> Borderline (center/yellow) -> Late (right/red) */}
+      <div className="relative h-6 bg-slate-800 rounded-full overflow-hidden">
+        {/* Color zones: Elite -> Good -> Borderline -> Late */}
         <div className="absolute inset-0 flex">
-          <div className="flex-[35] bg-emerald-500/25" />  {/* -100 to -30: Elite zone */}
-          <div className="flex-[30] bg-yellow-500/15" />   {/* -30 to +30: Borderline zone */}
-          <div className="flex-[35] bg-red-500/20" />      {/* +30 to +100: Late zone */}
+          <div className="flex-[25] bg-emerald-500/30" />   {/* -100 to -50: Elite */}
+          <div className="flex-[10] bg-emerald-500/15" />   {/* -50 to -30: Good */}
+          <div className="flex-[30] bg-yellow-500/15" />    {/* -30 to +30: Borderline */}
+          <div className="flex-[35] bg-red-500/20" />       {/* +30 to +100: Late */}
         </div>
         
-        {/* Hip peak marker at center (0ms) - the reference point */}
-        <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/50 -translate-x-1/2 z-10" />
+        {/* Hip peak marker at center (0ms) */}
+        <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/60 -translate-x-1/2 z-10" />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+          <div className="w-2 h-2 bg-white rounded-full shadow" />
+        </div>
         
         {/* Player's brace timing dot */}
         <div 
-          className="absolute top-1/2 w-4 h-4 bg-white rounded-full shadow-lg border-2 border-cyan-400 z-20"
+          className="absolute top-1/2 w-4 h-4 bg-cyan-400 rounded-full shadow-lg border-2 border-white z-20 transition-all"
           style={{ left: `${clampedPosition}%`, transform: 'translate(-50%, -50%)' }}
         />
       </div>
       
       {/* Scale labels */}
-      <div className="flex justify-between text-[10px] px-0.5">
-        <span className="text-emerald-400">-100ms</span>
-        <span className="text-emerald-400/70">-30</span>
-        <span className="text-slate-300 font-medium">0 (Hip Peak)</span>
-        <span className="text-red-400/70">+30</span>
+      <div className="flex justify-between text-[10px] px-1">
+        <span className="text-emerald-400 font-medium">-100ms</span>
+        <span className="text-emerald-400/70">-50</span>
+        <span className="text-yellow-400/70">-30</span>
+        <span className="text-slate-300 font-semibold">0</span>
+        <span className="text-orange-400/70">+30</span>
         <span className="text-red-400">+100ms</span>
       </div>
       
       {/* Direction labels */}
       <div className="flex justify-between text-[9px] text-slate-500 px-1">
-        <span>← Early (Good)</span>
-        <span>Late (Bad) →</span>
+        <span className="text-emerald-500">← Early (Good)</span>
+        <span className="text-slate-600">Hip Peak</span>
+        <span className="text-red-500">Late (Bad) →</span>
       </div>
     </div>
   );
 }
 
 function MetricCell({ label, value, unit }: { label: string; value?: number; unit: string }) {
-  if (value === undefined) {
-    return (
-      <div className="bg-slate-800/50 rounded-lg p-3 text-center">
-        <div className="text-xs text-slate-500 uppercase tracking-wide">{label}</div>
-        <div className="text-lg text-slate-600">—</div>
-      </div>
-    );
-  }
-  
   return (
-    <div className="bg-slate-800/50 rounded-lg p-3 text-center">
-      <div className="text-xs text-slate-500 uppercase tracking-wide">{label}</div>
-      <div className="text-lg font-bold text-slate-200 tabular-nums">
-        {value.toFixed(1)}<span className="text-xs text-slate-400 ml-0.5">{unit}</span>
-      </div>
+    <div className="bg-slate-800/50 rounded-lg p-2.5 text-center">
+      <div className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">{label}</div>
+      {value !== undefined ? (
+        <div className="text-lg font-bold text-slate-200 tabular-nums">
+          {value.toFixed(1)}<span className="text-xs text-slate-500 ml-0.5">{unit}</span>
+        </div>
+      ) : (
+        <div className="text-lg text-slate-600">—</div>
+      )}
     </div>
   );
 }
 
-export function LeadLegBrakingCard({ metrics, threeDPrecise, className }: LeadLegBrakingCardProps) {
-  if (!metrics.present) {
+export function LeadLegBrakingCard({ braking, className }: LeadLegBrakingCardProps) {
+  if (!braking.present) {
     return (
       <Card className={cn("bg-slate-900 border-slate-800", className)}>
         <CardHeader className="pb-2">
@@ -134,109 +120,58 @@ export function LeadLegBrakingCard({ metrics, threeDPrecise, className }: LeadLe
     );
   }
 
-  const statusConfig = getBraceStatus(metrics.brace_timing_ms);
-  const StatusIcon = statusConfig.icon;
-  const timingDisplay = `${metrics.brace_timing_ms > 0 ? '+' : ''}${metrics.brace_timing_ms}ms`;
+  const config = getBraceConfig(braking.brace_timing_ms);
+  const timingDisplay = `${braking.brace_timing_ms > 0 ? '+' : ''}${braking.brace_timing_ms}ms`;
 
   return (
     <Card className={cn("bg-slate-900 border-slate-800", className)}>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-slate-200">
-          <Footprints className="h-5 w-5 text-cyan-400" />
-          Lead Leg Braking
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-slate-200">
+            <Footprints className="h-5 w-5 text-cyan-400" />
+            Lead Leg Braking
+          </CardTitle>
+          <Badge 
+            variant="outline" 
+            className={cn(
+              "text-[10px] border-slate-700",
+              braking.confidence === 'measured' ? 'text-emerald-400' : 'text-slate-500'
+            )}
+          >
+            {braking.confidence === 'measured' ? 'Measured' : 'Estimated'}
+          </Badge>
+        </div>
       </CardHeader>
       
       <CardContent className="space-y-4">
         {/* Primary Brace Timing Display */}
         <div className="flex items-center justify-between">
-          <span className={cn("text-4xl font-bold tabular-nums tracking-tight", statusConfig.color)}>
+          <span className={cn("text-4xl font-bold tabular-nums tracking-tight", config.color)}>
             {timingDisplay}
           </span>
-          <Badge className={cn("border-0 gap-1.5 text-xs font-semibold uppercase tracking-wide", statusConfig.bgColor, statusConfig.color)}>
-            <StatusIcon className="h-3.5 w-3.5" />
-            {statusConfig.label}
+          <Badge className={cn("border-0 gap-1.5 text-xs font-semibold uppercase tracking-wide", config.bgColor, config.color)}>
+            <config.Icon className="h-3.5 w-3.5" />
+            {config.label}
           </Badge>
         </div>
 
         {/* Visual Timeline */}
-        <TimingTimeline timingMs={metrics.brace_timing_ms} />
+        <TimingTimeline timingMs={braking.brace_timing_ms} />
 
-        {/* Knee Angles Grid */}
-        <div className="grid grid-cols-3 gap-2">
-          <MetricCell 
-            label="Knee @ FFS" 
-            value={metrics.knee_angle_at_ffs} 
-            unit="°" 
-          />
-          <MetricCell 
-            label="Knee @ Contact" 
-            value={metrics.knee_angle_at_contact} 
-            unit="°" 
-          />
-          <MetricCell 
-            label="Hip Rise" 
-            value={metrics.lead_hip_rise_inches} 
-            unit="in" 
-          />
+        {/* Metrics Grid */}
+        <div className="grid grid-cols-4 gap-2">
+          <MetricCell label="Knee @ FFS" value={braking.knee_angle_at_ffs} unit="°" />
+          <MetricCell label="Knee @ Contact" value={braking.knee_angle_at_contact} unit="°" />
+          <MetricCell label="Extension" value={braking.knee_extension_range} unit="°" />
+          <MetricCell label="Hip Rise" value={braking.lead_hip_rise_inches} unit="in" />
         </div>
-
-        {/* Knee Extension Range */}
-        {metrics.knee_extension_range !== undefined && (
-          <div className="flex items-center justify-between text-sm bg-slate-800/30 rounded px-3 py-2">
-            <span className="text-slate-400">Knee Extension Range</span>
-            <span className="font-medium text-slate-200 tabular-nums">
-              {metrics.knee_extension_range.toFixed(1)}°
-            </span>
-          </div>
-        )}
 
         {/* Interpretation */}
-        {metrics.interpretation && (
+        {braking.interpretation && (
           <p className="text-xs text-slate-400 italic border-l-2 border-cyan-500/50 pl-3">
-            {metrics.interpretation}
+            {braking.interpretation}
           </p>
         )}
-
-        {/* 3D Precise Metrics (if available) */}
-        {threeDPrecise && (
-          <div className="space-y-2 pt-2 border-t border-slate-800">
-            <div className="text-xs text-cyan-400 uppercase tracking-wide">3D Precise</div>
-            <div className="grid grid-cols-2 gap-2">
-              {threeDPrecise.grf_peak_n !== undefined && (
-                <div className="bg-slate-800/30 rounded px-2 py-1.5 flex justify-between text-xs">
-                  <span className="text-slate-500">Peak GRF</span>
-                  <span className="text-slate-200 tabular-nums">{threeDPrecise.grf_peak_n.toFixed(0)} N</span>
-                </div>
-              )}
-              {threeDPrecise.grf_timing_ms !== undefined && (
-                <div className="bg-slate-800/30 rounded px-2 py-1.5 flex justify-between text-xs">
-                  <span className="text-slate-500">GRF Timing</span>
-                  <span className="text-slate-200 tabular-nums">{threeDPrecise.grf_timing_ms > 0 ? '+' : ''}{threeDPrecise.grf_timing_ms} ms</span>
-                </div>
-              )}
-              {threeDPrecise.pelvis_decel_rate !== undefined && (
-                <div className="bg-slate-800/30 rounded px-2 py-1.5 flex justify-between text-xs">
-                  <span className="text-slate-500">Pelvis Decel</span>
-                  <span className="text-slate-200 tabular-nums">{threeDPrecise.pelvis_decel_rate.toFixed(1)}°/s²</span>
-                </div>
-              )}
-              {threeDPrecise.knee_valgus_deg !== undefined && (
-                <div className="bg-slate-800/30 rounded px-2 py-1.5 flex justify-between text-xs">
-                  <span className="text-slate-500">Knee Valgus</span>
-                  <span className="text-slate-200 tabular-nums">{threeDPrecise.knee_valgus_deg.toFixed(1)}°</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Confidence Footer */}
-        <div className="pt-2 border-t border-slate-800 flex items-center justify-center text-xs text-slate-500">
-          <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-500">
-            {metrics.confidence === 'measured' ? 'Measured' : 'Estimated'}
-          </Badge>
-        </div>
       </CardContent>
     </Card>
   );
