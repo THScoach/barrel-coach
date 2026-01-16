@@ -184,7 +184,7 @@ export default function SwingReport() {
 
   return (
     <div className="min-h-screen bg-slate-950">
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
+      <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
         <h1 className="text-lg font-semibold text-slate-400 text-center">Swing Report</h1>
         
         {/* Always present: session header and scores */}
@@ -204,6 +204,7 @@ export default function SwingReport() {
           profile={mockUnifiedData.motor_profile} 
           viewerTier={mockUnifiedData.viewer_tier} 
         />
+        
         <ScoreboardCard scores={data.scores} />
         
         {/* Kinetic Potential - with present flag */}
