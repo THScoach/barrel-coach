@@ -4,8 +4,17 @@ import { Footprints, TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-reac
 import type { LeadLegBrakingMetrics, BraceStatus } from "@/lib/unified-metrics-types";
 import { cn } from "@/lib/utils";
 
+interface ThreeDPreciseMetrics {
+  grf_peak_n?: number;
+  grf_timing_ms?: number;
+  pelvis_decel_rate?: number;
+  knee_valgus_deg?: number;
+  ankle_stiffness?: number;
+}
+
 interface LeadLegBrakingCardProps {
   metrics: LeadLegBrakingMetrics;
+  threeDPrecise?: ThreeDPreciseMetrics;
   className?: string;
 }
 
@@ -90,7 +99,7 @@ function MetricCell({ label, value, unit }: { label: string; value?: number; uni
   );
 }
 
-export function LeadLegBrakingCard({ metrics, className }: LeadLegBrakingCardProps) {
+export function LeadLegBrakingCard({ metrics, threeDPrecise, className }: LeadLegBrakingCardProps) {
   if (!metrics.present) {
     return (
       <Card className={cn("bg-slate-900 border-slate-800", className)}>
@@ -171,6 +180,39 @@ export function LeadLegBrakingCard({ metrics, className }: LeadLegBrakingCardPro
           <p className="text-xs text-slate-400 italic border-l-2 border-cyan-500/50 pl-3">
             {metrics.interpretation}
           </p>
+        )}
+
+        {/* 3D Precise Metrics (if available) */}
+        {threeDPrecise && (
+          <div className="space-y-2 pt-2 border-t border-slate-800">
+            <div className="text-xs text-cyan-400 uppercase tracking-wide">3D Precise</div>
+            <div className="grid grid-cols-2 gap-2">
+              {threeDPrecise.grf_peak_n !== undefined && (
+                <div className="bg-slate-800/30 rounded px-2 py-1.5 flex justify-between text-xs">
+                  <span className="text-slate-500">Peak GRF</span>
+                  <span className="text-slate-200 tabular-nums">{threeDPrecise.grf_peak_n.toFixed(0)} N</span>
+                </div>
+              )}
+              {threeDPrecise.grf_timing_ms !== undefined && (
+                <div className="bg-slate-800/30 rounded px-2 py-1.5 flex justify-between text-xs">
+                  <span className="text-slate-500">GRF Timing</span>
+                  <span className="text-slate-200 tabular-nums">{threeDPrecise.grf_timing_ms > 0 ? '+' : ''}{threeDPrecise.grf_timing_ms} ms</span>
+                </div>
+              )}
+              {threeDPrecise.pelvis_decel_rate !== undefined && (
+                <div className="bg-slate-800/30 rounded px-2 py-1.5 flex justify-between text-xs">
+                  <span className="text-slate-500">Pelvis Decel</span>
+                  <span className="text-slate-200 tabular-nums">{threeDPrecise.pelvis_decel_rate.toFixed(1)}°/s²</span>
+                </div>
+              )}
+              {threeDPrecise.knee_valgus_deg !== undefined && (
+                <div className="bg-slate-800/30 rounded px-2 py-1.5 flex justify-between text-xs">
+                  <span className="text-slate-500">Knee Valgus</span>
+                  <span className="text-slate-200 tabular-nums">{threeDPrecise.knee_valgus_deg.toFixed(1)}°</span>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Confidence Footer */}
