@@ -20,6 +20,47 @@ import {
   CoachNoteCard,
   BarrelSlingCard,
 } from '@/components/report';
+import { UnifiedMetricsCard } from '@/components/report/UnifiedMetricsCard';
+import { LeadLegBrakingCard } from '@/components/report/LeadLegBrakingCard';
+import { FreemanComparisonCard } from '@/components/report/FreemanComparisonCard';
+import { MotorProfileCard } from '@/components/report/MotorProfileCard';
+import type { UnifiedMetrics, LeadLegBraking, FreemanComparison, MotorProfile, DataSource, ViewerTier } from '@/lib/unified-metrics-types';
+
+// Mock data for new unified metrics components
+const mockUnifiedData = {
+  data_source: '2d_video' as DataSource,
+  viewer_tier: 'krs' as ViewerTier,
+  unified_metrics: {
+    present: true,
+    load_sequence: { raw: '+67ms', value: 67, score_20_80: 62, grade: '60' as const, grade_label: 'Above Average' as const },
+    tempo: { raw: '2.3:1', value: 2.3, score_20_80: 58, grade: '55' as const, grade_label: 'Average' as const },
+    separation: { raw: '14°', value: 14, score_20_80: 48, grade: '50' as const, grade_label: 'Fringe' as const },
+    sync_score: { raw: '55', value: 55, score_20_80: 55, grade: '55' as const, grade_label: 'Average' as const },
+    composite: { raw: '56', value: 56, score_20_80: 56, grade: '55' as const, grade_label: 'Average' as const }
+  } as UnifiedMetrics,
+  lead_leg_braking: {
+    present: true,
+    brace_timing_ms: 15,
+    brace_timing_status: 'on_time' as const,
+    knee_angle_at_ffs: 142,
+    knee_angle_at_contact: 168,
+    knee_extension_range: 26,
+    confidence: 'estimated' as const,
+    interpretation: 'Borderline timing. Lead leg braces about the same time as hip peak.'
+  } as LeadLegBraking,
+  freeman_comparison: {
+    present: true,
+    load_sequence: { player_value: 67, player_raw: '+67ms', benchmark_value: 75, benchmark_raw: '+75ms', status: 'similar' as const },
+    tempo: { player_value: 2.3, player_raw: '2.3:1', benchmark_value: 2.1, benchmark_raw: '2.1:1', status: 'similar' as const },
+    separation: { player_value: 14, player_raw: '14°', benchmark_value: 26, benchmark_raw: '26°', status: 'room_to_grow' as const }
+  } as FreemanComparison,
+  motor_profile: {
+    present: true,
+    suggested: 'spinner' as const,
+    confidence: 'hint' as const,
+    reasoning: 'Based on your rotation-dominant load pattern.'
+  } as MotorProfile
+};
 
 // ============================================================================
 // ENV SWITCH: Toggle between mock data and real edge function
@@ -148,6 +189,21 @@ export default function SwingReport() {
         
         {/* Always present: session header and scores */}
         <ReportHeader session={data.session} />
+        
+        {/* NEW: Unified Metrics Components */}
+        <UnifiedMetricsCard 
+          metrics={mockUnifiedData.unified_metrics} 
+          dataSource={mockUnifiedData.data_source} 
+        />
+        
+        <LeadLegBrakingCard braking={mockUnifiedData.lead_leg_braking} />
+        
+        <FreemanComparisonCard comparison={mockUnifiedData.freeman_comparison} />
+        
+        <MotorProfileCard 
+          profile={mockUnifiedData.motor_profile} 
+          viewerTier={mockUnifiedData.viewer_tier} 
+        />
         <ScoreboardCard scores={data.scores} />
         
         {/* Kinetic Potential - with present flag */}
