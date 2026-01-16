@@ -146,6 +146,38 @@ export interface Unified4BScores {
   mechanical_loss_mph?: UnifiedMetric;
 }
 
+/** Metric comparison against benchmark (player vs population/pro) */
+export interface MetricComparison {
+  /** Player's numeric value */
+  player_value: number;
+  /** Player's display string (e.g., "85 mph", "42°") */
+  player_raw: string;
+  /** Benchmark numeric value */
+  benchmark_value: number;
+  /** Benchmark display string */
+  benchmark_raw: string;
+  /** Comparison status */
+  status: 'above' | 'at' | 'below' | 'elite' | 'needs_work';
+}
+
+/** Extended comparison with additional context */
+export interface MetricComparisonExtended extends MetricComparison {
+  /** Metric identifier */
+  metric_id: string;
+  /** Human-readable metric name */
+  metric_name: string;
+  /** Percentile within comparison population */
+  percentile?: number;
+  /** Delta from benchmark */
+  delta?: number;
+  /** Unit of measurement */
+  unit?: string;
+  /** Data source for this metric */
+  source?: DataSource;
+  /** Confidence level */
+  confidence?: MeasurementConfidence;
+}
+
 export interface ReportPlayer {
   name: string;
   age?: number | null;
