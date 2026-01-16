@@ -9,6 +9,49 @@
 // Contract version - update when schema changes
 export type ContractVersion = "2026-01-14";
 
+// ============================================================================
+// DATA SOURCE TYPES - Unified 2D/3D Analysis Support
+// ============================================================================
+
+/** Data source identifier for analysis origin */
+export type DataSource = '2d_video' | '3d_reboot';
+
+/** Confidence level for measurements based on data source */
+export type MeasurementConfidence = 'measured' | 'estimate' | 'inferred';
+
+/** Metadata about analysis data provenance */
+export interface AnalysisSourceMeta {
+  source: DataSource;
+  confidence: MeasurementConfidence;
+  /** Original session/upload ID from source system */
+  source_id?: string;
+  /** Timestamp of source data capture */
+  captured_at?: string;
+}
+
+/** 2D video-specific analysis metadata */
+export interface VideoAnalysisMeta {
+  source: '2d_video';
+  frame_rate?: number;
+  resolution?: { width: number; height: number };
+  camera_angle?: 'side' | 'back' | 'front' | 'high_home' | 'unknown';
+  video_url?: string;
+  thumbnail_url?: string;
+}
+
+/** 3D Reboot motion capture metadata */
+export interface RebootAnalysisMeta {
+  source: '3d_reboot';
+  /** Reboot session ID */
+  reboot_session_id?: string;
+  /** Reboot player ID */
+  reboot_player_id?: string;
+  /** Number of markers tracked */
+  marker_count?: number;
+  /** CSV file reference */
+  csp_file_url?: string;
+}
+
 export interface ReportPlayer {
   name: string;
   age?: number | null;
@@ -194,6 +237,11 @@ export interface SwingReportData {
   // Contract metadata
   contract_version: ContractVersion;
   generated_at: string;
+  
+  // Source metadata - indicates 2D or 3D origin
+  source_meta?: AnalysisSourceMeta;
+  video_meta?: VideoAnalysisMeta;
+  reboot_meta?: RebootAnalysisMeta;
   
   // Core data (always present)
   session: ReportSession;
