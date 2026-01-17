@@ -165,16 +165,41 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
         { body: { sessionId: sessionData.id } }
       );
 
+      // Step 7: Update reboot_uploads status based on analysis result
       if (analysisError) {
         console.error("Analysis error:", analysisError);
-        // Update status to failed but don't throw - video is still uploaded
-        await supabase
-          .from("video_swing_sessions")
-          .update({ status: "failed" })
-          .eq("id", sessionData.id);
+        // Update both statuses to failed
+        await Promise.all([
+          supabase
+            .from("video_swing_sessions")
+            .update({ status: "failed" })
+            .eq("id", sessionData.id),
+          supabase
+            .from("reboot_uploads")
+            .update({ 
+              processing_status: "failed", 
+              error_message: analysisError.message || "Analysis failed" 
+            })
+            .eq("player_id", playerId)
+            .eq("video_filename", selectedFile.name)
+            .eq("processing_status", "processing")
+        ]);
         
         toast.warning("Video uploaded but analysis failed. You can retry from the upload history.");
       } else {
+        // Update reboot_uploads to complete with scores from analysis
+        const scores = analysisResult?.data?.scores;
+        await supabase
+          .from("reboot_uploads")
+          .update({ 
+            processing_status: "complete",
+            composite_score: scores?.sequence_score || null,
+            completed_at: new Date().toISOString()
+          })
+          .eq("player_id", playerId)
+          .eq("video_filename", selectedFile.name)
+          .eq("processing_status", "processing");
+        
         toast.success("Video uploaded and analyzed successfully!");
       }
 
