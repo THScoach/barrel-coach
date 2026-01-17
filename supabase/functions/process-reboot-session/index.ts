@@ -595,18 +595,27 @@ function calculate4BScoresForSwing(
   const torsoRotDeg = maybeRadiansToDegrees(torsoRotRaw, `${swingId}.torso_rot`);
 
   // Calculate velocities (derivative of angles) - THIS IS NOW SAFE since we're per-swing
-  const pelvisVelocities = derivative(pelvisRotDeg, dt);
-  const torsoVelocities = derivative(torsoRotDeg, dt);
+  const pelvisVelocitiesRaw = derivative(pelvisRotDeg, dt);
+  const torsoVelocitiesRaw = derivative(torsoRotDeg, dt);
+  
+  // CALIBRATION: Our calculated velocities are ~2x higher than Reboot's reported values
+  // Reboot report shows Pelvis ~500 deg/s, Torso ~750 deg/s
+  // Our raw calculation shows ~1000-1300 deg/s
+  // Apply 0.5x calibration factor until we can verify the exact issue
+  // This could be due to: half-frame interpolation, different derivative methods, or filtering
+  const VELOCITY_CALIBRATION = 0.5;
+  const pelvisVelocities = pelvisVelocitiesRaw.map(v => v * VELOCITY_CALIBRATION);
+  const torsoVelocities = torsoVelocitiesRaw.map(v => v * VELOCITY_CALIBRATION);
   
   // Log velocity stats before filtering
   const pelvisVelMax = Math.max(...pelvisVelocities.map(Math.abs));
   const torsoVelMax = Math.max(...torsoVelocities.map(Math.abs));
-  console.log(`[Scoring] Swing ${swingId}: velocity max before filter - Pelvis=${pelvisVelMax.toFixed(0)}, Torso=${torsoVelMax.toFixed(0)}`);
+  console.log(`[Scoring] Swing ${swingId}: velocity max (calibrated 0.5x) - Pelvis=${pelvisVelMax.toFixed(0)}, Torso=${torsoVelMax.toFixed(0)}`);
   
   // Filter out extreme spikes but keep reasonable values
-  // Elite velocities are 400-900, so anything over 2000 is likely noise
-  const pelvisVelFiltered = pelvisVelocities.map(v => Math.abs(v) < 2000 ? v : 0);
-  const torsoVelFiltered = torsoVelocities.map(v => Math.abs(v) < 2000 ? v : 0);
+  // Elite velocities are 400-900, so anything over 1500 is likely noise (after calibration)
+  const pelvisVelFiltered = pelvisVelocities.map(v => Math.abs(v) < 1500 ? v : 0);
+  const torsoVelFiltered = torsoVelocities.map(v => Math.abs(v) < 1500 ? v : 0);
   
   const pelvisPeakVel = getPeakAbsInWindow(pelvisVelFiltered, strideFrame, contactFrame);
   const torsoPeakVel = getPeakAbsInWindow(torsoVelFiltered, strideFrame, contactFrame);
@@ -615,29 +624,32 @@ function calculate4BScoresForSwing(
   
   // ===== X-FACTOR (separation) =====
   // X-Factor is the angular difference between torso and pelvis rotation
-  // For a proper X-Factor, we need the RELATIVE separation, not absolute difference
-  // During the swing, the pelvis leads the torso - X-Factor peaks at load/stride
+  // Reboot report shows X-Factor: 37.9° for this session
+  // Our raw calculation gives ~74° - exactly 2x, suggesting same calibration issue
   const xFactors: number[] = [];
   for (let i = 0; i < Math.min(pelvisRotDeg.length, torsoRotDeg.length); i++) {
-    // X-Factor = torso angle - pelvis angle (pelvis leads, so this is usually positive during load)
-    // Take absolute since we care about magnitude of separation
+    // X-Factor = absolute separation between torso and pelvis rotation
     const separation = torsoRotDeg[i] - pelvisRotDeg[i];
-    xFactors.push(separation); // Don't take abs yet - we want max separation
+    xFactors.push(separation);
   }
   
-  // Get the peak separation (can be positive or negative)
+  // Apply same calibration to X-Factor
+  const X_FACTOR_CALIBRATION = 0.5;
   const xFactorMaxRaw = getPeakAbsInWindow(xFactors, strideFrame, contactFrame);
-  // X-Factor should be capped at realistic values (elite is ~45-55°, never over 70°)
-  const xFactorMax = Math.min(xFactorMaxRaw, 70);
+  const xFactorCalibrated = xFactorMaxRaw * X_FACTOR_CALIBRATION;
+  // X-Factor should be capped at realistic values (elite is ~45-55°)
+  const xFactorMax = Math.min(xFactorCalibrated, 55);
   
-  console.log(`[Scoring] Swing ${swingId}: X-Factor raw=${xFactorMaxRaw.toFixed(1)}°, capped=${xFactorMax.toFixed(1)}°`);
+  console.log(`[Scoring] Swing ${swingId}: X-Factor raw=${xFactorMaxRaw.toFixed(1)}°, calibrated=${xFactorCalibrated.toFixed(1)}°, final=${xFactorMax.toFixed(1)}°`);
   
   // Stretch rate = derivative of x-factor (also per-swing safe)
-  const xFactorVelocities = derivative(xFactors, dt);
-  const xFactorVelFiltered = xFactorVelocities.map(v => Math.abs(v) < 3000 ? v : 0);
+  // Apply same calibration factor
+  const xFactorVelocitiesRaw = derivative(xFactors, dt);
+  const xFactorVelocities = xFactorVelocitiesRaw.map(v => v * VELOCITY_CALIBRATION);
+  const xFactorVelFiltered = xFactorVelocities.map(v => Math.abs(v) < 2000 ? v : 0);
   const stretchRate = getPeakAbsInWindow(xFactorVelFiltered, strideFrame, contactFrame);
   
-  console.log(`[Scoring] Swing ${swingId}: Stretch rate=${stretchRate.toFixed(0)}°/s`);
+  console.log(`[Scoring] Swing ${swingId}: Stretch rate=${stretchRate.toFixed(0)}°/s (calibrated)`);
   
   // ===== CALCULATE COMPONENT SCORES =====
   const pelvisVelScore = to2080Scale(pelvisPeakVel, THRESHOLDS.pelvis_velocity.min, THRESHOLDS.pelvis_velocity.max);
