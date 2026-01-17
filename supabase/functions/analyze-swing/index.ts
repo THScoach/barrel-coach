@@ -51,12 +51,43 @@ Components:
 - Bat Path (30%): Direction consistency and attack angle
 
 ### BALL (20% of Composite)
-Measures: Output quality (if contact data available)
+Measures: Output quality
+
+**When actual contact data IS available** (HitTrax, Statcast, Rapsodo):
 Components:
 - Exit Velocity (40%): vs age-level benchmarks
 - Barrel Rate (30%): Sweet spot contact %
 - Hard Hit Rate (30%): 95+ mph contact %
-If no contact data, estimate from body mechanics (cap at 60).
+
+**When NO contact data is available (Reboot-only sessions):**
+Calculate KINETIC POTENTIAL - estimate exit velocity capability from body mechanics:
+
+1. Estimate exit velocity potential from Bat KE:
+   - Bat KE of 300-350J → ~80-85 mph potential
+   - Bat KE of 350-400J → ~85-90 mph potential
+   - Bat KE of 400-450J → ~90-95 mph potential
+   - Bat KE of 450-500J → ~95-100 mph potential
+   - Bat KE of 500J+ → ~100-105 mph potential
+
+2. Factor in transfer efficiency:
+   - 40%+ efficiency = full potential (no penalty)
+   - 30-40% efficiency = -5 mph from potential
+   - <30% efficiency = -10 mph from potential
+
+3. Factor in consistency (CV):
+   - CV <10% = consistent output (full score)
+   - CV 10-15% = moderate variance (-3 from score)
+   - CV >15% = high variance (-6 from score)
+
+4. Ball score from kinetic potential:
+   - 100+ mph potential = 70-80 (Elite)
+   - 95-100 mph = 60-70 (Plus)
+   - 90-95 mph = 55-60 (Above Avg)
+   - 85-90 mph = 50-55 (Average)
+   - 80-85 mph = 45-50 (Below Avg)
+   - <80 mph = 40-45 (Fringe)
+
+When no contact data, the output MUST include a kinetic_potential object:
 
 ### COMPOSITE FORMULA
 COMPOSITE = (BODY × 0.30) + (BRAIN × 0.20) + (BAT × 0.30) + (BALL × 0.20)
@@ -133,7 +164,14 @@ Return ONLY valid JSON (no markdown code blocks, no explanation before/after):
   "ball_components": {
     "exit_velo_score": 65,
     "barrel_rate": 58,
-    "hard_hit": 62
+    "hard_hit": 62,
+    "data_source": "measured" // or "estimated_from_mechanics"
+  },
+  "kinetic_potential": {  // REQUIRED when data_source is "estimated_from_mechanics"
+    "estimated_exit_velo": "88-92 mph",
+    "based_on": "Bat KE 355J + 38.9% transfer efficiency",
+    "ceiling": "With cleaner transfer (40%+), capable of 95+ mph",
+    "limiting_factor": "Transfer efficiency below 40% - energy dying before bat"
   },
   "raw_metrics": {
     "tp_ratio": 5.8,
@@ -206,7 +244,17 @@ const ANALYSIS_TOOL = {
           properties: {
             exit_velo_score: { type: "number" },
             barrel_rate: { type: "number" },
-            hard_hit: { type: "number" }
+            hard_hit: { type: "number" },
+            data_source: { type: "string", enum: ["measured", "estimated_from_mechanics"] }
+          }
+        },
+        kinetic_potential: {
+          type: "object",
+          properties: {
+            estimated_exit_velo: { type: "string" },
+            based_on: { type: "string" },
+            ceiling: { type: "string" },
+            limiting_factor: { type: "string" }
           }
         },
         raw_metrics: {
@@ -337,9 +385,13 @@ function normalizeAnalysis(raw: any): any {
     },
     ball_components: {
       exit_velo_score: clamp(raw.ball_components?.exit_velo_score || 50, 20, 80),
-      barrel_rate: clamp(raw.ball_components?.barrel_rate || 50, 20, 80),
-      hard_hit: clamp(raw.ball_components?.hard_hit || 50, 20, 80),
+      barrel_rate: raw.ball_components?.barrel_rate ?? null,
+      hard_hit: raw.ball_components?.hard_hit ?? null,
+      data_source: raw.ball_components?.data_source || "estimated_from_mechanics",
     },
+    
+    // Kinetic potential (when no contact data available)
+    kinetic_potential: raw.kinetic_potential || null,
     
     raw_metrics: {
       tp_ratio: Math.round((raw.raw_metrics?.tp_ratio || 0) * 100) / 100,
