@@ -184,9 +184,13 @@ function parseCsvToArrays(csvText: string): Record<string, number[]> {
   const lines = csvText.trim().split("\n");
   if (lines.length < 2) return {};
 
-  const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, "").toLowerCase());
+  const headers = lines[0]
+    .split(",")
+    .map((h) => h.trim().replace(/"/g, "").toLowerCase());
   const result: Record<string, number[]> = {};
-  headers.forEach((h) => { result[h] = []; });
+  headers.forEach((h) => {
+    result[h] = [];
+  });
 
   for (let i = 1; i < lines.length; i++) {
     const values = lines[i].split(",").map((v) => v.replace(/"/g, "").trim());
@@ -198,6 +202,55 @@ function parseCsvToArrays(csvText: string): Record<string, number[]> {
   }
 
   return result;
+}
+
+function getRawCsvHeaderLine(csvText: string): string {
+  return (csvText.split("\n")[0] ?? "").trim();
+}
+
+function formatSample(values: number[], count = 5): string {
+  return values
+    .slice(0, count)
+    .map((v) => (Number.isFinite(v) ? String(v) : "NaN"))
+    .join(", ");
+}
+
+function logAllKeys(label: string, keys: string[], chunkSize = 30): void {
+  const sorted = [...keys].sort();
+  console.log(`[Headers] ${label} (${sorted.length})`);
+  for (let i = 0; i < sorted.length; i += chunkSize) {
+    console.log(`[Headers] ${label} ${i}-${Math.min(i + chunkSize, sorted.length) - 1}: ${sorted
+      .slice(i, i + chunkSize)
+      .join(", ")}`);
+  }
+}
+
+type ColumnMatch = { key: string | null; values: number[] };
+
+function findColumnMeta(csvData: Record<string, number[]>, ...patterns: string[]): ColumnMatch {
+  // Exact match first
+  for (const pattern of patterns) {
+    if (csvData[pattern]) return { key: pattern, values: csvData[pattern] };
+  }
+
+  // Partial match
+  const keys = Object.keys(csvData);
+  for (const pattern of patterns) {
+    const match = keys.find((k) => k.includes(pattern));
+    if (match) return { key: match, values: csvData[match] };
+  }
+
+  return { key: null, values: [] };
+}
+
+function logColumnMatch(label: string, match: ColumnMatch): void {
+  const nonZero = match.values.filter((v) => Math.abs(v) > 1e-9).length;
+  console.log(
+    `[Match] ${label}: key=${match.key ?? "NONE"}, len=${match.values.length}, nonZero=${nonZero}, sample=[${formatSample(
+      match.values,
+      5,
+    )}]`,
+  );
 }
 
 // 20-80 scale conversion per documentation
@@ -282,17 +335,7 @@ function findPeakFrame(values: number[]): number {
 
 // Find column by trying multiple patterns
 function findColumn(csvData: Record<string, number[]>, ...patterns: string[]): number[] {
-  // Exact match first
-  for (const pattern of patterns) {
-    if (csvData[pattern]) return csvData[pattern];
-  }
-  // Partial match
-  const keys = Object.keys(csvData);
-  for (const pattern of patterns) {
-    const match = keys.find(k => k.includes(pattern));
-    if (match) return csvData[match];
-  }
-  return [];
+  return findColumnMeta(csvData, ...patterns).values;
 }
 
 // Detect frame rate from timestamp column
@@ -332,11 +375,23 @@ function detectContactFrame(
   meCsv: Record<string, number[]>,
   ikCsv: Record<string, number[]>
 ): { contactFrame: number; strideFrame: number; confidence: string } {
-  const frameCount = meCsv["rel_frame"]?.length || ikCsv["rel_frame"]?.length || 100;
-  
+  const frameCount =
+    meCsv["rel_frame"]?.length ||
+    ikCsv["rel_frame"]?.length ||
+    meCsv["frame"]?.length ||
+    ikCsv["frame"]?.length ||
+    meCsv["index"]?.length ||
+    ikCsv["index"]?.length ||
+    100;
+
+  console.log(
+    `[Contact] frameCount=${frameCount} (me rel_frame=${meCsv["rel_frame"]?.length ?? 0}, ik rel_frame=${ikCsv["rel_frame"]?.length ?? 0}, me index=${meCsv["index"]?.length ?? 0}, ik index=${ikCsv["index"]?.length ?? 0})`,
+  );
+
   // 1) Try contact_frame column if exists
   if (meCsv["contact_frame"]?.length) {
     const cf = meCsv["contact_frame"][0];
+    console.log(`[Contact] contact_frame sample=${formatSample(meCsv["contact_frame"], 5)}`);
     if (cf > 0) {
       console.log(`[Contact] Using contact_frame column: ${cf}`);
       return { contactFrame: cf, strideFrame: Math.floor(cf * 0.3), confidence: "high" };
@@ -344,27 +399,31 @@ function detectContactFrame(
   }
 
   // 2) Try bat kinetic energy peak
-  const batKE = findColumn(meCsv, "bat_kinetic_energy", "bat_ke");
-  if (batKE.length > 0) {
-    const peakFrame = findPeakFrame(batKE);
+  const batKEMatch = findColumnMeta(meCsv, "bat_kinetic_energy", "bat_ke");
+  logColumnMatch("contact.bat_kinetic_energy", batKEMatch);
+  if (batKEMatch.values.length > 0) {
+    const peakFrame = findPeakFrame(batKEMatch.values);
+    console.log(`[Contact] bat_ke peakFrame=${peakFrame}, peakValue=${(batKEMatch.values[peakFrame] || 0).toFixed(3)}`);
     if (peakFrame > frameCount * 0.2) {
       const strideFrame = Math.floor(peakFrame * 0.4);
       console.log(`[Contact] Using bat_ke peak: frame ${peakFrame}`);
       return { contactFrame: peakFrame, strideFrame, confidence: "high" };
     }
   }
-  
+
   // 3) Try total kinetic energy peak
-  const totalKE = findColumn(meCsv, "total_kinetic_energy", "total_ke");
-  if (totalKE.length > 0) {
-    const peakFrame = findPeakFrame(totalKE);
+  const totalKEMatch = findColumnMeta(meCsv, "total_kinetic_energy", "total_ke");
+  logColumnMatch("contact.total_kinetic_energy", totalKEMatch);
+  if (totalKEMatch.values.length > 0) {
+    const peakFrame = findPeakFrame(totalKEMatch.values);
+    console.log(`[Contact] total_ke peakFrame=${peakFrame}, peakValue=${(totalKEMatch.values[peakFrame] || 0).toFixed(3)}`);
     if (peakFrame > frameCount * 0.2) {
       const strideFrame = Math.floor(peakFrame * 0.4);
       console.log(`[Contact] Using total_ke peak: frame ${peakFrame}`);
       return { contactFrame: peakFrame, strideFrame, confidence: "medium" };
     }
   }
-  
+
   // 4) Fallback: 80% of frames
   const contactFrame = Math.floor(frameCount * 0.8);
   const strideFrame = Math.floor(frameCount * 0.3);
@@ -393,23 +452,48 @@ function calculate4BScores(
   ikCsv: Record<string, number[]>, 
   meCsv: Record<string, number[]>
 ): FourBScores {
-  const frameCount = ikCsv["rel_frame"]?.length || meCsv["rel_frame"]?.length || 100;
+  const frameCount =
+    ikCsv["rel_frame"]?.length ||
+    meCsv["rel_frame"]?.length ||
+    ikCsv["frame"]?.length ||
+    meCsv["frame"]?.length ||
+    ikCsv["index"]?.length ||
+    meCsv["index"]?.length ||
+    100;
   const fps = detectFrameRate(ikCsv);
   const dt = 1 / fps;
-  
-  console.log(`[Scoring] ${frameCount} frames at ${fps.toFixed(0)} fps, dt=${(dt*1000).toFixed(2)}ms`);
-  console.log(`[Scoring] IK columns: ${Object.keys(ikCsv).slice(0, 15).join(", ")}...`);
-  console.log(`[Scoring] ME columns: ${Object.keys(meCsv).slice(0, 15).join(", ")}...`);
-  
+
+  console.log(
+    `[Scoring] ${frameCount} frames at ${fps.toFixed(0)} fps, dt=${(dt * 1000).toFixed(2)}ms (ik time len=${ikCsv["time"]?.length ?? 0}, ik timestamp len=${ikCsv["timestamp"]?.length ?? 0})`,
+  );
+
+  const ikKeys = Object.keys(ikCsv);
+  const meKeys = Object.keys(meCsv);
+  logAllKeys("IK", ikKeys);
+  logAllKeys("ME", meKeys);
+
   // Detect swing window (stride → contact)
   const { contactFrame, strideFrame, confidence } = detectContactFrame(meCsv, ikCsv);
   console.log(`[Scoring] Swing window: frames ${strideFrame}-${contactFrame} (confidence: ${confidence})`);
-  
+
   // ===== MOMENTUM DATA (from ME CSV) =====
   // Per docs: lowertorso_angular_momentum_z, torso_angular_momentum_z, arms_angular_momentum_z
-  const pelvisMomentum = findColumn(meCsv, "lowertorso_angular_momentum_z", "pelvis_angular_momentum_z", "lowertorso_angmom_z");
-  const torsoMomentum = findColumn(meCsv, "torso_angular_momentum_z", "torso_angmom_z");
-  const armsMomentum = findColumn(meCsv, "arms_angular_momentum_z", "arms_angmom_z", "larm_angular_momentum_z");
+  const pelvisMomentumMatch = findColumnMeta(
+    meCsv,
+    "lowertorso_angular_momentum_z",
+    "pelvis_angular_momentum_z",
+    "lowertorso_angmom_z",
+  );
+  const torsoMomentumMatch = findColumnMeta(meCsv, "torso_angular_momentum_z", "torso_angmom_z");
+  const armsMomentumMatch = findColumnMeta(meCsv, "arms_angular_momentum_z", "arms_angmom_z", "larm_angular_momentum_z");
+
+  logColumnMatch("me.pelvis_momentum", pelvisMomentumMatch);
+  logColumnMatch("me.torso_momentum", torsoMomentumMatch);
+  logColumnMatch("me.arms_momentum", armsMomentumMatch);
+
+  const pelvisMomentum = pelvisMomentumMatch.values;
+  const torsoMomentum = torsoMomentumMatch.values;
+  const armsMomentum = armsMomentumMatch.values;
   
   const pelvisMomentumPeak = getPeakAbsInWindow(pelvisMomentum, strideFrame, contactFrame);
   const torsoMomentumPeak = getPeakAbsInWindow(torsoMomentum, strideFrame, contactFrame);
@@ -424,37 +508,64 @@ function calculate4BScores(
   console.log(`[Scoring] Momentum ratios - T/P: ${tpRatio.toFixed(2)}, A/T: ${atRatio.toFixed(2)}`);
   
   // ===== KINETIC ENERGY DATA (from ME CSV) =====
-  const batKE = findColumn(meCsv, "bat_kinetic_energy", "bat_ke");
-  const totalKE = findColumn(meCsv, "total_kinetic_energy", "total_ke");
-  
+  const batKEMatch = findColumnMeta(meCsv, "bat_kinetic_energy", "bat_ke");
+  const totalKEMatch = findColumnMeta(meCsv, "total_kinetic_energy", "total_ke");
+  logColumnMatch("me.bat_kinetic_energy", batKEMatch);
+  logColumnMatch("me.total_kinetic_energy", totalKEMatch);
+
+  const batKE = batKEMatch.values;
+  const totalKE = totalKEMatch.values;
+
   // Legs KE: sum of left and right leg if separate columns exist
-  let legsKE = findColumn(meCsv, "legs_kinetic_energy", "legs_ke");
+  let legsKE: number[] = [];
+  const legsKEMatch = findColumnMeta(meCsv, "legs_kinetic_energy", "legs_ke");
+  logColumnMatch("me.legs_kinetic_energy", legsKEMatch);
+  legsKE = legsKEMatch.values;
+
   if (legsKE.length === 0) {
-    const llegKE = findColumn(meCsv, "lleg_kinetic_energy", "lleg_ke");
-    const rlegKE = findColumn(meCsv, "rleg_kinetic_energy", "rleg_ke");
-    if (llegKE.length > 0 && rlegKE.length > 0) {
-      legsKE = llegKE.map((v, i) => v + (rlegKE[i] || 0));
+    const llegKEMatch = findColumnMeta(meCsv, "lleg_kinetic_energy", "lleg_ke");
+    const rlegKEMatch = findColumnMeta(meCsv, "rleg_kinetic_energy", "rleg_ke");
+    logColumnMatch("me.lleg_kinetic_energy", llegKEMatch);
+    logColumnMatch("me.rleg_kinetic_energy", rlegKEMatch);
+
+    if (llegKEMatch.values.length > 0 && rlegKEMatch.values.length > 0) {
+      legsKE = llegKEMatch.values.map((v, i) => v + (rlegKEMatch.values[i] || 0));
+      console.log(`[Match] me.legs_ke_summed: len=${legsKE.length}, sample=[${formatSample(legsKE, 5)}]`);
     }
   }
-  
+
   const batKEMax = getPeakAbsInWindow(batKE, strideFrame, contactFrame);
   const totalKEMax = Math.max(getPeakAbsInWindow(totalKE, strideFrame, contactFrame), 1);
   const legsKEMax = getPeakAbsInWindow(legsKE, strideFrame, contactFrame);
-  
+
   // Transfer efficiency per docs: (bat_ke / total_ke) * 100
   const transferEfficiency = totalKEMax > 1 ? (batKEMax / totalKEMax) * 100 : 0;
-  
+
   console.log(`[Scoring] KE peaks - Bat: ${batKEMax.toFixed(1)}J, Total: ${totalKEMax.toFixed(1)}J, Legs: ${legsKEMax.toFixed(1)}J`);
   console.log(`[Scoring] Transfer efficiency: ${transferEfficiency.toFixed(1)}%`);
-  
+
   // ===== VELOCITY DATA (from IK CSV - derivative of angles) =====
-  const pelvisRotRaw = findColumn(ikCsv, "pelvis_rot", "pelvisrot", "pelvis_rotation");
-  const torsoRotRaw = findColumn(ikCsv, "torso_rot", "torsorot", "torso_rotation");
+  const pelvisRotMatch = findColumnMeta(ikCsv, "pelvis_rot", "pelvisrot", "pelvis_rotation");
+  const torsoRotMatch = findColumnMeta(ikCsv, "torso_rot", "torsorot", "torso_rotation");
+  logColumnMatch("ik.pelvis_rot", pelvisRotMatch);
+  logColumnMatch("ik.torso_rot", torsoRotMatch);
+
+  const pelvisRotRaw = pelvisRotMatch.values;
+  const torsoRotRaw = torsoRotMatch.values;
   
   // Convert radians to degrees if needed
   const pelvisRotDeg = maybeRadiansToDegrees(pelvisRotRaw);
   const torsoRotDeg = maybeRadiansToDegrees(torsoRotRaw);
-  
+
+  const pelvisRawMaxAbs = pelvisRotRaw.length ? Math.max(...pelvisRotRaw.map((v) => Math.abs(v))) : 0;
+  const torsoRawMaxAbs = torsoRotRaw.length ? Math.max(...torsoRotRaw.map((v) => Math.abs(v))) : 0;
+  const pelvisDegMaxAbs = pelvisRotDeg.length ? Math.max(...pelvisRotDeg.map((v) => Math.abs(v))) : 0;
+  const torsoDegMaxAbs = torsoRotDeg.length ? Math.max(...torsoRotDeg.map((v) => Math.abs(v))) : 0;
+  console.log(
+    `[Scoring] IK angle maxAbs raw pelvis=${pelvisRawMaxAbs.toFixed(4)}, torso=${torsoRawMaxAbs.toFixed(4)} | deg pelvis=${pelvisDegMaxAbs.toFixed(2)}, torso=${torsoDegMaxAbs.toFixed(2)}`,
+  );
+  console.log(`[Scoring] IK angle samples pelvisDeg=[${formatSample(pelvisRotDeg, 5)}], torsoDeg=[${formatSample(torsoRotDeg, 5)}]`);
+
   // Calculate velocities (derivative of angles) per docs
   const pelvisVelocities = derivative(pelvisRotDeg, dt);
   const torsoVelocities = derivative(torsoRotDeg, dt);
