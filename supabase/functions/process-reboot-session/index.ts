@@ -8,6 +8,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const BASEBALL_HITTING_TYPE_ID = 1;
+const DEG = 57.29577951308232; // 180/PI
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,6 +43,7 @@ interface FourBScores {
   core_flow_score: number;
   upper_flow_score: number;
   weakest_link: string;
+  // Raw metrics
   pelvis_velocity: number;
   torso_velocity: number;
   x_factor: number;
@@ -49,6 +51,14 @@ interface FourBScores {
   transfer_efficiency: number;
   consistency_cv: number;
   consistency_grade: string;
+  // Additional metrics for display
+  pelvis_momentum: number;
+  torso_momentum: number;
+  arms_momentum: number;
+  tp_ratio: number;
+  at_ratio: number;
+  legs_ke: number;
+  stretch_rate: number;
 }
 
 interface RebootTokenResponse {
@@ -71,9 +81,7 @@ async function getRebootAccessToken(): Promise<string> {
   
   const response = await fetch(`${REBOOT_API_BASE}/oauth/token`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       username: REBOOT_USERNAME,
       password: REBOOT_PASSWORD,
@@ -95,7 +103,6 @@ async function getRebootAccessToken(): Promise<string> {
   return data.access_token;
 }
 
-// Get auth headers for Reboot API calls
 async function getRebootHeaders(): Promise<Record<string, string>> {
   const token = await getRebootAccessToken();
   return {
@@ -104,7 +111,6 @@ async function getRebootHeaders(): Promise<Record<string, string>> {
   };
 }
 
-// Verify admin user or service role
 async function verifyAdminOrService(req: Request): Promise<string | null> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
@@ -112,7 +118,6 @@ async function verifyAdminOrService(req: Request): Promise<string | null> {
   }
 
   const token = authHeader.replace("Bearer ", "");
-
   if (token === SUPABASE_SERVICE_KEY) {
     console.log("[Process] Authorized via service role key");
     return null;
@@ -123,7 +128,6 @@ async function verifyAdminOrService(req: Request): Promise<string | null> {
   });
 
   const { data: claimsData, error: claimsError } = await supabase.auth.getUser(token);
-
   if (claimsError || !claimsData?.user) {
     throw new Error("Unauthorized");
   }
@@ -136,7 +140,6 @@ async function verifyAdminOrService(req: Request): Promise<string | null> {
   return claimsData.user.id;
 }
 
-// Get download URL from Reboot API
 async function getRebootExportUrl(
   sessionId: string,
   orgPlayerId: string,
@@ -161,7 +164,6 @@ async function getRebootExportUrl(
   }
 
   const data: RebootExportResponse = await response.json();
-
   if (!data.download_urls || data.download_urls.length === 0) {
     throw new Error(`No download URL returned for ${dataType}`);
   }
@@ -169,7 +171,6 @@ async function getRebootExportUrl(
   return data.download_urls[0];
 }
 
-// Download CSV from S3
 async function downloadCsv(url: string): Promise<string> {
   const response = await fetch(url);
   if (!response.ok) {
@@ -178,17 +179,14 @@ async function downloadCsv(url: string): Promise<string> {
   return await response.text();
 }
 
-// Parse CSV to numeric arrays (column-based format matching compute-4b-from-csv)
+// Parse CSV to column-based arrays with lowercase headers
 function parseCsvToArrays(csvText: string): Record<string, number[]> {
   const lines = csvText.trim().split("\n");
   if (lines.length < 2) return {};
 
-  // Use lowercase headers for consistency
   const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, "").toLowerCase());
   const result: Record<string, number[]> = {};
-  headers.forEach((h) => {
-    result[h] = [];
-  });
+  headers.forEach((h) => { result[h] = []; });
 
   for (let i = 1; i < lines.length; i++) {
     const values = lines[i].split(",").map((v) => v.replace(/"/g, "").trim());
@@ -202,36 +200,12 @@ function parseCsvToArrays(csvText: string): Record<string, number[]> {
   return result;
 }
 
-// Check if values are in radians (small values) and convert to degrees
-function maybeRadiansToDegrees(values: number[]): number[] {
-  if (!values?.length) return [];
-  const maxAbs = Math.max(...values.map(Math.abs));
-  
-  // If peak is "small" (<8), it's likely radians
-  if (maxAbs > 0 && maxAbs < 8) {
-    const DEG = 57.29577951308232; // 180/PI
-    return values.map((v) => (v || 0) * DEG);
-  }
-  return values;
-}
-
-// Scoring thresholds for 20-80 scale
-const THRESHOLDS = {
-  pelvis_velocity: { min: 400, max: 900 },
-  torso_velocity: { min: 400, max: 900 },
-  x_factor: { min: 10, max: 45 },
-  stretch_rate: { min: 400, max: 1200 },
-  bat_ke: { min: 100, max: 600 },
-  legs_ke: { min: 100, max: 500 },
-  bat_efficiency: { min: 25, max: 65 },
-  consistency_cv: { min: 5, max: 40 },
-};
-
-function to2080Scale(value: number, min: number, max: number, invert = false): number {
+// 20-80 scale conversion per documentation
+function to2080Scale(value: number, min: number, max: number, inverted = false): number {
   let normalized = (value - min) / (max - min);
-  if (invert) normalized = 1 - normalized;
-  normalized = Math.max(0, Math.min(1, normalized));
-  return Math.round(20 + normalized * 60);
+  if (inverted) normalized = 1 - normalized;
+  normalized = Math.max(0, Math.min(1, normalized)); // clamp 0-1
+  return Math.round(20 + normalized * 60); // returns 20-80
 }
 
 function getGrade(score: number): string {
@@ -252,14 +226,7 @@ function getConsistencyGrade(cv: number): string {
   return "Poor";
 }
 
-function calculateAngularVelocity(angles: number[], dt: number = 0.008333): number[] {
-  const velocities: number[] = [];
-  for (let i = 1; i < angles.length; i++) {
-    velocities.push((angles[i] - angles[i - 1]) / dt);
-  }
-  return velocities;
-}
-
+// Stats helpers
 function mean(arr: number[]): number {
   if (arr.length === 0) return 0;
   return arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -289,8 +256,8 @@ function getPeakAbs(values: number[]): number {
 
 // Get peak absolute value within a window
 function getPeakAbsInWindow(values: number[], start: number, end: number): number {
-  const s = Math.max(0, Math.min(values.length - 1, start));
-  const e = Math.max(s, Math.min(values.length - 1, end));
+  const s = Math.max(0, start);
+  const e = Math.min(values.length - 1, end);
   let maxVal = 0;
   for (let i = s; i <= e; i++) {
     const absVal = Math.abs(values[i] || 0);
@@ -313,25 +280,13 @@ function findPeakFrame(values: number[]): number {
   return maxIdx;
 }
 
-// Detect frame rate from timestamp column
-function detectFrameRate(csvData: Record<string, number[]>): number {
-  const timestamps = csvData["timestamp"] || csvData["time"] || csvData["t"] || [];
-  if (timestamps.length >= 2) {
-    const dt = timestamps[1] - timestamps[0];
-    if (dt > 0 && dt < 1) {
-      const fps = 1 / dt;
-      console.log(`[FPS] Detected from timestamps: ${fps.toFixed(1)} fps`);
-      return fps;
-    }
-  }
-  return 300; // Default Reboot fps
-}
-
-// Find column by searching for partial matches
+// Find column by trying multiple patterns
 function findColumn(csvData: Record<string, number[]>, ...patterns: string[]): number[] {
+  // Exact match first
   for (const pattern of patterns) {
     if (csvData[pattern]) return csvData[pattern];
   }
+  // Partial match
   const keys = Object.keys(csvData);
   for (const pattern of patterns) {
     const match = keys.find(k => k.includes(pattern));
@@ -340,155 +295,246 @@ function findColumn(csvData: Record<string, number[]>, ...patterns: string[]): n
   return [];
 }
 
-// Detect contact frame using bat kinetic energy peak or other proxies
+// Detect frame rate from timestamp column
+function detectFrameRate(csvData: Record<string, number[]>): number {
+  const timestamps = csvData["timestamp"] || csvData["time"] || csvData["t"] || [];
+  if (timestamps.length >= 2) {
+    const dt = timestamps[1] - timestamps[0];
+    if (dt > 0 && dt < 1) {
+      return 1 / dt;
+    }
+  }
+  return 240; // Default Reboot fps
+}
+
+// Check if values are in radians and convert to degrees
+function maybeRadiansToDegrees(values: number[]): number[] {
+  if (!values?.length) return [];
+  const maxAbs = Math.max(...values.map(Math.abs));
+  // If peak is "small" (<8), it's likely radians
+  if (maxAbs > 0 && maxAbs < 8) {
+    return values.map((v) => (v || 0) * DEG);
+  }
+  return values;
+}
+
+// Calculate derivative (velocity from position)
+function derivative(values: number[], dt: number): number[] {
+  const result: number[] = [];
+  for (let i = 1; i < values.length; i++) {
+    result.push((values[i] - values[i - 1]) / dt);
+  }
+  return result;
+}
+
+// Detect contact frame per documentation priority
 function detectContactFrame(
   meCsv: Record<string, number[]>,
   ikCsv: Record<string, number[]>
 ): { contactFrame: number; strideFrame: number; confidence: string } {
   const frameCount = meCsv["rel_frame"]?.length || ikCsv["rel_frame"]?.length || 100;
   
-  // 1) Try bat kinetic energy peak (most reliable)
+  // 1) Try contact_frame column if exists
+  if (meCsv["contact_frame"]?.length) {
+    const cf = meCsv["contact_frame"][0];
+    if (cf > 0) {
+      console.log(`[Contact] Using contact_frame column: ${cf}`);
+      return { contactFrame: cf, strideFrame: Math.floor(cf * 0.3), confidence: "high" };
+    }
+  }
+
+  // 2) Try bat kinetic energy peak
   const batKE = findColumn(meCsv, "bat_kinetic_energy", "bat_ke");
   if (batKE.length > 0) {
     const peakFrame = findPeakFrame(batKE);
-    if (peakFrame > frameCount * 0.3) {
-      const strideFrame = Math.floor(peakFrame * 0.3);
-      console.log(`[Contact] Using bat_ke peak: frame ${peakFrame}, stride: ${strideFrame}`);
+    if (peakFrame > frameCount * 0.2) {
+      const strideFrame = Math.floor(peakFrame * 0.4);
+      console.log(`[Contact] Using bat_ke peak: frame ${peakFrame}`);
       return { contactFrame: peakFrame, strideFrame, confidence: "high" };
     }
   }
   
-  // 2) Try total kinetic energy peak
+  // 3) Try total kinetic energy peak
   const totalKE = findColumn(meCsv, "total_kinetic_energy", "total_ke");
   if (totalKE.length > 0) {
     const peakFrame = findPeakFrame(totalKE);
-    if (peakFrame > frameCount * 0.3) {
-      const strideFrame = Math.floor(peakFrame * 0.3);
-      console.log(`[Contact] Using total_ke peak: frame ${peakFrame}, stride: ${strideFrame}`);
+    if (peakFrame > frameCount * 0.2) {
+      const strideFrame = Math.floor(peakFrame * 0.4);
+      console.log(`[Contact] Using total_ke peak: frame ${peakFrame}`);
       return { contactFrame: peakFrame, strideFrame, confidence: "medium" };
     }
   }
   
-  // 3) Fallback: assume swing happens in last 60% of capture
-  const contactFrame = Math.floor(frameCount * 0.7);
+  // 4) Fallback: 80% of frames
+  const contactFrame = Math.floor(frameCount * 0.8);
   const strideFrame = Math.floor(frameCount * 0.3);
-  console.log(`[Contact] Using fallback ratio: contact=${contactFrame}, stride=${strideFrame}`);
+  console.log(`[Contact] Using fallback: contact=${contactFrame}, stride=${strideFrame}`);
   return { contactFrame, strideFrame, confidence: "low" };
 }
 
-// Main 4B scoring calculation using column-based arrays WITH swing window
-function calculate4BScores(ikCsv: Record<string, number[]>, meCsv: Record<string, number[]>): FourBScores {
-  const frameCount = ikCsv["rel_frame"]?.length || ikCsv["frame"]?.length || 100;
+// SCORING THRESHOLDS per documentation
+const THRESHOLDS = {
+  // From IK - calculated velocities (deg/s)
+  pelvis_velocity: { min: 400, max: 900 },
+  torso_velocity: { min: 400, max: 900 },
+  x_factor: { min: 10, max: 45 },
+  stretch_rate: { min: 400, max: 1200 },
+  // From ME - kinetic energy (Joules)
+  bat_ke: { min: 100, max: 600 },
+  legs_ke: { min: 100, max: 500 },
+  // Efficiency (%)
+  transfer_efficiency: { min: 25, max: 65 },
+  // Consistency (lower is better)
+  consistency_cv: { min: 5, max: 40 },
+};
+
+// Main 4B scoring calculation per BARREL_COACH_SCORING_LOGIC_DOCUMENTATION
+function calculate4BScores(
+  ikCsv: Record<string, number[]>, 
+  meCsv: Record<string, number[]>
+): FourBScores {
+  const frameCount = ikCsv["rel_frame"]?.length || meCsv["rel_frame"]?.length || 100;
   const fps = detectFrameRate(ikCsv);
   const dt = 1 / fps;
   
+  console.log(`[Scoring] ${frameCount} frames at ${fps.toFixed(0)} fps, dt=${(dt*1000).toFixed(2)}ms`);
+  console.log(`[Scoring] IK columns: ${Object.keys(ikCsv).slice(0, 15).join(", ")}...`);
+  console.log(`[Scoring] ME columns: ${Object.keys(meCsv).slice(0, 15).join(", ")}...`);
+  
   // Detect swing window (stride → contact)
   const { contactFrame, strideFrame, confidence } = detectContactFrame(meCsv, ikCsv);
-  const swingWindow = contactFrame - strideFrame;
+  console.log(`[Scoring] Swing window: frames ${strideFrame}-${contactFrame} (confidence: ${confidence})`);
   
-  console.log(`[Scoring] ${frameCount} frames at ${fps} fps, swing window: ${strideFrame}-${contactFrame} (${swingWindow} frames, confidence: ${confidence})`);
+  // ===== MOMENTUM DATA (from ME CSV) =====
+  // Per docs: lowertorso_angular_momentum_z, torso_angular_momentum_z, arms_angular_momentum_z
+  const pelvisMomentum = findColumn(meCsv, "lowertorso_angular_momentum_z", "pelvis_angular_momentum_z", "lowertorso_angmom_z");
+  const torsoMomentum = findColumn(meCsv, "torso_angular_momentum_z", "torso_angmom_z");
+  const armsMomentum = findColumn(meCsv, "arms_angular_momentum_z", "arms_angmom_z", "larm_angular_momentum_z");
   
-  // Get rotation data
-  const pelvisRaw = findColumn(ikCsv, "pelvis_rot", "pelvisrot", "pelvis_rotation");
-  const torsoRaw = findColumn(ikCsv, "torso_rot", "torsorot", "torso_rotation");
+  const pelvisMomentumPeak = getPeakAbsInWindow(pelvisMomentum, strideFrame, contactFrame);
+  const torsoMomentumPeak = getPeakAbsInWindow(torsoMomentum, strideFrame, contactFrame);
+  const armsMomentumPeak = getPeakAbsInWindow(armsMomentum, strideFrame, contactFrame);
   
-  console.log(`[Scoring] Found ${pelvisRaw.length} pelvis values, ${torsoRaw.length} torso values`);
+  console.log(`[Scoring] Momentum peaks - Pelvis: ${pelvisMomentumPeak.toFixed(2)}, Torso: ${torsoMomentumPeak.toFixed(2)}, Arms: ${armsMomentumPeak.toFixed(2)} kg·m²/s`);
   
-  // Auto-convert radians to degrees if needed
-  const pelvisRotations = maybeRadiansToDegrees(pelvisRaw);
-  const torsoRotations = maybeRadiansToDegrees(torsoRaw);
+  // Calculate momentum ratios per documentation
+  const tpRatio = pelvisMomentumPeak > 0.01 ? torsoMomentumPeak / pelvisMomentumPeak : 0;
+  const atRatio = torsoMomentumPeak > 0.01 ? armsMomentumPeak / torsoMomentumPeak : 0;
   
-  console.log(`[Scoring] Pelvis range: ${Math.min(...pelvisRotations).toFixed(1)} to ${Math.max(...pelvisRotations).toFixed(1)} deg`);
+  console.log(`[Scoring] Momentum ratios - T/P: ${tpRatio.toFixed(2)}, A/T: ${atRatio.toFixed(2)}`);
   
-  // Calculate velocities (frame-to-frame)
-  const pelvisVelocities: number[] = [];
-  const torsoVelocities: number[] = [];
-  for (let i = 1; i < pelvisRotations.length; i++) {
-    pelvisVelocities.push((pelvisRotations[i] - pelvisRotations[i - 1]) / dt);
-  }
-  for (let i = 1; i < torsoRotations.length; i++) {
-    torsoVelocities.push((torsoRotations[i] - torsoRotations[i - 1]) / dt);
-  }
-  
-  // Get peak velocities WITHIN the swing window only
-  const pelvisPeakVel = getPeakAbsInWindow(pelvisVelocities, strideFrame, contactFrame);
-  const torsoPeakVel = getPeakAbsInWindow(torsoVelocities, strideFrame, contactFrame);
-  
-  console.log(`[Scoring] Pelvis peak vel: ${pelvisPeakVel.toFixed(1)} deg/s, Torso: ${torsoPeakVel.toFixed(1)} deg/s`);
-  
-  // X-Factor (separation) within swing window
-  const xFactors: number[] = [];
-  for (let i = 0; i < Math.min(pelvisRotations.length, torsoRotations.length); i++) {
-    xFactors.push(Math.abs(pelvisRotations[i] - torsoRotations[i]));
-  }
-  const xFactorMax = getPeakAbsInWindow(xFactors, strideFrame, contactFrame);
-  
-  const xFactorVelocities: number[] = [];
-  for (let i = 1; i < xFactors.length; i++) {
-    xFactorVelocities.push((xFactors[i] - xFactors[i - 1]) / dt);
-  }
-  const stretchRate = getPeakAbsInWindow(xFactorVelocities, strideFrame, contactFrame);
-  
-  console.log(`[Scoring] X-Factor max: ${xFactorMax.toFixed(1)} deg, stretch rate: ${stretchRate.toFixed(1)} deg/s`);
-  
-  // Get kinetic energy data
+  // ===== KINETIC ENERGY DATA (from ME CSV) =====
   const batKE = findColumn(meCsv, "bat_kinetic_energy", "bat_ke");
   const totalKE = findColumn(meCsv, "total_kinetic_energy", "total_ke");
-  const legsKE = findColumn(meCsv, "legs_kinetic_energy", "legs_ke");
   
-  console.log(`[Scoring] Found bat_ke: ${batKE.length} values, total_ke: ${totalKE.length}, legs_ke: ${legsKE.length}`);
+  // Legs KE: sum of left and right leg if separate columns exist
+  let legsKE = findColumn(meCsv, "legs_kinetic_energy", "legs_ke");
+  if (legsKE.length === 0) {
+    const llegKE = findColumn(meCsv, "lleg_kinetic_energy", "lleg_ke");
+    const rlegKE = findColumn(meCsv, "rleg_kinetic_energy", "rleg_ke");
+    if (llegKE.length > 0 && rlegKE.length > 0) {
+      legsKE = llegKE.map((v, i) => v + (rlegKE[i] || 0));
+    }
+  }
   
-  // Get peak KE within swing window
   const batKEMax = getPeakAbsInWindow(batKE, strideFrame, contactFrame);
   const totalKEMax = Math.max(getPeakAbsInWindow(totalKE, strideFrame, contactFrame), 1);
   const legsKEMax = getPeakAbsInWindow(legsKE, strideFrame, contactFrame);
+  
+  // Transfer efficiency per docs: (bat_ke / total_ke) * 100
   const transferEfficiency = totalKEMax > 1 ? (batKEMax / totalKEMax) * 100 : 0;
   
-  console.log(`[Scoring] Bat KE: ${batKEMax.toFixed(1)} J, Total KE: ${totalKEMax.toFixed(1)} J, Efficiency: ${transferEfficiency.toFixed(1)}%`);
+  console.log(`[Scoring] KE peaks - Bat: ${batKEMax.toFixed(1)}J, Total: ${totalKEMax.toFixed(1)}J, Legs: ${legsKEMax.toFixed(1)}J`);
+  console.log(`[Scoring] Transfer efficiency: ${transferEfficiency.toFixed(1)}%`);
   
-  // Calculate scores using thresholds
-  const pelvisScore = to2080Scale(pelvisPeakVel, THRESHOLDS.pelvis_velocity.min, THRESHOLDS.pelvis_velocity.max);
-  const torsoScore = to2080Scale(torsoPeakVel, THRESHOLDS.torso_velocity.min, THRESHOLDS.torso_velocity.max);
+  // ===== VELOCITY DATA (from IK CSV - derivative of angles) =====
+  const pelvisRotRaw = findColumn(ikCsv, "pelvis_rot", "pelvisrot", "pelvis_rotation");
+  const torsoRotRaw = findColumn(ikCsv, "torso_rot", "torsorot", "torso_rotation");
+  
+  // Convert radians to degrees if needed
+  const pelvisRotDeg = maybeRadiansToDegrees(pelvisRotRaw);
+  const torsoRotDeg = maybeRadiansToDegrees(torsoRotRaw);
+  
+  // Calculate velocities (derivative of angles) per docs
+  const pelvisVelocities = derivative(pelvisRotDeg, dt);
+  const torsoVelocities = derivative(torsoRotDeg, dt);
+  
+  // Get peak velocities within swing window
+  const pelvisPeakVel = getPeakAbsInWindow(pelvisVelocities, strideFrame, contactFrame);
+  const torsoPeakVel = getPeakAbsInWindow(torsoVelocities, strideFrame, contactFrame);
+  
+  console.log(`[Scoring] Velocities - Pelvis: ${pelvisPeakVel.toFixed(1)}°/s, Torso: ${torsoPeakVel.toFixed(1)}°/s`);
+  
+  // ===== X-FACTOR (separation) =====
+  // Per docs: x_factor = max(abs(torso_rot - pelvis_rot))
+  const xFactors: number[] = [];
+  for (let i = 0; i < Math.min(pelvisRotDeg.length, torsoRotDeg.length); i++) {
+    xFactors.push(Math.abs(torsoRotDeg[i] - pelvisRotDeg[i]));
+  }
+  const xFactorMax = getPeakAbsInWindow(xFactors, strideFrame, contactFrame);
+  
+  // Stretch rate = derivative of x-factor
+  const xFactorVelocities = derivative(xFactors, dt);
+  const stretchRate = getPeakAbsInWindow(xFactorVelocities, strideFrame, contactFrame);
+  
+  console.log(`[Scoring] X-Factor: ${xFactorMax.toFixed(1)}°, Stretch rate: ${stretchRate.toFixed(1)}°/s`);
+  
+  // ===== CALCULATE COMPONENT SCORES =====
+  
+  // GROUND FLOW: Pelvis velocity + Legs KE
+  const pelvisVelScore = to2080Scale(pelvisPeakVel, THRESHOLDS.pelvis_velocity.min, THRESHOLDS.pelvis_velocity.max);
+  const legsKEScore = to2080Scale(legsKEMax, THRESHOLDS.legs_ke.min, THRESHOLDS.legs_ke.max);
+  const groundFlowScore = Math.round((pelvisVelScore + legsKEScore) / 2);
+  
+  // CORE FLOW: Torso velocity + X-Factor + Stretch rate
+  const torsoVelScore = to2080Scale(torsoPeakVel, THRESHOLDS.torso_velocity.min, THRESHOLDS.torso_velocity.max);
   const xFactorScore = to2080Scale(xFactorMax, THRESHOLDS.x_factor.min, THRESHOLDS.x_factor.max);
-  const stretchScore = to2080Scale(stretchRate, THRESHOLDS.stretch_rate.min, THRESHOLDS.stretch_rate.max);
-  const legsScore = to2080Scale(legsKEMax, THRESHOLDS.legs_ke.min, THRESHOLDS.legs_ke.max);
-  const batKEScore = to2080Scale(batKEMax, THRESHOLDS.bat_ke.min, THRESHOLDS.bat_ke.max);
-  const efficiencyScore = to2080Scale(transferEfficiency, THRESHOLDS.bat_efficiency.min, THRESHOLDS.bat_efficiency.max);
+  const stretchRateScore = to2080Scale(stretchRate, THRESHOLDS.stretch_rate.min, THRESHOLDS.stretch_rate.max);
+  const coreFlowScore = Math.round((torsoVelScore + xFactorScore + stretchRateScore) / 3);
   
-  // Combine into flow scores
-  const groundFlowScore = Math.round((pelvisScore + legsScore) / 2);
-  const coreFlowScore = Math.round((torsoScore + xFactorScore + stretchScore) / 3);
+  // UPPER FLOW (BAT): Bat KE + Transfer efficiency
+  const batKEScore = to2080Scale(batKEMax, THRESHOLDS.bat_ke.min, THRESHOLDS.bat_ke.max);
+  const efficiencyScore = to2080Scale(transferEfficiency, THRESHOLDS.transfer_efficiency.min, THRESHOLDS.transfer_efficiency.max);
   const upperFlowScore = Math.round((batKEScore + efficiencyScore) / 2);
   
-  // Consistency (CV of velocities within swing window)
+  console.log(`[Scoring] Flow scores - Ground: ${groundFlowScore}, Core: ${coreFlowScore}, Upper: ${upperFlowScore}`);
+  
+  // ===== CONSISTENCY (BRAIN) =====
+  // Per docs: CV = (StdDev / Mean) × 100, lower is better
   const windowPelvisVel = pelvisVelocities.slice(strideFrame, contactFrame).filter(v => Math.abs(v) > 10 && Math.abs(v) < 2000);
   const windowTorsoVel = torsoVelocities.slice(strideFrame, contactFrame).filter(v => Math.abs(v) > 10 && Math.abs(v) < 2000);
+  
   const pelvisCV = windowPelvisVel.length > 2 ? coefficientOfVariation(windowPelvisVel) : 20;
   const torsoCV = windowTorsoVel.length > 2 ? coefficientOfVariation(windowTorsoVel) : 20;
   const avgCV = (pelvisCV + torsoCV) / 2;
   
-  const consistencyScore = to2080Scale(avgCV, THRESHOLDS.consistency_cv.min, THRESHOLDS.consistency_cv.max, true);
+  console.log(`[Scoring] Consistency CV: Pelvis=${pelvisCV.toFixed(1)}%, Torso=${torsoCV.toFixed(1)}%, Avg=${avgCV.toFixed(1)}%`);
+  
+  // BRAIN = consistency score (inverted - lower CV = higher score)
+  const brainScore = to2080Scale(avgCV, THRESHOLDS.consistency_cv.min, THRESHOLDS.consistency_cv.max, true);
   const consistencyGrade = getConsistencyGrade(avgCV);
   
-  // Final 4B scores
-  const brainScore = consistencyScore;
-  const bodyScore = Math.round((groundFlowScore * 0.4 + coreFlowScore * 0.6));
-  const batScore = upperFlowScore;
-  const ballScore = transferEfficiency > 0 
-    ? Math.max(20, Math.min(80, to2080Scale(transferEfficiency, 25, 65, false)))
-    : 50;
+  // BODY = (Ground Flow × 0.4) + (Core Flow × 0.6)
+  const bodyScore = Math.round(groundFlowScore * 0.4 + coreFlowScore * 0.6);
   
+  // BAT = Upper Flow
+  const batScore = upperFlowScore;
+  
+  // BALL = based on transfer efficiency (output quality)
+  const ballScore = to2080Scale(transferEfficiency, THRESHOLDS.transfer_efficiency.min, THRESHOLDS.transfer_efficiency.max);
+  
+  // COMPOSITE = (Body × 0.35) + (Bat × 0.30) + (Brain × 0.20) + (Ball × 0.15)
   const compositeScore = Math.round(
-    brainScore * 0.20 +
     bodyScore * 0.35 +
     batScore * 0.30 +
+    brainScore * 0.20 +
     ballScore * 0.15
   );
   
   const scores = { brain: brainScore, body: bodyScore, bat: batScore, ball: ballScore };
   const weakestLink = Object.entries(scores).reduce((a, b) => (a[1] < b[1] ? a : b))[0];
   
-  console.log(`[Scoring] Final: Brain=${brainScore}, Body=${bodyScore}, Bat=${batScore}, Ball=${ballScore}, Composite=${compositeScore}`);
+  console.log(`[Scoring] FINAL: Brain=${brainScore}, Body=${bodyScore}, Bat=${batScore}, Ball=${ballScore}, Composite=${compositeScore} (${getGrade(compositeScore)})`);
   
   return {
     brain_score: brainScore,
@@ -501,13 +547,22 @@ function calculate4BScores(ikCsv: Record<string, number[]>, meCsv: Record<string
     core_flow_score: coreFlowScore,
     upper_flow_score: upperFlowScore,
     weakest_link: weakestLink,
-    pelvis_velocity: Math.round(pelvisPeakVel),
-    torso_velocity: Math.round(torsoPeakVel),
-    x_factor: Math.round(xFactorMax * 10) / 10,
-    bat_ke: Math.round(batKEMax),
-    transfer_efficiency: Math.round(transferEfficiency * 10) / 10,
-    consistency_cv: Math.round(avgCV * 10) / 10,
+    // Raw metrics (capped to prevent DB overflow)
+    pelvis_velocity: Math.min(Math.round(pelvisPeakVel), 2000),
+    torso_velocity: Math.min(Math.round(torsoPeakVel), 2000),
+    x_factor: Math.min(Math.round(xFactorMax * 10) / 10, 180),
+    bat_ke: Math.min(Math.round(batKEMax), 1000),
+    transfer_efficiency: Math.min(Math.round(transferEfficiency * 10) / 10, 100),
+    consistency_cv: Math.min(Math.round(avgCV * 10) / 10, 100),
     consistency_grade: consistencyGrade,
+    // Additional metrics
+    pelvis_momentum: Math.round(pelvisMomentumPeak * 100) / 100,
+    torso_momentum: Math.round(torsoMomentumPeak * 100) / 100,
+    arms_momentum: Math.round(armsMomentumPeak * 100) / 100,
+    tp_ratio: Math.round(tpRatio * 100) / 100,
+    at_ratio: Math.round(atRatio * 100) / 100,
+    legs_ke: Math.min(Math.round(legsKEMax), 1000),
+    stretch_rate: Math.min(Math.round(stretchRate), 2000),
   };
 }
 
@@ -529,7 +584,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing session ${session_id} for player ${org_player_id}`);
+    console.log(`[Process] Processing session ${session_id} for player ${org_player_id}`);
 
     const ikUrl = await getRebootExportUrl(session_id, org_player_id, "inverse-kinematics");
     const meUrl = await getRebootExportUrl(session_id, org_player_id, "momentum-energy");
@@ -543,20 +598,7 @@ serve(async (req) => {
     const ikData = parseCsvToArrays(ikCsv);
     const meData = parseCsvToArrays(meCsv);
 
-    const rawScores = calculate4BScores(ikData, meData);
-    
-    // Clamp values to fit DB column constraints (numeric(5,2) = max 999.99, numeric(6,2) = max 9999.99)
-    const scores = {
-      ...rawScores,
-      pelvis_velocity: Math.min(rawScores.pelvis_velocity, 9999),
-      torso_velocity: Math.min(rawScores.torso_velocity, 9999),
-      consistency_cv: Math.min(rawScores.consistency_cv, 999),
-      x_factor: Math.min(rawScores.x_factor, 999),
-      bat_ke: Math.min(rawScores.bat_ke, 9999),
-      transfer_efficiency: Math.min(rawScores.transfer_efficiency, 999),
-    };
-    
-    console.log(`[Process] Clamped velocities - pelvis: ${scores.pelvis_velocity}, torso: ${scores.torso_velocity}`);
+    const scores = calculate4BScores(ikData, meData);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -572,91 +614,75 @@ serve(async (req) => {
     }
 
     if (internalPlayerId) {
-      const { data: newSession, error: sessionError } = await supabase
+      // Create reboot_sessions record
+      const { error: sessionError } = await supabase
         .from("reboot_sessions")
         .insert({
           player_id: internalPlayerId,
           reboot_session_id: session_id,
           status: "completed",
           processed_at: new Date().toISOString(),
-        })
-        .select("id")
-        .single();
+        });
 
       if (sessionError) {
         console.error("Error creating reboot session:", sessionError);
       }
 
-      // Always create/update a reboot_uploads record so it shows in Upload History
+      // Always create/update reboot_uploads so it shows in Upload History
+      const uploadData = {
+        brain_score: scores.brain_score,
+        body_score: scores.body_score,
+        bat_score: scores.bat_score,
+        composite_score: scores.composite_score,
+        grade: scores.grade,
+        ground_flow_score: scores.ground_flow_score,
+        core_flow_score: scores.core_flow_score,
+        upper_flow_score: scores.upper_flow_score,
+        weakest_link: scores.weakest_link,
+        pelvis_velocity: scores.pelvis_velocity,
+        torso_velocity: scores.torso_velocity,
+        x_factor: scores.x_factor,
+        bat_ke: scores.bat_ke,
+        transfer_efficiency: scores.transfer_efficiency,
+        consistency_cv: scores.consistency_cv,
+        consistency_grade: scores.consistency_grade,
+        processing_status: "complete",
+        completed_at: new Date().toISOString(),
+        reboot_session_id: session_id,
+      };
+
       if (upload_id) {
-        // Update existing upload record (from video upload flow)
-        const { error: uploadUpdateError } = await supabase
+        // Update existing upload record
+        const { error } = await supabase
           .from("reboot_uploads")
-          .update({
-            brain_score: scores.brain_score,
-            body_score: scores.body_score,
-            bat_score: scores.bat_score,
-            composite_score: scores.composite_score,
-            grade: scores.grade,
-            ground_flow_score: scores.ground_flow_score,
-            core_flow_score: scores.core_flow_score,
-            upper_flow_score: scores.upper_flow_score,
-            weakest_link: scores.weakest_link,
-            pelvis_velocity: scores.pelvis_velocity,
-            torso_velocity: scores.torso_velocity,
-            x_factor: scores.x_factor,
-            bat_ke: scores.bat_ke,
-            transfer_efficiency: scores.transfer_efficiency,
-            consistency_cv: scores.consistency_cv,
-            consistency_grade: scores.consistency_grade,
-            processing_status: "complete",
-            completed_at: new Date().toISOString(),
-            reboot_session_id: session_id,
-          })
+          .update(uploadData)
           .eq("id", upload_id);
 
-        if (uploadUpdateError) {
-          console.error("Error updating reboot_uploads:", uploadUpdateError);
+        if (error) {
+          console.error("Error updating reboot_uploads:", error);
         } else {
-          console.log(`[Process] Updated reboot_uploads record ${upload_id} with scores`);
+          console.log(`[Process] Updated reboot_uploads ${upload_id}`);
         }
       } else {
-        // Create new upload record for API import (so it appears in Upload History)
-        const { error: uploadInsertError } = await supabase
+        // Create new upload record for API import
+        const { error } = await supabase
           .from("reboot_uploads")
           .insert({
+            ...uploadData,
             player_id: internalPlayerId,
             session_date: new Date().toISOString().split("T")[0],
-            reboot_session_id: session_id,
             upload_source: "reboot_api",
             video_filename: `Reboot Session ${session_id.slice(0, 8)}`,
-            processing_status: "complete",
-            completed_at: new Date().toISOString(),
-            brain_score: scores.brain_score,
-            body_score: scores.body_score,
-            bat_score: scores.bat_score,
-            composite_score: scores.composite_score,
-            grade: scores.grade,
-            ground_flow_score: scores.ground_flow_score,
-            core_flow_score: scores.core_flow_score,
-            upper_flow_score: scores.upper_flow_score,
-            weakest_link: scores.weakest_link,
-            pelvis_velocity: scores.pelvis_velocity,
-            torso_velocity: scores.torso_velocity,
-            x_factor: scores.x_factor,
-            bat_ke: scores.bat_ke,
-            transfer_efficiency: scores.transfer_efficiency,
-            consistency_cv: scores.consistency_cv,
-            consistency_grade: scores.consistency_grade,
           });
 
-        if (uploadInsertError) {
-          console.error("Error inserting reboot_uploads:", uploadInsertError);
+        if (error) {
+          console.error("Error inserting reboot_uploads:", error);
         } else {
-          console.log(`[Process] Created reboot_uploads record for session ${session_id}`);
+          console.log(`[Process] Created reboot_uploads for session ${session_id}`);
         }
       }
 
+      // Update player's latest scores
       const { error: playerUpdateError } = await supabase
         .from("players")
         .update({
@@ -672,6 +698,7 @@ serve(async (req) => {
         console.error("Error updating player scores:", playerUpdateError);
       }
 
+      // Log activity
       await supabase.from("activity_log").insert({
         action: "reboot_session_processed",
         description: `4B Score: ${scores.composite_score} (${scores.grade})`,
