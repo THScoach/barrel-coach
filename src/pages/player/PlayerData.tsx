@@ -37,6 +37,10 @@ interface Session {
   four_b_body: number | null;
   four_b_bat: number | null;
   four_b_ball: number | null;
+  source?: 'session' | '2d_video';
+  analysis_type?: string;
+  leak_detected?: string;
+  grade?: string;
 }
 
 export default function PlayerData() {
@@ -97,13 +101,45 @@ export default function PlayerData() {
     setPlayerId(playerData.id);
     setPlayerName(playerData.name || '');
 
+    // Fetch traditional sessions
     const { data: sessionsData } = await supabase
       .from('sessions')
       .select('id, created_at, product_type, composite_score, four_b_brain, four_b_body, four_b_bat, four_b_ball')
       .eq('player_id', playerData.id)
       .order('created_at', { ascending: false });
 
-    setSessions(sessionsData || []);
+    // Fetch 2D video analyses from reboot_uploads
+    const { data: videoAnalysesData } = await supabase
+      .from('reboot_uploads')
+      .select('id, created_at, analysis_type, composite_score, brain_score, body_score, bat_score, grade, leak_detected, processing_status')
+      .eq('player_id', playerData.id)
+      .eq('analysis_type', '2d_video')
+      .eq('processing_status', 'complete')
+      .order('created_at', { ascending: false });
+
+    // Combine and sort all sessions
+    const combinedSessions: Session[] = [
+      ...(sessionsData || []).map(s => ({
+        ...s,
+        source: 'session' as const,
+      })),
+      ...(videoAnalysesData || []).map(v => ({
+        id: v.id,
+        created_at: v.created_at || new Date().toISOString(),
+        product_type: '2d_video',
+        composite_score: v.composite_score,
+        four_b_brain: v.brain_score,
+        four_b_body: v.body_score,
+        four_b_bat: v.bat_score,
+        four_b_ball: null,
+        source: '2d_video' as const,
+        analysis_type: v.analysis_type,
+        leak_detected: v.leak_detected,
+        grade: v.grade,
+      })),
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    setSessions(combinedSessions);
     setLoading(false);
   };
 
@@ -219,31 +255,66 @@ export default function PlayerData() {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {sessions.map(session => (
-                    <Link
-                      key={session.id}
-                      to={`/results/${session.id}`}
-                      className="flex items-center justify-between p-3 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <BarChart3 className="h-4 w-4 text-primary" />
-                        <div>
-                          <p className="font-medium text-sm text-white">Swing Analysis</p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(session.created_at!), 'MMM d, yyyy')}
-                          </p>
+                  {sessions.map(session => {
+                    const is2DVideo = session.source === '2d_video';
+                    const linkTo = is2DVideo ? `/player/data?tab=sessions&view=${session.id}` : `/results/${session.id}`;
+                    
+                    return (
+                      <div
+                        key={session.id}
+                        className="flex items-center justify-between p-3 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                        onClick={() => {
+                          if (is2DVideo) {
+                            // Show 2D analysis in a modal or expand inline
+                            toast.info("2D Video Analysis - viewing inline");
+                          } else {
+                            navigate(`/results/${session.id}`);
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          {is2DVideo ? (
+                            <Video className="h-4 w-4 text-amber-500" />
+                          ) : (
+                            <BarChart3 className="h-4 w-4 text-primary" />
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm text-white">
+                                {is2DVideo ? '2D Video Analysis' : 'Swing Analysis'}
+                              </p>
+                              {is2DVideo && session.leak_detected && session.leak_detected !== 'CLEAN_TRANSFER' && (
+                                <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-400 border-yellow-500/30">
+                                  {session.leak_detected.replace(/_/g, ' ')}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(session.created_at!), 'MMM d, yyyy')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-xs text-right text-slate-400">
+                            {session.composite_score && (
+                              <span className="font-medium text-white mr-2">{session.composite_score}</span>
+                            )}
+                            {session.grade && is2DVideo && (
+                              <span className="text-slate-500">({session.grade})</span>
+                            )}
+                            {!is2DVideo && (
+                              <>
+                                {session.four_b_brain && <span>B:{session.four_b_brain} </span>}
+                                {session.four_b_body && <span>Bo:{session.four_b_body} </span>}
+                                {session.four_b_bat && <span>Ba:{session.four_b_bat}</span>}
+                              </>
+                            )}
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-xs text-right text-slate-400">
-                          {session.four_b_brain && <span>B:{session.four_b_brain} </span>}
-                          {session.four_b_body && <span>Bo:{session.four_b_body} </span>}
-                          {session.four_b_bat && <span>Ba:{session.four_b_bat}</span>}
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
