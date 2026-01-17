@@ -77,12 +77,12 @@ export function PlayerVideoTab({ playerId, playersTableId, playerName }: PlayerV
   };
 
   const handleImportSession = async (sessionId: string) => {
-    if (!playersTableId) return;
+    if (!playersTableId || !rebootPlayerId) return;
     
     setImportingSessionId(sessionId);
     try {
       const { data, error } = await supabase.functions.invoke('process-reboot-session', {
-        body: { session_id: sessionId, player_id: playersTableId }
+        body: { session_id: sessionId, org_player_id: rebootPlayerId, player_id: playersTableId }
       });
 
       if (error) throw error;
