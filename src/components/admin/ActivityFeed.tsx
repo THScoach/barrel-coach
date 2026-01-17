@@ -186,14 +186,14 @@ export function ActivityFeed() {
               className={cn(
                 filter === btn.key 
                   ? "bg-slate-800 text-white" 
-                  : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                  : "text-slate-200 hover:text-white hover:bg-slate-800/50"
               )}
             >
               {btn.label}
             </Button>
           ))}
         </div>
-        <span className="text-sm text-slate-300">Last 7 days</span>
+        <span className="text-sm text-slate-200">Last 7 days</span>
       </div>
 
       {/* Activity List */}
@@ -237,11 +237,11 @@ export function ActivityFeed() {
                 )}>
                   {activity.playerName}
                 </p>
-                <p className="text-sm text-slate-300 truncate">{activity.description}</p>
+                <p className="text-sm text-slate-200 truncate">{activity.description}</p>
               </div>
               
               <div className="text-right shrink-0">
-                <p className="text-xs text-slate-300">
+                <p className="text-xs text-slate-200">
                   {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
                 </p>
                 {!activity.read && (
