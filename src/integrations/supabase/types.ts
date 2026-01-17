@@ -2636,18 +2636,27 @@ export type Database = {
           avg_composite: number | null
           completed_at: string | null
           completed_count: number | null
+          consistency_cv: number | null
           created_at: string | null
           failed_count: number | null
           frame_rate: number | null
           id: string
+          leak_frequency: string | null
+          location: string | null
           most_common_leak: string | null
+          motor_profile: string | null
+          notes: string | null
           player_id: string | null
+          primary_leak: string | null
+          profile_confidence: number | null
+          reboot_session_id: string | null
           session_date: string
           session_name: string | null
           session_type: string | null
           status: string | null
           swing_count: number | null
           updated_at: string | null
+          upgraded_to_3d: boolean | null
         }
         Insert: {
           avg_ball?: number | null
@@ -2657,18 +2666,27 @@ export type Database = {
           avg_composite?: number | null
           completed_at?: string | null
           completed_count?: number | null
+          consistency_cv?: number | null
           created_at?: string | null
           failed_count?: number | null
           frame_rate?: number | null
           id?: string
+          leak_frequency?: string | null
+          location?: string | null
           most_common_leak?: string | null
+          motor_profile?: string | null
+          notes?: string | null
           player_id?: string | null
+          primary_leak?: string | null
+          profile_confidence?: number | null
+          reboot_session_id?: string | null
           session_date?: string
           session_name?: string | null
           session_type?: string | null
           status?: string | null
           swing_count?: number | null
           updated_at?: string | null
+          upgraded_to_3d?: boolean | null
         }
         Update: {
           avg_ball?: number | null
@@ -2678,18 +2696,27 @@ export type Database = {
           avg_composite?: number | null
           completed_at?: string | null
           completed_count?: number | null
+          consistency_cv?: number | null
           created_at?: string | null
           failed_count?: number | null
           frame_rate?: number | null
           id?: string
+          leak_frequency?: string | null
+          location?: string | null
           most_common_leak?: string | null
+          motor_profile?: string | null
+          notes?: string | null
           player_id?: string | null
+          primary_leak?: string | null
+          profile_confidence?: number | null
+          reboot_session_id?: string | null
           session_date?: string
           session_name?: string | null
           session_type?: string | null
           status?: string | null
           swing_count?: number | null
           updated_at?: string | null
+          upgraded_to_3d?: boolean | null
         }
         Relationships: [
           {
@@ -2725,6 +2752,7 @@ export type Database = {
           leak_evidence: string | null
           motor_profile: string | null
           motor_profile_evidence: string | null
+          motor_profile_indication: string | null
           pending_3d_analysis: boolean | null
           player_id: string | null
           priority_drill: string | null
@@ -2732,6 +2760,7 @@ export type Database = {
           reboot_upload_id: string | null
           session_date: string
           swing_index: number | null
+          swing_number: number | null
           updated_at: string | null
           upgraded_to_3d_at: string | null
           upload_source: string | null
@@ -2763,6 +2792,7 @@ export type Database = {
           leak_evidence?: string | null
           motor_profile?: string | null
           motor_profile_evidence?: string | null
+          motor_profile_indication?: string | null
           pending_3d_analysis?: boolean | null
           player_id?: string | null
           priority_drill?: string | null
@@ -2770,6 +2800,7 @@ export type Database = {
           reboot_upload_id?: string | null
           session_date?: string
           swing_index?: number | null
+          swing_number?: number | null
           updated_at?: string | null
           upgraded_to_3d_at?: string | null
           upload_source?: string | null
@@ -2801,6 +2832,7 @@ export type Database = {
           leak_evidence?: string | null
           motor_profile?: string | null
           motor_profile_evidence?: string | null
+          motor_profile_indication?: string | null
           pending_3d_analysis?: boolean | null
           player_id?: string | null
           priority_drill?: string | null
@@ -2808,6 +2840,7 @@ export type Database = {
           reboot_upload_id?: string | null
           session_date?: string
           swing_index?: number | null
+          swing_number?: number | null
           updated_at?: string | null
           upgraded_to_3d_at?: string | null
           upload_source?: string | null
