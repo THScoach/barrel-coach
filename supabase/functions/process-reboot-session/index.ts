@@ -401,16 +401,47 @@ function findColumn(csvData: Record<string, number[]>, ...patterns: string[]): n
   return findColumnMeta(csvData, ...patterns).values;
 }
 
-// Detect frame rate from timestamp column
+// Robustly detect frame rate from timestamp values
+function detectFpsFromTimestamps(
+  timestamps: number[],
+  defaultFps = 240,
+): { fps: number; dtMedian: number | null; unit: "s" | "ms" | "unknown" } {
+  if (!timestamps || timestamps.length < 3) {
+    return { fps: defaultFps, dtMedian: null, unit: "unknown" };
+  }
+
+  const diffs: number[] = [];
+  for (let i = 1; i < timestamps.length; i++) {
+    const d = (timestamps[i] ?? 0) - (timestamps[i - 1] ?? 0);
+    if (Number.isFinite(d) && d > 0) diffs.push(d);
+  }
+
+  if (diffs.length < 3) {
+    return { fps: defaultFps, dtMedian: null, unit: "unknown" };
+  }
+
+  diffs.sort((a, b) => a - b);
+  let dtMedian = diffs[Math.floor(diffs.length / 2)] ?? 0;
+
+  let unit: "s" | "ms" = "s";
+  // Some exports use milliseconds (e.g., ~4.167) instead of seconds (~0.004167)
+  if (dtMedian > 1 && dtMedian < 1000) {
+    dtMedian = dtMedian / 1000;
+    unit = "ms";
+  }
+
+  const fps = dtMedian > 0 ? 1 / dtMedian : defaultFps;
+  if (!Number.isFinite(fps) || fps < 60 || fps > 400) {
+    return { fps: defaultFps, dtMedian: null, unit: "unknown" };
+  }
+
+  return { fps, dtMedian, unit };
+}
+
+// Detect frame rate from timestamp column (legacy helper)
 function detectFrameRate(csvData: Record<string, number[]>): number {
   const timestamps = csvData["timestamp"] || csvData["time"] || csvData["t"] || [];
-  if (timestamps.length >= 2) {
-    const dt = timestamps[1] - timestamps[0];
-    if (dt > 0 && dt < 1) {
-      return 1 / dt;
-    }
-  }
-  return 240; // Default Reboot fps
+  return detectFpsFromTimestamps(timestamps, 240).fps;
 }
 
 // Check if values are in radians and convert to degrees
@@ -535,18 +566,15 @@ function calculate4BScoresForSwing(
     return null;
   }
   
-  // Detect frame rate from timestamps within this swing
+  // Detect frame rate from timestamps within this swing (use median dt for stability)
   const timestamps = ikData["timestamp"] || ikData["time"] || ikData["t"] || [];
-  let fps = 240;
-  if (timestamps.length >= 2) {
-    const dt = timestamps[1] - timestamps[0];
-    if (dt > 0 && dt < 1) {
-      fps = 1 / dt;
-    }
-  }
+  const { fps, dtMedian, unit } = detectFpsFromTimestamps(timestamps, 240);
   const dt = 1 / fps;
 
-  console.log(`[Scoring] Swing ${swingId}: ${frameCount} frames at ${fps.toFixed(0)} fps`);
+  console.log(
+    `[Scoring] Swing ${swingId}: ${frameCount} frames at ${fps.toFixed(0)} fps` +
+      (dtMedian ? ` (dtMedian=${dtMedian.toFixed(6)}${unit === "ms" ? "s(ms->s)" : "s"})` : ""),
+  );
 
   // Simple contact/stride detection for single swing
   const contactFrame = Math.floor(frameCount * 0.85);
@@ -594,23 +622,22 @@ function calculate4BScoresForSwing(
   const pelvisRotDeg = maybeRadiansToDegrees(pelvisRotRaw, `${swingId}.pelvis_rot`);
   const torsoRotDeg = maybeRadiansToDegrees(torsoRotRaw, `${swingId}.torso_rot`);
 
-  // Calculate velocities (derivative of angles) - THIS IS NOW SAFE since we're per-swing
+  // Calculate velocities (derivative of angles) - safe since we're per-swing
   const pelvisVelocitiesRaw = derivative(pelvisRotDeg, dt);
   const torsoVelocitiesRaw = derivative(torsoRotDeg, dt);
-  
-  // CALIBRATION: Our calculated velocities are ~2x higher than Reboot's reported values
-  // Reboot report shows Pelvis ~500 deg/s, Torso ~750 deg/s
-  // Our raw calculation shows ~1000-1300 deg/s
-  // Apply 0.5x calibration factor until we can verify the exact issue
-  // This could be due to: half-frame interpolation, different derivative methods, or filtering
-  const VELOCITY_CALIBRATION = 0.5;
-  const pelvisVelocities = pelvisVelocitiesRaw.map(v => v * VELOCITY_CALIBRATION);
-  const torsoVelocities = torsoVelocitiesRaw.map(v => v * VELOCITY_CALIBRATION);
-  
+
+  // Calibration NOTE:
+  // Historically we applied a hardcoded 0.5x because velocities were ~2x.
+  // The root cause is typically dt/fps detection (e.g., treating 120fps data as 240fps).
+  // With median-dt fps detection above, we keep calibration at 1.0.
+  const VELOCITY_CALIBRATION = 1.0;
+  const pelvisVelocities = pelvisVelocitiesRaw.map((v) => v * VELOCITY_CALIBRATION);
+  const torsoVelocities = torsoVelocitiesRaw.map((v) => v * VELOCITY_CALIBRATION);
+
   // Log velocity stats before filtering
   const pelvisVelMax = Math.max(...pelvisVelocities.map(Math.abs));
   const torsoVelMax = Math.max(...torsoVelocities.map(Math.abs));
-  console.log(`[Scoring] Swing ${swingId}: velocity max (calibrated 0.5x) - Pelvis=${pelvisVelMax.toFixed(0)}, Torso=${torsoVelMax.toFixed(0)}`);
+  console.log(`[Scoring] Swing ${swingId}: velocity max - Pelvis=${pelvisVelMax.toFixed(0)}, Torso=${torsoVelMax.toFixed(0)}`);
   
   // Filter out extreme spikes but keep reasonable values
   // Elite velocities are 400-900, so anything over 1500 is likely noise (after calibration)
