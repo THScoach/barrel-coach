@@ -33,6 +33,9 @@ verify_jwt = false
 [functions.process-reboot-session]
 verify_jwt = false
 
+[functions.analyze-swing]
+verify_jwt = false
+
 [functions.fetch-reboot-sessions]
 verify_jwt = false
 
