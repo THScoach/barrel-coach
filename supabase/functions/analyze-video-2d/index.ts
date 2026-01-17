@@ -287,7 +287,29 @@ serve(async (req) => {
     if (player_level) contextInfo.push(`Player level: ${player_level}`);
     const contextString = contextInfo.length > 0 ? `\n\nPlayer Context:\n${contextInfo.join('\n')}` : '';
 
-    // Call Gemini Vision for video analysis
+    // Fetch video and convert to base64 for Gemini
+    console.log(`[2D Analysis] Fetching video from ${video_url}`);
+    const videoResponse = await fetch(video_url);
+    if (!videoResponse.ok) {
+      throw new Error(`Failed to fetch video: ${videoResponse.status}`);
+    }
+    
+    const videoBuffer = await videoResponse.arrayBuffer();
+    const videoBase64 = btoa(
+      new Uint8Array(videoBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+    );
+    
+    // Determine MIME type from URL or default to mp4
+    let mimeType = "video/mp4";
+    if (video_url.toLowerCase().includes('.mov')) {
+      mimeType = "video/quicktime";
+    } else if (video_url.toLowerCase().includes('.webm')) {
+      mimeType = "video/webm";
+    }
+    
+    console.log(`[2D Analysis] Video fetched, size: ${videoBuffer.byteLength} bytes, type: ${mimeType}`);
+
+    // Call Gemini Vision for video analysis with base64 data
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -307,7 +329,7 @@ serve(async (req) => {
               },
               { 
                 type: "image_url", 
-                image_url: { url: video_url } 
+                image_url: { url: `data:${mimeType};base64,${videoBase64}` } 
               }
             ]
           }
