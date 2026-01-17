@@ -523,6 +523,49 @@ ${preparedContent}`;
         })
         .eq("id", player_id);
 
+      // Create reboot_uploads record so it shows in Upload History
+      const getConsistencyGrade = (cv: number): string => {
+        if (cv <= 8) return "A";
+        if (cv <= 12) return "B";
+        if (cv <= 18) return "C";
+        if (cv <= 25) return "D";
+        return "F";
+      };
+
+      const { error: uploadError } = await supabase.from("reboot_uploads").insert({
+        player_id,
+        session_date: new Date().toISOString().split("T")[0],
+        upload_source: data_type,
+        video_filename: `AI Analysis - ${session_id || new Date().toISOString()}`,
+        processing_status: "complete",
+        completed_at: new Date().toISOString(),
+        reboot_session_id: session_id || null,
+        // Scores
+        brain_score: analysis.brain,
+        body_score: analysis.body,
+        bat_score: analysis.bat,
+        composite_score: analysis.composite,
+        grade: analysis.grade,
+        ground_flow_score: analysis.body_components?.transfer_efficiency || null,
+        core_flow_score: analysis.body_components?.stability || null,
+        upper_flow_score: analysis.bat_components?.at_ratio_score || null,
+        weakest_link: analysis.weakest_link,
+        // Raw metrics
+        pelvis_velocity: analysis.raw_metrics?.pelvis_velocity_deg_s || null,
+        torso_velocity: analysis.raw_metrics?.torso_velocity_deg_s || null,
+        x_factor: analysis.raw_metrics?.x_factor_deg || null,
+        bat_ke: analysis.raw_metrics?.bat_ke_joules || null,
+        transfer_efficiency: analysis.raw_metrics?.transfer_efficiency_pct || null,
+        consistency_cv: analysis.raw_metrics?.consistency_cv || null,
+        consistency_grade: getConsistencyGrade(analysis.raw_metrics?.consistency_cv || 15),
+      });
+
+      if (uploadError) {
+        console.error("[AI] Failed to create reboot_uploads record:", uploadError);
+      } else {
+        console.log("[AI] Created reboot_uploads record for Upload History visibility");
+      }
+
       // Log activity
       await supabase.from("activity_log").insert({
         action: "ai_swing_analysis",
