@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -10,9 +11,12 @@ import {
   Check,
   X,
   MessageCircle,
-  MapPin
+  MapPin,
+  Loader2
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // SCOREBOARD cards - ESPN style
 const scoreboardCards = [
@@ -66,6 +70,27 @@ const notForPlayers = [
 ];
 
 export default function Index() {
+  const [loadingTier, setLoadingTier] = useState<string | null>(null);
+
+  const handleSubscriptionCheckout = async (priceType: 'self_guided_pro' | 'full_coaching') => {
+    setLoadingTier(priceType);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-subscription-checkout', {
+        body: { priceType },
+      });
+      
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error('Failed to start checkout. Please try again.');
+    } finally {
+      setLoadingTier(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950">
       <Header />
@@ -393,8 +418,16 @@ export default function Index() {
                   No coaching feedback (Data only)
                 </li>
               </ul>
-              <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
-                <Link to="/coaching">Start Monthly Access</Link>
+              <Button 
+                onClick={() => handleSubscriptionCheckout('self_guided_pro')}
+                disabled={loadingTier !== null}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold"
+              >
+                {loadingTier === 'self_guided_pro' ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading...</>
+                ) : (
+                  'Start Monthly Access'
+                )}
               </Button>
             </div>
 
@@ -422,8 +455,16 @@ export default function Index() {
                   Direct chat
                 </li>
               </ul>
-              <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                <Link to="/coaching">Apply for Coaching</Link>
+              <Button 
+                onClick={() => handleSubscriptionCheckout('full_coaching')}
+                disabled={loadingTier !== null}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
+              >
+                {loadingTier === 'full_coaching' ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading...</>
+                ) : (
+                  'Apply for Coaching'
+                )}
               </Button>
             </div>
           </div>
