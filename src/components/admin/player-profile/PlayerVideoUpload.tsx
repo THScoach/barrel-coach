@@ -142,6 +142,37 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
     setErrorMessage(null);
   };
 
+  // Poll for analysis completion
+  const pollForCompletion = async (sessionId: string, maxAttempts = 30): Promise<{ status: string; analysis?: Record<string, unknown> }> => {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds between polls
+      
+      const { data, error } = await supabase
+        .from("video_2d_sessions")
+        .select("processing_status, composite_score, leak_detected, error_message, analysis_json")
+        .eq("id", sessionId)
+        .single();
+      
+      if (error) {
+        console.error("[VideoUpload] Poll error:", error);
+        continue;
+      }
+      
+      if (data.processing_status === "complete") {
+        return { status: "complete", analysis: data.analysis_json as Record<string, unknown> };
+      }
+      
+      if (data.processing_status === "failed") {
+        throw new Error(data.error_message || "Analysis failed");
+      }
+      
+      // Update progress based on attempt
+      setUploadProgress(60 + Math.min(attempt * 3, 30)); // Progress from 60% to 90%
+    }
+    
+    throw new Error("Analysis timed out - please check back later");
+  };
+
   const handleUpload = async () => {
     if (!selectedFile) {
       toast.error("Please select a video file first");
@@ -188,10 +219,11 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
 
       const videoUrl = urlData.publicUrl;
 
-      setUploadProgress(60);
+      setUploadProgress(55);
       setUploadStatus("analyzing");
+      toast.info("Starting AI analysis... This may take 30-60 seconds.");
 
-      // Step 4: Call analyze-video-2d edge function with extracted frames
+      // Step 4: Call analyze-video-2d edge function (async - returns immediately)
       const { data: analysisResult, error: analysisError } = await supabase.functions.invoke(
         "analyze-video-2d",
         { 
@@ -203,25 +235,31 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
             context: sessionType,
             frame_rate: parseInt(frameRate),
             is_paid_user: false,
-            frames: frames, // Send extracted frames instead of video URL
+            frames: frames,
           } 
         }
       );
 
-      setUploadProgress(90);
-
       if (analysisError || !analysisResult?.success) {
         console.error("2D Analysis error:", analysisError || analysisResult?.error);
-        toast.warning("Video uploaded but analysis failed. Please try again.");
+        toast.error("Failed to start analysis. Please try again.");
         setUploadStatus("error");
         setErrorMessage(analysisResult?.error || analysisError?.message || "Analysis failed");
         return;
       }
 
+      const sessionId = analysisResult.session_id;
+      console.log(`[VideoUpload] Analysis started, session: ${sessionId}, polling for completion...`);
+      
+      setUploadProgress(60);
+
+      // Step 5: Poll for completion
+      const result = await pollForCompletion(sessionId);
+      
       setUploadProgress(100);
       setUploadStatus("success");
       
-      const analysis = analysisResult.analysis;
+      const analysis = result.analysis;
       toast.success(
         `Analysis complete! Composite: ${analysis?.composite || 'N/A'}, Leak: ${analysis?.leak_detected || 'None'}`
       );

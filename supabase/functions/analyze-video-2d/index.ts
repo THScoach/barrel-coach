@@ -206,6 +206,186 @@ interface Video2DRequest {
   frames?: string[]; // Base64 encoded frames from client
 }
 
+// Background processing function - runs after response is sent
+async function processAnalysisInBackground(
+  sessionId: string, 
+  playerId: string, 
+  frames: string[], 
+  playerAge?: number, 
+  playerLevel?: string, 
+  isPaidUser: boolean = false
+) {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  try {
+    console.log(`[2D Analysis BG] Starting background processing for session ${sessionId}`);
+
+    // Build context for the prompt
+    const contextInfo = [];
+    if (playerAge) contextInfo.push(`Player age: ${playerAge}`);
+    if (playerLevel) contextInfo.push(`Player level: ${playerLevel}`);
+    const contextString = contextInfo.length > 0 ? `\n\nPlayer Context:\n${contextInfo.join('\n')}` : '';
+
+    // Build message content with all frames as images
+    const messageContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
+      { 
+        type: "text", 
+        text: `Analyze these ${frames.length} key frames from a baseball swing video. They are in chronological order from the swing. Provide a comprehensive 2D analysis with scores.${contextString}` 
+      }
+    ];
+
+    // Add each frame as an image
+    for (let i = 0; i < frames.length; i++) {
+      messageContent.push({
+        type: "image_url",
+        image_url: { url: frames[i] }
+      });
+    }
+
+    console.log(`[2D Analysis BG] Sending ${frames.length} frames to Gemini`);
+
+    // Call Gemini Vision for frame analysis
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: GEMINI_2D_PROMPT },
+          { role: "user", content: messageContent }
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[2D Analysis BG] Gemini API error:", response.status, errorText);
+      
+      await supabase
+        .from("video_2d_sessions")
+        .update({ 
+          processing_status: "failed", 
+          error_message: `AI analysis failed: ${response.status} - ${errorText.substring(0, 200)}` 
+        })
+        .eq("id", sessionId);
+      return;
+    }
+
+    const aiResponse = await response.json();
+    const content = aiResponse.choices?.[0]?.message?.content;
+
+    if (!content) {
+      await supabase
+        .from("video_2d_sessions")
+        .update({ processing_status: "failed", error_message: "No response from AI" })
+        .eq("id", sessionId);
+      return;
+    }
+
+    // Parse the JSON response
+    let analysis;
+    try {
+      let cleanContent = content.trim();
+      if (cleanContent.startsWith("```json")) {
+        cleanContent = cleanContent.slice(7);
+      }
+      if (cleanContent.startsWith("```")) {
+        cleanContent = cleanContent.slice(3);
+      }
+      if (cleanContent.endsWith("```")) {
+        cleanContent = cleanContent.slice(0, -3);
+      }
+      analysis = JSON.parse(cleanContent.trim());
+    } catch (parseError) {
+      console.error("[2D Analysis BG] Failed to parse AI response:", content.substring(0, 500));
+      await supabase
+        .from("video_2d_sessions")
+        .update({ processing_status: "failed", error_message: "Failed to parse analysis response" })
+        .eq("id", sessionId);
+      return;
+    }
+
+    console.log(`[2D Analysis BG] Got scores: Body=${analysis.body}, Brain=${analysis.brain}, Bat=${analysis.bat}, Ball=${analysis.ball}`);
+
+    // Update session with analysis results
+    const { error: updateError } = await supabase
+      .from("video_2d_sessions")
+      .update({
+        composite_score: analysis.composite,
+        body_score: analysis.body,
+        brain_score: Math.min(analysis.brain, 55),
+        bat_score: analysis.bat,
+        ball_score: Math.min(analysis.ball, 50),
+        grade: analysis.grade,
+        camera_angle: analysis.camera_angle,
+        leak_detected: analysis.leak_detected,
+        leak_evidence: analysis.leak_evidence,
+        motor_profile: analysis.motor_profile,
+        motor_profile_evidence: analysis.profile_evidence,
+        priority_drill: analysis.priority_drill,
+        coach_rick_take: analysis.coach_rick_take,
+        analysis_json: analysis,
+        analysis_confidence: analysis.confidence,
+        processing_status: "complete",
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", sessionId);
+
+    if (updateError) {
+      console.error("[2D Analysis BG] Failed to update session:", updateError);
+      return;
+    }
+
+    // Update player's latest scores
+    await supabase
+      .from("players")
+      .update({
+        latest_body_score: analysis.body,
+        latest_brain_score: Math.min(analysis.brain, 55),
+        latest_bat_score: analysis.bat,
+        latest_composite_score: analysis.composite,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", playerId);
+
+    // Log activity
+    await supabase.from("activity_log").insert({
+      player_id: playerId,
+      action: "video_2d_analyzed",
+      description: `2D video analysis complete: Composite ${analysis.composite}, Leak: ${analysis.leak_detected}`,
+      metadata: {
+        session_id: sessionId,
+        composite_score: analysis.composite,
+        leak_detected: analysis.leak_detected,
+        frames_analyzed: frames.length,
+        is_paid_user: isPaidUser,
+        pending_3d_analysis: isPaidUser,
+      },
+    });
+
+    console.log(`[2D Analysis BG] Complete for session ${sessionId}`);
+  } catch (error) {
+    console.error("[2D Analysis BG] Error:", error);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    await supabase
+      .from("video_2d_sessions")
+      .update({ 
+        processing_status: "failed", 
+        error_message: error instanceof Error ? error.message : "Background processing failed" 
+      })
+      .eq("id", sessionId);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -244,14 +424,14 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log(`[2D Analysis] Starting for player ${player_id} with ${frames.length} frames`);
+    console.log(`[2D Analysis] Creating async session for player ${player_id} with ${frames.length} frames`);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Create initial record in video_2d_sessions
+    // Create initial record with "processing" status - return immediately
     const sessionDate = new Date().toISOString().split('T')[0];
     
     const { data: sessionRecord, error: insertError } = await supabase
@@ -267,7 +447,7 @@ serve(async (req) => {
         upload_source: "player_upload",
         is_paid_user,
         pending_3d_analysis: is_paid_user,
-        processing_status: "analyzing",
+        processing_status: "processing", // Changed from "analyzing" to be clearer
       })
       .select()
       .single();
@@ -277,183 +457,31 @@ serve(async (req) => {
       throw new Error("Failed to create analysis session");
     }
 
-    console.log(`[2D Analysis] Created session ${sessionRecord.id}`);
+    console.log(`[2D Analysis] Created session ${sessionRecord.id}, starting background processing`);
 
-    // Build context for the prompt
-    const contextInfo = [];
-    if (player_age) contextInfo.push(`Player age: ${player_age}`);
-    if (player_level) contextInfo.push(`Player level: ${player_level}`);
-    const contextString = contextInfo.length > 0 ? `\n\nPlayer Context:\n${contextInfo.join('\n')}` : '';
+    // Start background processing - this runs AFTER we return the response
+    // Using EdgeRuntime.waitUntil to keep the function running
+    // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+    EdgeRuntime.waitUntil(
+      processAnalysisInBackground(
+        sessionRecord.id,
+        player_id,
+        frames,
+        player_age,
+        player_level,
+        is_paid_user
+      )
+    );
 
-    // Build message content with all frames as images
-    const messageContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
-      { 
-        type: "text", 
-        text: `Analyze these ${frames.length} key frames from a baseball swing video. They are in chronological order from the swing. Provide a comprehensive 2D analysis with scores.${contextString}` 
-      }
-    ];
-
-    // Add each frame as an image
-    for (let i = 0; i < frames.length; i++) {
-      messageContent.push({
-        type: "image_url",
-        image_url: { url: frames[i] } // Already in data:image/jpeg;base64,... format
-      });
-    }
-
-    console.log(`[2D Analysis] Sending ${frames.length} frames to Gemini`);
-
-    // Call Gemini Vision for frame analysis
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: GEMINI_2D_PROMPT },
-          { role: "user", content: messageContent }
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[2D Analysis] Gemini API error:", response.status, errorText);
-      
-      // Update session with error
-      await supabase
-        .from("video_2d_sessions")
-        .update({ 
-          processing_status: "failed", 
-          error_message: `AI analysis failed: ${response.status}` 
-        })
-        .eq("id", sessionRecord.id);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded, please try again later", session_id: sessionRecord.id }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits to continue.", session_id: sessionRecord.id }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const aiResponse = await response.json();
-    const content = aiResponse.choices?.[0]?.message?.content;
-
-    if (!content) {
-      await supabase
-        .from("video_2d_sessions")
-        .update({ processing_status: "failed", error_message: "No response from AI" })
-        .eq("id", sessionRecord.id);
-      throw new Error("No response from AI");
-    }
-
-    // Parse the JSON response
-    let analysis;
-    try {
-      let cleanContent = content.trim();
-      if (cleanContent.startsWith("```json")) {
-        cleanContent = cleanContent.slice(7);
-      }
-      if (cleanContent.startsWith("```")) {
-        cleanContent = cleanContent.slice(3);
-      }
-      if (cleanContent.endsWith("```")) {
-        cleanContent = cleanContent.slice(0, -3);
-      }
-      analysis = JSON.parse(cleanContent.trim());
-    } catch (parseError) {
-      console.error("[2D Analysis] Failed to parse AI response:", content);
-      await supabase
-        .from("video_2d_sessions")
-        .update({ processing_status: "failed", error_message: "Failed to parse analysis" })
-        .eq("id", sessionRecord.id);
-      throw new Error("Failed to parse analysis response");
-    }
-
-    console.log(`[2D Analysis] Got scores: Body=${analysis.body}, Brain=${analysis.brain}, Bat=${analysis.bat}, Ball=${analysis.ball}`);
-
-    // Update session with analysis results
-    const { error: updateError } = await supabase
-      .from("video_2d_sessions")
-      .update({
-        composite_score: analysis.composite,
-        body_score: analysis.body,
-        brain_score: Math.min(analysis.brain, 55), // Enforce cap
-        bat_score: analysis.bat,
-        ball_score: Math.min(analysis.ball, 50), // Enforce cap
-        grade: analysis.grade,
-        camera_angle: analysis.camera_angle,
-        leak_detected: analysis.leak_detected,
-        leak_evidence: analysis.leak_evidence,
-        motor_profile: analysis.motor_profile,
-        motor_profile_evidence: analysis.profile_evidence,
-        priority_drill: analysis.priority_drill,
-        coach_rick_take: analysis.coach_rick_take,
-        analysis_json: analysis,
-        analysis_confidence: analysis.confidence,
-        processing_status: "complete",
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", sessionRecord.id);
-
-    if (updateError) {
-      console.error("[2D Analysis] Failed to update session:", updateError);
-      throw new Error("Failed to save analysis results");
-    }
-
-    // Update player's latest scores (2D estimates)
-    await supabase
-      .from("players")
-      .update({
-        latest_body_score: analysis.body,
-        latest_brain_score: Math.min(analysis.brain, 55),
-        latest_bat_score: analysis.bat,
-        latest_composite_score: analysis.composite,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", player_id);
-
-    // Log activity
-    await supabase.from("activity_log").insert({
-      player_id,
-      action: "video_2d_analyzed",
-      description: `2D video analysis complete: Composite ${analysis.composite}, Leak: ${analysis.leak_detected}`,
-      metadata: {
-        session_id: sessionRecord.id,
-        composite_score: analysis.composite,
-        leak_detected: analysis.leak_detected,
-        frames_analyzed: frames.length,
-        is_paid_user,
-        pending_3d_analysis: is_paid_user,
-      },
-    });
-
-    console.log(`[2D Analysis] Complete for session ${sessionRecord.id}`);
-
+    // Return immediately with session ID - client will poll for results
     return new Response(
       JSON.stringify({
         success: true,
         session_id: sessionRecord.id,
-        analysis,
-        frames_analyzed: frames.length,
-        is_paid_user,
-        pending_3d_analysis: is_paid_user,
-        message: is_paid_user 
-          ? "Analysis complete. Full biomechanics analysis pending - check back in 24 hours."
-          : "Analysis complete. Upgrade to get your full biomechanics analysis.",
+        status: "processing",
+        frames_received: frames.length,
+        message: "Analysis started. Video will be processed in the background. Check back in a few seconds for results.",
+        poll_interval_ms: 3000, // Suggest client poll every 3 seconds
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
