@@ -37,7 +37,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
   const [frameRate, setFrameRate] = useState("240");
   const [sessionType, setSessionType] = useState<"practice" | "game">("practice");
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "processing" | "success" | "error">("idle");
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "analyzing" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -103,108 +103,42 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
 
       const videoUrl = urlData.publicUrl;
 
-      // Step 3: Create video_swing_sessions record
-      const sessionDate = new Date().toISOString().split('T')[0];
-      const { data: sessionData, error: sessionError } = await supabase
-        .from("video_swing_sessions")
-        .insert({
-          player_id: playerId,
-          session_date: sessionDate,
-          source: "admin_upload",
-          context: sessionType,
-          status: "pending",
-          swing_count: 1,
-        })
-        .select()
-        .single();
+      setUploadProgress(60);
+      setUploadStatus("analyzing");
 
-      if (sessionError) {
-        throw new Error(`Failed to create session: ${sessionError.message}`);
-      }
-
-      setUploadProgress(55);
-
-      // Step 4: Create video_swings record for the uploaded video
-      const { error: swingError } = await supabase
-        .from("video_swings")
-        .insert({
-          session_id: sessionData.id,
-          video_storage_path: storagePath,
-          video_url: videoUrl,
-          swing_index: 1,
-          frame_rate: parseInt(frameRate),
-          status: "pending",
-        });
-
-      if (swingError) {
-        throw new Error(`Failed to create swing record: ${swingError.message}`);
-      }
-
-      setUploadProgress(70);
-
-      // Step 5: Also create reboot_uploads record for backward compatibility
-      await supabase
-        .from("reboot_uploads")
-        .insert({
-          player_id: playerId,
-          session_date: sessionDate,
-          upload_source: "admin_upload",
-          processing_status: "processing",
-          frame_rate: parseInt(frameRate),
-          video_filename: selectedFile.name,
-          video_url: videoUrl,
-          uploaded_at: new Date().toISOString(),
-        });
-
-      setUploadProgress(80);
-      setUploadStatus("processing");
-
-      // Step 6: Trigger the video swing analysis
+      // Step 3: Call analyze-video-2d edge function (stores in video_2d_sessions)
       const { data: analysisResult, error: analysisError } = await supabase.functions.invoke(
-        "analyze-video-swing-session",
-        { body: { sessionId: sessionData.id } }
+        "analyze-video-2d",
+        { 
+          body: { 
+            player_id: playerId,
+            video_url: videoUrl,
+            video_filename: selectedFile.name,
+            video_storage_path: storagePath,
+            context: sessionType,
+            frame_rate: parseInt(frameRate),
+            is_paid_user: false, // Admin uploads default to free tier analysis
+          } 
+        }
       );
 
-      // Step 7: Update reboot_uploads status based on analysis result
-      if (analysisError) {
-        console.error("Analysis error:", analysisError);
-        // Update both statuses to failed
-        await Promise.all([
-          supabase
-            .from("video_swing_sessions")
-            .update({ status: "failed" })
-            .eq("id", sessionData.id),
-          supabase
-            .from("reboot_uploads")
-            .update({ 
-              processing_status: "failed", 
-              error_message: analysisError.message || "Analysis failed" 
-            })
-            .eq("player_id", playerId)
-            .eq("video_filename", selectedFile.name)
-            .eq("processing_status", "processing")
-        ]);
-        
-        toast.warning("Video uploaded but analysis failed. You can retry from the upload history.");
-      } else {
-        // Update reboot_uploads to complete with scores from analysis
-        const scores = analysisResult?.data?.scores;
-        await supabase
-          .from("reboot_uploads")
-          .update({ 
-            processing_status: "complete",
-            composite_score: scores?.sequence_score || null,
-            completed_at: new Date().toISOString()
-          })
-          .eq("player_id", playerId)
-          .eq("video_filename", selectedFile.name)
-          .eq("processing_status", "processing");
-        
-        toast.success("Video uploaded and analyzed successfully!");
+      setUploadProgress(90);
+
+      if (analysisError || !analysisResult?.success) {
+        console.error("2D Analysis error:", analysisError || analysisResult?.error);
+        toast.warning("Video uploaded but analysis failed. Please try again.");
+        setUploadStatus("error");
+        setErrorMessage(analysisResult?.error || analysisError?.message || "Analysis failed");
+        return;
       }
 
       setUploadProgress(100);
       setUploadStatus("success");
+      
+      const analysis = analysisResult.analysis;
+      toast.success(
+        `Analysis complete! Composite: ${analysis?.composite || 'N/A'}, Leak: ${analysis?.leak_detected || 'None'}`
+      );
       
       // Reset form
       setSelectedFile(null);
@@ -213,8 +147,8 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
       }
 
       // Refresh upload history
+      queryClient.invalidateQueries({ queryKey: ['player-2d-sessions', playerId] });
       queryClient.invalidateQueries({ queryKey: ['player-upload-history', playerId] });
-      queryClient.invalidateQueries({ queryKey: ['reboot-uploads', playerId] });
 
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : "Upload failed";
@@ -239,7 +173,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
       <CardHeader>
         <CardTitle className="text-white flex items-center gap-2">
           <Upload className="h-5 w-5" />
-          Upload Swing Video
+          Upload Swing Video (2D Analysis)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -314,11 +248,11 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
         </div>
 
         {/* Progress Bar */}
-        {(uploadStatus === "uploading" || uploadStatus === "processing") && (
+        {(uploadStatus === "uploading" || uploadStatus === "analyzing") && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-400">
-                {uploadStatus === "uploading" ? "Uploading to storage..." : "Creating record..."}
+                {uploadStatus === "uploading" ? "Uploading video..." : "Running AI analysis..."}
               </span>
               <span className="text-slate-400">{uploadProgress}%</span>
             </div>
@@ -331,10 +265,10 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
           <div className="flex flex-col gap-2 text-emerald-400 bg-emerald-500/10 p-3 rounded-lg">
             <div className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5" />
-              <span className="font-medium">Video uploaded and analyzed!</span>
+              <span className="font-medium">Video analyzed successfully!</span>
             </div>
             <span className="text-sm text-slate-300">
-              Check upload history below for results.
+              2D analysis complete. Check upload history for full results.
             </span>
           </div>
         )}
@@ -350,18 +284,18 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
         <div className="flex gap-2">
           <Button
             onClick={handleUpload}
-            disabled={!selectedFile || uploadStatus === "uploading" || uploadStatus === "processing"}
+            disabled={!selectedFile || uploadStatus === "uploading" || uploadStatus === "analyzing"}
             className="flex-1 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
           >
-            {uploadStatus === "uploading" || uploadStatus === "processing" ? (
+            {uploadStatus === "uploading" || uploadStatus === "analyzing" ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {uploadStatus === "uploading" ? "Uploading..." : "Saving..."}
+                {uploadStatus === "uploading" ? "Uploading..." : "Analyzing..."}
               </>
             ) : (
               <>
                 <Upload className="h-4 w-4 mr-2" />
-                Upload Video
+                Upload & Analyze
               </>
             )}
           </Button>

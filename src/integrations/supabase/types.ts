@@ -2627,6 +2627,139 @@ export type Database = {
         }
         Relationships: []
       }
+      video_2d_sessions: {
+        Row: {
+          analysis_confidence: number | null
+          analysis_json: Json | null
+          ball_score: number | null
+          bat_score: number | null
+          body_score: number | null
+          brain_score: number | null
+          camera_angle: string | null
+          coach_rick_take: string | null
+          completed_at: string | null
+          composite_score: number | null
+          context: string | null
+          created_at: string | null
+          error_message: string | null
+          frame_rate: number | null
+          grade: string | null
+          id: string
+          is_paid_user: boolean | null
+          leak_detected: string | null
+          leak_evidence: string | null
+          motor_profile: string | null
+          motor_profile_evidence: string | null
+          pending_3d_analysis: boolean | null
+          player_id: string | null
+          priority_drill: string | null
+          processing_status: string | null
+          reboot_upload_id: string | null
+          session_date: string
+          updated_at: string | null
+          upgraded_to_3d_at: string | null
+          upload_source: string | null
+          video_filename: string | null
+          video_quality: string | null
+          video_storage_path: string | null
+          video_url: string
+        }
+        Insert: {
+          analysis_confidence?: number | null
+          analysis_json?: Json | null
+          ball_score?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          camera_angle?: string | null
+          coach_rick_take?: string | null
+          completed_at?: string | null
+          composite_score?: number | null
+          context?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          frame_rate?: number | null
+          grade?: string | null
+          id?: string
+          is_paid_user?: boolean | null
+          leak_detected?: string | null
+          leak_evidence?: string | null
+          motor_profile?: string | null
+          motor_profile_evidence?: string | null
+          pending_3d_analysis?: boolean | null
+          player_id?: string | null
+          priority_drill?: string | null
+          processing_status?: string | null
+          reboot_upload_id?: string | null
+          session_date?: string
+          updated_at?: string | null
+          upgraded_to_3d_at?: string | null
+          upload_source?: string | null
+          video_filename?: string | null
+          video_quality?: string | null
+          video_storage_path?: string | null
+          video_url: string
+        }
+        Update: {
+          analysis_confidence?: number | null
+          analysis_json?: Json | null
+          ball_score?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          camera_angle?: string | null
+          coach_rick_take?: string | null
+          completed_at?: string | null
+          composite_score?: number | null
+          context?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          frame_rate?: number | null
+          grade?: string | null
+          id?: string
+          is_paid_user?: boolean | null
+          leak_detected?: string | null
+          leak_evidence?: string | null
+          motor_profile?: string | null
+          motor_profile_evidence?: string | null
+          pending_3d_analysis?: boolean | null
+          player_id?: string | null
+          priority_drill?: string | null
+          processing_status?: string | null
+          reboot_upload_id?: string | null
+          session_date?: string
+          updated_at?: string | null
+          upgraded_to_3d_at?: string | null
+          upload_source?: string | null
+          video_filename?: string | null
+          video_quality?: string | null
+          video_storage_path?: string | null
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_2d_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_2d_sessions_reboot_upload_id_fkey"
+            columns: ["reboot_upload_id"]
+            isOneToOne: false
+            referencedRelation: "pending_reboot_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_2d_sessions_reboot_upload_id_fkey"
+            columns: ["reboot_upload_id"]
+            isOneToOne: false
+            referencedRelation: "reboot_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_swing_events: {
         Row: {
           created_at: string
