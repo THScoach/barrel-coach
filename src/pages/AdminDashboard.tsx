@@ -92,7 +92,7 @@ export default function AdminDashboard() {
 
         {/* Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
-          <Card className="pwa-card">
+          <Card className="pwa-card bg-slate-800">
             <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between">
                 <div>
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="pwa-card">
+          <Card className="pwa-card bg-slate-800">
             <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between">
                 <div>
@@ -132,7 +132,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="pwa-card">
+          <Card className="pwa-card bg-slate-800">
             <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between">
                 <div>
