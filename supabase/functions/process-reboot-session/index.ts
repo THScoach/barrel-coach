@@ -626,18 +626,18 @@ function calculate4BScoresForSwing(
   const pelvisVelocitiesRaw = derivative(pelvisRotDeg, dt);
   const torsoVelocitiesRaw = derivative(torsoRotDeg, dt);
 
-  // Calibration NOTE:
-  // Historically we applied a hardcoded 0.5x because velocities were ~2x.
-  // The root cause is typically dt/fps detection (e.g., treating 120fps data as 240fps).
-  // With median-dt fps detection above, we keep calibration at 1.0.
-  const VELOCITY_CALIBRATION = 1.0;
+  // FIXED CALIBRATION: Empirically derived from comparing our calculations to Reboot reports
+  // Reboot report: Pelvis ~500 deg/s, Torso ~750 deg/s
+  // Our raw calculation: ~1000-1300 deg/s (2x higher)
+  // Root cause: likely half-frame interpolation or different derivative methods in Reboot's pipeline
+  const VELOCITY_CALIBRATION = 0.5;
   const pelvisVelocities = pelvisVelocitiesRaw.map((v) => v * VELOCITY_CALIBRATION);
   const torsoVelocities = torsoVelocitiesRaw.map((v) => v * VELOCITY_CALIBRATION);
 
   // Log velocity stats before filtering
   const pelvisVelMax = Math.max(...pelvisVelocities.map(Math.abs));
   const torsoVelMax = Math.max(...torsoVelocities.map(Math.abs));
-  console.log(`[Scoring] Swing ${swingId}: velocity max - Pelvis=${pelvisVelMax.toFixed(0)}, Torso=${torsoVelMax.toFixed(0)}`);
+  console.log(`[Scoring] Swing ${swingId}: velocity max (0.5x calibrated) - Pelvis=${pelvisVelMax.toFixed(0)}, Torso=${torsoVelMax.toFixed(0)}`);
   
   // Filter out extreme spikes but keep reasonable values
   // Elite velocities are 400-900, so anything over 1500 is likely noise (after calibration)
