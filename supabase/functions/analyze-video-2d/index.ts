@@ -207,9 +207,13 @@ Always consider player age when scoring:
 interface Video2DRequest {
   player_id: string;
   video_url: string;
-  is_paid_user: boolean;
+  video_filename?: string;
+  video_storage_path?: string;
+  is_paid_user?: boolean;
   player_age?: number;
   player_level?: string;
+  context?: string;
+  frame_rate?: number;
 }
 
 serve(async (req) => {
@@ -218,7 +222,17 @@ serve(async (req) => {
   }
 
   try {
-    const { player_id, video_url, is_paid_user, player_age, player_level } = await req.json() as Video2DRequest;
+    const { 
+      player_id, 
+      video_url, 
+      video_filename,
+      video_storage_path,
+      is_paid_user = false, 
+      player_age, 
+      player_level,
+      context,
+      frame_rate
+    } = await req.json() as Video2DRequest;
 
     if (!player_id || !video_url) {
       return new Response(
@@ -232,7 +246,40 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log(`Analyzing 2D video for player ${player_id}`);
+    console.log(`[2D Analysis] Starting for player ${player_id}`);
+
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Create initial record in video_2d_sessions
+    const sessionDate = new Date().toISOString().split('T')[0];
+    
+    const { data: sessionRecord, error: insertError } = await supabase
+      .from("video_2d_sessions")
+      .insert({
+        player_id,
+        video_url,
+        video_filename,
+        video_storage_path,
+        session_date: sessionDate,
+        context,
+        frame_rate,
+        upload_source: "player_upload",
+        is_paid_user,
+        pending_3d_analysis: is_paid_user,
+        processing_status: "analyzing",
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("[2D Analysis] Failed to create session:", insertError);
+      throw new Error("Failed to create analysis session");
+    }
+
+    console.log(`[2D Analysis] Created session ${sessionRecord.id}`);
 
     // Build context for the prompt
     const contextInfo = [];
@@ -270,11 +317,20 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gemini API error:", response.status, errorText);
+      console.error("[2D Analysis] Gemini API error:", response.status, errorText);
+      
+      // Update session with error
+      await supabase
+        .from("video_2d_sessions")
+        .update({ 
+          processing_status: "failed", 
+          error_message: `AI analysis failed: ${response.status}` 
+        })
+        .eq("id", sessionRecord.id);
       
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded, please try again later" }),
+          JSON.stringify({ error: "Rate limit exceeded, please try again later", session_id: sessionRecord.id }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -286,13 +342,16 @@ serve(async (req) => {
     const content = aiResponse.choices?.[0]?.message?.content;
 
     if (!content) {
+      await supabase
+        .from("video_2d_sessions")
+        .update({ processing_status: "failed", error_message: "No response from AI" })
+        .eq("id", sessionRecord.id);
       throw new Error("No response from AI");
     }
 
     // Parse the JSON response
     let analysis;
     try {
-      // Clean up the response - remove markdown code blocks if present
       let cleanContent = content.trim();
       if (cleanContent.startsWith("```json")) {
         cleanContent = cleanContent.slice(7);
@@ -305,31 +364,25 @@ serve(async (req) => {
       }
       analysis = JSON.parse(cleanContent.trim());
     } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
+      console.error("[2D Analysis] Failed to parse AI response:", content);
+      await supabase
+        .from("video_2d_sessions")
+        .update({ processing_status: "failed", error_message: "Failed to parse analysis" })
+        .eq("id", sessionRecord.id);
       throw new Error("Failed to parse analysis response");
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log(`[2D Analysis] Got scores: Body=${analysis.body}, Brain=${analysis.brain}, Bat=${analysis.bat}, Ball=${analysis.ball}`);
 
-    // Create reboot_uploads record with 2D analysis
-    const sessionDate = new Date().toISOString().split('T')[0];
-    
-    const { data: uploadRecord, error: insertError } = await supabase
-      .from("reboot_uploads")
-      .insert({
-        player_id,
-        session_date: sessionDate,
-        analysis_type: "2d_video",
-        pending_reboot: is_paid_user, // Only add to queue for paid users
-        original_video_url: video_url,
-        video_2d_analysis: analysis,
+    // Update session with analysis results
+    const { error: updateError } = await supabase
+      .from("video_2d_sessions")
+      .update({
         composite_score: analysis.composite,
         body_score: analysis.body,
-        brain_score: analysis.brain,
+        brain_score: Math.min(analysis.brain, 55), // Enforce cap
         bat_score: analysis.bat,
+        ball_score: Math.min(analysis.ball, 50), // Enforce cap
         grade: analysis.grade,
         camera_angle: analysis.camera_angle,
         video_quality: analysis.video_quality,
@@ -338,24 +391,25 @@ serve(async (req) => {
         motor_profile: analysis.motor_profile,
         motor_profile_evidence: analysis.profile_evidence,
         priority_drill: analysis.priority_drill,
+        coach_rick_take: analysis.coach_rick_take,
+        analysis_json: analysis,
         analysis_confidence: analysis.confidence,
         processing_status: "complete",
         completed_at: new Date().toISOString(),
       })
-      .select()
-      .single();
+      .eq("id", sessionRecord.id);
 
-    if (insertError) {
-      console.error("Error inserting upload record:", insertError);
-      throw new Error("Failed to save analysis");
+    if (updateError) {
+      console.error("[2D Analysis] Failed to update session:", updateError);
+      throw new Error("Failed to save analysis results");
     }
 
-    // Update player's latest scores (with 2D marker)
+    // Update player's latest scores (2D estimates)
     await supabase
       .from("players")
       .update({
         latest_body_score: analysis.body,
-        latest_brain_score: analysis.brain,
+        latest_brain_score: Math.min(analysis.brain, 55),
         latest_bat_score: analysis.bat,
         latest_composite_score: analysis.composite,
         updated_at: new Date().toISOString(),
@@ -365,29 +419,26 @@ serve(async (req) => {
     // Log activity
     await supabase.from("activity_log").insert({
       player_id,
-      action: "2d_video_analyzed",
+      action: "video_2d_analyzed",
       description: `2D video analysis complete: Composite ${analysis.composite}, Leak: ${analysis.leak_detected}`,
       metadata: {
-        upload_id: uploadRecord.id,
+        session_id: sessionRecord.id,
         composite_score: analysis.composite,
         leak_detected: analysis.leak_detected,
         is_paid_user,
-        pending_reboot: is_paid_user,
+        pending_3d_analysis: is_paid_user,
       },
     });
 
-    // If paid user, notify admin (could trigger SMS or notification)
-    if (is_paid_user) {
-      console.log(`Video added to Reboot queue for player ${player_id}`);
-    }
+    console.log(`[2D Analysis] Complete for session ${sessionRecord.id}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        upload_id: uploadRecord.id,
+        session_id: sessionRecord.id,
         analysis,
         is_paid_user,
-        pending_reboot: is_paid_user,
+        pending_3d_analysis: is_paid_user,
         message: is_paid_user 
           ? "Analysis complete. Full biomechanics analysis pending - check back in 24 hours."
           : "Analysis complete. Upgrade to get your full biomechanics analysis.",
@@ -395,7 +446,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("analyze-video-2d error:", error);
+    console.error("[2D Analysis] Error:", error);
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "Unknown error",
