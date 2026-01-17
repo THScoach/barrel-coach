@@ -32,12 +32,89 @@ const SESSION_TYPES = [
   { value: "game", label: "Game" },
 ];
 
+// Extract key frames from video at specific timestamps
+async function extractFramesFromVideo(file: File, numFrames: number = 6): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    
+    if (!ctx) {
+      reject(new Error("Could not get canvas context"));
+      return;
+    }
+
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+
+    const frames: string[] = [];
+    let currentFrame = 0;
+    let timestamps: number[] = [];
+
+    video.onloadedmetadata = () => {
+      const duration = video.duration;
+      
+      // Calculate timestamps for key swing phases
+      // Focus on the middle 80% of the video where the swing likely occurs
+      const startTime = duration * 0.1;
+      const endTime = duration * 0.9;
+      const interval = (endTime - startTime) / (numFrames - 1);
+      
+      timestamps = Array.from({ length: numFrames }, (_, i) => startTime + (i * interval));
+      
+      // Set canvas size to reasonable dimensions for analysis (720p max)
+      const scale = Math.min(1, 1280 / video.videoWidth);
+      canvas.width = video.videoWidth * scale;
+      canvas.height = video.videoHeight * scale;
+      
+      // Seek to first timestamp
+      video.currentTime = timestamps[0];
+    };
+
+    video.onseeked = () => {
+      if (currentFrame >= numFrames) {
+        // Clean up
+        URL.revokeObjectURL(video.src);
+        resolve(frames);
+        return;
+      }
+
+      // Draw current frame to canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Convert to base64 JPEG (quality 0.85 for good balance)
+      const frameData = canvas.toDataURL("image/jpeg", 0.85);
+      frames.push(frameData);
+      
+      currentFrame++;
+      
+      if (currentFrame < numFrames) {
+        video.currentTime = timestamps[currentFrame];
+      } else {
+        // All frames captured
+        URL.revokeObjectURL(video.src);
+        resolve(frames);
+      }
+    };
+
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src);
+      reject(new Error("Failed to load video for frame extraction"));
+    };
+
+    // Start loading the video
+    video.src = URL.createObjectURL(file);
+    video.load();
+  });
+}
+
 export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [frameRate, setFrameRate] = useState("240");
   const [sessionType, setSessionType] = useState<"practice" | "game">("practice");
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "analyzing" | "success" | "error">("idle");
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "extracting" | "uploading" | "analyzing" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -71,17 +148,25 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
       return;
     }
 
-    setUploadStatus("uploading");
+    setUploadStatus("extracting");
     setUploadProgress(0);
     setErrorMessage(null);
 
     try {
-      // Step 1: Upload to Supabase Storage
+      // Step 1: Extract frames from video on client side
+      toast.info("Extracting key frames from video...");
+      setUploadProgress(5);
+      
+      const frames = await extractFramesFromVideo(selectedFile, 6);
+      console.log(`[VideoUpload] Extracted ${frames.length} frames`);
+      
+      setUploadProgress(20);
+      setUploadStatus("uploading");
+
+      // Step 2: Upload original video to Supabase Storage (for reference)
       const timestamp = Date.now();
       const safeFilename = selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const storagePath = `${playerId}/${timestamp}_${safeFilename}`;
-
-      setUploadProgress(10);
 
       const { error: uploadError } = await supabase.storage
         .from("swing-videos")
@@ -94,9 +179,9 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
         throw new Error(`Storage upload failed: ${uploadError.message}`);
       }
 
-      setUploadProgress(40);
+      setUploadProgress(50);
 
-      // Step 2: Get public URL
+      // Step 3: Get public URL
       const { data: urlData } = supabase.storage
         .from("swing-videos")
         .getPublicUrl(storagePath);
@@ -106,7 +191,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
       setUploadProgress(60);
       setUploadStatus("analyzing");
 
-      // Step 3: Call analyze-video-2d edge function (stores in video_2d_sessions)
+      // Step 4: Call analyze-video-2d edge function with extracted frames
       const { data: analysisResult, error: analysisError } = await supabase.functions.invoke(
         "analyze-video-2d",
         { 
@@ -117,7 +202,8 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
             video_storage_path: storagePath,
             context: sessionType,
             frame_rate: parseInt(frameRate),
-            is_paid_user: false, // Admin uploads default to free tier analysis
+            is_paid_user: false,
+            frames: frames, // Send extracted frames instead of video URL
           } 
         }
       );
@@ -248,11 +334,15 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
         </div>
 
         {/* Progress Bar */}
-        {(uploadStatus === "uploading" || uploadStatus === "analyzing") && (
+        {(uploadStatus === "extracting" || uploadStatus === "uploading" || uploadStatus === "analyzing") && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-400">
-                {uploadStatus === "uploading" ? "Uploading video..." : "Running AI analysis..."}
+                {uploadStatus === "extracting" 
+                  ? "Extracting key frames..." 
+                  : uploadStatus === "uploading" 
+                    ? "Uploading video..." 
+                    : "Running AI analysis..."}
               </span>
               <span className="text-slate-400">{uploadProgress}%</span>
             </div>
@@ -284,13 +374,17 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
         <div className="flex gap-2">
           <Button
             onClick={handleUpload}
-            disabled={!selectedFile || uploadStatus === "uploading" || uploadStatus === "analyzing"}
+            disabled={!selectedFile || uploadStatus === "extracting" || uploadStatus === "uploading" || uploadStatus === "analyzing"}
             className="flex-1 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
           >
-            {uploadStatus === "uploading" || uploadStatus === "analyzing" ? (
+            {uploadStatus === "extracting" || uploadStatus === "uploading" || uploadStatus === "analyzing" ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {uploadStatus === "uploading" ? "Uploading..." : "Analyzing..."}
+                {uploadStatus === "extracting" 
+                  ? "Extracting frames..." 
+                  : uploadStatus === "uploading" 
+                    ? "Uploading..." 
+                    : "Analyzing..."}
               </>
             ) : (
               <>

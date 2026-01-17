@@ -9,16 +9,16 @@ const corsHeaders = {
 const GEMINI_2D_PROMPT = `You are Coach Rick's 2D Video Analysis Engine.
 
 ## YOUR TASK
-Analyze a baseball swing video and provide 4B scores based on what you can SEE in the 2D footage.
+Analyze baseball swing images (key frames extracted from video) and provide 4B scores based on what you can SEE.
 
-## WHAT YOU CAN ASSESS FROM 2D VIDEO
+## WHAT YOU CAN ASSESS FROM 2D FRAMES
 
 ### VISIBLE & SCOREABLE:
-1. **Sequence** - Do hips fire before hands? Can clearly see rotation order.
+1. **Sequence** - Do hips fire before hands? Can see rotation order across frames.
 2. **Hip Lead** - Does pelvis open before shoulders? Visible in any angle.
 3. **Front Leg Action** - Bracing (straight) vs Collapsing (bent) at contact. Very visible.
 4. **Hand Path** - Casting (hands drift out) vs Connected (hands stay in). Clear in side view.
-5. **Head Stability** - Does head move during swing? Easy to track.
+5. **Head Stability** - Does head move during swing? Compare across frames.
 6. **Spine Angle** - Posture at setup vs contact. Visible in side view.
 7. **Finish Position** - Balanced vs falling off. Clear indicator of control.
 8. **Bat Path** - Attack angle, barrel position through zone. Visible in most angles.
@@ -26,7 +26,7 @@ Analyze a baseball swing video and provide 4B scores based on what you can SEE i
 10. **Load Position** - Hands back, hip hinge, weight distribution.
 
 ### NOT VISIBLE - MUST ESTIMATE OR CAP:
-1. **Exact velocities** - Can't measure deg/s from video → estimate from visual speed
+1. **Exact velocities** - Can't measure deg/s from images → estimate from visual speed
 2. **Timing gaps (ms)** - Can see sequence, can't measure precise timing → estimate
 3. **Momentum/Energy** - No sensor data → infer from movement quality
 4. **X-Factor (precise)** - Can estimate hip-shoulder separation visually
@@ -50,7 +50,7 @@ You CAN see:
 
 You CANNOT measure:
 - Precise timing gaps
-- Consistency across multiple swings (unless multiple swings in video)
+- Consistency across multiple swings
 - CV of velocities
 
 Cap at 55. Note: "Limited by 2D - full analysis needed for precise timing"
@@ -77,34 +77,25 @@ If swing looks weak or cut off, score 40-45.
 ### COMPOSITE
 Calculate normally: (Body × 0.30) + (Brain × 0.20) + (Bat × 0.30) + (Ball × 0.20)
 
-The caps on Brain and Ball will naturally limit composite ceiling to ~60-65 range for even great swings.
-
 ## ANALYSIS APPROACH
 
-1. **Identify the camera angle:**
-   - Side view (open or closed) - Best for most metrics
-   - Behind view - Good for path and direction
-   - Front view - Limited utility
-   
-2. **Find key frames:**
+1. **Review all frames in sequence** - Understand the swing phases
+2. **Identify the camera angle** (side open, side closed, behind, front)
+3. **Find key phases in frames:**
    - Setup/Stance
    - Load complete (max hip hinge)
-   - Stride foot down
    - Launch (hips start firing)
    - Contact
    - Extension/Finish
-
-3. **Assess each visible metric**
-
-4. **Identify the PRIMARY issue visible** (becomes leak_detected)
-
-5. **Classify motor profile from movement PATTERN:**
+4. **Assess each visible metric**
+5. **Identify the PRIMARY issue visible** (becomes leak_detected)
+6. **Classify motor profile:**
    - SPINNER: Quick, rotational, tight movements
    - WHIPPER: Smooth sequence, visible separation
    - SLINGSHOTTER: Big load, ground-driven
    - TITAN: Powerful but variable timing
 
-## LEAK DETECTION FROM VIDEO
+## LEAK DETECTION FROM FRAMES
 
 What you CAN identify:
 - EARLY_ARMS: Hands move forward before hips open (very visible)
@@ -170,12 +161,11 @@ Return valid JSON only, no markdown:
   "limitations": [
     "Brain score capped at 55 - precise timing requires 3D data",
     "Ball score estimated - no exit velocity data",
-    "Single camera angle - some metrics estimated"
+    "Analyzed from extracted frames - some motion may be missed"
   ],
   
   "camera_angle": "side_open",
-  "video_quality": "good",
-  "frames_analyzed": 45,
+  "frames_analyzed": 6,
   "confidence": 0.72,
   
   "upgrade_cta": "Want exact measurements? Your full biomechanics analysis will show precise timing, velocities, and what's leaving MPH on the table."
@@ -197,12 +187,11 @@ Always consider player age when scoring:
 1. Never guess wildly - If you can't see it, say so and cap the score
 2. Be specific about what you SEE - "I can see hands drift 4 inches" not "hands look bad"
 3. Camera angle matters - Note limitations based on angle
-4. Video quality matters - Dark/blurry = lower confidence
-5. Always identify ONE clear leak - The most obvious visible issue
-6. Always give ONE drill - Matched to the visible leak
-7. Confidence score reflects video quality + angle
-8. Frame the upgrade naturally - Not salesy, just factual
-9. Return ONLY valid JSON - no markdown, no code blocks`;
+4. Always identify ONE clear leak - The most obvious visible issue
+5. Always give ONE drill - Matched to the visible leak
+6. Confidence score reflects image quality + angle
+7. Frame the upgrade naturally - Not salesy, just factual
+8. Return ONLY valid JSON - no markdown, no code blocks`;
 
 interface Video2DRequest {
   player_id: string;
@@ -214,6 +203,7 @@ interface Video2DRequest {
   player_level?: string;
   context?: string;
   frame_rate?: number;
+  frames?: string[]; // Base64 encoded frames from client
 }
 
 serve(async (req) => {
@@ -231,12 +221,20 @@ serve(async (req) => {
       player_age, 
       player_level,
       context,
-      frame_rate
+      frame_rate,
+      frames
     } = await req.json() as Video2DRequest;
 
-    if (!player_id || !video_url) {
+    if (!player_id) {
       return new Response(
-        JSON.stringify({ error: "player_id and video_url are required" }),
+        JSON.stringify({ error: "player_id is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!frames || frames.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "frames array is required - extract frames on client side before calling" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -246,7 +244,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log(`[2D Analysis] Starting for player ${player_id}`);
+    console.log(`[2D Analysis] Starting for player ${player_id} with ${frames.length} frames`);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -287,54 +285,25 @@ serve(async (req) => {
     if (player_level) contextInfo.push(`Player level: ${player_level}`);
     const contextString = contextInfo.length > 0 ? `\n\nPlayer Context:\n${contextInfo.join('\n')}` : '';
 
-    // Fetch only the first portion of the video to stay within memory limits
-    // 5MB is enough for ~2-3 seconds of video at typical compression, sufficient for swing analysis
-    const MAX_VIDEO_BYTES = 5 * 1024 * 1024; // 5MB
-    
-    console.log(`[2D Analysis] Fetching video from ${video_url} (max ${MAX_VIDEO_BYTES} bytes)`);
-    
-    // Try Range request first
-    let videoResponse = await fetch(video_url, {
-      headers: { 'Range': `bytes=0-${MAX_VIDEO_BYTES - 1}` }
-    });
-    
-    // If Range not supported, fall back to regular fetch but we'll truncate
-    if (videoResponse.status !== 206) {
-      console.log(`[2D Analysis] Range request not supported, fetching full video`);
-      videoResponse = await fetch(video_url);
-    }
-    
-    if (!videoResponse.ok && videoResponse.status !== 206) {
-      throw new Error(`Failed to fetch video: ${videoResponse.status}`);
-    }
-    
-    const videoBuffer = await videoResponse.arrayBuffer();
-    
-    // Truncate if needed (for servers that don't support Range)
-    const truncatedBuffer = videoBuffer.byteLength > MAX_VIDEO_BYTES 
-      ? videoBuffer.slice(0, MAX_VIDEO_BYTES)
-      : videoBuffer;
-    
-    // Convert to base64 - use chunks to avoid call stack issues
-    const bytes = new Uint8Array(truncatedBuffer);
-    const chunkSize = 32768; // 32KB chunks
-    let videoBase64 = '';
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.slice(i, i + chunkSize);
-      videoBase64 += btoa(String.fromCharCode.apply(null, [...chunk]));
-    }
-    
-    // Determine MIME type from URL or default to mp4
-    let mimeType = "video/mp4";
-    if (video_url.toLowerCase().includes('.mov')) {
-      mimeType = "video/quicktime";
-    } else if (video_url.toLowerCase().includes('.webm')) {
-      mimeType = "video/webm";
-    }
-    
-    console.log(`[2D Analysis] Video processed, size: ${truncatedBuffer.byteLength} bytes, type: ${mimeType}`);
+    // Build message content with all frames as images
+    const messageContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
+      { 
+        type: "text", 
+        text: `Analyze these ${frames.length} key frames from a baseball swing video. They are in chronological order from the swing. Provide a comprehensive 2D analysis with scores.${contextString}` 
+      }
+    ];
 
-    // Call Gemini Vision for video analysis with base64 data
+    // Add each frame as an image
+    for (let i = 0; i < frames.length; i++) {
+      messageContent.push({
+        type: "image_url",
+        image_url: { url: frames[i] } // Already in data:image/jpeg;base64,... format
+      });
+    }
+
+    console.log(`[2D Analysis] Sending ${frames.length} frames to Gemini`);
+
+    // Call Gemini Vision for frame analysis
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -345,19 +314,7 @@ serve(async (req) => {
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: GEMINI_2D_PROMPT },
-          { 
-            role: "user", 
-            content: [
-              { 
-                type: "text", 
-                text: `Analyze this baseball swing video and provide a comprehensive 2D analysis with scores.${contextString}` 
-              },
-              { 
-                type: "image_url", 
-                image_url: { url: `data:${mimeType};base64,${videoBase64}` } 
-              }
-            ]
-          }
+          { role: "user", content: messageContent }
         ],
       }),
     });
@@ -379,6 +336,13 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded, please try again later", session_id: sessionRecord.id }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "AI credits exhausted. Please add credits to continue.", session_id: sessionRecord.id }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
@@ -432,7 +396,6 @@ serve(async (req) => {
         ball_score: Math.min(analysis.ball, 50), // Enforce cap
         grade: analysis.grade,
         camera_angle: analysis.camera_angle,
-        video_quality: analysis.video_quality,
         leak_detected: analysis.leak_detected,
         leak_evidence: analysis.leak_evidence,
         motor_profile: analysis.motor_profile,
@@ -472,6 +435,7 @@ serve(async (req) => {
         session_id: sessionRecord.id,
         composite_score: analysis.composite,
         leak_detected: analysis.leak_detected,
+        frames_analyzed: frames.length,
         is_paid_user,
         pending_3d_analysis: is_paid_user,
       },
@@ -484,6 +448,7 @@ serve(async (req) => {
         success: true,
         session_id: sessionRecord.id,
         analysis,
+        frames_analyzed: frames.length,
         is_paid_user,
         pending_3d_analysis: is_paid_user,
         message: is_paid_user 
