@@ -6,9 +6,9 @@ const REBOOT_USERNAME = Deno.env.get("REBOOT_USERNAME")!;
 const REBOOT_PASSWORD = Deno.env.get("REBOOT_PASSWORD")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 const BASEBALL_HITTING_TYPE_ID = 1;
-const DEG = 57.29577951308232; // 180/PI
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,7 +43,6 @@ interface FourBScores {
   core_flow_score: number;
   upper_flow_score: number;
   weakest_link: string;
-  // Raw metrics
   pelvis_velocity: number;
   torso_velocity: number;
   x_factor: number;
@@ -51,7 +50,6 @@ interface FourBScores {
   transfer_efficiency: number;
   consistency_cv: number;
   consistency_grade: string;
-  // Additional metrics for display
   pelvis_momentum: number;
   torso_momentum: number;
   arms_momentum: number;
@@ -59,6 +57,9 @@ interface FourBScores {
   at_ratio: number;
   legs_ke: number;
   stretch_rate: number;
+  // AI analysis extras
+  leaks_detected?: string[];
+  coaching_notes?: string;
 }
 
 interface RebootTokenResponse {
@@ -70,6 +71,162 @@ interface RebootTokenResponse {
 
 // Cache for access token
 let cachedToken: { token: string; expiresAt: number } | null = null;
+
+// 4B SCORING SYSTEM PROMPT - Comprehensive scoring logic for AI
+const FOURB_SCORING_SYSTEM_PROMPT = `You are an expert baseball biomechanics analyst using the 4B Scoring System.
+
+## THE 4B SYSTEM
+The 4B System evaluates hitting mechanics across 4 categories:
+- BRAIN (20%): Timing, tempo, and consistency of movement patterns
+- BODY (35%): Ground reaction forces, hip/torso separation, kinetic chain efficiency  
+- BAT (30%): Bat speed, bat path, energy transfer to the bat
+- BALL (15%): Contact quality, launch conditions, transfer efficiency
+
+## SCORING SCALE (20-80)
+- 20-29: Poor (Well Below Average)
+- 30-39: Fringe (Below Average)
+- 40-49: Below Average
+- 50-54: Average
+- 55-59: Above Average
+- 60-64: Plus
+- 65-69: Plus-Plus
+- 70-80: Elite
+
+## CSV DATA INTERPRETATION
+
+### Inverse Kinematics (IK) CSV - Contains rotation/position data:
+- pelvis_rot / pelvis_rotation: Pelvis rotation in degrees (may be radians if values < 4)
+- torso_rot / torso_rotation: Torso rotation in degrees
+- timestamp/time: Used to calculate frame rate and velocities
+
+From these, calculate:
+- Pelvis Velocity (deg/s): derivative of pelvis_rot. Elite: 600-900, Average: 400-500
+- Torso Velocity (deg/s): derivative of torso_rot. Elite: 700-1000, Average: 500-600
+- X-Factor (degrees): Max separation between torso and pelvis. Elite: 40-55°, Average: 25-35°
+- Stretch Rate (deg/s): Rate of X-Factor increase. Elite: 800-1200, Average: 400-600
+
+### Momentum-Energy (ME) CSV - Contains kinetic energy and momentum:
+- bat_kinetic_energy / bat_ke: Bat kinetic energy in Joules. Elite: 400-600J, Average: 150-250J
+- total_kinetic_energy: Total body KE
+- legs_kinetic_energy: Lower body contribution
+- lowertorso_angular_momentum_z / pelvis_angular_momentum_z: Pelvis momentum
+- torso_angular_momentum_z: Torso momentum
+- arms_angular_momentum_z: Arms momentum
+
+From these, calculate:
+- Transfer Efficiency (%): bat_ke / total_ke * 100. Elite: 50-65%, Average: 30-40%
+- T:P Ratio: torso_momentum / pelvis_momentum (should be > 1.0 for good sequencing)
+- A:T Ratio: arms_momentum / torso_momentum
+
+## COMPONENT SCORE FORMULAS
+
+### BODY Score (35% weight):
+- Ground Flow = (Pelvis Velocity Score + Legs KE Score) / 2
+- Core Flow = (Torso Velocity Score + X-Factor Score + Stretch Rate Score) / 3
+- BODY = Ground Flow * 0.4 + Core Flow * 0.6
+
+### BAT Score (30% weight):
+- Upper Flow = (Bat KE Score + Transfer Efficiency Score) / 2
+- BAT = Upper Flow
+
+### BRAIN Score (20% weight):
+- Based on Consistency CV (coefficient of variation in velocities)
+- Lower CV = higher score (inverted scale)
+- CV < 6%: Elite (70-80), CV 6-10%: Plus (60-69), CV 10-15%: Average (50-59)
+
+### BALL Score (15% weight):
+- Based on Transfer Efficiency
+- How much energy reaches the bat vs total body energy
+
+### COMPOSITE Score:
+- Composite = Body*0.35 + Bat*0.30 + Brain*0.20 + Ball*0.15
+
+## LEAK DETECTION
+Identify swing inefficiencies:
+- EARLY_ARMS: Arms momentum peaks before torso (A:T ratio spikes early)
+- CAST: Hands extend too early, losing leverage
+- LATE_HIP_ROTATION: Pelvis velocity peaks late or is low
+- SPIN_OUT: Pelvis over-rotates, losing connection
+- POOR_SEPARATION: X-Factor < 25 degrees
+- ENERGY_LEAK: Transfer efficiency < 30%
+- INCONSISTENT: CV > 20%
+- CLEAN_TRANSFER: No major leaks detected
+
+## GRADE LABELS
+- 70+: Plus-Plus
+- 60-69: Plus
+- 55-59: Above Avg
+- 45-54: Average
+- 40-44: Below Avg
+- 30-39: Fringe
+- <30: Poor
+
+## CONSISTENCY GRADES
+- CV < 6%: Elite
+- CV 6-10%: Plus
+- CV 10-15%: Average
+- CV 15-20%: Below Avg
+- CV > 20%: Poor
+
+When analyzing, identify the swing window (stride to contact) by finding:
+1. contact_frame column if present, OR
+2. Peak bat_kinetic_energy frame, OR
+3. Peak total_kinetic_energy frame
+4. Stride frame is typically 30-40% into the swing
+
+Convert radians to degrees if rotation values are < 4 (indicating radians).
+Calculate velocities using timestamp differences (typically 240fps = dt of 0.00417s).`;
+
+// Tool definition for structured output
+const FOURB_ANALYSIS_TOOL = {
+  type: "function",
+  function: {
+    name: "submit_4b_analysis",
+    description: "Submit the 4B biomechanics analysis results",
+    parameters: {
+      type: "object",
+      properties: {
+        brain_score: { type: "number", description: "Brain score (20-80 scale)" },
+        body_score: { type: "number", description: "Body score (20-80 scale)" },
+        bat_score: { type: "number", description: "Bat score (20-80 scale)" },
+        ball_score: { type: "number", description: "Ball score (20-80 scale)" },
+        composite_score: { type: "number", description: "Weighted composite (Body*0.35 + Bat*0.30 + Brain*0.20 + Ball*0.15)" },
+        grade: { type: "string", description: "Overall grade (Plus-Plus, Plus, Above Avg, Average, etc.)" },
+        ground_flow_score: { type: "number", description: "Ground flow sub-score (20-80)" },
+        core_flow_score: { type: "number", description: "Core flow sub-score (20-80)" },
+        upper_flow_score: { type: "number", description: "Upper flow sub-score (20-80)" },
+        weakest_link: { type: "string", enum: ["brain", "body", "bat", "ball"], description: "Lowest scoring category" },
+        pelvis_velocity: { type: "number", description: "Peak pelvis velocity in deg/s" },
+        torso_velocity: { type: "number", description: "Peak torso velocity in deg/s" },
+        x_factor: { type: "number", description: "Max hip-shoulder separation in degrees" },
+        bat_ke: { type: "number", description: "Peak bat kinetic energy in Joules" },
+        transfer_efficiency: { type: "number", description: "Bat KE / Total KE percentage" },
+        consistency_cv: { type: "number", description: "Coefficient of variation in velocity patterns %" },
+        consistency_grade: { type: "string", description: "Consistency grade (Elite, Plus, Average, etc.)" },
+        pelvis_momentum: { type: "number", description: "Peak pelvis angular momentum" },
+        torso_momentum: { type: "number", description: "Peak torso angular momentum" },
+        arms_momentum: { type: "number", description: "Peak arms angular momentum" },
+        tp_ratio: { type: "number", description: "Torso-to-Pelvis momentum ratio" },
+        at_ratio: { type: "number", description: "Arms-to-Torso momentum ratio" },
+        legs_ke: { type: "number", description: "Legs kinetic energy in Joules" },
+        stretch_rate: { type: "number", description: "Rate of X-Factor change in deg/s" },
+        leaks_detected: { 
+          type: "array", 
+          items: { type: "string" },
+          description: "List of swing inefficiencies detected (EARLY_ARMS, CAST, LATE_HIP_ROTATION, etc.)"
+        },
+        coaching_notes: { type: "string", description: "Brief coaching insight (1-2 sentences)" }
+      },
+      required: [
+        "brain_score", "body_score", "bat_score", "ball_score", "composite_score", 
+        "grade", "ground_flow_score", "core_flow_score", "upper_flow_score", "weakest_link",
+        "pelvis_velocity", "torso_velocity", "x_factor", "bat_ke", "transfer_efficiency",
+        "consistency_cv", "consistency_grade", "pelvis_momentum", "torso_momentum", 
+        "arms_momentum", "tp_ratio", "at_ratio", "legs_ke", "stretch_rate", "leaks_detected"
+      ]
+    }
+  }
+};
 
 // Get OAuth access token from Reboot
 async function getRebootAccessToken(): Promise<string> {
@@ -179,149 +336,150 @@ async function downloadCsv(url: string): Promise<string> {
   return await response.text();
 }
 
-// Parse CSV to column-based arrays with lowercase headers
-function parseCsvToArrays(csvText: string): Record<string, number[]> {
+// Truncate CSV to manageable size for AI (keep headers + representative sample)
+function prepareCsvForAI(csvText: string, maxRows: number = 150): string {
   const lines = csvText.trim().split("\n");
-  if (lines.length < 2) return {};
-
-  const headers = lines[0]
-    .split(",")
-    .map((h) => h.trim().replace(/"/g, "").toLowerCase());
-  const result: Record<string, number[]> = {};
-  headers.forEach((h) => {
-    result[h] = [];
-  });
-
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(",").map((v) => v.replace(/"/g, "").trim());
-    headers.forEach((header, idx) => {
-      const raw = values[idx] ?? "";
-      const val = parseFloat(raw);
-      result[header].push(Number.isFinite(val) ? val : 0);
-    });
+  if (lines.length <= maxRows + 1) {
+    return csvText;
   }
-
-  return result;
+  
+  const header = lines[0];
+  const dataLines = lines.slice(1);
+  
+  // Sample evenly across the swing
+  const step = Math.floor(dataLines.length / maxRows);
+  const sampledLines = [];
+  for (let i = 0; i < dataLines.length && sampledLines.length < maxRows; i += step) {
+    sampledLines.push(dataLines[i]);
+  }
+  
+  console.log(`[AI] Truncated CSV from ${dataLines.length} to ${sampledLines.length} rows for AI analysis`);
+  
+  return [header, ...sampledLines].join("\n");
 }
 
-// Parse CSV into per-swing grouped data
-interface SwingData {
-  movementId: string;
-  indices: number[];
-  data: Record<string, number[]>;
-}
+// Call Gemini AI to analyze the CSV data
+async function analyzeWithGemini(ikCsv: string, meCsv: string): Promise<FourBScores> {
+  console.log("[AI] Sending CSV data to Gemini for 4B analysis...");
+  
+  const preparedIK = prepareCsvForAI(ikCsv, 150);
+  const preparedME = prepareCsvForAI(meCsv, 150);
+  
+  const userPrompt = `Analyze this baseball swing biomechanics data and calculate the 4B scores.
 
-function parseCsvBySwing(csvText: string): { allData: Record<string, number[]>; swings: SwingData[] } {
-  const lines = csvText.trim().split("\n");
-  if (lines.length < 2) return { allData: {}, swings: [] };
+## INVERSE KINEMATICS CSV (rotation/position data):
+\`\`\`csv
+${preparedIK}
+\`\`\`
 
-  const headers = lines[0]
-    .split(",")
-    .map((h) => h.trim().replace(/"/g, "").toLowerCase());
-  
-  // Find movement ID column
-  const movementIdCol = headers.findIndex(h => 
-    h === "org_movement_id" || h === "movement_id" || h === "movementid"
-  );
-  
-  const allData: Record<string, number[]> = {};
-  const rawRows: { values: string[]; movementId: string }[] = [];
-  
-  headers.forEach((h) => {
-    allData[h] = [];
+## MOMENTUM-ENERGY CSV (kinetic energy and momentum data):
+\`\`\`csv
+${preparedME}
+\`\`\`
+
+Instructions:
+1. Identify the swing window (look for peak bat_kinetic_energy or total_kinetic_energy)
+2. Check if rotation values are in radians (values < 4) and convert to degrees
+3. Calculate velocities from rotation derivatives using timestamp intervals
+4. Extract momentum and KE peaks within the swing window
+5. Apply the 4B scoring formulas exactly as specified
+6. Detect any swing leaks/inefficiencies
+7. Submit your analysis using the submit_4b_analysis function
+
+Be precise with the calculations. If data is missing for a metric, use reasonable estimates based on the available data.`;
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: FOURB_SCORING_SYSTEM_PROMPT },
+        { role: "user", content: userPrompt }
+      ],
+      tools: [FOURB_ANALYSIS_TOOL],
+      tool_choice: { type: "function", function: { name: "submit_4b_analysis" } },
+    }),
   });
 
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(",").map((v) => v.replace(/"/g, "").trim());
-    const movementId = movementIdCol >= 0 ? values[movementIdCol] || `swing_${i}` : `swing_0`;
-    rawRows.push({ values, movementId });
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("[AI] Gemini API error:", response.status, errorText);
     
-    headers.forEach((header, idx) => {
-      const raw = values[idx] ?? "";
-      const val = parseFloat(raw);
-      allData[header].push(Number.isFinite(val) ? val : 0);
-    });
-  }
-
-  // Group by movement ID
-  const swingMap = new Map<string, number[]>();
-  rawRows.forEach((row, idx) => {
-    if (!swingMap.has(row.movementId)) {
-      swingMap.set(row.movementId, []);
+    // Fall back to default scores on AI error
+    if (response.status === 429) {
+      console.log("[AI] Rate limited, using fallback scoring");
+      return getDefaultScores();
     }
-    swingMap.get(row.movementId)!.push(idx);
-  });
-
-  // Create per-swing data
-  const swings: SwingData[] = [];
-  for (const [movementId, indices] of swingMap) {
-    const swingData: Record<string, number[]> = {};
-    headers.forEach((header) => {
-      swingData[header] = indices.map(idx => allData[header][idx]);
-    });
-    swings.push({ movementId, indices, data: swingData });
+    if (response.status === 402) {
+      console.log("[AI] Payment required, using fallback scoring");
+      return getDefaultScores();
+    }
+    
+    throw new Error(`Gemini API error: ${response.status}`);
   }
 
-  console.log(`[Parse] Found ${swings.length} swings in CSV: ${swings.map(s => s.movementId.slice(-8)).join(", ")}`);
+  const data = await response.json();
+  console.log("[AI] Gemini response received");
 
-  return { allData, swings };
-}
-
-function getRawCsvHeaderLine(csvText: string): string {
-  return (csvText.split("\n")[0] ?? "").trim();
-}
-
-function formatSample(values: number[], count = 5): string {
-  return values
-    .slice(0, count)
-    .map((v) => (Number.isFinite(v) ? String(v) : "NaN"))
-    .join(", ");
-}
-
-function logAllKeys(label: string, keys: string[], chunkSize = 30): void {
-  const sorted = [...keys].sort();
-  console.log(`[Headers] ${label} (${sorted.length})`);
-  for (let i = 0; i < sorted.length; i += chunkSize) {
-    console.log(`[Headers] ${label} ${i}-${Math.min(i + chunkSize, sorted.length) - 1}: ${sorted
-      .slice(i, i + chunkSize)
-      .join(", ")}`);
-  }
-}
-
-type ColumnMatch = { key: string | null; values: number[] };
-
-function findColumnMeta(csvData: Record<string, number[]>, ...patterns: string[]): ColumnMatch {
-  // Exact match first
-  for (const pattern of patterns) {
-    if (csvData[pattern]) return { key: pattern, values: csvData[pattern] };
+  // Extract tool call arguments
+  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall || toolCall.function.name !== "submit_4b_analysis") {
+    console.error("[AI] No valid tool call in response:", JSON.stringify(data.choices?.[0]?.message, null, 2));
+    throw new Error("AI did not return structured analysis");
   }
 
-  // Partial match
-  const keys = Object.keys(csvData);
-  for (const pattern of patterns) {
-    const match = keys.find((k) => k.includes(pattern));
-    if (match) return { key: match, values: csvData[match] };
+  let analysis;
+  try {
+    analysis = JSON.parse(toolCall.function.arguments);
+  } catch (e) {
+    console.error("[AI] Failed to parse tool arguments:", toolCall.function.arguments);
+    throw new Error("Failed to parse AI analysis");
   }
 
-  return { key: null, values: [] };
+  console.log(`[AI] 4B Analysis: Brain=${analysis.brain_score}, Body=${analysis.body_score}, Bat=${analysis.bat_score}, Ball=${analysis.ball_score}, Composite=${analysis.composite_score}`);
+  console.log(`[AI] Leaks detected: ${analysis.leaks_detected?.join(", ") || "none"}`);
+  if (analysis.coaching_notes) {
+    console.log(`[AI] Coaching notes: ${analysis.coaching_notes}`);
+  }
+
+  // Validate and cap scores to reasonable ranges
+  return {
+    brain_score: clamp(analysis.brain_score, 20, 80),
+    body_score: clamp(analysis.body_score, 20, 80),
+    bat_score: clamp(analysis.bat_score, 20, 80),
+    ball_score: clamp(analysis.ball_score, 20, 80),
+    composite_score: clamp(analysis.composite_score, 20, 80),
+    grade: analysis.grade || getGrade(analysis.composite_score),
+    ground_flow_score: clamp(analysis.ground_flow_score, 20, 80),
+    core_flow_score: clamp(analysis.core_flow_score, 20, 80),
+    upper_flow_score: clamp(analysis.upper_flow_score, 20, 80),
+    weakest_link: analysis.weakest_link || "body",
+    pelvis_velocity: clamp(analysis.pelvis_velocity, 0, 2000),
+    torso_velocity: clamp(analysis.torso_velocity, 0, 2000),
+    x_factor: clamp(analysis.x_factor, 0, 90),
+    bat_ke: clamp(analysis.bat_ke, 0, 1000),
+    transfer_efficiency: clamp(analysis.transfer_efficiency, 0, 100),
+    consistency_cv: clamp(analysis.consistency_cv, 0, 100),
+    consistency_grade: analysis.consistency_grade || getConsistencyGrade(analysis.consistency_cv),
+    pelvis_momentum: clamp(analysis.pelvis_momentum, 0, 100),
+    torso_momentum: clamp(analysis.torso_momentum, 0, 100),
+    arms_momentum: clamp(analysis.arms_momentum, 0, 100),
+    tp_ratio: clamp(analysis.tp_ratio, 0, 5),
+    at_ratio: clamp(analysis.at_ratio, 0, 5),
+    legs_ke: clamp(analysis.legs_ke, 0, 1000),
+    stretch_rate: clamp(analysis.stretch_rate, 0, 2000),
+    leaks_detected: analysis.leaks_detected || [],
+    coaching_notes: analysis.coaching_notes || undefined,
+  };
 }
 
-function logColumnMatch(label: string, match: ColumnMatch): void {
-  const nonZero = match.values.filter((v) => Math.abs(v) > 1e-9).length;
-  console.log(
-    `[Match] ${label}: key=${match.key ?? "NONE"}, len=${match.values.length}, nonZero=${nonZero}, sample=[${formatSample(
-      match.values,
-      5,
-    )}]`,
-  );
-}
-
-// 20-80 scale conversion per documentation
-function to2080Scale(value: number, min: number, max: number, inverted = false): number {
-  let normalized = (value - min) / (max - min);
-  if (inverted) normalized = 1 - normalized;
-  normalized = Math.max(0, Math.min(1, normalized)); // clamp 0-1
-  return Math.round(20 + normalized * 60); // returns 20-80
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, Math.min(max, value));
 }
 
 function getGrade(score: number): string {
@@ -342,526 +500,6 @@ function getConsistencyGrade(cv: number): string {
   return "Poor";
 }
 
-// Stats helpers
-function mean(arr: number[]): number {
-  if (arr.length === 0) return 0;
-  return arr.reduce((a, b) => a + b, 0) / arr.length;
-}
-
-function std(arr: number[]): number {
-  if (arr.length === 0) return 0;
-  const m = mean(arr);
-  return Math.sqrt(arr.reduce((acc, val) => acc + Math.pow(val - m, 2), 0) / arr.length);
-}
-
-function coefficientOfVariation(arr: number[]): number {
-  const m = mean(arr);
-  if (m === 0) return 0;
-  return (std(arr) / Math.abs(m)) * 100;
-}
-
-// Get peak absolute value from an array
-function getPeakAbs(values: number[]): number {
-  let maxVal = 0;
-  for (const val of values) {
-    const absVal = Math.abs(val || 0);
-    if (absVal > maxVal) maxVal = absVal;
-  }
-  return maxVal;
-}
-
-// Get peak absolute value within a window
-function getPeakAbsInWindow(values: number[], start: number, end: number): number {
-  const s = Math.max(0, start);
-  const e = Math.min(values.length - 1, end);
-  let maxVal = 0;
-  for (let i = s; i <= e; i++) {
-    const absVal = Math.abs(values[i] || 0);
-    if (absVal > maxVal) maxVal = absVal;
-  }
-  return maxVal;
-}
-
-// Find frame with peak value
-function findPeakFrame(values: number[]): number {
-  let maxVal = -Infinity;
-  let maxIdx = 0;
-  for (let i = 0; i < values.length; i++) {
-    const v = values[i] || 0;
-    if (v > maxVal) {
-      maxVal = v;
-      maxIdx = i;
-    }
-  }
-  return maxIdx;
-}
-
-// Find column by trying multiple patterns
-function findColumn(csvData: Record<string, number[]>, ...patterns: string[]): number[] {
-  return findColumnMeta(csvData, ...patterns).values;
-}
-
-// Robustly detect frame rate from timestamp values
-function detectFpsFromTimestamps(
-  timestamps: number[],
-  defaultFps = 240,
-): { fps: number; dtMedian: number | null; unit: "s" | "ms" | "unknown" } {
-  if (!timestamps || timestamps.length < 3) {
-    return { fps: defaultFps, dtMedian: null, unit: "unknown" };
-  }
-
-  const diffs: number[] = [];
-  for (let i = 1; i < timestamps.length; i++) {
-    const d = (timestamps[i] ?? 0) - (timestamps[i - 1] ?? 0);
-    if (Number.isFinite(d) && d > 0) diffs.push(d);
-  }
-
-  if (diffs.length < 3) {
-    return { fps: defaultFps, dtMedian: null, unit: "unknown" };
-  }
-
-  diffs.sort((a, b) => a - b);
-  let dtMedian = diffs[Math.floor(diffs.length / 2)] ?? 0;
-
-  let unit: "s" | "ms" = "s";
-  // Some exports use milliseconds (e.g., ~4.167) instead of seconds (~0.004167)
-  if (dtMedian > 1 && dtMedian < 1000) {
-    dtMedian = dtMedian / 1000;
-    unit = "ms";
-  }
-
-  const fps = dtMedian > 0 ? 1 / dtMedian : defaultFps;
-  if (!Number.isFinite(fps) || fps < 60 || fps > 400) {
-    return { fps: defaultFps, dtMedian: null, unit: "unknown" };
-  }
-
-  return { fps, dtMedian, unit };
-}
-
-// Detect frame rate from timestamp column (legacy helper)
-function detectFrameRate(csvData: Record<string, number[]>): number {
-  const timestamps = csvData["timestamp"] || csvData["time"] || csvData["t"] || [];
-  return detectFpsFromTimestamps(timestamps, 240).fps;
-}
-
-// Check if values are in radians and convert to degrees
-// Returns: { values, converted, maxRaw }
-function maybeRadiansToDegrees(values: number[], label = ""): number[] {
-  if (!values?.length) return [];
-  const maxAbs = Math.max(...values.map(Math.abs));
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
-  
-  // Radians typically range from -PI to +PI (-3.14 to +3.14)
-  // Degrees for rotations typically range from -180 to +180 or larger
-  // Use a tighter threshold: if max absolute is < 4, it's likely radians
-  const isRadians = maxAbs > 0 && maxAbs < 4;
-  
-  console.log(`[Units] ${label}: range=[${minVal.toFixed(3)}, ${maxVal.toFixed(3)}], maxAbs=${maxAbs.toFixed(3)}, isRadians=${isRadians}`);
-  
-  if (isRadians) {
-    return values.map((v) => (v || 0) * DEG);
-  }
-  return values;
-}
-
-// Calculate derivative (velocity from position)
-function derivative(values: number[], dt: number): number[] {
-  const result: number[] = [];
-  for (let i = 1; i < values.length; i++) {
-    result.push((values[i] - values[i - 1]) / dt);
-  }
-  return result;
-}
-
-// Detect contact frame per documentation priority
-function detectContactFrame(
-  meCsv: Record<string, number[]>,
-  ikCsv: Record<string, number[]>
-): { contactFrame: number; strideFrame: number; confidence: string } {
-  const frameCount =
-    meCsv["rel_frame"]?.length ||
-    ikCsv["rel_frame"]?.length ||
-    meCsv["frame"]?.length ||
-    ikCsv["frame"]?.length ||
-    meCsv["index"]?.length ||
-    ikCsv["index"]?.length ||
-    100;
-
-  console.log(
-    `[Contact] frameCount=${frameCount} (me rel_frame=${meCsv["rel_frame"]?.length ?? 0}, ik rel_frame=${ikCsv["rel_frame"]?.length ?? 0}, me index=${meCsv["index"]?.length ?? 0}, ik index=${ikCsv["index"]?.length ?? 0})`,
-  );
-
-  // 1) Try contact_frame column if exists
-  if (meCsv["contact_frame"]?.length) {
-    const cf = meCsv["contact_frame"][0];
-    console.log(`[Contact] contact_frame sample=${formatSample(meCsv["contact_frame"], 5)}`);
-    if (cf > 0) {
-      console.log(`[Contact] Using contact_frame column: ${cf}`);
-      return { contactFrame: cf, strideFrame: Math.floor(cf * 0.3), confidence: "high" };
-    }
-  }
-
-  // 2) Try bat kinetic energy peak
-  const batKEMatch = findColumnMeta(meCsv, "bat_kinetic_energy", "bat_ke");
-  logColumnMatch("contact.bat_kinetic_energy", batKEMatch);
-  if (batKEMatch.values.length > 0) {
-    const peakFrame = findPeakFrame(batKEMatch.values);
-    console.log(`[Contact] bat_ke peakFrame=${peakFrame}, peakValue=${(batKEMatch.values[peakFrame] || 0).toFixed(3)}`);
-    if (peakFrame > frameCount * 0.2) {
-      const strideFrame = Math.floor(peakFrame * 0.4);
-      console.log(`[Contact] Using bat_ke peak: frame ${peakFrame}`);
-      return { contactFrame: peakFrame, strideFrame, confidence: "high" };
-    }
-  }
-
-  // 3) Try total kinetic energy peak
-  const totalKEMatch = findColumnMeta(meCsv, "total_kinetic_energy", "total_ke");
-  logColumnMatch("contact.total_kinetic_energy", totalKEMatch);
-  if (totalKEMatch.values.length > 0) {
-    const peakFrame = findPeakFrame(totalKEMatch.values);
-    console.log(`[Contact] total_ke peakFrame=${peakFrame}, peakValue=${(totalKEMatch.values[peakFrame] || 0).toFixed(3)}`);
-    if (peakFrame > frameCount * 0.2) {
-      const strideFrame = Math.floor(peakFrame * 0.4);
-      console.log(`[Contact] Using total_ke peak: frame ${peakFrame}`);
-      return { contactFrame: peakFrame, strideFrame, confidence: "medium" };
-    }
-  }
-
-  // 4) Fallback: 80% of frames
-  const contactFrame = Math.floor(frameCount * 0.8);
-  const strideFrame = Math.floor(frameCount * 0.3);
-  console.log(`[Contact] Using fallback: contact=${contactFrame}, stride=${strideFrame}`);
-  return { contactFrame, strideFrame, confidence: "low" };
-}
-
-// SCORING THRESHOLDS per documentation
-const THRESHOLDS = {
-  // From IK - calculated velocities (deg/s)
-  pelvis_velocity: { min: 400, max: 900 },
-  torso_velocity: { min: 400, max: 900 },
-  x_factor: { min: 10, max: 45 },
-  stretch_rate: { min: 400, max: 1200 },
-  // From ME - kinetic energy (Joules)
-  bat_ke: { min: 100, max: 600 },
-  legs_ke: { min: 100, max: 500 },
-  // Efficiency (%)
-  transfer_efficiency: { min: 25, max: 65 },
-  // Consistency (lower is better)
-  consistency_cv: { min: 5, max: 40 },
-};
-
-// Calculate 4B scores for a SINGLE swing (not multi-swing CSV)
-function calculate4BScoresForSwing(
-  ikData: Record<string, number[]>, 
-  meData: Record<string, number[]>,
-  swingId: string
-): FourBScores | null {
-  const frameCount = ikData["rel_frame"]?.length || meData["rel_frame"]?.length || 
-                    ikData["frame"]?.length || meData["frame"]?.length || 
-                    ikData["index"]?.length || meData["index"]?.length || 0;
-  
-  if (frameCount < 10) {
-    console.log(`[Scoring] Swing ${swingId}: Skipping - only ${frameCount} frames`);
-    return null;
-  }
-  
-  // Detect frame rate from timestamps within this swing (use median dt for stability)
-  const timestamps = ikData["timestamp"] || ikData["time"] || ikData["t"] || [];
-  const { fps, dtMedian, unit } = detectFpsFromTimestamps(timestamps, 240);
-  const dt = 1 / fps;
-
-  console.log(
-    `[Scoring] Swing ${swingId}: ${frameCount} frames at ${fps.toFixed(0)} fps` +
-      (dtMedian ? ` (dtMedian=${dtMedian.toFixed(6)}${unit === "ms" ? "s(ms->s)" : "s"})` : ""),
-  );
-
-  // Simple contact/stride detection for single swing
-  const contactFrame = Math.floor(frameCount * 0.85);
-  const strideFrame = Math.floor(frameCount * 0.25);
-
-  // ===== MOMENTUM DATA (from ME CSV) =====
-  const pelvisMomentum = findColumn(meData, "lowertorso_angular_momentum_z", "pelvis_angular_momentum_z");
-  const torsoMomentum = findColumn(meData, "torso_angular_momentum_z");
-  const armsMomentum = findColumn(meData, "arms_angular_momentum_z", "larm_angular_momentum_z");
-
-  const pelvisMomentumPeak = getPeakAbsInWindow(pelvisMomentum, strideFrame, contactFrame);
-  const torsoMomentumPeak = getPeakAbsInWindow(torsoMomentum, strideFrame, contactFrame);
-  const armsMomentumPeak = getPeakAbsInWindow(armsMomentum, strideFrame, contactFrame);
-
-  const tpRatio = pelvisMomentumPeak > 0.01 ? torsoMomentumPeak / pelvisMomentumPeak : 0;
-  const atRatio = torsoMomentumPeak > 0.01 ? armsMomentumPeak / torsoMomentumPeak : 0;
-
-  // ===== KINETIC ENERGY DATA (from ME CSV) =====
-  const batKE = findColumn(meData, "bat_kinetic_energy", "bat_ke");
-  const totalKE = findColumn(meData, "total_kinetic_energy", "total_ke");
-  
-  let legsKE = findColumn(meData, "legs_kinetic_energy", "legs_ke");
-  if (legsKE.length === 0) {
-    const llegKE = findColumn(meData, "lleg_kinetic_energy");
-    const rlegKE = findColumn(meData, "rleg_kinetic_energy");
-    if (llegKE.length > 0 && rlegKE.length > 0) {
-      legsKE = llegKE.map((v, i) => v + (rlegKE[i] || 0));
-    }
-  }
-
-  const batKEMax = getPeakAbsInWindow(batKE, strideFrame, contactFrame);
-  const totalKEMax = Math.max(getPeakAbsInWindow(totalKE, strideFrame, contactFrame), 1);
-  const legsKEMax = getPeakAbsInWindow(legsKE, strideFrame, contactFrame);
-  const transferEfficiency = totalKEMax > 1 ? (batKEMax / totalKEMax) * 100 : 0;
-
-  // ===== VELOCITY DATA (from IK CSV - derivative of angles) =====
-  const pelvisRotRaw = findColumn(ikData, "pelvis_rot", "pelvisrot", "pelvis_rotation");
-  const torsoRotRaw = findColumn(ikData, "torso_rot", "torsorot", "torso_rotation");
-  
-  // Log raw samples
-  console.log(`[Scoring] Swing ${swingId}: pelvis_rot raw samples=[${formatSample(pelvisRotRaw, 5)}]`);
-  console.log(`[Scoring] Swing ${swingId}: torso_rot raw samples=[${formatSample(torsoRotRaw, 5)}]`);
-  
-  // Convert radians to degrees if needed
-  const pelvisRotDeg = maybeRadiansToDegrees(pelvisRotRaw, `${swingId}.pelvis_rot`);
-  const torsoRotDeg = maybeRadiansToDegrees(torsoRotRaw, `${swingId}.torso_rot`);
-
-  // Calculate velocities (derivative of angles) - safe since we're per-swing
-  const pelvisVelocitiesRaw = derivative(pelvisRotDeg, dt);
-  const torsoVelocitiesRaw = derivative(torsoRotDeg, dt);
-
-  // FIXED CALIBRATION: Empirically derived from comparing our calculations to Reboot reports
-  // Each metric has its own calibration factor based on comparison with actual Reboot report values
-  const PELVIS_VELOCITY_CALIBRATION = 0.37;
-  const TORSO_VELOCITY_CALIBRATION = 0.73;
-  const pelvisVelocities = pelvisVelocitiesRaw.map((v) => v * PELVIS_VELOCITY_CALIBRATION);
-  const torsoVelocities = torsoVelocitiesRaw.map((v) => v * TORSO_VELOCITY_CALIBRATION);
-
-  // Log velocity stats before filtering
-  const pelvisVelMax = Math.max(...pelvisVelocities.map(Math.abs));
-  const torsoVelMax = Math.max(...torsoVelocities.map(Math.abs));
-  console.log(`[Scoring] Swing ${swingId}: velocity max (calibrated 0.37x/0.73x) - Pelvis=${pelvisVelMax.toFixed(0)}, Torso=${torsoVelMax.toFixed(0)}`);
-  
-  // Filter out extreme spikes but keep reasonable values
-  // Elite velocities are 400-900, so anything over 1500 is likely noise (after calibration)
-  const pelvisVelFiltered = pelvisVelocities.map(v => Math.abs(v) < 1500 ? v : 0);
-  const torsoVelFiltered = torsoVelocities.map(v => Math.abs(v) < 1500 ? v : 0);
-  
-  const pelvisPeakVel = getPeakAbsInWindow(pelvisVelFiltered, strideFrame, contactFrame);
-  const torsoPeakVel = getPeakAbsInWindow(torsoVelFiltered, strideFrame, contactFrame);
-  
-  console.log(`[Scoring] Swing ${swingId}: velocity after filter - Pelvis=${pelvisPeakVel.toFixed(0)}, Torso=${torsoPeakVel.toFixed(0)}`);
-  
-  // ===== X-FACTOR (separation) =====
-  // X-Factor is the angular difference between torso and pelvis rotation
-  // Reboot report shows X-Factor: 37.9° for this session
-  // Our raw calculation gives ~74° - exactly 2x, suggesting same calibration issue
-  const xFactors: number[] = [];
-  for (let i = 0; i < Math.min(pelvisRotDeg.length, torsoRotDeg.length); i++) {
-    // X-Factor = absolute separation between torso and pelvis rotation
-    const separation = torsoRotDeg[i] - pelvisRotDeg[i];
-    xFactors.push(separation);
-  }
-  
-  // Apply calibration to X-Factor (position)
-  const X_FACTOR_CALIBRATION = 0.5;
-  const xFactorMaxRaw = getPeakAbsInWindow(xFactors, strideFrame, contactFrame);
-  const xFactorCalibrated = xFactorMaxRaw * X_FACTOR_CALIBRATION;
-  // X-Factor should be capped at realistic values (elite is ~45-55°)
-  const xFactorMax = Math.min(xFactorCalibrated, 55);
-  
-  console.log(`[Scoring] Swing ${swingId}: X-Factor raw=${xFactorMaxRaw.toFixed(1)}°, calibrated (0.5x)=${xFactorCalibrated.toFixed(1)}°, final=${xFactorMax.toFixed(1)}°`);
-  
-  // Stretch rate = derivative of x-factor (velocity of separation)
-  // Uses its own calibration factor
-  const STRETCH_RATE_CALIBRATION = 0.5;
-  const xFactorVelocitiesRaw = derivative(xFactors, dt);
-  const xFactorVelocities = xFactorVelocitiesRaw.map((v) => v * STRETCH_RATE_CALIBRATION);
-  const xFactorVelFiltered = xFactorVelocities.map((v) => (Math.abs(v) < 2000 ? v : 0));
-  const stretchRate = getPeakAbsInWindow(xFactorVelFiltered, strideFrame, contactFrame);
-
-  console.log(`[Scoring] Swing ${swingId}: Stretch rate=${stretchRate.toFixed(0)}°/s (0.5x calibrated)`);
-  
-  // ===== CALCULATE COMPONENT SCORES =====
-  const pelvisVelScore = to2080Scale(pelvisPeakVel, THRESHOLDS.pelvis_velocity.min, THRESHOLDS.pelvis_velocity.max);
-  const legsKEScore = to2080Scale(legsKEMax, THRESHOLDS.legs_ke.min, THRESHOLDS.legs_ke.max);
-  const groundFlowScore = Math.round((pelvisVelScore + legsKEScore) / 2);
-  
-  const torsoVelScore = to2080Scale(torsoPeakVel, THRESHOLDS.torso_velocity.min, THRESHOLDS.torso_velocity.max);
-  const xFactorScore = to2080Scale(xFactorMax, THRESHOLDS.x_factor.min, THRESHOLDS.x_factor.max);
-  const stretchRateScore = to2080Scale(stretchRate, THRESHOLDS.stretch_rate.min, THRESHOLDS.stretch_rate.max);
-  const coreFlowScore = Math.round((torsoVelScore + xFactorScore + stretchRateScore) / 3);
-  
-  // BAT score - handle missing bat data
-  let upperFlowScore: number;
-  if (batKEMax > 1) {
-    const batKEScore = to2080Scale(batKEMax, THRESHOLDS.bat_ke.min, THRESHOLDS.bat_ke.max);
-    const efficiencyScore = to2080Scale(transferEfficiency, THRESHOLDS.transfer_efficiency.min, THRESHOLDS.transfer_efficiency.max);
-    upperFlowScore = Math.round((batKEScore + efficiencyScore) / 2);
-  } else {
-    // No bat data - estimate from body metrics (fallback)
-    console.log(`[Scoring] Swing ${swingId}: No bat KE data - using fallback scoring`);
-    upperFlowScore = Math.round((groundFlowScore + coreFlowScore) / 2 * 0.9); // 10% penalty
-  }
-  
-  // Consistency CV for this single swing
-  // CV measures how consistent the velocity curve is during the swing
-  // Filter to get non-trivial velocities during the swing window
-  const windowPelvisVel = pelvisVelFiltered.slice(strideFrame, contactFrame).filter(v => Math.abs(v) > 50 && Math.abs(v) < 1500);
-  const windowTorsoVel = torsoVelFiltered.slice(strideFrame, contactFrame).filter(v => Math.abs(v) > 50 && Math.abs(v) < 1500);
-  
-  console.log(`[Scoring] Swing ${swingId}: CV input - pelvisVel count=${windowPelvisVel.length}, torsoVel count=${windowTorsoVel.length}`);
-  
-  // For single swing consistency, CV should be relatively low (10-30% is typical)
-  // If we don't have enough data points, use a default "average" CV
-  const pelvisCV = windowPelvisVel.length >= 5 ? coefficientOfVariation(windowPelvisVel) : 15;
-  const torsoCV = windowTorsoVel.length >= 5 ? coefficientOfVariation(windowTorsoVel) : 15;
-  
-  // Cap CV at reasonable values - anything over 50% is likely noise
-  const avgCV = Math.min((pelvisCV + torsoCV) / 2, 50);
-  
-  console.log(`[Scoring] Swing ${swingId}: CV results - pelvis=${pelvisCV.toFixed(1)}%, torso=${torsoCV.toFixed(1)}%, avg=${avgCV.toFixed(1)}%`);
-  
-  const brainScore = to2080Scale(avgCV, THRESHOLDS.consistency_cv.min, THRESHOLDS.consistency_cv.max, true);
-  const bodyScore = Math.round(groundFlowScore * 0.4 + coreFlowScore * 0.6);
-  const batScore = upperFlowScore;
-  const ballScore = batKEMax > 1 
-    ? to2080Scale(transferEfficiency, THRESHOLDS.transfer_efficiency.min, THRESHOLDS.transfer_efficiency.max)
-    : Math.round(upperFlowScore * 0.85); // Fallback when no bat data
-  
-  const compositeScore = Math.round(
-    bodyScore * 0.35 + batScore * 0.30 + brainScore * 0.20 + ballScore * 0.15
-  );
-  
-  const scores = { brain: brainScore, body: bodyScore, bat: batScore, ball: ballScore };
-  const weakestLink = Object.entries(scores).reduce((a, b) => (a[1] < b[1] ? a : b))[0];
-  
-  return {
-    brain_score: brainScore,
-    body_score: bodyScore,
-    bat_score: batScore,
-    ball_score: ballScore,
-    composite_score: compositeScore,
-    grade: getGrade(compositeScore),
-    ground_flow_score: groundFlowScore,
-    core_flow_score: coreFlowScore,
-    upper_flow_score: upperFlowScore,
-    weakest_link: weakestLink,
-    pelvis_velocity: Math.min(Math.round(pelvisPeakVel), 2000),
-    torso_velocity: Math.min(Math.round(torsoPeakVel), 2000),
-    x_factor: Math.min(Math.round(xFactorMax * 10) / 10, 90),
-    bat_ke: Math.min(Math.round(batKEMax), 1000),
-    transfer_efficiency: Math.min(Math.round(transferEfficiency * 10) / 10, 100),
-    consistency_cv: Math.min(Math.round(avgCV * 10) / 10, 100),
-    consistency_grade: getConsistencyGrade(avgCV),
-    pelvis_momentum: Math.round(pelvisMomentumPeak * 100) / 100,
-    torso_momentum: Math.round(torsoMomentumPeak * 100) / 100,
-    arms_momentum: Math.round(armsMomentumPeak * 100) / 100,
-    tp_ratio: Math.round(tpRatio * 100) / 100,
-    at_ratio: Math.round(atRatio * 100) / 100,
-    legs_ke: Math.min(Math.round(legsKEMax), 1000),
-    stretch_rate: Math.min(Math.round(stretchRate), 2000),
-  };
-}
-
-// Main 4B scoring - handles multi-swing CSVs by processing each swing separately
-function calculate4BScores(
-  ikCsv: Record<string, number[]>, 
-  meCsv: Record<string, number[]>,
-  ikSwings: SwingData[],
-  meSwings: SwingData[]
-): FourBScores {
-  const ikKeys = Object.keys(ikCsv);
-  const meKeys = Object.keys(meCsv);
-  logAllKeys("IK", ikKeys);
-  logAllKeys("ME", meKeys);
-
-  // If we have per-swing data, process each swing separately
-  if (ikSwings.length > 1 || meSwings.length > 1) {
-    console.log(`[Scoring] Processing ${Math.max(ikSwings.length, meSwings.length)} swings separately`);
-    
-    // Match swings by movement ID
-    const swingScores: FourBScores[] = [];
-    
-    // Use IK swings as primary (they should match ME swings)
-    for (const ikSwing of ikSwings) {
-      // Find matching ME swing
-      const meSwing = meSwings.find(s => s.movementId === ikSwing.movementId) || meSwings[0];
-      
-      const scores = calculate4BScoresForSwing(
-        ikSwing.data, 
-        meSwing?.data || meCsv,
-        ikSwing.movementId.slice(-8)
-      );
-      
-      if (scores) {
-        swingScores.push(scores);
-      }
-    }
-
-    if (swingScores.length === 0) {
-      console.log(`[Scoring] No valid swings found, falling back to aggregate`);
-      const fallback = calculate4BScoresForSwing(ikCsv, meCsv, "aggregate");
-      return fallback || getDefaultScores();
-    }
-
-    // Average all swing scores
-    console.log(`[Scoring] Averaging ${swingScores.length} swing scores`);
-    return averageScores(swingScores);
-  }
-
-  // Single swing or no movement ID column - process as-is
-  console.log(`[Scoring] Processing as single swing`);
-  const scores = calculate4BScoresForSwing(ikCsv, meCsv, "single");
-  return scores || getDefaultScores();
-}
-
-// Average multiple swing scores
-function averageScores(scores: FourBScores[]): FourBScores {
-  if (scores.length === 0) return getDefaultScores();
-  if (scores.length === 1) return scores[0];
-
-  const avg = (arr: number[]) => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
-  const avgDec = (arr: number[], dec = 1) => {
-    const factor = Math.pow(10, dec);
-    return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length * factor) / factor;
-  };
-
-  const brainScore = avg(scores.map(s => s.brain_score));
-  const bodyScore = avg(scores.map(s => s.body_score));
-  const batScore = avg(scores.map(s => s.bat_score));
-  const ballScore = avg(scores.map(s => s.ball_score));
-  const compositeScore = Math.round(bodyScore * 0.35 + batScore * 0.30 + brainScore * 0.20 + ballScore * 0.15);
-
-  const allScores = { brain: brainScore, body: bodyScore, bat: batScore, ball: ballScore };
-  const weakestLink = Object.entries(allScores).reduce((a, b) => (a[1] < b[1] ? a : b))[0];
-
-  console.log(`[Scoring] FINAL AVERAGED: Brain=${brainScore}, Body=${bodyScore}, Bat=${batScore}, Ball=${ballScore}, Composite=${compositeScore}`);
-
-  return {
-    brain_score: brainScore,
-    body_score: bodyScore,
-    bat_score: batScore,
-    ball_score: ballScore,
-    composite_score: compositeScore,
-    grade: getGrade(compositeScore),
-    ground_flow_score: avg(scores.map(s => s.ground_flow_score)),
-    core_flow_score: avg(scores.map(s => s.core_flow_score)),
-    upper_flow_score: avg(scores.map(s => s.upper_flow_score)),
-    weakest_link: weakestLink,
-    pelvis_velocity: avg(scores.map(s => s.pelvis_velocity)),
-    torso_velocity: avg(scores.map(s => s.torso_velocity)),
-    x_factor: avgDec(scores.map(s => s.x_factor)),
-    bat_ke: avg(scores.map(s => s.bat_ke)),
-    transfer_efficiency: avgDec(scores.map(s => s.transfer_efficiency)),
-    consistency_cv: avgDec(scores.map(s => s.consistency_cv)),
-    consistency_grade: getConsistencyGrade(avgDec(scores.map(s => s.consistency_cv))),
-    pelvis_momentum: avgDec(scores.map(s => s.pelvis_momentum), 2),
-    torso_momentum: avgDec(scores.map(s => s.torso_momentum), 2),
-    arms_momentum: avgDec(scores.map(s => s.arms_momentum), 2),
-    tp_ratio: avgDec(scores.map(s => s.tp_ratio), 2),
-    at_ratio: avgDec(scores.map(s => s.at_ratio), 2),
-    legs_ke: avg(scores.map(s => s.legs_ke)),
-    stretch_rate: avg(scores.map(s => s.stretch_rate)),
-  };
-}
-
 function getDefaultScores(): FourBScores {
   return {
     brain_score: 50, body_score: 50, bat_score: 50, ball_score: 50,
@@ -869,9 +507,10 @@ function getDefaultScores(): FourBScores {
     ground_flow_score: 50, core_flow_score: 50, upper_flow_score: 50,
     weakest_link: "body",
     pelvis_velocity: 0, torso_velocity: 0, x_factor: 0, bat_ke: 0,
-    transfer_efficiency: 0, consistency_cv: 20, consistency_grade: "Average",
+    transfer_efficiency: 0, consistency_cv: 15, consistency_grade: "Average",
     pelvis_momentum: 0, torso_momentum: 0, arms_momentum: 0,
     tp_ratio: 0, at_ratio: 0, legs_ke: 0, stretch_rate: 0,
+    leaks_detected: [],
   };
 }
 
@@ -895,6 +534,7 @@ serve(async (req) => {
 
     console.log(`[Process] Processing session ${session_id} for player ${org_player_id}`);
 
+    // Fetch CSV data from Reboot
     const ikUrl = await getRebootExportUrl(session_id, org_player_id, "inverse-kinematics");
     const meUrl = await getRebootExportUrl(session_id, org_player_id, "momentum-energy");
 
@@ -903,11 +543,10 @@ serve(async (req) => {
       downloadCsv(meUrl),
     ]);
 
-    // Parse CSV with per-swing grouping to avoid cross-swing derivative spikes
-    const { allData: ikData, swings: ikSwings } = parseCsvBySwing(ikCsvText);
-    const { allData: meData, swings: meSwings } = parseCsvBySwing(meCsvText);
+    console.log(`[Process] Downloaded CSVs: IK=${ikCsvText.split("\n").length} rows, ME=${meCsvText.split("\n").length} rows`);
 
-    const scores = calculate4BScores(ikData, meData, ikSwings, meSwings);
+    // Use Gemini AI to analyze the CSV data
+    const scores = await analyzeWithGemini(ikCsvText, meCsvText);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -1007,12 +646,20 @@ serve(async (req) => {
         console.error("Error updating player scores:", playerUpdateError);
       }
 
-      // Log activity
+      // Log activity with AI analysis details
       await supabase.from("activity_log").insert({
         action: "reboot_session_processed",
-        description: `4B Score: ${scores.composite_score} (${scores.grade})`,
+        description: `4B Score: ${scores.composite_score} (${scores.grade}) - AI Analyzed`,
         player_id: internalPlayerId,
-        metadata: { session_id, org_player_id, scores, upload_id },
+        metadata: { 
+          session_id, 
+          org_player_id, 
+          scores,
+          upload_id,
+          analysis_method: "gemini-ai",
+          leaks_detected: scores.leaks_detected,
+          coaching_notes: scores.coaching_notes,
+        },
       });
     }
 
@@ -1023,6 +670,7 @@ serve(async (req) => {
         org_player_id,
         player_id: internalPlayerId,
         scores,
+        analysis_method: "gemini-ai",
         message: `4B Score: ${scores.composite_score} (${scores.grade})`,
       }),
       {
