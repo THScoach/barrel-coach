@@ -17,11 +17,16 @@ import {
   Sparkles,
   Zap,
   AlertCircle,
-  Download
+  Download,
+  Upload,
+  Box,
+  Camera,
+  Link2
 } from "lucide-react";
 import { VideoPlayer } from "@/components/analyzer/VideoPlayer";
 import { MomentumSequenceVisualizer } from "@/components/analyzer/MomentumSequenceVisualizer";
 import { useAnalyzeVideoSwingSession } from "@/hooks/useAnalyzeVideoSwingSession";
+import { RebootCsvImportModal } from "./RebootCsvImportModal";
 import { cn } from "@/lib/utils";
 import { 
   type MomentumOverlay, 
@@ -50,6 +55,7 @@ interface VideoSwingSession {
   video_count: number;
   analyzed_count: number;
   momentum_overlays?: Json | null;
+  reboot_imported?: boolean;
 }
 
 interface VideoAnalyzerDetailProps {
@@ -64,6 +70,7 @@ export function VideoAnalyzerDetail({ sessionId, onBack }: VideoAnalyzerDetailPr
   const [loading, setLoading] = useState(true);
   const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
+  const [rebootImportOpen, setRebootImportOpen] = useState(false);
   
   const { analyze, isAnalyzing, analyzingSessionId } = useAnalyzeVideoSwingSession();
 
@@ -215,27 +222,56 @@ export function VideoAnalyzerDetail({ sessionId, onBack }: VideoAnalyzerDetailPr
             <h2 className="font-semibold text-lg">
               {format(new Date(session.session_date), 'MMMM d, yyyy')}
             </h2>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
               <Badge variant="outline" className="text-xs">
                 {getContextLabel(session.context)}
               </Badge>
               <span>•</span>
               <span>{session.video_count} videos</span>
-              {isSessionAnalyzed && (
-                <>
-                  <span>•</span>
-                  <Badge variant="default" className="bg-green-600 text-xs">
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                    Analyzed
-                  </Badge>
-                </>
+              {/* 2D Status */}
+              {isSessionAnalyzed ? (
+                <Badge variant="outline" className="text-xs border-blue-500/50 text-blue-400">
+                  <Camera className="h-3 w-3 mr-1" />
+                  2D Analyzed
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs">
+                  <Clock className="h-3 w-3 mr-1" />
+                  2D Pending
+                </Badge>
+              )}
+              {/* 3D Status */}
+              {session.reboot_imported ? (
+                <Badge variant="outline" className="text-xs border-green-500/50 text-green-400">
+                  <Box className="h-3 w-3 mr-1" />
+                  3D Imported
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs text-muted-foreground">
+                  <Box className="h-3 w-3 mr-1" />
+                  3D Not Imported
+                </Badge>
               )}
             </div>
           </div>
         </div>
         
-        {/* Analyze Button */}
-        <div className="flex items-center gap-2">
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Import Reboot 3D Data */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setRebootImportOpen(true)}
+            className={cn(
+              session.reboot_imported && "border-green-500/50 text-green-400 hover:text-green-300"
+            )}
+          >
+            <Link2 className="h-4 w-4 mr-2" />
+            {session.reboot_imported ? 'Re-import 3D' : 'Import 3D Data'}
+          </Button>
+
+          {/* 2D Analysis Button */}
           {isSessionAnalyzed ? (
             <Button
               variant="outline"
@@ -251,7 +287,7 @@ export function VideoAnalyzerDetail({ sessionId, onBack }: VideoAnalyzerDetailPr
               ) : (
                 <>
                   <Sparkles className="h-4 w-4 mr-2" />
-                  Re-analyze
+                  Re-analyze 2D
                 </>
               )}
             </Button>
@@ -268,7 +304,7 @@ export function VideoAnalyzerDetail({ sessionId, onBack }: VideoAnalyzerDetailPr
               ) : (
                 <>
                   <Sparkles className="h-4 w-4 mr-2" />
-                  Analyze Sequence
+                  Run 2D Analysis
                 </>
               )}
             </Button>
@@ -428,6 +464,15 @@ export function VideoAnalyzerDetail({ sessionId, onBack }: VideoAnalyzerDetailPr
           </div>
         </div>
       )}
+
+      {/* Reboot CSV Import Modal */}
+      <RebootCsvImportModal
+        open={rebootImportOpen}
+        onOpenChange={setRebootImportOpen}
+        sessionId={sessionId}
+        swingCount={swings.length}
+        onSuccess={loadSessionData}
+      />
     </div>
   );
 }
