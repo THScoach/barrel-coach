@@ -669,14 +669,15 @@ function calculate4BScoresForSwing(
   
   console.log(`[Scoring] Swing ${swingId}: X-Factor raw=${xFactorMaxRaw.toFixed(1)}°, calibrated=${xFactorCalibrated.toFixed(1)}°, final=${xFactorMax.toFixed(1)}°`);
   
-  // Stretch rate = derivative of x-factor (also per-swing safe)
-  // Apply same calibration factor
+  // Stretch rate = derivative of x-factor
+  // X-Factor already has 0.5x applied, so stretch rate inherits that calibration
   const xFactorVelocitiesRaw = derivative(xFactors, dt);
-  const xFactorVelocities = xFactorVelocitiesRaw.map(v => v * VELOCITY_CALIBRATION);
-  const xFactorVelFiltered = xFactorVelocities.map(v => Math.abs(v) < 2000 ? v : 0);
+  // Apply same 0.5x calibration as X-Factor position data
+  const xFactorVelocities = xFactorVelocitiesRaw.map((v) => v * X_FACTOR_CALIBRATION);
+  const xFactorVelFiltered = xFactorVelocities.map((v) => (Math.abs(v) < 2000 ? v : 0));
   const stretchRate = getPeakAbsInWindow(xFactorVelFiltered, strideFrame, contactFrame);
-  
-  console.log(`[Scoring] Swing ${swingId}: Stretch rate=${stretchRate.toFixed(0)}°/s (calibrated)`);
+
+  console.log(`[Scoring] Swing ${swingId}: Stretch rate=${stretchRate.toFixed(0)}°/s (0.5x calibrated)`);
   
   // ===== CALCULATE COMPONENT SCORES =====
   const pelvisVelScore = to2080Scale(pelvisPeakVel, THRESHOLDS.pelvis_velocity.min, THRESHOLDS.pelvis_velocity.max);
