@@ -2,12 +2,12 @@
  * Interactive 4B Tiles for Rick Lab
  * ==================================
  * Clickable tiles that expand to show detailed metrics for each B category.
+ * Updated to match clean dark dashboard aesthetic with left border accents.
  */
 
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Brain, 
@@ -17,8 +17,7 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  ChevronRight,
-  X
+  ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FourBScores } from "@/lib/players/getPlayerScorecard";
@@ -32,38 +31,40 @@ const categoryConfig = {
   brain: {
     icon: Brain,
     label: "BRAIN",
-    description: "Decision quality & pitch selection",
-    color: "from-purple-500/20 to-purple-500/5 border-purple-500/30",
-    iconColor: "text-purple-400",
+    description: "Decision & timing",
     metrics: ["Pitch recognition", "Swing decisions", "Game IQ"],
   },
   body: {
     icon: Activity,
     label: "BODY",
-    description: "Movement sequencing & kinetics",
-    color: "from-blue-500/20 to-blue-500/5 border-blue-500/30",
-    iconColor: "text-blue-400",
+    description: "Ground-up energy",
     metrics: ["Ground flow", "Core flow", "Upper flow", "Sequence timing"],
   },
   bat: {
     icon: Zap,
     label: "BAT",
-    description: "Impact quality & bat speed",
-    color: "from-orange-500/20 to-orange-500/5 border-orange-500/30",
-    iconColor: "text-orange-400",
+    description: "Upper body delivery",
     metrics: ["Bat KE", "Transfer efficiency", "Barrel quality"],
   },
   ball: {
     icon: Target,
     label: "BALL",
-    description: "Outcome quality & contact",
-    color: "from-emerald-500/20 to-emerald-500/5 border-emerald-500/30",
-    iconColor: "text-emerald-400",
+    description: "Output quality",
     metrics: ["Exit velocity", "Launch angle", "Barrel %", "Hard hit %"],
   },
 };
 
 type Category = keyof typeof categoryConfig;
+
+// Get border color based on score (scouting scale)
+function getScoreBorderColor(score: number | null): string {
+  if (score === null) return "border-l-slate-600";
+  if (score >= 70) return "border-l-teal-500";      // Plus-Plus (Elite)
+  if (score >= 60) return "border-l-teal-400";      // Plus
+  if (score >= 50) return "border-l-slate-500";     // Average
+  if (score >= 40) return "border-l-orange-500";    // Below Avg
+  return "border-l-red-500";                         // Fringe/Poor
+}
 
 export function Interactive4BTiles({ fourBScores, onViewDetails }: Interactive4BTilesProps) {
   const [expandedCategory, setExpandedCategory] = useState<Category | null>(null);
@@ -77,8 +78,8 @@ export function Interactive4BTiles({ fourBScores, onViewDetails }: Interactive4B
 
   const TrendIcon = ({ trend }: { trend: string }) => {
     if (trend === 'up') return <TrendingUp className="h-3 w-3 text-emerald-500" />;
-    if (trend === 'down') return <TrendingDown className="h-3 w-3 text-red-500" />;
-    return <Minus className="h-3 w-3 text-muted-foreground/50" />;
+    if (trend === 'down') return <TrendingDown className="h-3 w-3 text-red-400" />;
+    return <Minus className="h-3 w-3 text-slate-500" />;
   };
 
   const handleTileClick = (category: Category) => {
@@ -104,37 +105,40 @@ export function Interactive4BTiles({ fourBScores, onViewDetails }: Interactive4B
           const score = getScoreForCategory(category);
           const prevScore = getPrevScoreForCategory(category);
           const trend = getTrend(score, prevScore);
+          const borderColor = getScoreBorderColor(score);
 
           return (
             <Card
               key={category}
               className={cn(
-                "bg-gradient-to-br border cursor-pointer transition-all duration-200",
-                "hover:scale-[1.02] hover:shadow-lg hover:shadow-black/20",
+                "bg-slate-800/50 border-slate-700 border-l-4 cursor-pointer transition-all duration-200",
+                "hover:bg-slate-800 hover:shadow-lg hover:shadow-black/20",
                 "active:scale-[0.98]",
-                config.color
+                borderColor
               )}
               onClick={() => handleTileClick(category)}
             >
               <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
+                {/* Header row: Icon + Label + Trend */}
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Icon className={cn("h-5 w-5", config.iconColor)} />
-                    <span className="text-xs font-bold uppercase tracking-wide text-slate-300">
+                    <Icon className="h-4 w-4 text-slate-400" />
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
                       {config.label}
                     </span>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <span className="text-4xl font-black text-white">
-                    {score ?? '—'}
-                  </span>
                   <TrendIcon trend={trend} />
                 </div>
                 
-                <p className="text-[10px] text-slate-300 mt-2 line-clamp-1">
+                {/* Large score */}
+                <div className="mb-2">
+                  <span className="text-4xl font-black text-white">
+                    {score ?? '—'}
+                  </span>
+                </div>
+                
+                {/* Description */}
+                <p className="text-xs text-slate-500">
                   {config.description}
                 </p>
               </CardContent>
@@ -155,8 +159,8 @@ export function Interactive4BTiles({ fourBScores, onViewDetails }: Interactive4B
                     const Icon = config.icon;
                     return (
                       <>
-                        <div className={cn("p-2 rounded-lg bg-gradient-to-br", config.color)}>
-                          <Icon className={cn("h-5 w-5", config.iconColor)} />
+                        <div className="p-2 rounded-lg bg-slate-800">
+                          <Icon className="h-5 w-5 text-slate-300" />
                         </div>
                         {config.label} Score Details
                       </>
