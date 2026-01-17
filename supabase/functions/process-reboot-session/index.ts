@@ -600,7 +600,7 @@ serve(async (req) => {
       };
 
       if (upload_id) {
-        // Update existing upload record
+        // Update existing upload record by ID
         const { error } = await supabase
           .from("reboot_uploads")
           .update(uploadData)
@@ -612,21 +612,43 @@ serve(async (req) => {
           console.log(`[Process] Updated reboot_uploads ${upload_id}`);
         }
       } else {
-        // Create new upload record for API import
-        const { error } = await supabase
+        // Check for existing record by player + session (upsert logic)
+        const { data: existing } = await supabase
           .from("reboot_uploads")
-          .insert({
-            ...uploadData,
-            player_id: internalPlayerId,
-            session_date: new Date().toISOString().split("T")[0],
-            upload_source: "reboot_api",
-            video_filename: `Reboot Session ${session_id.slice(0, 8)}`,
-          });
+          .select("id")
+          .eq("player_id", internalPlayerId)
+          .eq("reboot_session_id", session_id)
+          .maybeSingle();
 
-        if (error) {
-          console.error("Error inserting reboot_uploads:", error);
+        if (existing) {
+          // UPDATE existing record
+          const { error } = await supabase
+            .from("reboot_uploads")
+            .update(uploadData)
+            .eq("id", existing.id);
+
+          if (error) {
+            console.error("Error updating existing reboot_uploads:", error);
+          } else {
+            console.log(`[Process] Updated existing record ${existing.id} for session ${session_id}`);
+          }
         } else {
-          console.log(`[Process] Created reboot_uploads for session ${session_id}`);
+          // INSERT new record
+          const { error } = await supabase
+            .from("reboot_uploads")
+            .insert({
+              ...uploadData,
+              player_id: internalPlayerId,
+              session_date: new Date().toISOString().split("T")[0],
+              upload_source: "reboot_api",
+              video_filename: `Reboot Session ${session_id.slice(0, 8)}`,
+            });
+
+          if (error) {
+            console.error("Error inserting reboot_uploads:", error);
+          } else {
+            console.log(`[Process] Created reboot_uploads for session ${session_id}`);
+          }
         }
       }
 
