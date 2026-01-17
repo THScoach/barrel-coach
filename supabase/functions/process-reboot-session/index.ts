@@ -178,28 +178,41 @@ async function downloadCsv(url: string): Promise<string> {
   return await response.text();
 }
 
-// Parse CSV to objects
-function parseCsv(csvText: string): Record<string, number | string>[] {
+// Parse CSV to numeric arrays (column-based format matching compute-4b-from-csv)
+function parseCsvToArrays(csvText: string): Record<string, number[]> {
   const lines = csvText.trim().split("\n");
-  if (lines.length < 2) return [];
+  if (lines.length < 2) return {};
 
-  const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
-  const rows: Record<string, number | string>[] = [];
+  // Use lowercase headers for consistency
+  const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, "").toLowerCase());
+  const result: Record<string, number[]> = {};
+  headers.forEach((h) => {
+    result[h] = [];
+  });
 
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(",").map((v) => v.trim().replace(/"/g, ""));
-    const row: Record<string, number | string> = {};
-
+    const values = lines[i].split(",").map((v) => v.replace(/"/g, "").trim());
     headers.forEach((header, idx) => {
-      const value = values[idx];
-      const num = parseFloat(value);
-      row[header] = isNaN(num) ? value : num;
+      const raw = values[idx] ?? "";
+      const val = parseFloat(raw);
+      result[header].push(Number.isFinite(val) ? val : 0);
     });
-
-    rows.push(row);
   }
 
-  return rows;
+  return result;
+}
+
+// Check if values are in radians (small values) and convert to degrees
+function maybeRadiansToDegrees(values: number[]): number[] {
+  if (!values?.length) return [];
+  const maxAbs = Math.max(...values.map(Math.abs));
+  
+  // If peak is "small" (<8), it's likely radians
+  if (maxAbs > 0 && maxAbs < 8) {
+    const DEG = 57.29577951308232; // 180/PI
+    return values.map((v) => (v || 0) * DEG);
+  }
+  return values;
 }
 
 // Scoring thresholds for 20-80 scale
@@ -264,86 +277,155 @@ function coefficientOfVariation(arr: number[]): number {
   return (std(arr) / Math.abs(m)) * 100;
 }
 
-// Main 4B scoring calculation
-function calculate4BScores(ikData: Record<string, number | string>[], meData: Record<string, number | string>[]): FourBScores {
-  const pelvisRotations = ikData
-    .filter((row) => row.pelvis_rot !== undefined && typeof row.pelvis_rot === 'number')
-    .map((row) => (row.pelvis_rot as number) * (180 / Math.PI));
+// Get peak absolute value from an array
+function getPeakAbs(values: number[]): number {
+  let maxVal = 0;
+  for (const val of values) {
+    const absVal = Math.abs(val || 0);
+    if (absVal > maxVal) maxVal = absVal;
+  }
+  return maxVal;
+}
 
-  const pelvisVelocities = calculateAngularVelocity(pelvisRotations);
-  const pelvisPeakVel = Math.max(...pelvisVelocities.map(Math.abs), 0);
+// Detect frame rate from timestamp column if available, or estimate from frame count
+function detectFrameRate(csvData: Record<string, number[]>): number {
+  const timestamps = csvData["timestamp"] || csvData["time"] || csvData["t"] || [];
+  if (timestamps.length >= 2) {
+    // Calculate dt from first few frames
+    const dt = timestamps[1] - timestamps[0];
+    if (dt > 0 && dt < 1) {
+      const fps = 1 / dt;
+      console.log(`[FPS] Detected from timestamps: ${fps.toFixed(1)} fps`);
+      return fps;
+    }
+  }
+  
+  // Default based on Reboot Motion typical capture rates
+  // Most Reboot data is 300fps
+  return 300;
+}
 
-  const legsKE = meData
-    .filter((row) => row.legs_kinetic_energy !== undefined && typeof row.legs_kinetic_energy === 'number')
-    .map((row) => row.legs_kinetic_energy as number);
-  const legsKEMax = Math.max(...legsKE, 0);
+// Find column by searching for partial matches
+function findColumn(csvData: Record<string, number[]>, ...patterns: string[]): number[] {
+  // Try exact matches first
+  for (const pattern of patterns) {
+    if (csvData[pattern]) return csvData[pattern];
+  }
+  
+  // Try partial matches
+  const keys = Object.keys(csvData);
+  for (const pattern of patterns) {
+    const match = keys.find(k => k.includes(pattern));
+    if (match) return csvData[match];
+  }
+  
+  return [];
+}
 
-  const pelvisScore = to2080Scale(pelvisPeakVel, THRESHOLDS.pelvis_velocity.min, THRESHOLDS.pelvis_velocity.max);
-  const legsScore = to2080Scale(legsKEMax, THRESHOLDS.legs_ke.min, THRESHOLDS.legs_ke.max);
-  const groundFlowScore = Math.round((pelvisScore + legsScore) / 2);
-
-  const torsoRotations = ikData
-    .filter((row) => row.torso_rot !== undefined && typeof row.torso_rot === 'number')
-    .map((row) => (row.torso_rot as number) * (180 / Math.PI));
-
-  const torsoVelocities = calculateAngularVelocity(torsoRotations);
-  const torsoPeakVel = Math.max(...torsoVelocities.map(Math.abs), 0);
-
+// Main 4B scoring calculation using column-based arrays
+function calculate4BScores(ikCsv: Record<string, number[]>, meCsv: Record<string, number[]>): FourBScores {
+  const frameCount = ikCsv["rel_frame"]?.length || ikCsv["frame"]?.length || ikCsv["index"]?.length || 100;
+  const fps = detectFrameRate(ikCsv);
+  const dt = 1 / fps;
+  
+  console.log(`[Scoring] Processing ${frameCount} frames at ${fps} fps`);
+  
+  // Log available columns for debugging
+  const ikKeys = Object.keys(ikCsv);
+  const meKeys = Object.keys(meCsv);
+  console.log(`[Scoring] Looking for pelvis in: ${ikKeys.filter(k => k.includes("pelvis")).join(", ")}`);
+  console.log(`[Scoring] Looking for kinetic in: ${meKeys.filter(k => k.includes("kinetic")).join(", ")}`);
+  
+  // Get rotation data - use underscore versions as primary
+  const pelvisRaw = findColumn(ikCsv, "pelvis_rot", "pelvisrot", "pelvis_rotation");
+  const torsoRaw = findColumn(ikCsv, "torso_rot", "torsorot", "torso_rotation");
+  
+  console.log(`[Scoring] Found ${pelvisRaw.length} pelvis values, ${torsoRaw.length} torso values`);
+  
+  // Auto-convert radians to degrees if needed
+  const pelvisRotations = maybeRadiansToDegrees(pelvisRaw);
+  const torsoRotations = maybeRadiansToDegrees(torsoRaw);
+  
+  console.log(`[Scoring] Pelvis range: ${Math.min(...pelvisRotations).toFixed(1)} to ${Math.max(...pelvisRotations).toFixed(1)} deg`);
+  
+  // Calculate velocities
+  const pelvisVelocities = calculateAngularVelocity(pelvisRotations, dt);
+  const torsoVelocities = calculateAngularVelocity(torsoRotations, dt);
+  
+  const pelvisPeakVel = getPeakAbs(pelvisVelocities);
+  const torsoPeakVel = getPeakAbs(torsoVelocities);
+  
+  console.log(`[Scoring] Pelvis peak vel: ${pelvisPeakVel.toFixed(1)} deg/s, Torso: ${torsoPeakVel.toFixed(1)} deg/s`);
+  
+  // X-Factor (separation)
   const xFactors: number[] = [];
   for (let i = 0; i < Math.min(pelvisRotations.length, torsoRotations.length); i++) {
     xFactors.push(Math.abs(pelvisRotations[i] - torsoRotations[i]));
   }
-  const xFactorMax = Math.max(...xFactors, 0);
-
-  const xFactorVelocities = calculateAngularVelocity(xFactors);
-  const stretchRate = Math.max(...xFactorVelocities.map(Math.abs), 0);
-
+  const xFactorMax = getPeakAbs(xFactors);
+  const xFactorVelocities = calculateAngularVelocity(xFactors, dt);
+  const stretchRate = getPeakAbs(xFactorVelocities);
+  
+  console.log(`[Scoring] X-Factor max: ${xFactorMax.toFixed(1)} deg, stretch rate: ${stretchRate.toFixed(1)} deg/s`);
+  
+  // Get kinetic energy data - try multiple column name patterns
+  const batKE = findColumn(meCsv, "bat_kinetic_energy", "bat_ke", "bat_linear_ke");
+  const totalKE = findColumn(meCsv, "total_kinetic_energy", "total_ke");
+  const legsKE = findColumn(meCsv, "legs_kinetic_energy", "legs_ke", "lower_kinetic_energy");
+  
+  console.log(`[Scoring] Found bat_ke: ${batKE.length} values, total_ke: ${totalKE.length}, legs_ke: ${legsKE.length}`);
+  
+  const batKEMax = getPeakAbs(batKE);
+  const totalKEMax = Math.max(getPeakAbs(totalKE), 1);
+  const legsKEMax = getPeakAbs(legsKE);
+  const transferEfficiency = totalKEMax > 1 ? (batKEMax / totalKEMax) * 100 : 0;
+  
+  console.log(`[Scoring] Bat KE: ${batKEMax.toFixed(1)} J, Total KE: ${totalKEMax.toFixed(1)} J, Efficiency: ${transferEfficiency.toFixed(1)}%`);
+  
+  // Calculate scores using thresholds
+  const pelvisScore = to2080Scale(pelvisPeakVel, THRESHOLDS.pelvis_velocity.min, THRESHOLDS.pelvis_velocity.max);
   const torsoScore = to2080Scale(torsoPeakVel, THRESHOLDS.torso_velocity.min, THRESHOLDS.torso_velocity.max);
   const xFactorScore = to2080Scale(xFactorMax, THRESHOLDS.x_factor.min, THRESHOLDS.x_factor.max);
   const stretchScore = to2080Scale(stretchRate, THRESHOLDS.stretch_rate.min, THRESHOLDS.stretch_rate.max);
-  const coreFlowScore = Math.round((torsoScore + xFactorScore + stretchScore) / 3);
-
-  const batKE = meData
-    .filter((row) => row.bat_kinetic_energy !== undefined && typeof row.bat_kinetic_energy === 'number')
-    .map((row) => row.bat_kinetic_energy as number);
-  const batKEMax = Math.max(...batKE, 0);
-
-  const totalKE = meData
-    .filter((row) => row.total_kinetic_energy !== undefined && typeof row.total_kinetic_energy === 'number')
-    .map((row) => row.total_kinetic_energy as number);
-  const totalKEMax = Math.max(...totalKE, 1);
-  const transferEfficiency = (batKEMax / totalKEMax) * 100;
-
+  const legsScore = to2080Scale(legsKEMax, THRESHOLDS.legs_ke.min, THRESHOLDS.legs_ke.max);
   const batKEScore = to2080Scale(batKEMax, THRESHOLDS.bat_ke.min, THRESHOLDS.bat_ke.max);
   const efficiencyScore = to2080Scale(transferEfficiency, THRESHOLDS.bat_efficiency.min, THRESHOLDS.bat_efficiency.max);
+  
+  // Combine into flow scores
+  const groundFlowScore = Math.round((pelvisScore + legsScore) / 2);
+  const coreFlowScore = Math.round((torsoScore + xFactorScore + stretchScore) / 3);
   const upperFlowScore = Math.round((batKEScore + efficiencyScore) / 2);
-
-  const pelvisCV = coefficientOfVariation(pelvisVelocities);
-  const torsoCV = coefficientOfVariation(torsoVelocities);
+  
+  // Consistency (CV of velocities)
+  const validPelvisVel = pelvisVelocities.filter(v => Math.abs(v) > 10 && Math.abs(v) < 2000);
+  const validTorsoVel = torsoVelocities.filter(v => Math.abs(v) > 10 && Math.abs(v) < 2000);
+  const pelvisCV = validPelvisVel.length > 2 ? coefficientOfVariation(validPelvisVel) : 20;
+  const torsoCV = validTorsoVel.length > 2 ? coefficientOfVariation(validTorsoVel) : 20;
   const avgCV = (pelvisCV + torsoCV) / 2;
-
+  
   const consistencyScore = to2080Scale(avgCV, THRESHOLDS.consistency_cv.min, THRESHOLDS.consistency_cv.max, true);
   const consistencyGrade = getConsistencyGrade(avgCV);
-
-  const contactFrameKE = totalKE;
-  const contactKECV = coefficientOfVariation(contactFrameKE);
-  const ballScoreRaw = to2080Scale(contactKECV, 5, 40, true);
-  const ballScore = Math.max(20, Math.min(80, ballScoreRaw));
-
+  
+  // Final 4B scores
   const brainScore = consistencyScore;
   const bodyScore = Math.round((groundFlowScore * 0.4 + coreFlowScore * 0.6));
   const batScore = upperFlowScore;
-
+  const ballScore = transferEfficiency > 0 
+    ? Math.max(20, Math.min(80, to2080Scale(transferEfficiency, 25, 65, false)))
+    : 50;
+  
   const compositeScore = Math.round(
     brainScore * 0.20 +
     bodyScore * 0.35 +
     batScore * 0.30 +
     ballScore * 0.15
   );
-
+  
   const scores = { brain: brainScore, body: bodyScore, bat: batScore, ball: ballScore };
   const weakestLink = Object.entries(scores).reduce((a, b) => (a[1] < b[1] ? a : b))[0];
-
+  
+  console.log(`[Scoring] Final: Brain=${brainScore}, Body=${bodyScore}, Bat=${batScore}, Ball=${ballScore}, Composite=${compositeScore}`);
+  
   return {
     brain_score: brainScore,
     body_score: bodyScore,
@@ -393,8 +475,9 @@ serve(async (req) => {
       downloadCsv(meUrl),
     ]);
 
-    const ikData = parseCsv(ikCsv);
-    const meData = parseCsv(meCsv);
+    // Parse CSV into column-based arrays
+    const ikData = parseCsvToArrays(ikCsv);
+    const meData = parseCsvToArrays(meCsv);
 
     const scores = calculate4BScores(ikData, meData);
 
