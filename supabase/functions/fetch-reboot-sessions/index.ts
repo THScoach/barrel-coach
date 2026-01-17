@@ -119,6 +119,107 @@ async function checkSessionHasPlayerData(
   }
 }
 
+function parseSessionDateMs(value: unknown): number | null {
+  if (typeof value !== "string" || !value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function compareSessionsDesc(a: any, b: any): number {
+  const aDate = parseSessionDateMs(a?.session_date) ?? 0;
+  const bDate = parseSessionDateMs(b?.session_date) ?? 0;
+  if (aDate !== bDate) return bDate - aDate;
+
+  const aCreated = parseSessionDateMs(a?.created_at) ?? 0;
+  const bCreated = parseSessionDateMs(b?.created_at) ?? 0;
+  return bCreated - aCreated;
+}
+
+function normalizeSessionsResponse(payload: any): any[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.sessions)) return payload.sessions;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+}
+
+async function fetchOrgSessionsPaged(orgPlayerId: string, sinceDate: string): Promise<any[]> {
+  const pageSize = 200;
+  const maxPages = 25; // safety limit
+  const sinceMs = parseSessionDateMs(sinceDate) ?? 0;
+
+  const sessions: any[] = [];
+  const seenIds = new Set<string>();
+
+  for (let page = 1; page <= maxPages; page++) {
+    const url = new URL(`${REBOOT_API_BASE}/sessions`);
+    // Try multiple pagination styles for compatibility
+    url.searchParams.set("page", page.toString());
+    url.searchParams.set("page_size", pageSize.toString());
+    url.searchParams.set("limit", pageSize.toString());
+    url.searchParams.set("offset", ((page - 1) * pageSize).toString());
+
+    // Requested by user: attempt server-side filtering (may be ignored by API)
+    url.searchParams.set("org_player_id", orgPlayerId);
+
+    console.log(`[fetch-reboot-sessions] Fetching sessions page ${page}: ${url.toString()}`);
+
+    const resp = await fetch(url.toString(), {
+      headers: {
+        "X-Api-Key": REBOOT_API_KEY,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!resp.ok) {
+      const error = await resp.text();
+      throw new Error(`Reboot API error (${resp.status}): ${error}`);
+    }
+
+    const raw = await resp.json();
+    const pageSessions = normalizeSessionsResponse(raw);
+
+    console.log(
+      `[fetch-reboot-sessions] Page ${page} returned ${pageSessions.length} sessions (sample ids: ${pageSessions
+        .slice(0, 3)
+        .map((s: any) => s?.id)
+        .filter(Boolean)
+        .join(", ")})`,
+    );
+
+    for (const s of pageSessions) {
+      const id = s?.id;
+      if (!id || seenIds.has(id)) continue;
+      seenIds.add(id);
+      sessions.push(s);
+    }
+
+    if (pageSessions.length === 0) break;
+
+    // Stop once this page includes dates older than our cutoff (assumes newest->oldest ordering)
+    if (sinceMs) {
+      let oldestMs: number | null = null;
+      for (const s of pageSessions) {
+        const ms = parseSessionDateMs(s?.session_date);
+        if (ms === null) continue;
+        oldestMs = oldestMs === null ? ms : Math.min(oldestMs, ms);
+      }
+
+      if (oldestMs !== null && oldestMs < sinceMs) {
+        console.log(
+          `[fetch-reboot-sessions] Reached sessions older than since_date=${sinceDate} on page ${page}; stopping pagination`,
+        );
+        break;
+      }
+    }
+
+    // If fewer than page size returned, we've reached the end
+    if (pageSessions.length < pageSize) break;
+  }
+
+  console.log(`[fetch-reboot-sessions] Total sessions fetched across pages: ${sessions.length}`);
+  return sessions;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -128,80 +229,101 @@ serve(async (req) => {
     // Verify admin access
     await verifyAdmin(req);
 
-    const { org_player_id } = await req.json();
+    const { org_player_id, since_date } = await req.json();
 
     if (!org_player_id) {
       return new Response(
         JSON.stringify({ error: "org_player_id is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    console.log(`[fetch-reboot-sessions] Fetching sessions for player: "${org_player_id}"`);
+    const sinceDate = typeof since_date === "string" && since_date ? since_date : "2024-10-01";
 
-    // Step 1: Fetch all sessions from the org using API key
-    const sessionsUrl = `${REBOOT_API_BASE}/sessions?limit=50`;
-    console.log(`[fetch-reboot-sessions] Fetching all sessions: ${sessionsUrl}`);
-    
-    const sessionsResponse = await fetch(sessionsUrl, {
-      headers: {
-        "X-Api-Key": REBOOT_API_KEY,
-        "Content-Type": "application/json",
-      },
-    });
+    console.log(
+      `[fetch-reboot-sessions] Fetching sessions for org_player_id="${org_player_id}" since_date="${sinceDate}"`,
+    );
 
-    if (!sessionsResponse.ok) {
-      const error = await sessionsResponse.text();
-      throw new Error(`Reboot API error (${sessionsResponse.status}): ${error}`);
-    }
+    // Step 1: Fetch sessions (paged) from the org using API key
+    const allSessions = await fetchOrgSessionsPaged(org_player_id, sinceDate);
 
-    const allSessions = await sessionsResponse.json();
-    console.log(`[fetch-reboot-sessions] Got ${Array.isArray(allSessions) ? allSessions.length : 'unknown'} total sessions`);
+    const sortedForLog = [...allSessions].sort(compareSessionsDesc);
+    console.log(
+      `[fetch-reboot-sessions] Oldest fetched date: ${sortedForLog[sortedForLog.length - 1]?.session_date ?? "unknown"}; newest: ${sortedForLog[0]?.session_date ?? "unknown"}`,
+    );
 
     // Step 2: Get OAuth token for data_export checks
     const accessToken = await getRebootAccessToken();
 
     // Step 3: Filter sessions that have data for this player
-    // Only check "processed" sessions to save API calls
+    const sinceMs = parseSessionDateMs(sinceDate);
+
     const processedSessions = (Array.isArray(allSessions) ? allSessions : [])
-      .filter((s: any) => s.status === "processed" && s.completed_movements > 0);
-    
-    console.log(`[fetch-reboot-sessions] Checking ${processedSessions.length} processed sessions for player data`);
+      .filter((s: any) => s?.status === "processed" && (s?.completed_movements ?? 0) > 0)
+      .filter((s: any) => {
+        if (!sinceMs) return true;
+        const ms = parseSessionDateMs(s?.session_date);
+        return ms === null ? true : ms >= sinceMs;
+      })
+      .sort(compareSessionsDesc);
+
+    console.log(
+      `[fetch-reboot-sessions] Checking ${processedSessions.length} processed sessions for player data (org_player_id=${org_player_id})`,
+    );
+
+    const MAX_EXPORT_CHECKS = 250;
+    const sessionsToCheck = processedSessions.slice(0, MAX_EXPORT_CHECKS);
+
+    console.log(
+      `[fetch-reboot-sessions] Will data_export-check ${sessionsToCheck.length} sessions (max=${MAX_EXPORT_CHECKS})`,
+    );
 
     const playerSessions: any[] = [];
-    
-    // Check each processed session (limit to 10 for performance)
-    const sessionsToCheck = processedSessions.slice(0, 15);
-    
-    for (const session of sessionsToCheck) {
-      const hasData = await checkSessionHasPlayerData(session.id, org_player_id, accessToken);
-      if (hasData) {
-        playerSessions.push({
-          id: session.id,
-          session_date: session.session_date,
-          name: session.session_name || `Session ${session.session_num || ''}`.trim() || null,
-          created_at: session.created_at,
-          status: session.status,
-          movement_count: session.completed_movements || 0,
-        });
-        console.log(`[fetch-reboot-sessions] Session ${session.id} has data for player`);
-      }
-    }
+    const CONCURRENCY = 6;
+    let cursor = 0;
 
-    console.log(`[fetch-reboot-sessions] Found ${playerSessions.length} sessions with data for player ${org_player_id}`);
+    await Promise.all(
+      Array.from({ length: CONCURRENCY }, async () => {
+        while (cursor < sessionsToCheck.length) {
+          const session = sessionsToCheck[cursor++];
+          if (!session?.id) continue;
 
-    return new Response(
-      JSON.stringify({ sessions: playerSessions }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+          const hasData = await checkSessionHasPlayerData(session.id, org_player_id, accessToken);
+          if (!hasData) continue;
+
+          playerSessions.push({
+            id: session.id,
+            session_date: session.session_date,
+            name: session.session_name || `Session ${session.session_num || ""}`.trim() || null,
+            created_at: session.created_at,
+            status: session.status,
+            movement_count: session.completed_movements || 0,
+          });
+
+          console.log(`[fetch-reboot-sessions] Session ${session.id} has data for player`);
+        }
+      }),
     );
+
+    playerSessions.sort((a, b) => {
+      const aDate = parseSessionDateMs(a?.session_date) ?? 0;
+      const bDate = parseSessionDateMs(b?.session_date) ?? 0;
+      return bDate - aDate;
+    });
+
+    console.log(
+      `[fetch-reboot-sessions] Found ${playerSessions.length} sessions with data for org_player_id=${org_player_id}`,
+    );
+
+    return new Response(JSON.stringify({ sessions: playerSessions }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("[fetch-reboot-sessions] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
