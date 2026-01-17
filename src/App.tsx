@@ -37,6 +37,8 @@ import AdminMessages from "./pages/AdminMessages";
 import AdminVideos from "./pages/AdminVideos";
 import AdminAnalyzer from "./pages/AdminAnalyzer";
 import AdminNewSession from "./pages/AdminNewSession";
+import AdminSwingSessionUpload from "./pages/AdminSwingSessionUpload";
+import AdminSessionView from "./pages/AdminSessionView";
 import AdminPlayers from "./pages/AdminPlayers";
 import AdminPlayerProfile from "./pages/AdminPlayerProfile";
 import AdminImportKommodo from "./pages/AdminImportKommodo";
@@ -124,6 +126,16 @@ const App = () => (
               <Route path="/admin/new-session" element={
                 <ProtectedAdminRoute>
                   <AdminNewSession />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/sessions/new" element={
+                <ProtectedAdminRoute>
+                  <AdminSwingSessionUpload />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/sessions/:id" element={
+                <ProtectedAdminRoute>
+                  <AdminSessionView />
                 </ProtectedAdminRoute>
               } />
               <Route path="/admin/import-kommodo" element={
