@@ -866,39 +866,55 @@ export type Database = {
       }
       messages: {
         Row: {
+          ai_generated: boolean | null
           body: string
           created_at: string
           direction: string
           id: string
           phone_number: string
+          player_id: string | null
           read_at: string | null
           session_id: string | null
           status: string | null
+          trigger_type: string | null
           twilio_sid: string | null
         }
         Insert: {
+          ai_generated?: boolean | null
           body: string
           created_at?: string
           direction: string
           id?: string
           phone_number: string
+          player_id?: string | null
           read_at?: string | null
           session_id?: string | null
           status?: string | null
+          trigger_type?: string | null
           twilio_sid?: string | null
         }
         Update: {
+          ai_generated?: boolean | null
           body?: string
           created_at?: string
           direction?: string
           id?: string
           phone_number?: string
+          player_id?: string | null
           read_at?: string | null
           session_id?: string | null
           status?: string | null
+          trigger_type?: string | null
           twilio_sid?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_session_id_fkey"
             columns: ["session_id"]
@@ -1222,6 +1238,7 @@ export type Database = {
           position: string | null
           reboot_athlete_id: string | null
           reboot_player_id: string | null
+          sms_opt_in: boolean | null
           stripe_customer_id: string | null
           team: string | null
           updated_at: string | null
@@ -1261,6 +1278,7 @@ export type Database = {
           position?: string | null
           reboot_athlete_id?: string | null
           reboot_player_id?: string | null
+          sms_opt_in?: boolean | null
           stripe_customer_id?: string | null
           team?: string | null
           updated_at?: string | null
@@ -1300,6 +1318,7 @@ export type Database = {
           position?: string | null
           reboot_athlete_id?: string | null
           reboot_player_id?: string | null
+          sms_opt_in?: boolean | null
           stripe_customer_id?: string | null
           team?: string | null
           updated_at?: string | null
@@ -2944,6 +2963,7 @@ export type Database = {
         Returns: undefined
       }
       ensure_player_linked: { Args: { p_profile_id: string }; Returns: string }
+      find_player_by_phone: { Args: { phone_input: string }; Returns: string }
       find_similar_videos: {
         Args: { max_results?: number; video_id_param: string }
         Returns: {

@@ -659,6 +659,22 @@ ${preparedContent}`;
       });
 
       console.log("[AI] Saved analysis to database");
+      
+      // Send Coach Rick SMS after analysis completion
+      try {
+        console.log("[AI] Triggering Coach Rick SMS for player:", player_id);
+        await supabase.functions.invoke("send-coach-rick-sms", {
+          body: {
+            type: "analysis_complete",
+            player_id,
+            session_id,
+          },
+        });
+        console.log("[AI] Coach Rick SMS triggered successfully");
+      } catch (smsError) {
+        // Don't fail the analysis if SMS fails
+        console.error("[AI] Coach Rick SMS failed (non-fatal):", smsError);
+      }
     }
 
     return new Response(JSON.stringify(result), {
