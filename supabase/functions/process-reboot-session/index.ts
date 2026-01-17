@@ -287,11 +287,36 @@ function getPeakAbs(values: number[]): number {
   return maxVal;
 }
 
-// Detect frame rate from timestamp column if available, or estimate from frame count
+// Get peak absolute value within a window
+function getPeakAbsInWindow(values: number[], start: number, end: number): number {
+  const s = Math.max(0, Math.min(values.length - 1, start));
+  const e = Math.max(s, Math.min(values.length - 1, end));
+  let maxVal = 0;
+  for (let i = s; i <= e; i++) {
+    const absVal = Math.abs(values[i] || 0);
+    if (absVal > maxVal) maxVal = absVal;
+  }
+  return maxVal;
+}
+
+// Find frame with peak value
+function findPeakFrame(values: number[]): number {
+  let maxVal = -Infinity;
+  let maxIdx = 0;
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i] || 0;
+    if (v > maxVal) {
+      maxVal = v;
+      maxIdx = i;
+    }
+  }
+  return maxIdx;
+}
+
+// Detect frame rate from timestamp column
 function detectFrameRate(csvData: Record<string, number[]>): number {
   const timestamps = csvData["timestamp"] || csvData["time"] || csvData["t"] || [];
   if (timestamps.length >= 2) {
-    // Calculate dt from first few frames
     const dt = timestamps[1] - timestamps[0];
     if (dt > 0 && dt < 1) {
       const fps = 1 / dt;
@@ -299,44 +324,71 @@ function detectFrameRate(csvData: Record<string, number[]>): number {
       return fps;
     }
   }
-  
-  // Default based on Reboot Motion typical capture rates
-  // Most Reboot data is 300fps
-  return 300;
+  return 300; // Default Reboot fps
 }
 
 // Find column by searching for partial matches
 function findColumn(csvData: Record<string, number[]>, ...patterns: string[]): number[] {
-  // Try exact matches first
   for (const pattern of patterns) {
     if (csvData[pattern]) return csvData[pattern];
   }
-  
-  // Try partial matches
   const keys = Object.keys(csvData);
   for (const pattern of patterns) {
     const match = keys.find(k => k.includes(pattern));
     if (match) return csvData[match];
   }
-  
   return [];
 }
 
-// Main 4B scoring calculation using column-based arrays
+// Detect contact frame using bat kinetic energy peak or other proxies
+function detectContactFrame(
+  meCsv: Record<string, number[]>,
+  ikCsv: Record<string, number[]>
+): { contactFrame: number; strideFrame: number; confidence: string } {
+  const frameCount = meCsv["rel_frame"]?.length || ikCsv["rel_frame"]?.length || 100;
+  
+  // 1) Try bat kinetic energy peak (most reliable)
+  const batKE = findColumn(meCsv, "bat_kinetic_energy", "bat_ke");
+  if (batKE.length > 0) {
+    const peakFrame = findPeakFrame(batKE);
+    if (peakFrame > frameCount * 0.3) {
+      const strideFrame = Math.floor(peakFrame * 0.3);
+      console.log(`[Contact] Using bat_ke peak: frame ${peakFrame}, stride: ${strideFrame}`);
+      return { contactFrame: peakFrame, strideFrame, confidence: "high" };
+    }
+  }
+  
+  // 2) Try total kinetic energy peak
+  const totalKE = findColumn(meCsv, "total_kinetic_energy", "total_ke");
+  if (totalKE.length > 0) {
+    const peakFrame = findPeakFrame(totalKE);
+    if (peakFrame > frameCount * 0.3) {
+      const strideFrame = Math.floor(peakFrame * 0.3);
+      console.log(`[Contact] Using total_ke peak: frame ${peakFrame}, stride: ${strideFrame}`);
+      return { contactFrame: peakFrame, strideFrame, confidence: "medium" };
+    }
+  }
+  
+  // 3) Fallback: assume swing happens in last 60% of capture
+  const contactFrame = Math.floor(frameCount * 0.7);
+  const strideFrame = Math.floor(frameCount * 0.3);
+  console.log(`[Contact] Using fallback ratio: contact=${contactFrame}, stride=${strideFrame}`);
+  return { contactFrame, strideFrame, confidence: "low" };
+}
+
+// Main 4B scoring calculation using column-based arrays WITH swing window
 function calculate4BScores(ikCsv: Record<string, number[]>, meCsv: Record<string, number[]>): FourBScores {
-  const frameCount = ikCsv["rel_frame"]?.length || ikCsv["frame"]?.length || ikCsv["index"]?.length || 100;
+  const frameCount = ikCsv["rel_frame"]?.length || ikCsv["frame"]?.length || 100;
   const fps = detectFrameRate(ikCsv);
   const dt = 1 / fps;
   
-  console.log(`[Scoring] Processing ${frameCount} frames at ${fps} fps`);
+  // Detect swing window (stride → contact)
+  const { contactFrame, strideFrame, confidence } = detectContactFrame(meCsv, ikCsv);
+  const swingWindow = contactFrame - strideFrame;
   
-  // Log available columns for debugging
-  const ikKeys = Object.keys(ikCsv);
-  const meKeys = Object.keys(meCsv);
-  console.log(`[Scoring] Looking for pelvis in: ${ikKeys.filter(k => k.includes("pelvis")).join(", ")}`);
-  console.log(`[Scoring] Looking for kinetic in: ${meKeys.filter(k => k.includes("kinetic")).join(", ")}`);
+  console.log(`[Scoring] ${frameCount} frames at ${fps} fps, swing window: ${strideFrame}-${contactFrame} (${swingWindow} frames, confidence: ${confidence})`);
   
-  // Get rotation data - use underscore versions as primary
+  // Get rotation data
   const pelvisRaw = findColumn(ikCsv, "pelvis_rot", "pelvisrot", "pelvis_rotation");
   const torsoRaw = findColumn(ikCsv, "torso_rot", "torsorot", "torso_rotation");
   
@@ -348,36 +400,48 @@ function calculate4BScores(ikCsv: Record<string, number[]>, meCsv: Record<string
   
   console.log(`[Scoring] Pelvis range: ${Math.min(...pelvisRotations).toFixed(1)} to ${Math.max(...pelvisRotations).toFixed(1)} deg`);
   
-  // Calculate velocities
-  const pelvisVelocities = calculateAngularVelocity(pelvisRotations, dt);
-  const torsoVelocities = calculateAngularVelocity(torsoRotations, dt);
+  // Calculate velocities (frame-to-frame)
+  const pelvisVelocities: number[] = [];
+  const torsoVelocities: number[] = [];
+  for (let i = 1; i < pelvisRotations.length; i++) {
+    pelvisVelocities.push((pelvisRotations[i] - pelvisRotations[i - 1]) / dt);
+  }
+  for (let i = 1; i < torsoRotations.length; i++) {
+    torsoVelocities.push((torsoRotations[i] - torsoRotations[i - 1]) / dt);
+  }
   
-  const pelvisPeakVel = getPeakAbs(pelvisVelocities);
-  const torsoPeakVel = getPeakAbs(torsoVelocities);
+  // Get peak velocities WITHIN the swing window only
+  const pelvisPeakVel = getPeakAbsInWindow(pelvisVelocities, strideFrame, contactFrame);
+  const torsoPeakVel = getPeakAbsInWindow(torsoVelocities, strideFrame, contactFrame);
   
   console.log(`[Scoring] Pelvis peak vel: ${pelvisPeakVel.toFixed(1)} deg/s, Torso: ${torsoPeakVel.toFixed(1)} deg/s`);
   
-  // X-Factor (separation)
+  // X-Factor (separation) within swing window
   const xFactors: number[] = [];
   for (let i = 0; i < Math.min(pelvisRotations.length, torsoRotations.length); i++) {
     xFactors.push(Math.abs(pelvisRotations[i] - torsoRotations[i]));
   }
-  const xFactorMax = getPeakAbs(xFactors);
-  const xFactorVelocities = calculateAngularVelocity(xFactors, dt);
-  const stretchRate = getPeakAbs(xFactorVelocities);
+  const xFactorMax = getPeakAbsInWindow(xFactors, strideFrame, contactFrame);
+  
+  const xFactorVelocities: number[] = [];
+  for (let i = 1; i < xFactors.length; i++) {
+    xFactorVelocities.push((xFactors[i] - xFactors[i - 1]) / dt);
+  }
+  const stretchRate = getPeakAbsInWindow(xFactorVelocities, strideFrame, contactFrame);
   
   console.log(`[Scoring] X-Factor max: ${xFactorMax.toFixed(1)} deg, stretch rate: ${stretchRate.toFixed(1)} deg/s`);
   
-  // Get kinetic energy data - try multiple column name patterns
-  const batKE = findColumn(meCsv, "bat_kinetic_energy", "bat_ke", "bat_linear_ke");
+  // Get kinetic energy data
+  const batKE = findColumn(meCsv, "bat_kinetic_energy", "bat_ke");
   const totalKE = findColumn(meCsv, "total_kinetic_energy", "total_ke");
-  const legsKE = findColumn(meCsv, "legs_kinetic_energy", "legs_ke", "lower_kinetic_energy");
+  const legsKE = findColumn(meCsv, "legs_kinetic_energy", "legs_ke");
   
   console.log(`[Scoring] Found bat_ke: ${batKE.length} values, total_ke: ${totalKE.length}, legs_ke: ${legsKE.length}`);
   
-  const batKEMax = getPeakAbs(batKE);
-  const totalKEMax = Math.max(getPeakAbs(totalKE), 1);
-  const legsKEMax = getPeakAbs(legsKE);
+  // Get peak KE within swing window
+  const batKEMax = getPeakAbsInWindow(batKE, strideFrame, contactFrame);
+  const totalKEMax = Math.max(getPeakAbsInWindow(totalKE, strideFrame, contactFrame), 1);
+  const legsKEMax = getPeakAbsInWindow(legsKE, strideFrame, contactFrame);
   const transferEfficiency = totalKEMax > 1 ? (batKEMax / totalKEMax) * 100 : 0;
   
   console.log(`[Scoring] Bat KE: ${batKEMax.toFixed(1)} J, Total KE: ${totalKEMax.toFixed(1)} J, Efficiency: ${transferEfficiency.toFixed(1)}%`);
@@ -396,11 +460,11 @@ function calculate4BScores(ikCsv: Record<string, number[]>, meCsv: Record<string
   const coreFlowScore = Math.round((torsoScore + xFactorScore + stretchScore) / 3);
   const upperFlowScore = Math.round((batKEScore + efficiencyScore) / 2);
   
-  // Consistency (CV of velocities)
-  const validPelvisVel = pelvisVelocities.filter(v => Math.abs(v) > 10 && Math.abs(v) < 2000);
-  const validTorsoVel = torsoVelocities.filter(v => Math.abs(v) > 10 && Math.abs(v) < 2000);
-  const pelvisCV = validPelvisVel.length > 2 ? coefficientOfVariation(validPelvisVel) : 20;
-  const torsoCV = validTorsoVel.length > 2 ? coefficientOfVariation(validTorsoVel) : 20;
+  // Consistency (CV of velocities within swing window)
+  const windowPelvisVel = pelvisVelocities.slice(strideFrame, contactFrame).filter(v => Math.abs(v) > 10 && Math.abs(v) < 2000);
+  const windowTorsoVel = torsoVelocities.slice(strideFrame, contactFrame).filter(v => Math.abs(v) > 10 && Math.abs(v) < 2000);
+  const pelvisCV = windowPelvisVel.length > 2 ? coefficientOfVariation(windowPelvisVel) : 20;
+  const torsoCV = windowTorsoVel.length > 2 ? coefficientOfVariation(windowTorsoVel) : 20;
   const avgCV = (pelvisCV + torsoCV) / 2;
   
   const consistencyScore = to2080Scale(avgCV, THRESHOLDS.consistency_cv.min, THRESHOLDS.consistency_cv.max, true);
