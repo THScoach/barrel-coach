@@ -17,3 +17,4 @@ export { PlayerVideoTab } from './PlayerVideoTab';
 export { PlayerVideoUpload } from './PlayerVideoUpload';
 export { PlayerUploadHistory } from './PlayerUploadHistory';
 export { RebootConnectionStatus } from './RebootConnectionStatus';
+export { SessionDetailModal } from './SessionDetailModal';
