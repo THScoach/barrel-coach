@@ -2311,6 +2311,166 @@ export type Database = {
           },
         ]
       }
+      swing_analysis: {
+        Row: {
+          all_segments_decel: boolean | null
+          arms_decel_before_contact: boolean | null
+          arms_vel_peak_frame: number | null
+          created_at: string
+          data_quality_flags: string[] | null
+          duration_seconds: number | null
+          event_contact_frame: number | null
+          frame_rate: number | null
+          id: string
+          motor_profile: string | null
+          motor_profile_confidence: number | null
+          movement_id: string
+          peak_timing_gap_ms: number | null
+          peak_timing_gap_pct: number | null
+          pelvis_decel_before_contact: boolean | null
+          pelvis_vel_peak_frame: number | null
+          player_id: string | null
+          reboot_file_path: string | null
+          sequence: string | null
+          sequence_correct: boolean | null
+          session_id: string | null
+          slingshotter_score: number | null
+          spinner_score: number | null
+          titan_score: number | null
+          torso_decel_before_contact: boolean | null
+          torso_vel_peak_frame: number | null
+          transfer_ratio: number | null
+          transfer_ratio_rating: string | null
+          updated_at: string
+          whip_timing_pct: number | null
+          whipper_score: number | null
+          x_factor_at_contact: number | null
+          x_factor_max: number | null
+        }
+        Insert: {
+          all_segments_decel?: boolean | null
+          arms_decel_before_contact?: boolean | null
+          arms_vel_peak_frame?: number | null
+          created_at?: string
+          data_quality_flags?: string[] | null
+          duration_seconds?: number | null
+          event_contact_frame?: number | null
+          frame_rate?: number | null
+          id?: string
+          motor_profile?: string | null
+          motor_profile_confidence?: number | null
+          movement_id: string
+          peak_timing_gap_ms?: number | null
+          peak_timing_gap_pct?: number | null
+          pelvis_decel_before_contact?: boolean | null
+          pelvis_vel_peak_frame?: number | null
+          player_id?: string | null
+          reboot_file_path?: string | null
+          sequence?: string | null
+          sequence_correct?: boolean | null
+          session_id?: string | null
+          slingshotter_score?: number | null
+          spinner_score?: number | null
+          titan_score?: number | null
+          torso_decel_before_contact?: boolean | null
+          torso_vel_peak_frame?: number | null
+          transfer_ratio?: number | null
+          transfer_ratio_rating?: string | null
+          updated_at?: string
+          whip_timing_pct?: number | null
+          whipper_score?: number | null
+          x_factor_at_contact?: number | null
+          x_factor_max?: number | null
+        }
+        Update: {
+          all_segments_decel?: boolean | null
+          arms_decel_before_contact?: boolean | null
+          arms_vel_peak_frame?: number | null
+          created_at?: string
+          data_quality_flags?: string[] | null
+          duration_seconds?: number | null
+          event_contact_frame?: number | null
+          frame_rate?: number | null
+          id?: string
+          motor_profile?: string | null
+          motor_profile_confidence?: number | null
+          movement_id?: string
+          peak_timing_gap_ms?: number | null
+          peak_timing_gap_pct?: number | null
+          pelvis_decel_before_contact?: boolean | null
+          pelvis_vel_peak_frame?: number | null
+          player_id?: string | null
+          reboot_file_path?: string | null
+          sequence?: string | null
+          sequence_correct?: boolean | null
+          session_id?: string | null
+          slingshotter_score?: number | null
+          spinner_score?: number | null
+          titan_score?: number | null
+          torso_decel_before_contact?: boolean | null
+          torso_vel_peak_frame?: number | null
+          transfer_ratio?: number | null
+          transfer_ratio_rating?: string | null
+          updated_at?: string
+          whip_timing_pct?: number | null
+          whipper_score?: number | null
+          x_factor_at_contact?: number | null
+          x_factor_max?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swing_analysis_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swing_flags: {
+        Row: {
+          created_at: string
+          drill_tags: string[] | null
+          flag_type: string
+          id: string
+          message: string | null
+          pillar: string | null
+          segment: string | null
+          severity: string | null
+          swing_id: string
+        }
+        Insert: {
+          created_at?: string
+          drill_tags?: string[] | null
+          flag_type: string
+          id?: string
+          message?: string | null
+          pillar?: string | null
+          segment?: string | null
+          severity?: string | null
+          swing_id: string
+        }
+        Update: {
+          created_at?: string
+          drill_tags?: string[] | null
+          flag_type?: string
+          id?: string
+          message?: string | null
+          pillar?: string | null
+          segment?: string | null
+          severity?: string | null
+          swing_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swing_flags_swing_id_fkey"
+            columns: ["swing_id"]
+            isOneToOne: false
+            referencedRelation: "swing_analysis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       swings: {
         Row: {
           analysis_json: Json | null
