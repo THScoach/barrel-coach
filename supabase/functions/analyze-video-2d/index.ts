@@ -204,6 +204,8 @@ interface Video2DRequest {
   context?: string;
   frame_rate?: number;
   frames?: string[]; // Base64 encoded frames from client
+  batch_session_id?: string; // Parent batch session
+  swing_index?: number; // Swing number within batch
 }
 
 // Background processing function - runs after response is sent
@@ -402,7 +404,9 @@ serve(async (req) => {
       player_level,
       context,
       frame_rate,
-      frames
+      frames,
+      batch_session_id,
+      swing_index
     } = await req.json() as Video2DRequest;
 
     if (!player_id) {
@@ -447,7 +451,9 @@ serve(async (req) => {
         upload_source: "player_upload",
         is_paid_user,
         pending_3d_analysis: is_paid_user,
-        processing_status: "processing", // Changed from "analyzing" to be clearer
+        processing_status: "processing",
+        batch_session_id: batch_session_id || null,
+        swing_index: swing_index || null,
       })
       .select()
       .single();
