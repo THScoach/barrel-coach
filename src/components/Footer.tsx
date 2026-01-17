@@ -56,18 +56,18 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Products — Only 3 */}
+          {/* Products — 3 Tiers */}
           <div>
             <h4 className="font-semibold text-white mb-4">Products</h4>
             <ul className="space-y-3">
               <li>
-                <Link to="/diagnostic" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Free Swing Diagnostic — $0</Link>
+                <Link to="/diagnostic" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Free Diagnostic — $0</Link>
+              </li>
+              <li>
+                <Link to="/coaching" className="text-slate-400 hover:text-red-500 transition-colors text-sm">App Membership — $29/mo</Link>
               </li>
               <li>
                 <Link to="/coaching" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Online Coaching — $99/mo</Link>
-              </li>
-              <li>
-                <Link to="/assessment" className="text-slate-400 hover:text-red-500 transition-colors text-sm">In-Person Assessment — $299</Link>
               </li>
             </ul>
           </div>
