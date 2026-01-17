@@ -1,10 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PlayerVideoUpload } from "./PlayerVideoUpload";
 import { PlayerUploadHistory } from "./PlayerUploadHistory";
 import { RebootConnectionStatus } from "./RebootConnectionStatus";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Video, Activity } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Video, Activity, Download, Loader2, Calendar, RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface PlayerVideoTabProps {
   playerId: string;
@@ -12,7 +15,20 @@ interface PlayerVideoTabProps {
   playerName: string;
 }
 
+interface RebootSession {
+  id: string;
+  name?: string;
+  created_at?: string;
+  session_date?: string;
+}
+
 export function PlayerVideoTab({ playerId, playersTableId, playerName }: PlayerVideoTabProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [availableSessions, setAvailableSessions] = useState<RebootSession[]>([]);
+  const [fetchingsessions, setFetchingessions] = useState(false);
+  const [importingSessionId, setImportingSessionId] = useState<string | null>(null);
+
   // Fetch player's Reboot connection status from players table
   const { data: playerData } = useQuery({
     queryKey: ['player-reboot-status', playersTableId],
@@ -32,6 +48,66 @@ export function PlayerVideoTab({ playerId, playersTableId, playerName }: PlayerV
   });
 
   const rebootPlayerId = playerData?.reboot_player_id || playerData?.reboot_athlete_id;
+
+  const handleFetchSessions = async () => {
+    if (!rebootPlayerId) return;
+    
+    setFetchingessions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-reboot-sessions', {
+        body: { org_player_id: rebootPlayerId }
+      });
+
+      if (error) throw error;
+
+      setAvailableSessions(data?.sessions || []);
+      toast({
+        title: "Sessions fetched",
+        description: `Found ${data?.sessions?.length || 0} available sessions`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Failed to fetch sessions",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setFetchingessions(false);
+    }
+  };
+
+  const handleImportSession = async (sessionId: string) => {
+    if (!playersTableId) return;
+    
+    setImportingSessionId(sessionId);
+    try {
+      const { data, error } = await supabase.functions.invoke('process-reboot-session', {
+        body: { session_id: sessionId, player_id: playersTableId }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Session imported",
+        description: "4B scores have been calculated and saved",
+      });
+
+      // Refresh upload history
+      queryClient.invalidateQueries({ queryKey: ['player-upload-history', playersTableId] });
+      queryClient.invalidateQueries({ queryKey: ['player-reboot-status', playersTableId] });
+
+      // Remove from available list
+      setAvailableSessions(prev => prev.filter(s => s.id !== sessionId));
+    } catch (err: any) {
+      toast({
+        title: "Import failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setImportingSessionId(null);
+    }
+  };
 
   if (!playersTableId) {
     return (
@@ -88,6 +164,74 @@ export function PlayerVideoTab({ playerId, playersTableId, playerName }: PlayerV
           </CardContent>
         )}
       </Card>
+
+      {/* Import Sessions from Reboot */}
+      {rebootPlayerId && (
+        <Card className="bg-slate-900/80 border-slate-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-white flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                Import Sessions from Reboot
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleFetchSessions}
+                disabled={fetchingsessions}
+              >
+                {fetchingsessions ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Fetch Available Sessions
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {availableSessions.length === 0 ? (
+              <p className="text-slate-500 text-sm text-center py-4">
+                Click "Fetch Available Sessions" to load sessions from Reboot Motion
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {availableSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Calendar className="h-4 w-4 text-slate-400" />
+                      <div>
+                        <div className="text-sm font-medium text-white">
+                          {session.name || `Session ${session.id.slice(0, 8)}`}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {session.session_date || session.created_at
+                            ? new Date(session.session_date || session.created_at!).toLocaleDateString()
+                            : 'Date unknown'}
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleImportSession(session.id)}
+                      disabled={importingSessionId === session.id}
+                    >
+                      {importingSessionId === session.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Import'
+                      )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Video Upload Form */}
       <PlayerVideoUpload playerId={playersTableId} playerName={playerName} />
