@@ -543,7 +543,20 @@ serve(async (req) => {
     const ikData = parseCsvToArrays(ikCsv);
     const meData = parseCsvToArrays(meCsv);
 
-    const scores = calculate4BScores(ikData, meData);
+    const rawScores = calculate4BScores(ikData, meData);
+    
+    // Clamp values to fit DB column constraints (numeric(5,2) = max 999.99, numeric(6,2) = max 9999.99)
+    const scores = {
+      ...rawScores,
+      pelvis_velocity: Math.min(rawScores.pelvis_velocity, 9999),
+      torso_velocity: Math.min(rawScores.torso_velocity, 9999),
+      consistency_cv: Math.min(rawScores.consistency_cv, 999),
+      x_factor: Math.min(rawScores.x_factor, 999),
+      bat_ke: Math.min(rawScores.bat_ke, 9999),
+      transfer_efficiency: Math.min(rawScores.transfer_efficiency, 999),
+    };
+    
+    console.log(`[Process] Clamped velocities - pelvis: ${scores.pelvis_velocity}, torso: ${scores.torso_velocity}`);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
