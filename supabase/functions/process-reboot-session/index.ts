@@ -414,11 +414,21 @@ function detectFrameRate(csvData: Record<string, number[]>): number {
 }
 
 // Check if values are in radians and convert to degrees
-function maybeRadiansToDegrees(values: number[]): number[] {
+// Returns: { values, converted, maxRaw }
+function maybeRadiansToDegrees(values: number[], label = ""): number[] {
   if (!values?.length) return [];
   const maxAbs = Math.max(...values.map(Math.abs));
-  // If peak is "small" (<8), it's likely radians
-  if (maxAbs > 0 && maxAbs < 8) {
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  
+  // Radians typically range from -PI to +PI (-3.14 to +3.14)
+  // Degrees for rotations typically range from -180 to +180 or larger
+  // Use a tighter threshold: if max absolute is < 4, it's likely radians
+  const isRadians = maxAbs > 0 && maxAbs < 4;
+  
+  console.log(`[Units] ${label}: range=[${minVal.toFixed(3)}, ${maxVal.toFixed(3)}], maxAbs=${maxAbs.toFixed(3)}, isRadians=${isRadians}`);
+  
+  if (isRadians) {
     return values.map((v) => (v || 0) * DEG);
   }
   return values;
@@ -576,34 +586,58 @@ function calculate4BScoresForSwing(
   const pelvisRotRaw = findColumn(ikData, "pelvis_rot", "pelvisrot", "pelvis_rotation");
   const torsoRotRaw = findColumn(ikData, "torso_rot", "torsorot", "torso_rotation");
   
+  // Log raw samples
+  console.log(`[Scoring] Swing ${swingId}: pelvis_rot raw samples=[${formatSample(pelvisRotRaw, 5)}]`);
+  console.log(`[Scoring] Swing ${swingId}: torso_rot raw samples=[${formatSample(torsoRotRaw, 5)}]`);
+  
   // Convert radians to degrees if needed
-  const pelvisRotDeg = maybeRadiansToDegrees(pelvisRotRaw);
-  const torsoRotDeg = maybeRadiansToDegrees(torsoRotRaw);
+  const pelvisRotDeg = maybeRadiansToDegrees(pelvisRotRaw, `${swingId}.pelvis_rot`);
+  const torsoRotDeg = maybeRadiansToDegrees(torsoRotRaw, `${swingId}.torso_rot`);
 
   // Calculate velocities (derivative of angles) - THIS IS NOW SAFE since we're per-swing
   const pelvisVelocities = derivative(pelvisRotDeg, dt);
   const torsoVelocities = derivative(torsoRotDeg, dt);
   
-  // Filter out noise spikes (values > 3000 deg/s are likely bad data)
-  const pelvisVelFiltered = pelvisVelocities.map(v => Math.abs(v) < 3000 ? v : 0);
-  const torsoVelFiltered = torsoVelocities.map(v => Math.abs(v) < 3000 ? v : 0);
+  // Log velocity stats before filtering
+  const pelvisVelMax = Math.max(...pelvisVelocities.map(Math.abs));
+  const torsoVelMax = Math.max(...torsoVelocities.map(Math.abs));
+  console.log(`[Scoring] Swing ${swingId}: velocity max before filter - Pelvis=${pelvisVelMax.toFixed(0)}, Torso=${torsoVelMax.toFixed(0)}`);
+  
+  // Filter out extreme spikes but keep reasonable values
+  // Elite velocities are 400-900, so anything over 2000 is likely noise
+  const pelvisVelFiltered = pelvisVelocities.map(v => Math.abs(v) < 2000 ? v : 0);
+  const torsoVelFiltered = torsoVelocities.map(v => Math.abs(v) < 2000 ? v : 0);
   
   const pelvisPeakVel = getPeakAbsInWindow(pelvisVelFiltered, strideFrame, contactFrame);
   const torsoPeakVel = getPeakAbsInWindow(torsoVelFiltered, strideFrame, contactFrame);
   
+  console.log(`[Scoring] Swing ${swingId}: velocity after filter - Pelvis=${pelvisPeakVel.toFixed(0)}, Torso=${torsoPeakVel.toFixed(0)}`);
+  
   // ===== X-FACTOR (separation) =====
+  // X-Factor is the angular difference between torso and pelvis rotation
+  // For a proper X-Factor, we need the RELATIVE separation, not absolute difference
+  // During the swing, the pelvis leads the torso - X-Factor peaks at load/stride
   const xFactors: number[] = [];
   for (let i = 0; i < Math.min(pelvisRotDeg.length, torsoRotDeg.length); i++) {
-    xFactors.push(Math.abs(torsoRotDeg[i] - pelvisRotDeg[i]));
+    // X-Factor = torso angle - pelvis angle (pelvis leads, so this is usually positive during load)
+    // Take absolute since we care about magnitude of separation
+    const separation = torsoRotDeg[i] - pelvisRotDeg[i];
+    xFactors.push(separation); // Don't take abs yet - we want max separation
   }
-  const xFactorMax = getPeakAbsInWindow(xFactors, strideFrame, contactFrame);
+  
+  // Get the peak separation (can be positive or negative)
+  const xFactorMaxRaw = getPeakAbsInWindow(xFactors, strideFrame, contactFrame);
+  // X-Factor should be capped at realistic values (elite is ~45-55°, never over 70°)
+  const xFactorMax = Math.min(xFactorMaxRaw, 70);
+  
+  console.log(`[Scoring] Swing ${swingId}: X-Factor raw=${xFactorMaxRaw.toFixed(1)}°, capped=${xFactorMax.toFixed(1)}°`);
   
   // Stretch rate = derivative of x-factor (also per-swing safe)
   const xFactorVelocities = derivative(xFactors, dt);
-  const xFactorVelFiltered = xFactorVelocities.map(v => Math.abs(v) < 5000 ? v : 0);
+  const xFactorVelFiltered = xFactorVelocities.map(v => Math.abs(v) < 3000 ? v : 0);
   const stretchRate = getPeakAbsInWindow(xFactorVelFiltered, strideFrame, contactFrame);
   
-  console.log(`[Scoring] Swing ${swingId}: Pelvis=${pelvisPeakVel.toFixed(0)}°/s, Torso=${torsoPeakVel.toFixed(0)}°/s, X-Factor=${xFactorMax.toFixed(1)}°, BatKE=${batKEMax.toFixed(1)}J`);
+  console.log(`[Scoring] Swing ${swingId}: Stretch rate=${stretchRate.toFixed(0)}°/s`);
   
   // ===== CALCULATE COMPONENT SCORES =====
   const pelvisVelScore = to2080Scale(pelvisPeakVel, THRESHOLDS.pelvis_velocity.min, THRESHOLDS.pelvis_velocity.max);
@@ -628,11 +662,22 @@ function calculate4BScoresForSwing(
   }
   
   // Consistency CV for this single swing
-  const windowPelvisVel = pelvisVelFiltered.slice(strideFrame, contactFrame).filter(v => Math.abs(v) > 10);
-  const windowTorsoVel = torsoVelFiltered.slice(strideFrame, contactFrame).filter(v => Math.abs(v) > 10);
-  const pelvisCV = windowPelvisVel.length > 2 ? coefficientOfVariation(windowPelvisVel) : 20;
-  const torsoCV = windowTorsoVel.length > 2 ? coefficientOfVariation(windowTorsoVel) : 20;
-  const avgCV = (pelvisCV + torsoCV) / 2;
+  // CV measures how consistent the velocity curve is during the swing
+  // Filter to get non-trivial velocities during the swing window
+  const windowPelvisVel = pelvisVelFiltered.slice(strideFrame, contactFrame).filter(v => Math.abs(v) > 50 && Math.abs(v) < 1500);
+  const windowTorsoVel = torsoVelFiltered.slice(strideFrame, contactFrame).filter(v => Math.abs(v) > 50 && Math.abs(v) < 1500);
+  
+  console.log(`[Scoring] Swing ${swingId}: CV input - pelvisVel count=${windowPelvisVel.length}, torsoVel count=${windowTorsoVel.length}`);
+  
+  // For single swing consistency, CV should be relatively low (10-30% is typical)
+  // If we don't have enough data points, use a default "average" CV
+  const pelvisCV = windowPelvisVel.length >= 5 ? coefficientOfVariation(windowPelvisVel) : 15;
+  const torsoCV = windowTorsoVel.length >= 5 ? coefficientOfVariation(windowTorsoVel) : 15;
+  
+  // Cap CV at reasonable values - anything over 50% is likely noise
+  const avgCV = Math.min((pelvisCV + torsoCV) / 2, 50);
+  
+  console.log(`[Scoring] Swing ${swingId}: CV results - pelvis=${pelvisCV.toFixed(1)}%, torso=${torsoCV.toFixed(1)}%, avg=${avgCV.toFixed(1)}%`);
   
   const brainScore = to2080Scale(avgCV, THRESHOLDS.consistency_cv.min, THRESHOLDS.consistency_cv.max, true);
   const bodyScore = Math.round(groundFlowScore * 0.4 + coreFlowScore * 0.6);
