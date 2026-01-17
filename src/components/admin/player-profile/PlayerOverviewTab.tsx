@@ -268,8 +268,8 @@ export function PlayerOverviewTab({
                 )}
                 {scorecardData?.fourBScores.weakestLink && (
                   <div className="mt-2">
-                    <Badge variant="outline" className="text-xs border-yellow-500/50 text-yellow-400">
-                      <Sparkles className="w-3 h-3 mr-1" />
+                    <Badge variant="outline" className="text-xs border-slate-600 text-slate-300">
+                      <Sparkles className="w-3 h-3 mr-1 text-yellow-500" />
                       Focus: {scorecardData.fourBScores.weakestLink.toUpperCase()}
                     </Badge>
                   </div>
@@ -309,8 +309,8 @@ export function PlayerOverviewTab({
         </div>
       ) : scorecardData ? (
         <div>
-          <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
-            4B Breakdown — Click to Expand
+          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">
+            4B Breakdown
           </h3>
           <Interactive4BTiles fourBScores={scorecardData.fourBScores} />
         </div>
@@ -333,31 +333,31 @@ export function PlayerOverviewTab({
       )}
 
       {/* ===== COACH TO-DO ===== */}
-      <Card className="bg-slate-900/80 border-slate-800">
+      <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-slate-300 uppercase tracking-wide flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-emerald-500" />
+          <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-2">
+            <CheckCircle className="h-3.5 w-3.5 text-slate-400" />
             Coach To-Do
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-1 pt-0">
           {todos.map((todo) => (
             <div 
               key={todo.id}
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer group"
+              className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-700/50 transition-colors cursor-pointer group"
               onClick={todo.action}
             >
               {todo.completed ? (
                 <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
               ) : (
-                <Circle className="h-4 w-4 text-slate-500 group-hover:text-slate-400 shrink-0" />
+                <Circle className="h-4 w-4 text-slate-600 group-hover:text-slate-400 shrink-0" />
               )}
               <span className={`text-sm ${todo.completed ? 'text-slate-500 line-through' : 'text-slate-300'}`}>
                 {todo.label}
               </span>
               {todo.action && (
-                <span className="ml-auto text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Click to action →
+                <span className="ml-auto text-xs text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                  →
                 </span>
               )}
             </div>
