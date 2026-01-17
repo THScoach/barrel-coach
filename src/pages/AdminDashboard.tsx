@@ -96,7 +96,7 @@ export default function AdminDashboard() {
             <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-300 mb-1">Pending Analyses</p>
+                  <p className="text-sm text-white mb-1">Pending Analyses</p>
                   <p className="text-3xl font-bold text-white">
                     {loadingPending ? (
                       <Loader2 className="h-6 w-6 animate-spin" />
@@ -116,7 +116,7 @@ export default function AdminDashboard() {
             <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-300 mb-1">Active Players</p>
+                  <p className="text-sm text-white mb-1">Active Players</p>
                   <p className="text-3xl font-bold text-white">
                     {loadingPlayers ? (
                       <Loader2 className="h-6 w-6 animate-spin" />
@@ -136,7 +136,7 @@ export default function AdminDashboard() {
             <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-300 mb-1">This Week</p>
+                  <p className="text-sm text-white mb-1">This Week</p>
                   <p className="text-3xl font-bold text-white">
                     {loadingRevenue ? (
                       <Loader2 className="h-6 w-6 animate-spin" />

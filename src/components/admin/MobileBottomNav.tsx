@@ -40,7 +40,7 @@ export function MobileBottomNav() {
                 <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-600 to-orange-500 flex items-center justify-center shadow-xl shadow-red-900/40 border-4 border-slate-900">
                   <item.icon className="h-6 w-6 text-white" />
                 </div>
-                <span className="text-[11px] font-medium text-slate-400 mt-1">{item.label}</span>
+                <span className="text-[11px] font-medium text-white mt-1">{item.label}</span>
               </button>
             );
           }
@@ -59,14 +59,14 @@ export function MobileBottomNav() {
                 <item.icon 
                   className={cn(
                     "h-6 w-6 transition-colors",
-                    active ? "text-red-500" : "text-slate-400"
+                    active ? "text-red-500" : "text-white"
                   )} 
                 />
               </div>
               <span 
                 className={cn(
                   "text-[11px] font-medium mt-0.5 transition-colors",
-                  active ? "text-red-500" : "text-slate-400"
+                  active ? "text-red-500" : "text-white"
                 )}
               >
                 {item.label}
