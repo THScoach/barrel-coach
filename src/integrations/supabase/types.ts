@@ -2816,6 +2816,7 @@ export type Database = {
           session_date: string
           source: string | null
           status: string | null
+          swing_count: number | null
           updated_at: string
           video_count: number | null
           video_url: string | null
@@ -2831,6 +2832,7 @@ export type Database = {
           session_date?: string
           source?: string | null
           status?: string | null
+          swing_count?: number | null
           updated_at?: string
           video_count?: number | null
           video_url?: string | null
@@ -2846,6 +2848,7 @@ export type Database = {
           session_date?: string
           source?: string | null
           status?: string | null
+          swing_count?: number | null
           updated_at?: string
           video_count?: number | null
           video_url?: string | null
