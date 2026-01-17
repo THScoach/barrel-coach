@@ -574,34 +574,9 @@ serve(async (req) => {
         console.error("Error creating reboot session:", sessionError);
       }
 
-      const { error: scoresError } = await supabase.from("swing_4b_scores").insert({
-        player_id: internalPlayerId,
-        session_id: newSession?.id,
-        brain_score: scores.brain_score,
-        body_score: scores.body_score,
-        bat_score: scores.bat_score,
-        ball_score: scores.ball_score,
-        composite_score: scores.composite_score,
-        grade: scores.grade,
-        ground_flow_score: scores.ground_flow_score,
-        core_flow_score: scores.core_flow_score,
-        upper_flow_score: scores.upper_flow_score,
-        weakest_link: scores.weakest_link,
-        pelvis_velocity: scores.pelvis_velocity,
-        torso_velocity: scores.torso_velocity,
-        x_factor: scores.x_factor,
-        bat_ke: scores.bat_ke,
-        transfer_efficiency: scores.transfer_efficiency,
-        consistency_cv: scores.consistency_cv,
-        consistency_grade: scores.consistency_grade,
-        primary_issue_category: scores.weakest_link,
-      });
-
-      if (scoresError) {
-        console.error("Error inserting 4B scores:", scoresError);
-      }
-
+      // Always create/update a reboot_uploads record so it shows in Upload History
       if (upload_id) {
+        // Update existing upload record (from video upload flow)
         const { error: uploadUpdateError } = await supabase
           .from("reboot_uploads")
           .update({
@@ -623,6 +598,7 @@ serve(async (req) => {
             consistency_grade: scores.consistency_grade,
             processing_status: "complete",
             completed_at: new Date().toISOString(),
+            reboot_session_id: session_id,
           })
           .eq("id", upload_id);
 
@@ -630,6 +606,41 @@ serve(async (req) => {
           console.error("Error updating reboot_uploads:", uploadUpdateError);
         } else {
           console.log(`[Process] Updated reboot_uploads record ${upload_id} with scores`);
+        }
+      } else {
+        // Create new upload record for API import (so it appears in Upload History)
+        const { error: uploadInsertError } = await supabase
+          .from("reboot_uploads")
+          .insert({
+            player_id: internalPlayerId,
+            session_date: new Date().toISOString().split("T")[0],
+            reboot_session_id: session_id,
+            upload_source: "reboot_api",
+            video_filename: `Reboot Session ${session_id.slice(0, 8)}`,
+            processing_status: "complete",
+            completed_at: new Date().toISOString(),
+            brain_score: scores.brain_score,
+            body_score: scores.body_score,
+            bat_score: scores.bat_score,
+            composite_score: scores.composite_score,
+            grade: scores.grade,
+            ground_flow_score: scores.ground_flow_score,
+            core_flow_score: scores.core_flow_score,
+            upper_flow_score: scores.upper_flow_score,
+            weakest_link: scores.weakest_link,
+            pelvis_velocity: scores.pelvis_velocity,
+            torso_velocity: scores.torso_velocity,
+            x_factor: scores.x_factor,
+            bat_ke: scores.bat_ke,
+            transfer_efficiency: scores.transfer_efficiency,
+            consistency_cv: scores.consistency_cv,
+            consistency_grade: scores.consistency_grade,
+          });
+
+        if (uploadInsertError) {
+          console.error("Error inserting reboot_uploads:", uploadInsertError);
+        } else {
+          console.log(`[Process] Created reboot_uploads record for session ${session_id}`);
         }
       }
 
