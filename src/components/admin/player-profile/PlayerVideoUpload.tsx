@@ -1,8 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -12,12 +13,30 @@ import {
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Upload, Video, Loader2, CheckCircle } from "lucide-react";
+import { Upload, Video, Loader2, CheckCircle, XCircle, Clock, Plus, Send } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface PlayerVideoUploadProps {
   playerId: string;
   playerName: string;
+}
+
+interface QueuedVideo {
+  id: string;
+  file: File;
+  status: "queued" | "uploading" | "analyzing" | "complete" | "failed";
+  progress: number;
+  sessionId?: string;
+  result?: {
+    composite?: number;
+    body?: number;
+    brain?: number;
+    bat?: number;
+    ball?: number;
+    leak_detected?: string;
+    grade?: string;
+  };
+  error?: string;
 }
 
 const FRAME_RATES = [
@@ -28,7 +47,11 @@ const FRAME_RATES = [
 ];
 
 const SESSION_TYPES = [
-  { value: "practice", label: "Practice" },
+  { value: "tee_work", label: "Tee Work" },
+  { value: "soft_toss", label: "Soft Toss" },
+  { value: "front_toss", label: "Front Toss" },
+  { value: "bp", label: "BP" },
+  { value: "live_ab", label: "Live ABs" },
   { value: "game", label: "Game" },
 ];
 
@@ -54,36 +77,27 @@ async function extractFramesFromVideo(file: File, numFrames: number = 6): Promis
 
     video.onloadedmetadata = () => {
       const duration = video.duration;
-      
-      // Calculate timestamps for key swing phases
-      // Focus on the middle 80% of the video where the swing likely occurs
       const startTime = duration * 0.1;
       const endTime = duration * 0.9;
       const interval = (endTime - startTime) / (numFrames - 1);
       
       timestamps = Array.from({ length: numFrames }, (_, i) => startTime + (i * interval));
       
-      // Set canvas size to reasonable dimensions for analysis (720p max)
       const scale = Math.min(1, 1280 / video.videoWidth);
       canvas.width = video.videoWidth * scale;
       canvas.height = video.videoHeight * scale;
       
-      // Seek to first timestamp
       video.currentTime = timestamps[0];
     };
 
     video.onseeked = () => {
       if (currentFrame >= numFrames) {
-        // Clean up
         URL.revokeObjectURL(video.src);
         resolve(frames);
         return;
       }
 
-      // Draw current frame to canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Convert to base64 JPEG (quality 0.85 for good balance)
       const frameData = canvas.toDataURL("image/jpeg", 0.85);
       frames.push(frameData);
       
@@ -92,7 +106,6 @@ async function extractFramesFromVideo(file: File, numFrames: number = 6): Promis
       if (currentFrame < numFrames) {
         video.currentTime = timestamps[currentFrame];
       } else {
-        // All frames captured
         URL.revokeObjectURL(video.src);
         resolve(frames);
       }
@@ -103,192 +116,244 @@ async function extractFramesFromVideo(file: File, numFrames: number = 6): Promis
       reject(new Error("Failed to load video for frame extraction"));
     };
 
-    // Start loading the video
     video.src = URL.createObjectURL(file);
     video.load();
   });
 }
 
+const MAX_CONCURRENT = 2; // Process 2 videos at a time
+const MAX_FILES = 15;
+
 export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [queue, setQueue] = useState<QueuedVideo[]>([]);
+  const [sessionName, setSessionName] = useState("");
+  const [sessionType, setSessionType] = useState("tee_work");
   const [frameRate, setFrameRate] = useState("240");
-  const [sessionType, setSessionType] = useState<"practice" | "game">("practice");
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "extracting" | "uploading" | "analyzing" | "success" | "error">("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const processingRef = useRef(false);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
 
-    // Validate file type
     const validTypes = ["video/mp4", "video/quicktime"];
-    if (!validTypes.includes(file.type)) {
-      toast.error("Invalid file type. Please upload MP4 or MOV files only.");
-      return;
-    }
-
-    // Validate file size (500MB max)
     const maxSize = 500 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast.error("File too large. Maximum size is 500MB.");
-      return;
-    }
+    
+    const validFiles: QueuedVideo[] = [];
+    const errors: string[] = [];
 
-    setSelectedFile(file);
-    setUploadStatus("idle");
-    setErrorMessage(null);
-  };
-
-  // Poll for analysis completion
-  const pollForCompletion = async (sessionId: string, maxAttempts = 30): Promise<{ status: string; analysis?: Record<string, unknown> }> => {
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds between polls
+    for (const file of files) {
+      if (queue.length + validFiles.length >= MAX_FILES) {
+        errors.push(`Maximum ${MAX_FILES} videos per session`);
+        break;
+      }
       
-      const { data, error } = await supabase
-        .from("video_2d_sessions")
-        .select("processing_status, composite_score, leak_detected, error_message, analysis_json")
-        .eq("id", sessionId)
-        .single();
-      
-      if (error) {
-        console.error("[VideoUpload] Poll error:", error);
+      if (!validTypes.includes(file.type)) {
+        errors.push(`${file.name}: Invalid format (MP4/MOV only)`);
         continue;
       }
       
+      if (file.size > maxSize) {
+        errors.push(`${file.name}: Too large (max 500MB)`);
+        continue;
+      }
+
+      validFiles.push({
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        file,
+        status: "queued",
+        progress: 0,
+      });
+    }
+
+    if (errors.length > 0) {
+      toast.error(errors.slice(0, 3).join("\n"));
+    }
+
+    if (validFiles.length > 0) {
+      setQueue(prev => [...prev, ...validFiles]);
+      toast.success(`Added ${validFiles.length} video${validFiles.length > 1 ? 's' : ''} to queue`);
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const updateQueueItem = useCallback((id: string, updates: Partial<QueuedVideo>) => {
+    setQueue(prev => prev.map(item => 
+      item.id === id ? { ...item, ...updates } : item
+    ));
+  }, []);
+
+  const pollForCompletion = async (sessionId: string, maxAttempts = 40): Promise<QueuedVideo["result"]> => {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      
+      const { data, error } = await supabase
+        .from("video_2d_sessions")
+        .select("processing_status, composite_score, body_score, brain_score, bat_score, ball_score, leak_detected, grade, error_message")
+        .eq("id", sessionId)
+        .single();
+      
+      if (error) continue;
+      
       if (data.processing_status === "complete") {
-        return { status: "complete", analysis: data.analysis_json as Record<string, unknown> };
+        return {
+          composite: data.composite_score,
+          body: data.body_score,
+          brain: data.brain_score,
+          bat: data.bat_score,
+          ball: data.ball_score,
+          leak_detected: data.leak_detected,
+          grade: data.grade,
+        };
       }
       
       if (data.processing_status === "failed") {
         throw new Error(data.error_message || "Analysis failed");
       }
-      
-      // Update progress based on attempt
-      setUploadProgress(60 + Math.min(attempt * 3, 30)); // Progress from 60% to 90%
     }
     
-    throw new Error("Analysis timed out - please check back later");
+    throw new Error("Analysis timed out");
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      toast.error("Please select a video file first");
-      return;
-    }
-
-    setUploadStatus("extracting");
-    setUploadProgress(0);
-    setErrorMessage(null);
-
+  const processVideo = async (item: QueuedVideo, swingIndex: number) => {
+    const { id, file } = item;
+    
     try {
-      // Step 1: Extract frames from video on client side
-      toast.info("Extracting key frames from video...");
-      setUploadProgress(5);
-      
-      const frames = await extractFramesFromVideo(selectedFile, 6);
-      console.log(`[VideoUpload] Extracted ${frames.length} frames`);
-      
-      setUploadProgress(20);
-      setUploadStatus("uploading");
+      // Step 1: Extract frames
+      updateQueueItem(id, { status: "uploading", progress: 10 });
+      const frames = await extractFramesFromVideo(file, 6);
+      updateQueueItem(id, { progress: 30 });
 
-      // Step 2: Upload original video to Supabase Storage (for reference)
+      // Step 2: Upload to storage
       const timestamp = Date.now();
-      const safeFilename = selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storagePath = `${playerId}/${timestamp}_${safeFilename}`;
+      const safeFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const storagePath = `${playerId}/${timestamp}_swing${swingIndex}_${safeFilename}`;
 
       const { error: uploadError } = await supabase.storage
         .from("swing-videos")
-        .upload(storagePath, selectedFile, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+        .upload(storagePath, file, { cacheControl: "3600", upsert: false });
 
-      if (uploadError) {
-        throw new Error(`Storage upload failed: ${uploadError.message}`);
-      }
-
-      setUploadProgress(50);
+      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+      updateQueueItem(id, { progress: 50 });
 
       // Step 3: Get public URL
       const { data: urlData } = supabase.storage
         .from("swing-videos")
         .getPublicUrl(storagePath);
 
-      const videoUrl = urlData.publicUrl;
-
-      setUploadProgress(55);
-      setUploadStatus("analyzing");
-      toast.info("Starting AI analysis... This may take 30-60 seconds.");
-
-      // Step 4: Call analyze-video-2d edge function (async - returns immediately)
+      // Step 4: Call analyze function
+      updateQueueItem(id, { status: "analyzing", progress: 60 });
+      
       const { data: analysisResult, error: analysisError } = await supabase.functions.invoke(
         "analyze-video-2d",
         { 
           body: { 
             player_id: playerId,
-            video_url: videoUrl,
-            video_filename: selectedFile.name,
+            video_url: urlData.publicUrl,
+            video_filename: file.name,
             video_storage_path: storagePath,
-            context: sessionType,
+            context: `${sessionType} - Swing ${swingIndex}`,
             frame_rate: parseInt(frameRate),
             is_paid_user: false,
-            frames: frames,
+            frames,
           } 
         }
       );
 
       if (analysisError || !analysisResult?.success) {
-        console.error("2D Analysis error:", analysisError || analysisResult?.error);
-        toast.error("Failed to start analysis. Please try again.");
-        setUploadStatus("error");
-        setErrorMessage(analysisResult?.error || analysisError?.message || "Analysis failed");
-        return;
+        throw new Error(analysisResult?.error || analysisError?.message || "Analysis failed");
       }
 
-      const sessionId = analysisResult.session_id;
-      console.log(`[VideoUpload] Analysis started, session: ${sessionId}, polling for completion...`);
-      
-      setUploadProgress(60);
+      updateQueueItem(id, { sessionId: analysisResult.session_id, progress: 70 });
 
       // Step 5: Poll for completion
-      const result = await pollForCompletion(sessionId);
+      const result = await pollForCompletion(analysisResult.session_id);
       
-      setUploadProgress(100);
-      setUploadStatus("success");
-      
-      const analysis = result.analysis;
-      toast.success(
-        `Analysis complete! Composite: ${analysis?.composite || 'N/A'}, Leak: ${analysis?.leak_detected || 'None'}`
-      );
-      
-      // Reset form
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      updateQueueItem(id, { 
+        status: "complete", 
+        progress: 100, 
+        result 
+      });
 
-      // Refresh upload history
+      // Refresh queries
       queryClient.invalidateQueries({ queryKey: ['player-2d-sessions', playerId] });
       queryClient.invalidateQueries({ queryKey: ['player-upload-history', playerId] });
 
-    } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : "Upload failed";
-      setErrorMessage(errorMsg);
-      setUploadStatus("error");
-      toast.error(errorMsg);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Processing failed";
+      updateQueueItem(id, { status: "failed", error: errorMsg, progress: 0 });
     }
   };
 
-  const resetUpload = () => {
-    setSelectedFile(null);
-    setUploadStatus("idle");
-    setUploadProgress(0);
-    setErrorMessage(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  const startProcessing = async () => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    setIsProcessing(true);
+
+    const queuedItems = queue.filter(item => item.status === "queued");
+    let swingIndex = queue.filter(item => item.status === "complete").length + 1;
+    
+    // Process in batches of MAX_CONCURRENT
+    for (let i = 0; i < queuedItems.length; i += MAX_CONCURRENT) {
+      const batch = queuedItems.slice(i, i + MAX_CONCURRENT);
+      await Promise.all(
+        batch.map((item, batchIndex) => processVideo(item, swingIndex + i + batchIndex))
+      );
+    }
+
+    processingRef.current = false;
+    setIsProcessing(false);
+    
+    // Check final results
+    const updatedQueue = queue;
+    const completed = updatedQueue.filter(item => item.status === "complete").length;
+    const failed = updatedQueue.filter(item => item.status === "failed").length;
+    
+    if (failed === 0) {
+      toast.success(`Session complete! ${completed} swings analyzed.`);
+    } else {
+      toast.warning(`Session complete: ${completed} succeeded, ${failed} failed.`);
+    }
+  };
+
+  const removeFromQueue = (id: string) => {
+    setQueue(prev => prev.filter(item => item.id !== id));
+  };
+
+  const clearQueue = () => {
+    setQueue([]);
+    setSessionName("");
+  };
+
+  // Calculate session aggregates
+  const completedSwings = queue.filter(item => item.status === "complete" && item.result);
+  const avgComposite = completedSwings.length > 0
+    ? Math.round(completedSwings.reduce((sum, s) => sum + (s.result?.composite || 0), 0) / completedSwings.length)
+    : null;
+
+  const getStatusIcon = (status: QueuedVideo["status"]) => {
+    switch (status) {
+      case "queued": return <Clock className="h-4 w-4 text-slate-400" />;
+      case "uploading": return <Upload className="h-4 w-4 text-blue-400 animate-pulse" />;
+      case "analyzing": return <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />;
+      case "complete": return <CheckCircle className="h-4 w-4 text-emerald-400" />;
+      case "failed": return <XCircle className="h-4 w-4 text-red-400" />;
+    }
+  };
+
+  const getStatusLabel = (status: QueuedVideo["status"]) => {
+    switch (status) {
+      case "queued": return "Queued";
+      case "uploading": return "Uploading...";
+      case "analyzing": return "Analyzing...";
+      case "complete": return "Complete";
+      case "failed": return "Failed";
     }
   };
 
@@ -297,48 +362,36 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
       <CardHeader>
         <CardTitle className="text-white flex items-center gap-2">
           <Upload className="h-5 w-5" />
-          Upload Swing Video (2D Analysis)
+          Upload Swing Videos (2D Analysis)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* File Input */}
-        <div className="space-y-2">
-          <Label className="text-slate-300">Video File</Label>
-          <div 
-            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-              selectedFile 
-                ? "border-emerald-500/50 bg-emerald-500/5" 
-                : "border-slate-700 hover:border-slate-600 bg-slate-800/30"
-            }`}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="video/mp4,video/quicktime,.mp4,.mov"
-              onChange={handleFileSelect}
-              className="hidden"
+        {/* Session Settings */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label className="text-slate-300">Session Name</Label>
+            <Input
+              value={sessionName}
+              onChange={(e) => setSessionName(e.target.value)}
+              placeholder={`${sessionType.replace('_', ' ')} - ${new Date().toLocaleDateString()}`}
+              className="bg-slate-800/50 border-slate-700 text-white"
             />
-            {selectedFile ? (
-              <div className="flex items-center justify-center gap-2 text-emerald-400">
-                <Video className="h-6 w-6" />
-                <span className="font-medium">{selectedFile.name}</span>
-                <span className="text-sm text-slate-400">
-                  ({(selectedFile.size / (1024 * 1024)).toFixed(1)} MB)
-                </span>
-              </div>
-            ) : (
-              <div className="text-slate-400">
-                <Video className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                <p>Click to select a video</p>
-                <p className="text-xs mt-1">MP4 or MOV, max 500MB</p>
-              </div>
-            )}
           </div>
-        </div>
-
-        {/* Frame Rate & Session Type */}
-        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-slate-300">Session Type</Label>
+            <Select value={sessionType} onValueChange={setSessionType}>
+              <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-slate-700">
+                {SESSION_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label className="text-slate-300">Frame Rate</Label>
             <Select value={frameRate} onValueChange={setFrameRate}>
@@ -354,93 +407,184 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label className="text-slate-300">Session Type</Label>
-            <Select value={sessionType} onValueChange={(v) => setSessionType(v as "practice" | "game")}>
-              <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-700">
-                {SESSION_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
-        {/* Progress Bar */}
-        {(uploadStatus === "extracting" || uploadStatus === "uploading" || uploadStatus === "analyzing") && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-400">
-                {uploadStatus === "extracting" 
-                  ? "Extracting key frames..." 
-                  : uploadStatus === "uploading" 
-                    ? "Uploading video..." 
-                    : "Running AI analysis..."}
-              </span>
-              <span className="text-slate-400">{uploadProgress}%</span>
+        {/* File Input / Drop Zone */}
+        <div 
+          className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+            queue.length > 0 
+              ? "border-emerald-500/30 bg-emerald-500/5" 
+              : "border-slate-700 hover:border-slate-600 bg-slate-800/30"
+          }`}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/mp4,video/quicktime,.mp4,.mov"
+            multiple
+            onChange={handleFilesSelect}
+            className="hidden"
+          />
+          {queue.length === 0 ? (
+            <div className="text-slate-400">
+              <Video className="h-10 w-10 mx-auto mb-2 opacity-50" />
+              <p className="font-medium">Click to select swing videos</p>
+              <p className="text-xs mt-1">MP4 or MOV, max 500MB each • Select up to {MAX_FILES} videos</p>
             </div>
-            <Progress value={uploadProgress} className="h-2" />
-          </div>
-        )}
-
-        {/* Success Message */}
-        {uploadStatus === "success" && (
-          <div className="flex flex-col gap-2 text-emerald-400 bg-emerald-500/10 p-3 rounded-lg">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5" />
-              <span className="font-medium">Video analyzed successfully!</span>
+          ) : (
+            <div className="flex items-center justify-center gap-2 text-emerald-400">
+              <Plus className="h-5 w-5" />
+              <span className="font-medium">Add more videos ({queue.length}/{MAX_FILES})</span>
             </div>
-            <span className="text-sm text-slate-300">
-              2D analysis complete. Check upload history for full results.
-            </span>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Error Message */}
-        {uploadStatus === "error" && errorMessage && (
-          <div className="text-red-400 bg-red-500/10 p-3 rounded-lg text-sm">
-            {errorMessage}
+        {/* Queue List */}
+        {queue.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-slate-400">
+                <span className="font-medium text-white">{queue.length}</span> video{queue.length !== 1 ? 's' : ''} in queue
+                {avgComposite !== null && (
+                  <span className="ml-3 text-emerald-400">
+                    Avg Composite: <span className="font-bold">{avgComposite}</span>
+                  </span>
+                )}
+              </div>
+              {!isProcessing && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={clearQueue}
+                  className="text-slate-400 hover:text-red-400"
+                >
+                  Clear All
+                </Button>
+              )}
+            </div>
+
+            <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1">
+              {queue.map((item, index) => (
+                <div 
+                  key={item.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                    item.status === "complete" 
+                      ? "bg-emerald-500/10 border-emerald-500/30" 
+                      : item.status === "failed"
+                        ? "bg-red-500/10 border-red-500/30"
+                        : "bg-slate-800/50 border-slate-700"
+                  }`}
+                >
+                  <span className="text-slate-500 text-sm font-mono w-6">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(item.status)}
+                      <span className="text-white font-medium truncate text-sm">
+                        {item.file.name}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        ({(item.file.size / (1024 * 1024)).toFixed(1)}MB)
+                      </span>
+                    </div>
+                    
+                    {/* Progress bar for active items */}
+                    {(item.status === "uploading" || item.status === "analyzing") && (
+                      <Progress value={item.progress} className="h-1 mt-2" />
+                    )}
+                    
+                    {/* Result display for completed items */}
+                    {item.status === "complete" && item.result && (
+                      <div className="flex items-center gap-3 mt-1 text-xs">
+                        <span className="text-emerald-400 font-medium">
+                          Composite: {item.result.composite}
+                        </span>
+                        <span className="text-slate-400">
+                          B/B/B/B: {item.result.body}/{item.result.brain}/{item.result.bat}/{item.result.ball}
+                        </span>
+                        {item.result.leak_detected && item.result.leak_detected !== "CLEAN_TRANSFER" && (
+                          <span className="text-amber-400">
+                            Leak: {item.result.leak_detected.replace('_', ' ')}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Error display */}
+                    {item.status === "failed" && item.error && (
+                      <p className="text-xs text-red-400 mt-1 truncate">{item.error}</p>
+                    )}
+                  </div>
+
+                  {/* Status label */}
+                  <span className={`text-xs font-medium px-2 py-1 rounded ${
+                    item.status === "complete" ? "bg-emerald-500/20 text-emerald-400" :
+                    item.status === "failed" ? "bg-red-500/20 text-red-400" :
+                    item.status === "analyzing" ? "bg-amber-500/20 text-amber-400" :
+                    item.status === "uploading" ? "bg-blue-500/20 text-blue-400" :
+                    "bg-slate-700 text-slate-400"
+                  }`}>
+                    {getStatusLabel(item.status)}
+                  </span>
+
+                  {/* Remove button for queued items */}
+                  {item.status === "queued" && !isProcessing && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); removeFromQueue(item.id); }}
+                      className="text-slate-500 hover:text-red-400 transition-colors"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {/* Action Buttons */}
-        <div className="flex gap-2">
-          <Button
-            onClick={handleUpload}
-            disabled={!selectedFile || uploadStatus === "extracting" || uploadStatus === "uploading" || uploadStatus === "analyzing"}
-            className="flex-1 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
-          >
-            {uploadStatus === "extracting" || uploadStatus === "uploading" || uploadStatus === "analyzing" ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {uploadStatus === "extracting" 
-                  ? "Extracting frames..." 
-                  : uploadStatus === "uploading" 
-                    ? "Uploading..." 
-                    : "Analyzing..."}
-              </>
-            ) : (
-              <>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload & Analyze
-              </>
-            )}
-          </Button>
-          {(selectedFile || uploadStatus !== "idle") && (
+        {queue.length > 0 && (
+          <div className="flex gap-2 pt-2">
             <Button
-              variant="outline"
-              onClick={resetUpload}
-              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              onClick={startProcessing}
+              disabled={isProcessing || queue.filter(i => i.status === "queued").length === 0}
+              className="flex-1 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
             >
-              Clear
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing {queue.filter(i => ["uploading", "analyzing"].includes(i.status)).length} of {queue.length}...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Start Analysis ({queue.filter(i => i.status === "queued").length} pending)
+                </>
+              )}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Session Summary */}
+        {completedSwings.length > 0 && !isProcessing && (
+          <div className="bg-gradient-to-r from-emerald-500/10 to-green-500/10 border border-emerald-500/30 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-white font-medium">Session Summary</h4>
+                <p className="text-sm text-slate-400">
+                  {completedSwings.length} swing{completedSwings.length !== 1 ? 's' : ''} analyzed
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-emerald-400">{avgComposite}</div>
+                <div className="text-xs text-slate-400">Avg Composite</div>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
