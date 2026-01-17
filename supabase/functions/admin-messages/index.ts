@@ -66,23 +66,46 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { action, phoneNumber } = await req.json();
+    const { action, phoneNumber, playerId } = await req.json();
 
     switch (action) {
       case "getMessages": {
-        if (!phoneNumber) {
-          throw new Error("phoneNumber is required");
+        if (!phoneNumber && !playerId) {
+          throw new Error("phoneNumber or playerId is required");
         }
         
-        const { data, error } = await supabase
+        let query = supabase
           .from("messages")
-          .select("*")
-          .eq("phone_number", phoneNumber)
+          .select("*, player_id, trigger_type, ai_generated")
           .order("created_at", { ascending: true });
+        
+        if (playerId) {
+          query = query.eq("player_id", playerId);
+        } else if (phoneNumber) {
+          query = query.eq("phone_number", phoneNumber);
+        }
+        
+        const { data, error } = await query;
         
         if (error) throw error;
         return new Response(
           JSON.stringify({ messages: data }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
+      }
+
+      case "getPlayers": {
+        // Get players with messages, ordered by latest message
+        const { data, error } = await supabase
+          .from("players")
+          .select("id, name, phone, email, team, level, sms_opt_in")
+          .not("phone", "is", null)
+          .order("updated_at", { ascending: false })
+          .limit(100);
+        
+        if (error) throw error;
+        return new Response(
+          JSON.stringify({ players: data }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
         );
       }

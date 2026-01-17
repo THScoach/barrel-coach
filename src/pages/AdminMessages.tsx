@@ -11,24 +11,27 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 
-interface Session {
+interface Player {
   id: string;
-  player_name: string;
-  player_email: string;
-  player_phone: string | null;
-  product_type: string;
-  created_at: string;
-  status: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  team: string | null;
+  level: string | null;
+  sms_opt_in: boolean;
 }
 
 interface Message {
   id: string;
   session_id: string | null;
+  player_id: string | null;
   phone_number: string;
   direction: 'inbound' | 'outbound';
   body: string;
   created_at: string;
   read_at: string | null;
+  trigger_type: string | null;
+  ai_generated: boolean;
 }
 
 interface UnreadCount {
@@ -38,24 +41,22 @@ interface UnreadCount {
 
 export default function AdminMessages() {
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
-  // Fetch all sessions with phone numbers
-  const { data: sessions, isLoading: sessionsLoading } = useQuery({
-    queryKey: ['admin-sessions'],
+  // Fetch all players with phone numbers
+  const { data: players, isLoading: playersLoading } = useQuery({
+    queryKey: ['admin-players-messages'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sessions')
-        .select('id, player_name, player_email, player_phone, product_type, created_at, status')
-        .not('player_phone', 'is', null)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.functions.invoke('admin-messages', {
+        body: { action: 'getPlayers' }
+      });
       
       if (error) throw error;
-      return data as Session[];
+      return (data?.players || []) as Player[];
     },
   });
 
@@ -161,9 +162,9 @@ export default function AdminMessages() {
               action: {
                 label: 'View',
                 onClick: () => {
-                  const session = sessions?.find(s => s.player_phone === newMsg.phone_number);
-                  if (session) {
-                    handleSelectSession(session);
+                  const player = players?.find(p => p.phone === newMsg.phone_number);
+                  if (player) {
+                    handleSelectPlayer(player);
                   }
                 }
               }
@@ -179,7 +180,7 @@ export default function AdminMessages() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedPhone, sessions]);
+  }, [selectedPhone, players]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -193,9 +194,9 @@ export default function AdminMessages() {
     }
   }, [selectedPhone]);
 
-  const handleSelectSession = (session: Session) => {
-    setSelectedSession(session);
-    setSelectedPhone(session.player_phone);
+  const handleSelectPlayer = (player: Player) => {
+    setSelectedPlayer(player);
+    setSelectedPhone(player.phone);
   };
 
   const handleSend = () => {
@@ -204,17 +205,8 @@ export default function AdminMessages() {
     sendMutation.mutate({
       to: selectedPhone,
       body: newMessage,
-      sessionId: selectedSession?.id,
     });
   };
-
-  // Group sessions by phone number to avoid duplicates
-  const uniquePhones = sessions?.reduce((acc, session) => {
-    if (session.player_phone && !acc.find(s => s.player_phone === session.player_phone)) {
-      acc.push(session);
-    }
-    return acc;
-  }, [] as Session[]);
 
   // Total unread count
   const totalUnread = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
@@ -257,35 +249,35 @@ export default function AdminMessages() {
               Players
             </h2>
             <ScrollArea className="h-[calc(100%-2rem)]">
-              {sessionsLoading ? (
+              {playersLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
                 </div>
-              ) : uniquePhones?.length === 0 ? (
+              ) : players?.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-8">
                   No players with phone numbers yet
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {uniquePhones?.map((session) => {
-                    const unread = unreadCounts[session.player_phone || ''] || 0;
+                  {players?.map((player) => {
+                    const unread = unreadCounts[player.phone || ''] || 0;
                     return (
                       <button
-                        key={session.id}
-                        onClick={() => handleSelectSession(session)}
+                        key={player.id}
+                        onClick={() => handleSelectPlayer(player)}
                         className={cn(
                           "w-full text-left p-3 rounded-xl transition-colors relative",
-                          selectedPhone === session.player_phone
+                          selectedPhone === player.phone
                             ? "bg-slate-800 border border-slate-700"
                             : "hover:bg-slate-800/50 border border-transparent"
                         )}
                       >
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium truncate text-white">{session.player_name}</p>
+                            <p className="font-medium truncate text-white">{player.name}</p>
                             <p className="text-xs text-slate-400 flex items-center gap-1">
                               <Phone className="w-3 h-3" />
-                              {session.player_phone}
+                              {player.phone}
                             </p>
                           </div>
                           {unread > 0 && (
@@ -315,7 +307,7 @@ export default function AdminMessages() {
               <>
                 {/* Header */}
                 <div className="p-4 border-b border-slate-800">
-                  <h3 className="font-semibold text-white">{selectedSession?.player_name}</h3>
+                  <h3 className="font-semibold text-white">{selectedPlayer?.name}</h3>
                   <p className="text-sm text-slate-400">{selectedPhone}</p>
                 </div>
 
