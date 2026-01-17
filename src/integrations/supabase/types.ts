@@ -1521,10 +1521,13 @@ export type Database = {
       }
       reboot_uploads: {
         Row: {
+          analysis_confidence: number | null
+          analysis_type: string | null
           bat_ke: number | null
           bat_score: number | null
           body_score: number | null
           brain_score: number | null
+          camera_angle: string | null
           completed_at: string | null
           composite_score: number | null
           consistency_cv: number | null
@@ -1538,10 +1541,17 @@ export type Database = {
           id: string
           ik_data: Json | null
           ik_file_uploaded: boolean | null
+          leak_detected: string | null
+          leak_evidence: string | null
           me_data: Json | null
           me_file_uploaded: boolean | null
+          motor_profile: string | null
+          motor_profile_evidence: string | null
+          original_video_url: string | null
           pelvis_velocity: number | null
+          pending_reboot: boolean | null
           player_id: string | null
+          priority_drill: string | null
           processing_status: string | null
           reboot_session_id: string | null
           session_date: string
@@ -1551,16 +1561,21 @@ export type Database = {
           upload_source: string | null
           uploaded_at: string | null
           upper_flow_score: number | null
+          video_2d_analysis: Json | null
           video_filename: string | null
+          video_quality: string | null
           video_url: string | null
           weakest_link: string | null
           x_factor: number | null
         }
         Insert: {
+          analysis_confidence?: number | null
+          analysis_type?: string | null
           bat_ke?: number | null
           bat_score?: number | null
           body_score?: number | null
           brain_score?: number | null
+          camera_angle?: string | null
           completed_at?: string | null
           composite_score?: number | null
           consistency_cv?: number | null
@@ -1574,10 +1589,17 @@ export type Database = {
           id?: string
           ik_data?: Json | null
           ik_file_uploaded?: boolean | null
+          leak_detected?: string | null
+          leak_evidence?: string | null
           me_data?: Json | null
           me_file_uploaded?: boolean | null
+          motor_profile?: string | null
+          motor_profile_evidence?: string | null
+          original_video_url?: string | null
           pelvis_velocity?: number | null
+          pending_reboot?: boolean | null
           player_id?: string | null
+          priority_drill?: string | null
           processing_status?: string | null
           reboot_session_id?: string | null
           session_date: string
@@ -1587,16 +1609,21 @@ export type Database = {
           upload_source?: string | null
           uploaded_at?: string | null
           upper_flow_score?: number | null
+          video_2d_analysis?: Json | null
           video_filename?: string | null
+          video_quality?: string | null
           video_url?: string | null
           weakest_link?: string | null
           x_factor?: number | null
         }
         Update: {
+          analysis_confidence?: number | null
+          analysis_type?: string | null
           bat_ke?: number | null
           bat_score?: number | null
           body_score?: number | null
           brain_score?: number | null
+          camera_angle?: string | null
           completed_at?: string | null
           composite_score?: number | null
           consistency_cv?: number | null
@@ -1610,10 +1637,17 @@ export type Database = {
           id?: string
           ik_data?: Json | null
           ik_file_uploaded?: boolean | null
+          leak_detected?: string | null
+          leak_evidence?: string | null
           me_data?: Json | null
           me_file_uploaded?: boolean | null
+          motor_profile?: string | null
+          motor_profile_evidence?: string | null
+          original_video_url?: string | null
           pelvis_velocity?: number | null
+          pending_reboot?: boolean | null
           player_id?: string | null
+          priority_drill?: string | null
           processing_status?: string | null
           reboot_session_id?: string | null
           session_date?: string
@@ -1623,7 +1657,9 @@ export type Database = {
           upload_source?: string | null
           uploaded_at?: string | null
           upper_flow_score?: number | null
+          video_2d_analysis?: Json | null
           video_filename?: string | null
+          video_quality?: string | null
           video_url?: string | null
           weakest_link?: string | null
           x_factor?: number | null
@@ -2923,6 +2959,32 @@ export type Database = {
       }
     }
     Views: {
+      pending_reboot_queue: {
+        Row: {
+          analysis_confidence: number | null
+          estimated_grade: string | null
+          estimated_score: number | null
+          id: string | null
+          leak_detected: string | null
+          motor_profile: string | null
+          original_video_url: string | null
+          player_age: number | null
+          player_id: string | null
+          player_level: string | null
+          player_name: string | null
+          uploaded_at: string | null
+          video_2d_analysis: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reboot_uploads_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practice_summary_30d: {
         Row: {
           avg_contact_score: number | null
