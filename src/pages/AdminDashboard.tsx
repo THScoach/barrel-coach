@@ -3,35 +3,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Video,
   Users,
-  DollarSign,
+  TrendingUp,
   Plus,
   Upload,
   MessageSquare,
-  ChevronRight,
-  Loader2,
-  Clock,
-  TrendingUp,
   BarChart3,
-  ArrowRight,
+  Activity,
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
-import { ActivityFeed } from "@/components/admin/ActivityFeed";
-import { DashboardWidgets } from "@/components/admin/DashboardWidgets";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { format, formatDistanceToNow, startOfWeek } from "date-fns";
+import { format, startOfWeek, subDays } from "date-fns";
+import {
+  MetricCard,
+  RecentSessionsFeed,
+  MotorProfileChart,
+  LeakFrequencyChart,
+  ScoreGauge,
+} from "@/components/dashboard";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -44,38 +36,97 @@ export default function AdminDashboard() {
       ? "Good afternoon"
       : "Good evening";
 
-  const { data: pendingCount = 0, isLoading: loadingPending } = useQuery({
-    queryKey: ["pending-analyses-count"],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from("sessions")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "uploaded");
-      return count || 0;
-    },
-  });
-
+  // Total active players
   const { data: playerCount = 0, isLoading: loadingPlayers } = useQuery({
     queryKey: ["active-players-count"],
     queryFn: async () => {
       const { count } = await supabase
-        .from("player_profiles")
-        .select("*", { count: "exact", head: true })
-        .eq("is_active", true);
+        .from("players")
+        .select("*", { count: "exact", head: true });
       return count || 0;
     },
   });
 
-  const { data: weeklyRevenue = 0, isLoading: loadingRevenue } = useQuery({
-    queryKey: ["weekly-revenue"],
+  // Sessions this week
+  const { data: weeklySessionData, isLoading: loadingSessions } = useQuery({
+    queryKey: ["weekly-sessions"],
     queryFn: async () => {
       const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+      const lastWeekStart = subDays(weekStart, 7);
+
+      const [{ count: thisWeek }, { count: lastWeek }] = await Promise.all([
+        supabase
+          .from("reboot_uploads")
+          .select("*", { count: "exact", head: true })
+          .gte("session_date", weekStart.toISOString().split("T")[0]),
+        supabase
+          .from("reboot_uploads")
+          .select("*", { count: "exact", head: true })
+          .gte("session_date", lastWeekStart.toISOString().split("T")[0])
+          .lt("session_date", weekStart.toISOString().split("T")[0]),
+      ]);
+
+      return {
+        count: thisWeek || 0,
+        trend: (thisWeek || 0) - (lastWeek || 0),
+      };
+    },
+  });
+
+  // Average composite score
+  const { data: avgScoreData, isLoading: loadingAvgScore } = useQuery({
+    queryKey: ["avg-composite-score"],
+    queryFn: async () => {
       const { data } = await supabase
-        .from("sessions")
-        .select("price_cents")
-        .gte("paid_at", weekStart.toISOString())
-        .not("paid_at", "is", null);
-      return (data?.reduce((sum, s) => sum + (s.price_cents || 0), 0) || 0) / 100;
+        .from("players")
+        .select("latest_composite_score")
+        .not("latest_composite_score", "is", null);
+
+      if (!data || data.length === 0) return { avg: 0, count: 0 };
+
+      const scores = data
+        .map((p) => p.latest_composite_score)
+        .filter((s): s is number => s !== null);
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+      return { avg: Math.round(avg), count: scores.length };
+    },
+  });
+
+  // Players improved (comparing to 30 days ago - simplified)
+  const { data: improvedData, isLoading: loadingImproved } = useQuery({
+    queryKey: ["players-improved"],
+    queryFn: async () => {
+      // Get players with multiple uploads
+      const { data } = await supabase
+        .from("reboot_uploads")
+        .select("player_id, composite_score, session_date")
+        .not("composite_score", "is", null)
+        .order("session_date", { ascending: true });
+
+      if (!data || data.length === 0) return { improved: 0, total: 0 };
+
+      // Group by player and check if latest > first
+      const byPlayer = new Map<string, number[]>();
+      data.forEach((row) => {
+        if (!row.player_id) return;
+        const scores = byPlayer.get(row.player_id) || [];
+        scores.push(row.composite_score!);
+        byPlayer.set(row.player_id, scores);
+      });
+
+      let improved = 0;
+      let total = 0;
+      byPlayer.forEach((scores) => {
+        if (scores.length >= 2) {
+          total++;
+          if (scores[scores.length - 1] > scores[0]) {
+            improved++;
+          }
+        }
+      });
+
+      return { improved, total };
     },
   });
 
@@ -83,94 +134,90 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-950">
       <AdminHeader />
 
-      <main className={`container py-6 md:py-8 ${isMobile ? 'pb-24' : ''}`}>
+      <main className={`container py-6 md:py-8 ${isMobile ? "pb-24" : ""}`}>
         {/* Greeting */}
         <div className="mb-6 md:mb-8">
-          <h1 className="text-xl md:text-2xl font-bold text-white">{greeting}, Coach Rick</h1>
-          <p className="text-slate-300 text-sm md:text-base">{format(today, "EEEE, MMMM d, yyyy")}</p>
+          <h1 className="text-xl md:text-2xl font-bold text-white">
+            {greeting}, Coach Rick
+          </h1>
+          <p className="text-slate-400 text-sm md:text-base">
+            {format(today, "EEEE, MMMM d, yyyy")}
+          </p>
         </div>
 
-        {/* Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
-          <Card className="pwa-card bg-slate-800">
+        {/* Top Row - Key Metrics */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+          <MetricCard
+            title="Total Players"
+            value={playerCount}
+            icon={Users}
+            iconColor="text-blue-500"
+            iconBgColor="bg-blue-500/15"
+            loading={loadingPlayers}
+          />
+          <MetricCard
+            title="Sessions This Week"
+            value={weeklySessionData?.count || 0}
+            trend={weeklySessionData?.trend}
+            icon={Video}
+            iconColor="text-amber-500"
+            iconBgColor="bg-amber-500/15"
+            loading={loadingSessions}
+          />
+          <Card className="bg-slate-800 border-slate-700">
             <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-white mb-1">Pending Analyses</p>
-                  <p className="text-3xl font-bold text-white">
-                    {loadingPending ? (
-                      <Loader2 className="h-6 w-6 animate-spin" />
-                    ) : (
-                      pendingCount
-                    )}
-                  </p>
+                  <p className="text-sm text-slate-400 mb-1">Avg. Composite</p>
+                  {loadingAvgScore ? (
+                    <div className="h-9 w-20 bg-slate-700 animate-pulse rounded" />
+                  ) : (
+                    <ScoreGauge
+                      score={avgScoreData?.avg || 50}
+                      size="sm"
+                      showGrade={false}
+                    />
+                  )}
                 </div>
-                <div className="p-3 rounded-xl bg-amber-500/15">
-                  <Video className="h-6 w-6 text-amber-500" />
+                <div className="p-3 rounded-xl bg-teal-500/15">
+                  <Activity className="h-6 w-6 text-teal-500" />
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          <Card className="pwa-card bg-slate-800">
-            <CardContent className="pt-5 pb-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-white mb-1">Active Players</p>
-                  <p className="text-3xl font-bold text-white">
-                    {loadingPlayers ? (
-                      <Loader2 className="h-6 w-6 animate-spin" />
-                    ) : (
-                      playerCount
-                    )}
-                  </p>
-                </div>
-                <div className="p-3 rounded-xl bg-blue-500/15">
-                  <Users className="h-6 w-6 text-blue-500" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="pwa-card bg-slate-800">
-            <CardContent className="pt-5 pb-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-white mb-1">This Week</p>
-                  <p className="text-3xl font-bold text-white">
-                    {loadingRevenue ? (
-                      <Loader2 className="h-6 w-6 animate-spin" />
-                    ) : (
-                      `$${weeklyRevenue.toLocaleString()}`
-                    )}
-                  </p>
-                </div>
-                <div className="p-3 rounded-xl bg-green-500/15">
-                  <DollarSign className="h-6 w-6 text-green-500" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Players Improved"
+            value={
+              improvedData?.total
+                ? `${Math.round((improvedData.improved / improvedData.total) * 100)}%`
+                : "—"
+            }
+            icon={TrendingUp}
+            iconColor="text-green-500"
+            iconBgColor="bg-green-500/15"
+            loading={loadingImproved}
+          />
         </div>
 
         {/* Quick Actions */}
         <div className="mb-6 md:mb-8">
-          <h2 className="text-lg font-semibold text-white mb-3 md:mb-4">Quick Actions</h2>
+          <h2 className="text-lg font-semibold text-white mb-3 md:mb-4">
+            Quick Actions
+          </h2>
           <div className="flex flex-wrap gap-2 md:gap-3">
             <Button
-              onClick={() => navigate("/admin/players/new")}
+              onClick={() => navigate("/admin/analyzer")}
               className="btn-primary"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Analyze Session
+            </Button>
+            <Button
+              onClick={() => navigate("/admin/players/new")}
+              className="btn-secondary"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Player
-            </Button>
-            <Button
-              onClick={() => navigate("/admin/videos")}
-              className="btn-secondary"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Upload Video</span>
-              <span className="sm:hidden">Upload</span>
             </Button>
             <Button
               onClick={() => navigate("/admin/messages")}
@@ -183,25 +230,52 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Two Column Layout: Activity Feed + Widgets */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 md:gap-6">
-          {/* Left: Activity Feed */}
-          <Card className="pwa-card">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-semibold text-white">
-                Activity Feed
+        {/* Middle Row - Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-slate-400" />
+                Motor Profile Distribution
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ActivityFeed />
+              <MotorProfileChart />
             </CardContent>
           </Card>
 
-          {/* Right: Widgets */}
-          <div className="space-y-4">
-            <DashboardWidgets />
-          </div>
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
+                <Activity className="h-4 w-4 text-slate-400" />
+                Most Common Leaks
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LeakFrequencyChart />
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Bottom Row - Recent Activity */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base font-semibold text-white">
+              Recent Sessions
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/admin/players")}
+              className="text-slate-400 hover:text-white"
+            >
+              View All
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <RecentSessionsFeed />
+          </CardContent>
+        </Card>
       </main>
 
       {/* Mobile Bottom Nav */}
