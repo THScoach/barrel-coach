@@ -523,7 +523,7 @@ ${preparedContent}`;
         })
         .eq("id", player_id);
 
-      // Create reboot_uploads record so it shows in Upload History
+      // Upsert reboot_uploads record (update if exists, insert if new)
       const getConsistencyGrade = (cv: number): string => {
         if (cv <= 8) return "A";
         if (cv <= 12) return "B";
@@ -532,15 +532,7 @@ ${preparedContent}`;
         return "F";
       };
 
-      const { error: uploadError } = await supabase.from("reboot_uploads").insert({
-        player_id,
-        session_date: new Date().toISOString().split("T")[0],
-        upload_source: data_type,
-        video_filename: `AI Analysis - ${session_id || new Date().toISOString()}`,
-        processing_status: "complete",
-        completed_at: new Date().toISOString(),
-        reboot_session_id: session_id || null,
-        // Scores
+      const uploadData = {
         brain_score: analysis.brain,
         body_score: analysis.body,
         bat_score: analysis.bat,
@@ -550,7 +542,6 @@ ${preparedContent}`;
         core_flow_score: analysis.body_components?.stability || null,
         upper_flow_score: analysis.bat_components?.at_ratio_score || null,
         weakest_link: analysis.weakest_link,
-        // Raw metrics
         pelvis_velocity: analysis.raw_metrics?.pelvis_velocity_deg_s || null,
         torso_velocity: analysis.raw_metrics?.torso_velocity_deg_s || null,
         x_factor: analysis.raw_metrics?.x_factor_deg || null,
@@ -558,12 +549,46 @@ ${preparedContent}`;
         transfer_efficiency: analysis.raw_metrics?.transfer_efficiency_pct || null,
         consistency_cv: analysis.raw_metrics?.consistency_cv || null,
         consistency_grade: getConsistencyGrade(analysis.raw_metrics?.consistency_cv || 15),
-      });
+        processing_status: "complete",
+        completed_at: new Date().toISOString(),
+      };
 
-      if (uploadError) {
-        console.error("[AI] Failed to create reboot_uploads record:", uploadError);
+      // Check for existing record by player + session
+      const { data: existing } = await supabase
+        .from("reboot_uploads")
+        .select("id")
+        .eq("player_id", player_id)
+        .eq("reboot_session_id", session_id)
+        .maybeSingle();
+
+      if (existing) {
+        // UPDATE existing record
+        const { error: updateError } = await supabase
+          .from("reboot_uploads")
+          .update(uploadData)
+          .eq("id", existing.id);
+
+        if (updateError) {
+          console.error("[AI] Failed to update reboot_uploads record:", updateError);
+        } else {
+          console.log(`[AI] Updated existing record ${existing.id}`);
+        }
       } else {
-        console.log("[AI] Created reboot_uploads record for Upload History visibility");
+        // INSERT new record (only if truly new session)
+        const { error: insertError } = await supabase.from("reboot_uploads").insert({
+          ...uploadData,
+          player_id,
+          session_date: new Date().toISOString().split("T")[0],
+          upload_source: data_type,
+          video_filename: `AI Analysis - ${session_id || new Date().toISOString()}`,
+          reboot_session_id: session_id || null,
+        });
+
+        if (insertError) {
+          console.error("[AI] Failed to create reboot_uploads record:", insertError);
+        } else {
+          console.log(`[AI] Created new record for session ${session_id}`);
+        }
       }
 
       // Log activity
