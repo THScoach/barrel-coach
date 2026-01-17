@@ -26,7 +26,8 @@ interface QueuedVideo {
   file: File;
   status: "queued" | "uploading" | "analyzing" | "complete" | "failed";
   progress: number;
-  sessionId?: string;
+  swingSessionId?: string;
+  swingIndex?: number;
   result?: {
     composite?: number;
     body?: number;
@@ -37,6 +38,12 @@ interface QueuedVideo {
     grade?: string;
   };
   error?: string;
+}
+
+interface BatchSession {
+  id: string;
+  sessionName: string;
+  sessionType: string;
 }
 
 const FRAME_RATES = [
@@ -130,6 +137,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
   const [sessionType, setSessionType] = useState("tee_work");
   const [frameRate, setFrameRate] = useState("240");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [batchSession, setBatchSession] = useState<BatchSession | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const processingRef = useRef(false);
@@ -221,19 +229,19 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
     throw new Error("Analysis timed out");
   };
 
-  const processVideo = async (item: QueuedVideo, swingIndex: number) => {
+  const processVideo = async (item: QueuedVideo, swingIndex: number, batchId: string) => {
     const { id, file } = item;
     
     try {
       // Step 1: Extract frames
-      updateQueueItem(id, { status: "uploading", progress: 10 });
+      updateQueueItem(id, { status: "uploading", progress: 10, swingIndex });
       const frames = await extractFramesFromVideo(file, 6);
       updateQueueItem(id, { progress: 30 });
 
       // Step 2: Upload to storage
       const timestamp = Date.now();
       const safeFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storagePath = `${playerId}/${timestamp}_swing${swingIndex}_${safeFilename}`;
+      const storagePath = `${playerId}/${batchId}/swing${swingIndex}_${safeFilename}`;
 
       const { error: uploadError } = await supabase.storage
         .from("swing-videos")
@@ -247,7 +255,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
         .from("swing-videos")
         .getPublicUrl(storagePath);
 
-      // Step 4: Call analyze function
+      // Step 4: Call analyze function with batch session context
       updateQueueItem(id, { status: "analyzing", progress: 60 });
       
       const { data: analysisResult, error: analysisError } = await supabase.functions.invoke(
@@ -262,6 +270,8 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
             frame_rate: parseInt(frameRate),
             is_paid_user: false,
             frames,
+            batch_session_id: batchId,
+            swing_index: swingIndex,
           } 
         }
       );
@@ -270,7 +280,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
         throw new Error(analysisResult?.error || analysisError?.message || "Analysis failed");
       }
 
-      updateQueueItem(id, { sessionId: analysisResult.session_id, progress: 70 });
+      updateQueueItem(id, { swingSessionId: analysisResult.session_id, progress: 70 });
 
       // Step 5: Poll for completion
       const result = await pollForCompletion(analysisResult.session_id);
@@ -296,15 +306,61 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
     processingRef.current = true;
     setIsProcessing(true);
 
-    const queuedItems = queue.filter(item => item.status === "queued");
-    let swingIndex = queue.filter(item => item.status === "complete").length + 1;
-    
-    // Process in batches of MAX_CONCURRENT
-    for (let i = 0; i < queuedItems.length; i += MAX_CONCURRENT) {
-      const batch = queuedItems.slice(i, i + MAX_CONCURRENT);
-      await Promise.all(
-        batch.map((item, batchIndex) => processVideo(item, swingIndex + i + batchIndex))
-      );
+    try {
+      // Create batch session first if not exists
+      let currentBatchId = batchSession?.id;
+      
+      if (!currentBatchId) {
+        const displayName = sessionName || `${sessionType.replace('_', ' ')} - ${new Date().toLocaleDateString()}`;
+        
+        const { data: newSession, error: sessionError } = await supabase
+          .from("video_2d_batch_sessions")
+          .insert({
+            player_id: playerId,
+            session_name: displayName,
+            session_type: sessionType,
+            frame_rate: parseInt(frameRate),
+            swing_count: queue.length,
+            status: "processing",
+          })
+          .select()
+          .single();
+
+        if (sessionError || !newSession) {
+          throw new Error("Failed to create session");
+        }
+
+        currentBatchId = newSession.id;
+        setBatchSession({
+          id: newSession.id,
+          sessionName: displayName,
+          sessionType: sessionType,
+        });
+      } else {
+        // Update swing count
+        await supabase
+          .from("video_2d_batch_sessions")
+          .update({ swing_count: queue.length })
+          .eq("id", currentBatchId);
+      }
+
+      const queuedItems = queue.filter(item => item.status === "queued");
+      let swingIndex = queue.filter(item => item.status === "complete").length + 1;
+      
+      // Process in batches of MAX_CONCURRENT
+      for (let i = 0; i < queuedItems.length; i += MAX_CONCURRENT) {
+        const batch = queuedItems.slice(i, i + MAX_CONCURRENT);
+        await Promise.all(
+          batch.map((item, batchIndex) => processVideo(item, swingIndex + i + batchIndex, currentBatchId!))
+        );
+      }
+
+      // Update batch session with final results
+      await updateBatchSessionAggregates(currentBatchId);
+
+    } catch (error) {
+      console.error("Processing error:", error);
+      toast.error(error instanceof Error ? error.message : "Processing failed");
     }
 
     processingRef.current = false;
@@ -315,7 +371,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
     const completed = updatedQueue.filter(item => item.status === "complete").length;
     const failed = updatedQueue.filter(item => item.status === "failed").length;
     
-    if (failed === 0) {
+    if (failed === 0 && completed > 0) {
       toast.success(`Session complete! ${completed} swings analyzed.`);
     } else {
       toast.warning(`Session complete: ${completed} succeeded, ${failed} failed.`);
@@ -326,9 +382,60 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
     setQueue(prev => prev.filter(item => item.id !== id));
   };
 
+  const updateBatchSessionAggregates = async (batchId: string) => {
+    // Fetch all completed swings in this batch
+    const { data: swings } = await supabase
+      .from("video_2d_sessions")
+      .select("composite_score, body_score, brain_score, bat_score, ball_score, leak_detected, processing_status")
+      .eq("batch_session_id", batchId);
+
+    if (!swings || swings.length === 0) return;
+
+    const completed = swings.filter(s => s.processing_status === "complete");
+    const failed = swings.filter(s => s.processing_status === "failed");
+
+    if (completed.length === 0) return;
+
+    // Calculate averages
+    const avgComposite = Math.round(completed.reduce((sum, s) => sum + (s.composite_score || 0), 0) / completed.length);
+    const avgBody = Math.round(completed.reduce((sum, s) => sum + (s.body_score || 0), 0) / completed.length);
+    const avgBrain = Math.round(completed.reduce((sum, s) => sum + (s.brain_score || 0), 0) / completed.length);
+    const avgBat = Math.round(completed.reduce((sum, s) => sum + (s.bat_score || 0), 0) / completed.length);
+    const avgBall = Math.round(completed.reduce((sum, s) => sum + (s.ball_score || 0), 0) / completed.length);
+
+    // Find most common leak
+    const leakCounts: Record<string, number> = {};
+    completed.forEach(s => {
+      if (s.leak_detected && s.leak_detected !== "CLEAN_TRANSFER") {
+        leakCounts[s.leak_detected] = (leakCounts[s.leak_detected] || 0) + 1;
+      }
+    });
+    const mostCommonLeak = Object.entries(leakCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+    await supabase
+      .from("video_2d_batch_sessions")
+      .update({
+        completed_count: completed.length,
+        failed_count: failed.length,
+        avg_composite: avgComposite,
+        avg_body: avgBody,
+        avg_brain: avgBrain,
+        avg_bat: avgBat,
+        avg_ball: avgBall,
+        most_common_leak: mostCommonLeak,
+        status: failed.length > 0 ? "partial" : "complete",
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", batchId);
+
+    // Refresh queries
+    queryClient.invalidateQueries({ queryKey: ['player-2d-batch-sessions', playerId] });
+  };
+
   const clearQueue = () => {
     setQueue([]);
     setSessionName("");
+    setBatchSession(null);
   };
 
   // Calculate session aggregates

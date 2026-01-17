@@ -2627,12 +2627,87 @@ export type Database = {
         }
         Relationships: []
       }
+      video_2d_batch_sessions: {
+        Row: {
+          avg_ball: number | null
+          avg_bat: number | null
+          avg_body: number | null
+          avg_brain: number | null
+          avg_composite: number | null
+          completed_at: string | null
+          completed_count: number | null
+          created_at: string | null
+          failed_count: number | null
+          frame_rate: number | null
+          id: string
+          most_common_leak: string | null
+          player_id: string | null
+          session_date: string
+          session_name: string | null
+          session_type: string | null
+          status: string | null
+          swing_count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          avg_ball?: number | null
+          avg_bat?: number | null
+          avg_body?: number | null
+          avg_brain?: number | null
+          avg_composite?: number | null
+          completed_at?: string | null
+          completed_count?: number | null
+          created_at?: string | null
+          failed_count?: number | null
+          frame_rate?: number | null
+          id?: string
+          most_common_leak?: string | null
+          player_id?: string | null
+          session_date?: string
+          session_name?: string | null
+          session_type?: string | null
+          status?: string | null
+          swing_count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          avg_ball?: number | null
+          avg_bat?: number | null
+          avg_body?: number | null
+          avg_brain?: number | null
+          avg_composite?: number | null
+          completed_at?: string | null
+          completed_count?: number | null
+          created_at?: string | null
+          failed_count?: number | null
+          frame_rate?: number | null
+          id?: string
+          most_common_leak?: string | null
+          player_id?: string | null
+          session_date?: string
+          session_name?: string | null
+          session_type?: string | null
+          status?: string | null
+          swing_count?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_2d_batch_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_2d_sessions: {
         Row: {
           analysis_confidence: number | null
           analysis_json: Json | null
           ball_score: number | null
           bat_score: number | null
+          batch_session_id: string | null
           body_score: number | null
           brain_score: number | null
           camera_angle: string | null
@@ -2656,6 +2731,7 @@ export type Database = {
           processing_status: string | null
           reboot_upload_id: string | null
           session_date: string
+          swing_index: number | null
           updated_at: string | null
           upgraded_to_3d_at: string | null
           upload_source: string | null
@@ -2669,6 +2745,7 @@ export type Database = {
           analysis_json?: Json | null
           ball_score?: number | null
           bat_score?: number | null
+          batch_session_id?: string | null
           body_score?: number | null
           brain_score?: number | null
           camera_angle?: string | null
@@ -2692,6 +2769,7 @@ export type Database = {
           processing_status?: string | null
           reboot_upload_id?: string | null
           session_date?: string
+          swing_index?: number | null
           updated_at?: string | null
           upgraded_to_3d_at?: string | null
           upload_source?: string | null
@@ -2705,6 +2783,7 @@ export type Database = {
           analysis_json?: Json | null
           ball_score?: number | null
           bat_score?: number | null
+          batch_session_id?: string | null
           body_score?: number | null
           brain_score?: number | null
           camera_angle?: string | null
@@ -2728,6 +2807,7 @@ export type Database = {
           processing_status?: string | null
           reboot_upload_id?: string | null
           session_date?: string
+          swing_index?: number | null
           updated_at?: string | null
           upgraded_to_3d_at?: string | null
           upload_source?: string | null
@@ -2737,6 +2817,13 @@ export type Database = {
           video_url?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "video_2d_sessions_batch_session_id_fkey"
+            columns: ["batch_session_id"]
+            isOneToOne: false
+            referencedRelation: "video_2d_batch_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "video_2d_sessions_player_id_fkey"
             columns: ["player_id"]
