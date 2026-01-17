@@ -287,17 +287,42 @@ serve(async (req) => {
     if (player_level) contextInfo.push(`Player level: ${player_level}`);
     const contextString = contextInfo.length > 0 ? `\n\nPlayer Context:\n${contextInfo.join('\n')}` : '';
 
-    // Fetch video and convert to base64 for Gemini
-    console.log(`[2D Analysis] Fetching video from ${video_url}`);
-    const videoResponse = await fetch(video_url);
-    if (!videoResponse.ok) {
+    // Fetch only the first portion of the video to stay within memory limits
+    // 5MB is enough for ~2-3 seconds of video at typical compression, sufficient for swing analysis
+    const MAX_VIDEO_BYTES = 5 * 1024 * 1024; // 5MB
+    
+    console.log(`[2D Analysis] Fetching video from ${video_url} (max ${MAX_VIDEO_BYTES} bytes)`);
+    
+    // Try Range request first
+    let videoResponse = await fetch(video_url, {
+      headers: { 'Range': `bytes=0-${MAX_VIDEO_BYTES - 1}` }
+    });
+    
+    // If Range not supported, fall back to regular fetch but we'll truncate
+    if (videoResponse.status !== 206) {
+      console.log(`[2D Analysis] Range request not supported, fetching full video`);
+      videoResponse = await fetch(video_url);
+    }
+    
+    if (!videoResponse.ok && videoResponse.status !== 206) {
       throw new Error(`Failed to fetch video: ${videoResponse.status}`);
     }
     
     const videoBuffer = await videoResponse.arrayBuffer();
-    const videoBase64 = btoa(
-      new Uint8Array(videoBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-    );
+    
+    // Truncate if needed (for servers that don't support Range)
+    const truncatedBuffer = videoBuffer.byteLength > MAX_VIDEO_BYTES 
+      ? videoBuffer.slice(0, MAX_VIDEO_BYTES)
+      : videoBuffer;
+    
+    // Convert to base64 - use chunks to avoid call stack issues
+    const bytes = new Uint8Array(truncatedBuffer);
+    const chunkSize = 32768; // 32KB chunks
+    let videoBase64 = '';
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.slice(i, i + chunkSize);
+      videoBase64 += btoa(String.fromCharCode.apply(null, [...chunk]));
+    }
     
     // Determine MIME type from URL or default to mp4
     let mimeType = "video/mp4";
@@ -307,7 +332,7 @@ serve(async (req) => {
       mimeType = "video/webm";
     }
     
-    console.log(`[2D Analysis] Video fetched, size: ${videoBuffer.byteLength} bytes, type: ${mimeType}`);
+    console.log(`[2D Analysis] Video processed, size: ${truncatedBuffer.byteLength} bytes, type: ${mimeType}`);
 
     // Call Gemini Vision for video analysis with base64 data
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
