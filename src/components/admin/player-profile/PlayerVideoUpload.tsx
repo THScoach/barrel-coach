@@ -103,36 +103,31 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
 
       const videoUrl = urlData.publicUrl;
 
-      setUploadProgress(60);
-      setUploadStatus("processing");
+      setUploadProgress(70);
 
-      // Step 3: Call upload-to-reboot Edge Function
-      const { data: functionData, error: functionError } = await supabase.functions.invoke(
-        "upload-to-reboot",
-        {
-          body: {
-            player_id: playerId,
-            video_url: videoUrl,
-            filename: selectedFile.name,
-            frame_rate: parseInt(frameRate),
-            session_type: sessionType,
-            upload_source: "admin_upload",
-          },
-        }
-      );
+      // Step 3: Create pending analysis record (skip Reboot API - manual import only)
+      const sessionDate = new Date().toISOString().split('T')[0];
+      const { error: insertError } = await supabase
+        .from("reboot_uploads")
+        .insert({
+          player_id: playerId,
+          session_date: sessionDate,
+          upload_source: "admin_upload",
+          processing_status: "pending_2d_analysis",
+          frame_rate: parseInt(frameRate),
+          video_filename: selectedFile.name,
+          video_url: videoUrl,
+          uploaded_at: new Date().toISOString(),
+        });
 
-      if (functionError) {
-        throw new Error(`Reboot upload failed: ${functionError.message}`);
-      }
-
-      if (!functionData?.success) {
-        throw new Error(functionData?.error || "Unknown error during Reboot upload");
+      if (insertError) {
+        throw new Error(`Failed to create upload record: ${insertError.message}`);
       }
 
       setUploadProgress(100);
       setUploadStatus("success");
       
-      toast.success("Video uploaded successfully! Processing will complete in a few minutes.");
+      toast.success("Video uploaded! Run 2D analysis or manually import Reboot data.");
       
       // Reset form
       setSelectedFile(null);
@@ -245,7 +240,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-400">
-                {uploadStatus === "uploading" ? "Uploading to storage..." : "Sending to Reboot..."}
+                {uploadStatus === "uploading" ? "Uploading to storage..." : "Creating record..."}
               </span>
               <span className="text-slate-400">{uploadProgress}%</span>
             </div>
@@ -255,9 +250,14 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
 
         {/* Success Message */}
         {uploadStatus === "success" && (
-          <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/10 p-3 rounded-lg">
-            <CheckCircle className="h-5 w-5" />
-            <span>Upload complete! Video is now processing in Reboot.</span>
+          <div className="flex flex-col gap-2 text-amber-400 bg-amber-500/10 p-3 rounded-lg">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              <span className="font-medium">Video uploaded successfully!</span>
+            </div>
+            <span className="text-sm text-slate-300">
+              Run 2D analysis or manually import Reboot data from the Reboot Analysis page.
+            </span>
           </div>
         )}
 
@@ -278,12 +278,12 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
             {uploadStatus === "uploading" || uploadStatus === "processing" ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {uploadStatus === "uploading" ? "Uploading..." : "Processing..."}
+                {uploadStatus === "uploading" ? "Uploading..." : "Saving..."}
               </>
             ) : (
               <>
                 <Upload className="h-4 w-4 mr-2" />
-                Upload to Reboot
+                Upload Video
               </>
             )}
           </Button>
