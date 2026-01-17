@@ -120,7 +120,7 @@ export function DashboardWidgets() {
       {/* Assessment Health Widget */}
       <Card className="bg-slate-900/80 border-slate-800">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-slate-300">
+          <CardTitle className="text-sm font-medium text-white">
             Assessment Health
           </CardTitle>
         </CardHeader>
@@ -169,7 +169,7 @@ export function DashboardWidgets() {
       {/* Unseen Activity Widget */}
       <Card className="bg-slate-900/80 border-slate-800">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-slate-300">
+          <CardTitle className="text-sm font-medium text-white">
             Unseen Activity
           </CardTitle>
         </CardHeader>
@@ -207,7 +207,7 @@ export function DashboardWidgets() {
       {/* Needs Attention Widget */}
       <Card className="bg-slate-900/80 border-slate-800">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-slate-300">
+          <CardTitle className="text-sm font-medium text-white">
             Needs Attention
           </CardTitle>
         </CardHeader>
@@ -227,7 +227,7 @@ export function DashboardWidgets() {
                   onClick={() => navigate(`/admin/players/${player.id}`)}
                 >
                   <span className="text-sm text-white">{player.name}</span>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-300">
                     Inactive {player.daysSince} days
                   </span>
                 </div>
@@ -240,7 +240,7 @@ export function DashboardWidgets() {
       {/* My Players Widget */}
       <Card className="bg-slate-900/80 border-slate-800">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-slate-300">
+          <CardTitle className="text-sm font-medium text-white">
             My Players
           </CardTitle>
         </CardHeader>
@@ -253,11 +253,11 @@ export function DashboardWidgets() {
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
                 <p className="text-3xl font-bold text-white">{playerCounts?.active || 0}</p>
-                <p className="text-xs text-slate-400">Active</p>
+                <p className="text-xs text-slate-300">Active</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-bold text-slate-400">{playerCounts?.inactive || 0}</p>
-                <p className="text-xs text-slate-400">Inactive</p>
+                <p className="text-3xl font-bold text-slate-300">{playerCounts?.inactive || 0}</p>
+                <p className="text-xs text-slate-300">Inactive</p>
               </div>
             </div>
           )}
