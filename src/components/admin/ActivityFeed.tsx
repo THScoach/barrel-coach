@@ -193,7 +193,7 @@ export function ActivityFeed() {
             </Button>
           ))}
         </div>
-        <span className="text-sm text-slate-500">Last 7 days</span>
+        <span className="text-sm text-slate-400">Last 7 days</span>
       </div>
 
       {/* Activity List */}
@@ -233,15 +233,15 @@ export function ActivityFeed() {
               <div className="flex-1 min-w-0">
                 <p className={cn(
                   "font-medium truncate",
-                  activity.read ? "text-slate-400" : "text-white"
+                  activity.read ? "text-slate-300" : "text-white"
                 )}>
                   {activity.playerName}
                 </p>
-                <p className="text-sm text-slate-500 truncate">{activity.description}</p>
+                <p className="text-sm text-slate-400 truncate">{activity.description}</p>
               </div>
               
               <div className="text-right shrink-0">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
                 </p>
                 {!activity.read && (

@@ -179,7 +179,7 @@ export function DashboardWidgets() {
               <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
             </div>
           ) : unseenActivity.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-4">All caught up! 🎉</p>
+            <p className="text-sm text-slate-400 text-center py-4">All caught up! 🎉</p>
           ) : (
             <div className="space-y-2">
               {unseenActivity.map((player, i) => (
@@ -217,7 +217,7 @@ export function DashboardWidgets() {
               <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
             </div>
           ) : inactivePlayers.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-4">All players engaged!</p>
+            <p className="text-sm text-slate-400 text-center py-4">All players engaged!</p>
           ) : (
             <div className="space-y-2">
               {inactivePlayers.map((player) => (
@@ -227,7 +227,7 @@ export function DashboardWidgets() {
                   onClick={() => navigate(`/admin/players/${player.id}`)}
                 >
                   <span className="text-sm text-white">{player.name}</span>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-slate-400">
                     Inactive {player.daysSince} days
                   </span>
                 </div>
@@ -253,11 +253,11 @@ export function DashboardWidgets() {
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
                 <p className="text-3xl font-bold text-white">{playerCounts?.active || 0}</p>
-                <p className="text-xs text-slate-500">Active</p>
+                <p className="text-xs text-slate-400">Active</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-bold text-slate-500">{playerCounts?.inactive || 0}</p>
-                <p className="text-xs text-slate-500">Inactive</p>
+                <p className="text-3xl font-bold text-slate-400">{playerCounts?.inactive || 0}</p>
+                <p className="text-xs text-slate-400">Inactive</p>
               </div>
             </div>
           )}
