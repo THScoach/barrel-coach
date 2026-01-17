@@ -315,8 +315,8 @@ async function processAnalysisInBackground(
 
     console.log(`[2D Analysis BG] Got scores: Body=${analysis.body}, Brain=${analysis.brain}, Bat=${analysis.bat}, Ball=${analysis.ball}`);
 
-    // Update session with analysis results
-    const { error: updateError } = await supabase
+    // Update session with analysis results (individual swing scores)
+    const { data: sessionData, error: updateError } = await supabase
       .from("video_2d_sessions")
       .update({
         composite_score: analysis.composite,
@@ -329,6 +329,7 @@ async function processAnalysisInBackground(
         leak_detected: analysis.leak_detected,
         leak_evidence: analysis.leak_evidence,
         motor_profile: analysis.motor_profile,
+        motor_profile_indication: analysis.motor_profile, // For aggregation
         motor_profile_evidence: analysis.profile_evidence,
         priority_drill: analysis.priority_drill,
         coach_rick_take: analysis.coach_rick_take,
@@ -337,11 +338,18 @@ async function processAnalysisInBackground(
         processing_status: "complete",
         completed_at: new Date().toISOString(),
       })
-      .eq("id", sessionId);
+      .eq("id", sessionId)
+      .select("batch_session_id")
+      .single();
 
     if (updateError) {
       console.error("[2D Analysis BG] Failed to update session:", updateError);
       return;
+    }
+
+    // If part of a batch session, update aggregates
+    if (sessionData?.batch_session_id) {
+      await updateBatchSessionAggregates(supabase, sessionData.batch_session_id);
     }
 
     // Update player's latest scores
@@ -363,6 +371,7 @@ async function processAnalysisInBackground(
       description: `2D video analysis complete: Composite ${analysis.composite}, Leak: ${analysis.leak_detected}`,
       metadata: {
         session_id: sessionId,
+        batch_session_id: sessionData?.batch_session_id,
         composite_score: analysis.composite,
         leak_detected: analysis.leak_detected,
         frames_analyzed: frames.length,
@@ -385,6 +394,128 @@ async function processAnalysisInBackground(
         error_message: error instanceof Error ? error.message : "Background processing failed" 
       })
       .eq("id", sessionId);
+  }
+}
+
+// Update batch session aggregates after each swing completes
+// deno-lint-ignore no-explicit-any
+async function updateBatchSessionAggregates(supabase: any, batchSessionId: string) {
+  console.log(`[2D Aggregation] Updating batch session ${batchSessionId}`);
+  
+  // Get all completed swings in this batch
+  const { data: swings, error: swingsError } = await supabase
+    .from("video_2d_sessions")
+    .select("*")
+    .eq("batch_session_id", batchSessionId)
+    .eq("processing_status", "complete");
+  
+  if (swingsError || !swings || swings.length === 0) {
+    console.log("[2D Aggregation] No completed swings found");
+    return;
+  }
+  
+  const n = swings.length;
+  console.log(`[2D Aggregation] Found ${n} completed swings`);
+  
+  // Calculate averages
+  const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+  // deno-lint-ignore no-explicit-any
+  const bodyScores = swings.map((s: any) => s.body_score).filter(Boolean) as number[];
+  // deno-lint-ignore no-explicit-any
+  const brainScores = swings.map((s: any) => s.brain_score).filter(Boolean) as number[];
+  // deno-lint-ignore no-explicit-any
+  const batScores = swings.map((s: any) => s.bat_score).filter(Boolean) as number[];
+  // deno-lint-ignore no-explicit-any
+  const ballScores = swings.map((s: any) => s.ball_score).filter(Boolean) as number[];
+  // deno-lint-ignore no-explicit-any
+  const compositeScores = swings.map((s: any) => s.composite_score).filter(Boolean) as number[];
+  
+  const avgBody = bodyScores.length > 0 ? avg(bodyScores) : null;
+  const avgBrain = brainScores.length > 0 ? avg(brainScores) : null;
+  const avgBat = batScores.length > 0 ? avg(batScores) : null;
+  const avgBall = ballScores.length > 0 ? avg(ballScores) : null;
+  const avgComposite = compositeScores.length > 0 ? avg(compositeScores) : null;
+  
+  // Calculate consistency (coefficient of variation)
+  let consistencyCv: number | null = null;
+  if (compositeScores.length >= 2) {
+    const mean = avg(compositeScores);
+    const variance = compositeScores.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / compositeScores.length;
+    const stdDev = Math.sqrt(variance);
+    consistencyCv = mean > 0 ? (stdDev / mean) * 100 : null;
+  }
+  
+  // Find primary leak (most common)
+  const leakCounts: Record<string, number> = {};
+  // deno-lint-ignore no-explicit-any
+  swings.forEach((s: any) => {
+    if (s.leak_detected) {
+      leakCounts[s.leak_detected] = (leakCounts[s.leak_detected] || 0) + 1;
+    }
+  });
+  
+  let primaryLeak: string | null = null;
+  let maxLeakCount = 0;
+  for (const [leak, count] of Object.entries(leakCounts)) {
+    if (count > maxLeakCount) {
+      maxLeakCount = count;
+      primaryLeak = leak;
+    }
+  }
+  const leakFrequency = primaryLeak ? `${primaryLeak}: ${maxLeakCount}/${n} swings` : null;
+  
+  // Determine motor profile (mode with confidence)
+  const profileCounts: Record<string, number> = {};
+  // deno-lint-ignore no-explicit-any
+  swings.forEach((s: any) => {
+    const profile = s.motor_profile_indication || s.motor_profile;
+    if (profile) {
+      profileCounts[profile] = (profileCounts[profile] || 0) + 1;
+    }
+  });
+  
+  let dominantProfile: string | null = null;
+  let maxProfileCount = 0;
+  for (const [profile, count] of Object.entries(profileCounts)) {
+    if (count > maxProfileCount) {
+      maxProfileCount = count;
+      dominantProfile = profile;
+    }
+  }
+  const profileConfidence = dominantProfile && n > 0 ? maxProfileCount / n : null;
+  
+  // Check if all swings are complete
+  const { count: totalSwings } = await supabase
+    .from("video_2d_sessions")
+    .select("*", { count: "exact", head: true })
+    .eq("batch_session_id", batchSessionId);
+  
+  const status = n === totalSwings ? "complete" : "in_progress";
+  
+  // Update batch session
+  const { error: updateError } = await supabase
+    .from("video_2d_batch_sessions")
+    .update({
+      avg_composite_score: avgComposite,
+      avg_body_score: avgBody,
+      avg_brain_score: avgBrain,
+      avg_bat_score: avgBat,
+      avg_ball_score: avgBall,
+      consistency_cv: consistencyCv,
+      primary_leak: primaryLeak,
+      leak_frequency: leakFrequency,
+      motor_profile: dominantProfile,
+      profile_confidence: profileConfidence,
+      swing_count: n,
+      status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", batchSessionId);
+  
+  if (updateError) {
+    console.error("[2D Aggregation] Failed to update batch session:", updateError);
+  } else {
+    console.log(`[2D Aggregation] Updated batch ${batchSessionId}: Composite=${avgComposite?.toFixed(1)}, CV=${consistencyCv?.toFixed(1)}%, Leak=${primaryLeak}`);
   }
 }
 
