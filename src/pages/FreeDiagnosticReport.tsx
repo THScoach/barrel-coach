@@ -691,8 +691,8 @@ export default function FreeDiagnosticReport() {
           size="lg"
           className="w-full bg-red-600 hover:bg-red-700 text-white font-bold h-12"
         >
-          <Link to={`/checkout/krs?session=${sessionId}`}>
-            Unlock Full Report – $37
+          <Link to="/pricing">
+            Join The Academy – $99/mo
             <ArrowRight className="w-4 h-4 ml-2" />
           </Link>
         </Button>
