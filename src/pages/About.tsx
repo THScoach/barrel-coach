@@ -269,10 +269,10 @@ export default function About() {
           </h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className="bg-red-500 hover:bg-red-600 text-white font-bold px-8 py-6 text-lg rounded-xl">
-              <Link to="/analyze">GET YOUR SWING ANALYZED →</Link>
+              <Link to="/diagnostic">GET YOUR FREE DIAGNOSTIC →</Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="border-slate-600 text-white hover:bg-slate-800 px-8 py-6 text-lg rounded-xl">
-              <Link to="/inner-circle">Join the Inner Circle →</Link>
+              <Link to="/pricing">View Pricing →</Link>
             </Button>
           </div>
         </div>
