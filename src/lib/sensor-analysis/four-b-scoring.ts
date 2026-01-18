@@ -72,7 +72,7 @@ export function calculateBatScore(
     handSpeedScore: Math.round(handSpeedPercentile),
     releaseScore: Math.round(releasePercentile),
     accelerationScore,
-    confidence: 'HIGH',
+    confidence: 'high',
   };
 }
 
@@ -124,7 +124,7 @@ export function calculateBrainScore(
     timingConsistency: Math.round(timingScore),
     pathConsistency: Math.round(pathScore),
     zoneAdaptability: Math.round(adaptabilityScore),
-    confidence: 'MEDIUM',
+    confidence: 'medium',
     reasoning: `BRAIN score inferred from timing CV (${(timingCV * 100).toFixed(1)}%), ` +
       `attack angle variance (${pathStdDev.toFixed(1)}°), and direction range ` +
       `(${directionRange.toFixed(1)}°). Timing and path consistency are measurable, ` +
@@ -195,7 +195,7 @@ export function calculateBodyScore(
     estimatedSequencing: Math.round(sequencingScore),
     estimatedSeparation: Math.round(separationScore),
     estimatedGroundForce: Math.round(groundForceScore),
-    confidence: 'LOW',
+    confidence: 'low',
     reasoning: `BODY score is a PREDICTION based on energy transfer efficiency. ` +
       `Without video or 3D motion capture, we cannot directly observe body mechanics. ` +
       `This score assumes that efficient energy transfer (good ratio) correlates with ` +
@@ -223,7 +223,7 @@ export function calculateBallScore(
     return {
       overall: 0,
       available: false,
-      confidence: 'LOW',
+      confidence: 'low',
     };
   }
 
@@ -267,7 +267,7 @@ export function calculateBallScore(
     exitVelocity: ev,
     launchAngle: la,
     hardHitRate: hhr,
-    confidence: 'HIGH',
+    confidence: 'high',
   };
 }
 
