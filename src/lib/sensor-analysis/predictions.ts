@@ -33,13 +33,13 @@ export function predictRelease(
   // Determine quality tier
   let quality: ReleasePrediction['quality'];
   if (ratio >= 1.30) {
-    quality = 'excellent';
+    quality = 'elite';
   } else if (ratio >= 1.25) {
     quality = 'good';
   } else if (ratio >= 1.20) {
-    quality = 'average';
+    quality = 'developing';
   } else {
-    quality = 'needs_work';
+    quality = 'poor';
   }
 
   // Calculate percentile vs population
@@ -67,7 +67,7 @@ export function predictRelease(
     quality,
     percentile: Math.round(percentile),
     potentialUnlock: round(potentialUnlock, 1),
-    confidence: 'HIGH',
+    confidence: 'high',
     reasoning: `Hand-to-bat ratio of ${ratio.toFixed(2)} directly measured from sensor. ` +
       `${percentile.toFixed(0)}th percentile for ${baseline.ageGroup}. ` +
       (potentialUnlock > 0
@@ -110,11 +110,11 @@ export function predictTiming(
   let adjustability: TimingPrediction['adjustability'];
   const directionVariance = facts.attackDirectionStdDev;
   if (directionVariance < 5) {
-    adjustability = 'rigid'; // Very tight pattern - may struggle adjusting
+    adjustability = 'low'; // Very tight pattern - may struggle adjusting
   } else if (directionVariance < 12) {
-    adjustability = 'adaptable'; // Good range
+    adjustability = 'medium'; // Good range
   } else {
-    adjustability = 'fluid'; // Very wide range - could be wild or intentional
+    adjustability = 'high'; // Very wide range - could be wild or intentional
   }
 
   // Predicted timing window
@@ -134,7 +134,7 @@ export function predictTiming(
     adjustability,
     predictedTimingWindow,
     potentialUnlock: round(potentialUnlock, 1),
-    confidence: 'MEDIUM',
+    confidence: 'medium',
     reasoning: `Timing CV of ${(cv * 100).toFixed(1)}% indicates ${cv < 0.06 ? 'consistent' : 'variable'} ` +
       `timing. ${tempoCategory.charAt(0).toUpperCase() + tempoCategory.slice(1)} tempo at ` +
       `${meanTiming.toFixed(0)}ms average. ` +
@@ -215,7 +215,7 @@ export function predictUpstream(
     estimatedTorsoContribution: Math.round(estimatedTorsoContribution),
     likelyKineticChainBreaks: likelyBreaks,
     potentialUnlock: round(potentialUnlock, 1),
-    confidence: 'LOW',
+    confidence: 'low',
     reasoning: `Without video, upstream energy assessment is speculative. ` +
       `Hand-to-bat ratio suggests ${estimatedHipContribution > 60 ? 'good' : 'moderate'} ` +
       `lower-body contribution. ` +
@@ -250,13 +250,13 @@ export function calculateKineticPotential(
   const projectedPotential = currentBatSpeed + totalUnlock;
 
   // Determine overall confidence (weighted by contribution)
-  let overallConfidence: ConfidenceLevel = 'MEDIUM';
+  let overallConfidence: ConfidenceLevel = 'medium';
   if (upstreamUnlock > releaseUnlock + timingUnlock) {
     // If most potential comes from speculative sources
-    overallConfidence = 'LOW';
+    overallConfidence = 'low';
   } else if (releaseUnlock > timingUnlock + upstreamUnlock) {
     // If most potential is high-confidence
-    overallConfidence = 'HIGH';
+    overallConfidence = 'high';
   }
 
   // What would help validate
@@ -275,17 +275,17 @@ export function calculateKineticPotential(
 
     releaseUnlock: {
       value: releaseUnlock,
-      confidence: 'HIGH',
+      confidence: 'high',
       reasoning: releasePrediction.reasoning,
     },
     timingUnlock: {
       value: timingUnlock,
-      confidence: 'MEDIUM',
+      confidence: 'medium',
       reasoning: timingPrediction.reasoning,
     },
     upstreamUnlock: {
       value: upstreamUnlock,
-      confidence: 'LOW',
+      confidence: 'low',
       reasoning: upstreamPrediction.reasoning,
     },
 
