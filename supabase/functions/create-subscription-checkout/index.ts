@@ -11,8 +11,8 @@ const corsHeaders = {
  * Subscription Price IDs
  */
 const SUBSCRIPTION_PRICES = {
-  self_guided_pro: "price_1SqbzkA7XlInXgw8apXlotOs", // $29/mo - Self-Guided Pro
-  full_coaching: "price_1Sou5UA7XlInXgw8BnazjWmP", // $99/mo - Full Online Coaching
+  academy: "price_1Sou5UA7XlInXgw8BnazjWmP", // $99/mo - The Academy
+  "inner-circle": "price_1SqbzkA7XlInXgw8apXlotOs", // $199/mo - Private Coaching (using existing price, update if different)
 };
 
 const logStep = (step: string, details?: any) => {
