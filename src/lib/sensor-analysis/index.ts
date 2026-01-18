@@ -54,24 +54,25 @@ export {
 // Drill recommendations
 export {
   getDrillsForLeaks,
-  getBestDrillForLeak,
   getDrillsByCategory,
   getDrillById,
-  getAllDrills,
+  getTopPriorityDrills,
+  DRILL_LIBRARY,
 } from './drills';
-export type { DrillRecommendation } from './drills';
 
 // Benchmarks and percentiles
 export {
   getExpectedBatSpeed,
-  getExpectedBatSpeedRange,
-  getExpectedRatio,
-  getTargetBatSpeed,
-  calculatePotentialRealization,
-  EXPECTED_BAT_SPEED,
-  EXPECTED_RATIO,
+  getBenchmark,
+  calculatePercentile as calculateBenchmarkPercentile,
+  getBatSpeedPercentile,
+  getHandSpeedPercentile,
+  getRatioPercentile,
+  getTimingConsistencyPercentile,
+  calculateMechanicalLoss,
+  getAllPercentiles,
+  EXTENDED_BENCHMARKS,
 } from './benchmarks';
-export type { PlayerProfile, BatSpeedRange } from './benchmarks';
 
 // Kwon analysis (main orchestration)
 export {
@@ -83,9 +84,8 @@ export type { AnalysisOptions, AnalysisComparison } from './kwon-analysis';
 // Save/load analysis
 export {
   saveKwonAnalysis,
-  saveKineticFingerprint,
-  getLatestAnalysis,
-  getLatestFingerprint,
-  compareAnalysisOverTime,
+  loadKwonAnalysis,
+  getLatestPlayerAnalysis,
+  getPlayerAnalysisHistory,
+  updatePlayerScoresFromAnalysis,
 } from './save-analysis';
-export type { SaveAnalysisResult, SaveFingerprintResult } from './save-analysis';
