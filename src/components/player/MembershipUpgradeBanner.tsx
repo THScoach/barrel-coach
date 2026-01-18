@@ -24,7 +24,7 @@ export function MembershipUpgradeBanner({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold">Catching Barrels Member</h3>
+                  <h3 className="font-semibold">Academy Member</h3>
                   {isFoundingMember && (
                     <span className="text-xs font-bold bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">
                       Founding Member
@@ -45,7 +45,7 @@ export function MembershipUpgradeBanner({
     );
   }
 
-  // If they only have the $37 assessment, show upgrade banner
+  // If they only have a diagnostic/assessment, show upgrade banner
   if (currentPlan === "assessment") {
     return (
       <Card className="border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 to-red-500/5">

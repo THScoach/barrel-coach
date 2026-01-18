@@ -62,11 +62,10 @@ serve(async (req) => {
      * Swing Requirements by Product:
      * 
      * free_diagnostic: 1 swing only (teaser report, locked insights) - $0
-     * complete_review: 5-15 swings ($37, full 4B report + consistency analysis)
-     * membership: 5-15 swings per session ($99/month ongoing coaching)
+     * academy: 5-15 swings per session ($99/month ongoing coaching)
+     * private_coaching: 5-15 swings per session ($199/month 1-on-1 coaching)
      * 
-     * Note: There is NO single-swing $37 product. The $37 KRS Assessment
-     * requires 5+ swings for proper consistency and pattern analysis.
+     * Legacy products (complete_review) redirect to academy pricing.
      */
     let swingsRequired: number;
     let swingsMaxAllowed: number;
@@ -79,23 +78,25 @@ serve(async (req) => {
         swingsMaxAllowed = 1;
         priceCents = 0;
         break;
-      case "complete_review":
-        // $37 KRS Assessment - requires 5+ swings for full analysis
+      case "academy":
+      case "complete_review": // Legacy, now treated as academy
+        // $99/month Academy - 5-15 swings per session
         swingsRequired = 5;
         swingsMaxAllowed = 15;
-        priceCents = 3700;
+        priceCents = 0; // Sessions included with membership
         break;
-      case "membership":
-        // $99/month coaching - 5-15 swings per session
+      case "private_coaching":
+      case "membership": // Legacy, now treated as private_coaching
+        // $199/month Private Coaching - 5-15 swings per session
         swingsRequired = 5;
         swingsMaxAllowed = 15;
-        priceCents = 9900;
+        priceCents = 0; // Sessions included with membership
         break;
       default:
-        // Default to complete_review specs
+        // Default to academy specs
         swingsRequired = 5;
         swingsMaxAllowed = 15;
-        priceCents = 3700;
+        priceCents = 0;
     }
 
     // Create session attached to the existing player
