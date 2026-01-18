@@ -47,7 +47,7 @@ export default function Analyze() {
 
   // Set page title
   useEffect(() => {
-    document.title = 'Swing Analysis Pricing - $37 Single Swing | Catching Barrels';
+    document.title = 'Swing Analysis | Catching Barrels';
   }, []);
 
   // Handle returning from Stripe checkout

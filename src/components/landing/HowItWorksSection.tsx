@@ -136,7 +136,7 @@ export function HowItWorksSection() {
         {/* CTA */}
         <div className="text-center">
           <Button asChild variant="hero" size="lg">
-            <Link to="/analyze">GET MY SWING SCORE — $37</Link>
+            <Link to="/diagnostic">GET MY FREE DIAGNOSTIC</Link>
           </Button>
         </div>
       </div>

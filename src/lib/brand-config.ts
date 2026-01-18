@@ -91,31 +91,32 @@ export const PRODUCTS = {
     buyerIntent: "What's wrong?",
   },
 
-  // 2️⃣ CATCHING BARRELS LIVE — $99/month
-  // Role: Ongoing community + retention layer
+  // 2️⃣ THE ACADEMY — $99/month
+  // Role: Ongoing coaching + retention layer
   // Purpose: Keep players sharp, accountable, and learning
-  catchingBarrelsLive: {
-    id: "catching-barrels-live",
-    name: "Catching Barrels Live",
-    displayName: "Catching Barrels Live",
+  theAcademy: {
+    id: "the-academy",
+    name: "The Academy",
+    displayName: "The Academy",
     price: 99,
     priceDisplay: "$99",
     period: "month",
     type: "subscription",
-    stripePriceId: null, // To be configured
+    stripePriceId: "price_1Sou5UA7XlInXgw8BnazjWmP",
     purpose: [
       "Stay sharp",
       "Accountability",
       "Ongoing education",
     ],
     includes: [
-      "Weekly live group call (Monday nights)",
-      "Group Q&A",
-      "Ongoing education",
+      "Weekly AI-guided check-ins",
+      "Ongoing data uploads",
+      "Trend tracking & benchmarks",
+      "Progress monitoring",
     ],
-    positioning: "Not a transformation program. Retention + community.",
+    positioning: "Your ongoing training partner.",
     buyerIntent: "Stay sharp",
-    note: "No individual transformation guarantee",
+    note: "Best value for consistent improvement",
   },
 
   // 3️⃣ 90-DAY SMALL GROUP CLASS — $1,299 total
@@ -399,8 +400,8 @@ DIAGNOSTIC RESPONSE FORMAT (MANDATORY):
 
 4. FORK IN THE ROAD (Required Close)
    Always end with choice, not pressure:
-   "If you want to keep this surface-level, Guided Coaching ($99/mo) is the right next step.
-   If you want the full picture, the in-person assessment ($399) is where that happens."
+   "If you want consistent coaching, The Academy ($99/mo) is the right next step.
+   If you want direct access to me, Private Coaching ($199/mo) is where that happens."
 
 CRITICAL: After the diagnostic, STOP COACHING. If the player asks follow-up questions, asks for drills, or tries to continue, respond with:
 "That's something we handle inside coaching."

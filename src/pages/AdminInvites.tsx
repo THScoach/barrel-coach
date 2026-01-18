@@ -72,8 +72,8 @@ interface Invite {
 
 const INVITE_TYPE_LABELS: Record<InviteType, string> = {
   diagnostic: "Free Diagnostic",
-  assessment: "$37 Assessment",
-  membership: "Membership",
+  assessment: "Assessment",
+  membership: "The Academy",
   beta: "Beta Access",
 };
 
