@@ -182,7 +182,7 @@ export function SampleReportPreview() {
           {/* CTA Below */}
           <div className="mt-8 text-center">
             <Button asChild variant="hero" size="lg">
-              <Link to="/analyze">GET YOUR OWN REPORT — $37</Link>
+              <Link to="/diagnostic">GET YOUR FREE DIAGNOSTIC</Link>
             </Button>
           </div>
         </div>

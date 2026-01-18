@@ -198,27 +198,27 @@ export function ResultsPage({ results, userAccessLevel = 'paid' }: ResultsPagePr
         </Card>
       )}
 
-      {/* Upsell - KRS Assessment (Single Swing only) */}
+      {/* Upsell - The Academy (Single Swing only) */}
       {!isCompleteReview && (
         <Card className="p-6 mb-8 bg-blue-500/5 border-blue-500/30">
           <h2 className="text-lg font-bold mb-4">WANT THE FULL PICTURE?</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-xl">Full KRS Assessment</span>
-              <span className="font-bold text-xl">$37</span>
+              <span className="font-bold text-xl">The Academy</span>
+              <span className="font-bold text-xl">$99/mo</span>
             </div>
             <ul className="space-y-2 text-sm">
-              <li>• Full KRS 4B Report</li>
+              <li>• Full 4B Score breakdown</li>
               <li>• AI-powered explanation of your results</li>
-              <li>• Starter drills to fix your #1 issue</li>
+              <li>• Personalized drills to fix your issues</li>
+              <li>• Weekly progress tracking</li>
             </ul>
-            <Button variant="accent" size="lg" className="w-full gap-2">
-              GET FULL KRS REPORT
-              <ArrowRight className="w-4 h-4" />
+            <Button asChild variant="accent" size="lg" className="w-full gap-2">
+              <a href="/pricing">
+                JOIN THE ACADEMY
+                <ArrowRight className="w-4 h-4" />
+              </a>
             </Button>
-            <p className="text-xs text-muted-foreground text-center">
-              Or <a href="/coaching" className="underline">join the $99/mo membership</a> which includes your full report
-            </p>
           </div>
         </Card>
       )}

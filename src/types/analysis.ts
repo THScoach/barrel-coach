@@ -135,7 +135,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'complete_review',
-    name: 'Catching Barrels Membership',
+    name: 'The Academy',
     price: 99,
     swingsRequired: 1,
     swingsMaxAllowed: 15,

@@ -182,7 +182,7 @@ function LockedCardWithPopover({
             <span className="font-bold text-white text-sm">Full {config.label} Analysis Locked</span>
           </div>
           <p className="text-slate-400 text-sm">
-            Unlock the full KRS 4B breakdown, Ball metrics, and all personalized drills for $37.
+            Join The Academy to unlock the full 4B breakdown, Ball metrics, and all personalized drills.
           </p>
           <Button
             size="sm"
@@ -192,7 +192,7 @@ function LockedCardWithPopover({
               onScrollToCTA();
             }}
           >
-            Unlock Full Report – $37
+            Join The Academy – $99/mo
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
@@ -634,8 +634,8 @@ export default function FreeDiagnosticReport() {
                 size="lg"
                 className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 text-lg"
               >
-                <Link to={`/checkout/krs?session=${sessionId}`}>
-                  Unlock Full KRS Report – $37
+                <Link to="/pricing">
+                  Join The Academy – $99/mo
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
               </Button>

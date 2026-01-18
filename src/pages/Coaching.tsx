@@ -107,7 +107,7 @@ export default function Coaching() {
             </div>
 
             <h1 className="text-4xl md:text-6xl font-black text-white mb-6">
-              CATCHING BARRELS MEMBERSHIP
+              THE ACADEMY
             </h1>
 
             <p className="text-xl text-slate-300 max-w-2xl mx-auto mb-4">

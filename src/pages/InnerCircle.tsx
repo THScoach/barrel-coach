@@ -133,18 +133,18 @@ const faqs = [
   },
   {
     question: "What if I'm already a customer?",
-    answer: "Any previous purchases ($37 or $97) count toward your first month. Just email us after joining for a credit.",
+    answer: "Any previous purchases count toward your first month. Just email us after joining for a credit.",
   },
 ];
 
-// MASTER PROMPT v1.0 — Product comparison (Guided Coaching at $99/mo)
+// MASTER PROMPT v1.0 — Product comparison (The Academy at $99/mo, Private Coaching at $199/mo)
 const comparisonData = [
   { feature: "Free Diagnostic Snapshot", single: true, complete: true, inner: true },
-  { feature: "Weekly AI-Guided Check-Ins", single: false, complete: false, inner: true },
-  { feature: "Ongoing Data Uploads", single: false, complete: false, inner: true },
-  { feature: "Trend Tracking & Benchmarks", single: false, complete: false, inner: true },
-  { feature: "In-Person Assessment", single: false, complete: true, inner: "20% off" },
-  { feature: "90-Day Transformation", single: "Apply", complete: "Apply", inner: "Priority" },
+  { feature: "Weekly AI-Guided Check-Ins", single: false, complete: true, inner: true },
+  { feature: "Ongoing Data Uploads", single: false, complete: true, inner: true },
+  { feature: "Trend Tracking & Benchmarks", single: false, complete: true, inner: true },
+  { feature: "Direct Access to Coach Rick", single: false, complete: false, inner: true },
+  { feature: "1-on-1 Video Feedback", single: false, complete: false, inner: true },
 ];
 
 export default function InnerCircle() {
@@ -205,12 +205,12 @@ export default function InnerCircle() {
             </div>
 
             <h1 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tight leading-tight">
-              GUIDED{" "}
+              THE{" "}
               <span className="relative">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400">
-                  COACHING
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-orange-400 to-red-400">
+                  ACADEMY
                 </span>
-                <span className="absolute -inset-1 bg-gradient-to-r from-blue-400/20 to-cyan-400/20 blur-xl -z-10" />
+                <span className="absolute -inset-1 bg-gradient-to-r from-red-400/20 to-orange-400/20 blur-xl -z-10" />
               </span>
             </h1>
 
@@ -337,20 +337,20 @@ export default function InnerCircle() {
                     <div className="text-slate-400 font-medium text-sm uppercase tracking-wider">Free Diagnostic</div>
                     <div className="text-white font-bold text-xl mt-1">$0</div>
                   </th>
-                  <th className="text-center py-6 px-6">
-                    <div className="text-slate-400 font-medium text-sm uppercase tracking-wider">KRS Assessment</div>
-                    <div className="text-white font-bold text-xl mt-1">$37</div>
-                  </th>
                   <th className="text-center py-6 px-6 relative">
                     {/* Highlighted column header */}
                     <div className="absolute inset-0 bg-gradient-to-b from-red-500/20 to-transparent rounded-t-xl" />
                     <div className="relative">
                       <div className="inline-flex items-center gap-1 text-red-400 font-medium text-sm uppercase tracking-wider">
                         <Crown className="w-4 h-4" />
-                        Membership
+                        The Academy
                       </div>
                       <div className="text-white font-bold text-xl mt-1">$99/mo</div>
                     </div>
+                  </th>
+                  <th className="text-center py-6 px-6">
+                    <div className="text-amber-400 font-medium text-sm uppercase tracking-wider">Private Coaching</div>
+                    <div className="text-white font-bold text-xl mt-1">$199/mo</div>
                   </th>
                 </tr>
               </thead>
@@ -369,23 +369,12 @@ export default function InnerCircle() {
                         <span className="text-slate-400">{row.single}</span>
                       )}
                     </td>
-                    <td className="text-center py-5 px-6">
-                      {typeof row.complete === "boolean" ? (
-                        row.complete ? (
-                          <Check className="w-6 h-6 text-green-400 mx-auto" />
-                        ) : (
-                          <X className="w-6 h-6 text-slate-600 mx-auto" />
-                        )
-                      ) : (
-                        <span className="text-slate-400">{row.complete}</span>
-                      )}
-                    </td>
                     <td className="text-center py-5 px-6 relative">
-                      {/* Highlighted column */}
+                      {/* Highlighted column for The Academy */}
                       <div className="absolute inset-0 bg-red-500/5" />
                       <div className="relative">
-                        {typeof row.inner === "boolean" ? (
-                          row.inner ? (
+                        {typeof row.complete === "boolean" ? (
+                          row.complete ? (
                             <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-500/20">
                               <Check className="w-5 h-5 text-red-400" />
                             </div>
@@ -393,9 +382,22 @@ export default function InnerCircle() {
                             <X className="w-6 h-6 text-slate-600 mx-auto" />
                           )
                         ) : (
-                          <span className="text-red-400 font-bold">{row.inner}</span>
+                          <span className="text-red-400 font-bold">{row.complete}</span>
                         )}
                       </div>
+                    </td>
+                    <td className="text-center py-5 px-6">
+                      {typeof row.inner === "boolean" ? (
+                        row.inner ? (
+                          <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/20">
+                            <Check className="w-5 h-5 text-amber-400" />
+                          </div>
+                        ) : (
+                          <X className="w-6 h-6 text-slate-600 mx-auto" />
+                        )
+                      ) : (
+                        <span className="text-amber-400 font-bold">{row.inner}</span>
+                      )}
                     </td>
                   </tr>
                 ))}
