@@ -161,8 +161,9 @@ export function MotorProfileCard({ profile, viewerTier, className }: MotorProfil
             <Button 
               size="sm" 
               className="bg-purple-600 hover:bg-purple-700 text-white text-xs"
+              asChild
             >
-              Book 3D Assessment — $299
+              <a href="/pricing">Private Coaching — $199/mo</a>
             </Button>
           </div>
         )}
