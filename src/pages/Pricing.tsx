@@ -1,7 +1,7 @@
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Check, ArrowRight, Gift, BarChart3, Video, Users, Unlock, Gamepad2, TrendingUp, Phone, MessageCircle, ClipboardList, Zap, AlertTriangle, Crown, Star } from "lucide-react";
+import { Check, ArrowRight, Gift, BarChart3, Video, Users, Unlock, Phone, MessageCircle, ClipboardList, AlertTriangle, Crown } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Accordion,
@@ -15,7 +15,7 @@ import { toast } from "sonner";
 const faqs = [
   {
     question: "Is the diagnostic really free?",
-    answer: "Yes. 100% free. No credit card. Upload your swing, get your Motor Profile and Kinetic DNA Report delivered via SMS. No drills. No guessing.",
+    answer: "Yes. 100% free. No credit card. Upload your swing, get your Motor Profile and PDF report delivered via email. No drills. No guessing.",
   },
   {
     question: "Is the sensor really free?",
@@ -81,38 +81,29 @@ export default function Pricing() {
         </div>
       </section>
 
-      {/* Pricing Cards — Main 3 */}
+      {/* Pricing Cards — 3 Tiers */}
       <section className="pb-12">
         <div className="max-w-6xl mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-6 items-start">
             
             {/* 1. Kinetic DNA Diagnostic — FREE */}
             <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-6 flex flex-col">
-              <div className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-2">
-                Entry Point
+              <div className="text-teal-400 text-xs font-bold uppercase tracking-wider mb-2">
+                START HERE
               </div>
               <div className="mb-6">
                 <h3 className="text-2xl font-bold text-white mb-2">Kinetic DNA Diagnostic</h3>
                 <div className="text-5xl font-black text-white mb-2">FREE</div>
-                <p className="text-slate-400 text-sm mt-3">Stop guessing. Get your Force Profile.</p>
               </div>
               
               <ul className="space-y-3 mb-6 flex-grow">
                 <li className="flex items-start gap-3 text-slate-300">
                   <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>Motor Profile Assessment (Spinner, Slingshotter, Whipper)</span>
+                  <span>Motor Profile Assessment</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-300">
                   <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>Kinetic DNA Report (PDF)</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>Coach Rick SMS Diagnosis</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>One priority to fix</span>
+                  <span>PDF report delivered via email</span>
                 </li>
               </ul>
 
@@ -131,12 +122,8 @@ export default function Pricing() {
                 <h3 className="text-2xl font-bold text-white mb-2">The Academy</h3>
                 <div className="flex items-baseline gap-2">
                   <span className="text-5xl font-black text-white">$99</span>
-                  <span className="text-xl text-slate-400">/mo</span>
-                  <span className="ml-2 bg-teal-500/20 text-teal-400 text-xs font-semibold px-2 py-1 rounded uppercase">
-                    Save 24%
-                  </span>
+                  <span className="text-xl text-slate-400">/month</span>
                 </div>
-                <p className="text-slate-400 text-sm mt-3">This is coaching. Not drills. Not guesswork.</p>
               </div>
 
               <ul className="space-y-4 mb-8 flex-grow">
@@ -145,33 +132,29 @@ export default function Pricing() {
                   <Gift className="w-6 h-6 text-amber-400 flex-shrink-0 mt-0.5" />
                   <div>
                     <span className="text-amber-300 font-bold">🎁 FREE Smart Sensor Kit</span>
-                    <span className="block text-amber-400/80 text-sm">Shipped to you — yours to keep (Retail $150)</span>
+                    <span className="block text-amber-400/80 text-sm">(We ship it today)</span>
                   </div>
                 </li>
                 
                 <li className="flex items-start gap-3 text-slate-200">
-                  <BarChart3 className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
                   <span>📊 Daily Kinetic DNA Tracking</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-200">
-                  <Video className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
                   <span>🎥 Auto-Video Analysis (Sensor triggers camera)</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-200">
-                  <Users className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
                   <span>⚾ Monday Night Film Room (Live Group Coaching)</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-200">
-                  <Unlock className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
                   <span>🔓 Full Drill Library Access</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-200">
-                  <Gamepad2 className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>🎮 Gamification (XP, Streaks, Leaderboards)</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Users className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>👥 Community Access</span>
+                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <span>👥 Community & Challenges</span>
                 </li>
               </ul>
 
@@ -183,48 +166,39 @@ export default function Pricing() {
               </Button>
             </div>
 
-            {/* 3. INNER CIRCLE — $199/month (Premium/Exclusive) */}
+            {/* 3. INNER CIRCLE — $199/month (LIMITED) */}
             <div className="bg-gradient-to-b from-slate-900 to-red-950/30 border-2 border-red-500/50 rounded-2xl p-6 flex flex-col relative">
-              {/* Crown Badge */}
-              <div className="absolute top-4 right-4">
-                <Crown className="w-6 h-6 text-red-400" />
+              {/* LIMITED Badge */}
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
+                Limited
               </div>
               
-              <div className="text-red-400 text-xs font-medium uppercase tracking-wider mb-2 flex items-center gap-2">
-                <Star className="w-4 h-4" />
-                Elite Access
-              </div>
-              <div className="mb-6">
+              <div className="mb-6 pt-4">
                 <h3 className="text-2xl font-bold text-white mb-2">Inner Circle</h3>
                 <div className="flex items-baseline gap-2">
                   <span className="text-5xl font-black text-white">$199</span>
-                  <span className="text-xl text-slate-400">/mo</span>
+                  <span className="text-xl text-slate-400">/month</span>
                 </div>
-                <p className="text-slate-400 text-sm mt-3">For players serious about investment in the Academy.</p>
               </div>
 
               <ul className="space-y-4 mb-6 flex-grow">
                 {/* Everything in Academy */}
                 <li className="flex items-start gap-3 text-slate-200">
                   <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span className="font-semibold">Everything in The Academy</span>
+                  <span className="font-semibold">✅ Everything in The Academy</span>
                 </li>
                 
                 <li className="flex items-start gap-3 text-slate-200">
-                  <Phone className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span>📞 2x Monthly Private Video Lessons (15-20 min Zoom)</span>
+                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>📞 2x Monthly Private Video Lessons (Zoom)</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-200">
-                  <MessageCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                   <span>💬 Direct Chat Access (Skip the line)</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-200">
-                  <ClipboardList className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span>📋 Custom Training Plan Adjustments</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Zap className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span>⚡ Priority Support</span>
+                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>📉 Custom Training Plan adjustments</span>
                 </li>
               </ul>
 
@@ -238,7 +212,7 @@ export default function Pricing() {
                 onClick={() => handleCheckout('inner-circle')}
                 className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-6 text-lg"
               >
-                Join the Inner Circle
+                Apply to Inner Circle
               </Button>
             </div>
 
