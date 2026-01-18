@@ -139,6 +139,47 @@ export function identifyPossibleLeaks(
 }
 
 /**
+ * Get primary leak (highest priority)
+ */
+export function getPrimaryLeak(leaks: PossibleLeak[]): PossibleLeak | null {
+  // Priority: likely > possible > speculative, then by potential gain
+  const likelyLeaks = leaks.filter(l => l.probability === 'likely');
+  if (likelyLeaks.length > 0) {
+    return likelyLeaks.reduce((a, b) => a.potentialGain > b.potentialGain ? a : b);
+  }
+
+  const possibleLeaks = leaks.filter(l => l.probability === 'possible');
+  if (possibleLeaks.length > 0) {
+    return possibleLeaks.reduce((a, b) => a.potentialGain > b.potentialGain ? a : b);
+  }
+
+  const speculativeLeaks = leaks.filter(l => l.probability === 'speculative');
+  if (speculativeLeaks.length > 0) {
+    return speculativeLeaks.reduce((a, b) => a.potentialGain > b.potentialGain ? a : b);
+  }
+
+  return null;
+}
+
+/**
+ * Get total potential gain from all leaks (with diminishing returns)
+ */
+export function getTotalPotentialGain(leaks: PossibleLeak[]): number {
+  if (leaks.length === 0) return 0;
+
+  const sortedGains = leaks.map(l => l.potentialGain).sort((a, b) => b - a);
+
+  let total = 0;
+  sortedGains.forEach((gain, index) => {
+    if (index === 0) total += gain;
+    else if (index === 1) total += gain * 0.5;
+    else total += gain * 0.25;
+  });
+
+  return Math.round(total * 10) / 10;
+}
+
+/**
  * Get leak details from catalog
  */
 export function getLeakDetails(leakType: string) {
