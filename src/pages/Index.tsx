@@ -72,7 +72,7 @@ const notForPlayers = [
 export default function Index() {
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
 
-  const handleSubscriptionCheckout = async (priceType: 'self_guided_pro' | 'full_coaching') => {
+  const handleSubscriptionCheckout = async (priceType: 'academy' | 'inner-circle') => {
     setLoadingTier(priceType);
     try {
       const { data, error } = await supabase.functions.invoke('create-subscription-checkout', {

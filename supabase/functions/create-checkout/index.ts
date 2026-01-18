@@ -10,17 +10,19 @@ const corsHeaders = {
 /**
  * Stripe Price IDs - Product Offerings
  * 
- * complete_review: $37 for 5-15 swing analysis
- *   - Requires minimum 5 swings for statistical validity
- *   - Includes consistency metrics and composite scoring
- *   - Full 4B report with Brain, Body, Bat, Ball scores
+ * academy: $99/month for ongoing coaching
+ *   - Weekly AI-guided check-ins
+ *   - Ongoing data uploads
+ *   - Trend tracking & benchmarks
  * 
- * Note: There is NO single-swing $37 product. The $37 KRS Assessment
- * requires 5+ swings for proper consistency and pattern analysis.
- * Free diagnostics (1 swing) go through a different flow.
+ * private_coaching: $199/month for VIP access
+ *   - Direct access to Coach Rick
+ *   - 1-on-1 video feedback
+ *   - Priority support
  */
 const PRICES = {
-  complete_review: "price_1Sni9yA7XlInXgw81XabkdCK", // $37 - 5+ swings required
+  academy: "price_1Sou5UA7XlInXgw8BnazjWmP", // $99/mo - The Academy
+  private_coaching: "price_1SqbzkA7XlInXgw8apXlotOs", // $199/mo - Private Coaching
 };
 
 serve(async (req) => {

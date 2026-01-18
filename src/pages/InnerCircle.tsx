@@ -529,7 +529,7 @@ export default function InnerCircle() {
             
             <div className="relative bg-slate-900 border-2 border-yellow-500/40 rounded-3xl p-10 backdrop-blur-xl">
               <div className="flex items-baseline justify-center gap-2 mb-6">
-                <span className="text-5xl font-black text-white">$297</span>
+                <span className="text-5xl font-black text-white">$199</span>
                 <span className="text-xl text-slate-400">/month</span>
               </div>
 

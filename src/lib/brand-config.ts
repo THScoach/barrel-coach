@@ -177,27 +177,35 @@ export const PRODUCTS = {
 } as const;
 
 // Legacy products (kept for backward compatibility but deprecated)
+// All legacy products now redirect to the new 3-tier structure
 export const LEGACY_PRODUCTS = {
   singleSwingScore: {
     id: "single-swing-score",
     name: "Single Swing Score",
     price: 37,
     deprecated: true,
-    redirectTo: "askRickDiagnostic",
+    redirectTo: "freeDiagnostic",
   },
   completeReview: {
     id: "complete-review", 
     name: "Complete Swing Review",
     price: 97,
     deprecated: true,
-    redirectTo: "guidedCoaching",
+    redirectTo: "theAcademy",
   },
   innerCircle: {
     id: "inner-circle",
     name: "Inner Circle",
     price: 297,
     deprecated: true,
-    redirectTo: "guidedCoaching",
+    redirectTo: "theAcademy",
+  },
+  krsAssessment: {
+    id: "krs-assessment",
+    name: "KRS Assessment",
+    price: 37,
+    deprecated: true,
+    redirectTo: "freeDiagnostic",
   },
 } as const;
 
@@ -237,8 +245,8 @@ export const DIAGNOSTIC_FORMAT = {
       section: "Fork in the Road",
       required: true,
       purpose: "Always end with choice, not pressure.",
-      template: `If you want to keep this surface-level, Guided Coaching is the right next step.
-If you want the full picture, the in-person assessment is where that happens.`,
+      template: `If you want consistent coaching, The Academy ($99/mo) is the right next step.
+If you want direct access to me, Private Coaching ($199/mo) is where that happens.`,
     },
   ],
 } as const;
@@ -253,9 +261,8 @@ export const POST_DIAGNOSTIC_RULES = {
     "Never continue analysis for free",
   ],
   allowedNextSteps: [
-    { product: "guidedCoaching", price: "$99/mo" },
-    { product: "inPersonAssessment", price: "$399" },
-    { product: "ninetyDayTransformation", price: "application" },
+    { product: "theAcademy", price: "$99/mo" },
+    { product: "privateCoaching", price: "$199/mo" },
   ],
 } as const;
 
@@ -411,11 +418,10 @@ Then present the appropriate paid option.`;
   if (includeProducts) {
     prompt += `
 
-PRODUCTS (4 only):
-1. Ask Rick Diagnostic — FREE (one response, no follow-up)
-2. Guided Coaching — $99/month (ongoing structure, accountability)
-3. In-Person Assessment — $399 (full evaluation, one session, real answers)
-4. 90-Day Transformation — By application only (flagship program for serious players)`;
+PRODUCTS (3 tiers only):
+1. Free Diagnostic — $0 (one response snapshot, no follow-up)
+2. The Academy — $99/month (ongoing coaching, AI check-ins, progress tracking)
+3. Private Coaching — $199/month (direct access to Rick, 1-on-1 feedback, VIP)`;
   }
 
   if (includeDrills) {

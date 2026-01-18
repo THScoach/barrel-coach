@@ -100,10 +100,10 @@ function ProductCard({
 }
 
 export function ProductComparisonSection() {
-  // MASTER PROMPT v1.0 — LOCKED PRODUCT LADDER (4 products only)
+  // New 3-tier pricing structure
   const products: ProductCardProps[] = [
     {
-      title: "Guided Coaching",
+      title: "The Academy",
       price: "$99",
       priceLabel: "/month",
       features: [
@@ -113,48 +113,30 @@ export function ProductComparisonSection() {
         { icon: <Dna className="w-4 h-4" />, text: "Progress accountability" },
       ],
       timing: "Ongoing structure",
-      cta: "START GUIDED COACHING →",
-      ctaLink: "/inner-circle",
+      cta: "JOIN THE ACADEMY →",
+      ctaLink: "/pricing",
       bottomLabel: "Where clarity becomes consistency.",
       bottomLabelColor: "#6B7280",
       variant: 'default'
     },
     {
-      title: "In-Person Assessment",
-      price: "$399",
-      priceLabel: "One session",
+      title: "Private Coaching",
+      price: "$199",
+      priceLabel: "/month",
       features: [
-        { icon: <Building2 className="w-4 h-4" />, text: "Full movement evaluation" },
-        { icon: <Microscope className="w-4 h-4" />, text: "Sequence & contact patterns" },
-        { icon: <GraduationCap className="w-4 h-4" />, text: "Decision-making review" },
-        { icon: <Play className="w-4 h-4" />, text: "Game transfer analysis" },
-        { icon: <Zap className="w-4 h-4" />, text: "Same-day direction" },
+        { icon: <Building2 className="w-4 h-4" />, text: "Direct access to Coach Rick" },
+        { icon: <Microscope className="w-4 h-4" />, text: "1-on-1 video feedback" },
+        { icon: <GraduationCap className="w-4 h-4" />, text: "Priority support" },
+        { icon: <Play className="w-4 h-4" />, text: "Personalized training plans" },
+        { icon: <Zap className="w-4 h-4" />, text: "VIP access" },
       ],
-      timing: "One session. Real answers.",
-      cta: "BOOK ASSESSMENT →",
-      ctaLink: "/assessment",
-      bottomLabel: "This is not a lesson.",
+      timing: "Limited to 20 players",
+      cta: "GET VIP ACCESS →",
+      ctaLink: "/pricing",
+      bottomLabel: "Work directly with Rick.",
       bottomLabelColor: "#DC2626",
       isPopular: true,
       variant: 'popular'
-    },
-    {
-      title: "90-Day Transformation",
-      price: "Apply",
-      priceLabel: "By application",
-      features: [
-        { icon: <Video className="w-4 h-4" />, text: "Full assessment included" },
-        { icon: <ClipboardList className="w-4 h-4" />, text: "Structured training program" },
-        { icon: <TrendingUp className="w-4 h-4" />, text: "Ongoing feedback loops" },
-        { icon: <Target className="w-4 h-4" />, text: "Personalized adjustments" },
-        { icon: <Dna className="w-4 h-4" />, text: "Real, measurable change" },
-      ],
-      timing: "For serious players only",
-      cta: "APPLY NOW →",
-      ctaLink: "/assessment",
-      bottomLabel: "For players done guessing.",
-      bottomLabelColor: "#F59E0B",
-      variant: 'premium'
     }
   ];
 
