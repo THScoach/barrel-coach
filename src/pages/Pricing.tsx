@@ -182,7 +182,7 @@ export default function Pricing() {
               </div>
               
               <div className="mb-6 pt-4">
-                <h3 className="text-2xl font-bold text-white mb-2">Inner Circle</h3>
+                <h3 className="text-2xl font-bold text-white mb-2">Private Coaching</h3>
                 <div className="flex items-baseline gap-2">
                   <span className="text-5xl font-black text-white">$199</span>
                   <span className="text-xl text-slate-400">/month</span>
@@ -211,6 +211,10 @@ export default function Pricing() {
                 <li className="flex items-start gap-3 text-slate-200">
                   <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                   <span>📅 Priority Session Booking</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>⚠️ Limited to 20 players</span>
                 </li>
               </ul>
 
