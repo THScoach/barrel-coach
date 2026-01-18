@@ -172,7 +172,7 @@ export function ProductComparisonSection() {
               variant="outline" 
               className="bg-white text-[#1E3A8A] border-white hover:bg-gray-100 font-bold"
             >
-              <Link to="/analyze">GET FREE SNAPSHOT →</Link>
+              <Link to="/diagnostic">GET FREE DIAGNOSTIC →</Link>
             </Button>
           </div>
         </div>
