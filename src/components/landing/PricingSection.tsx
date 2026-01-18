@@ -14,9 +14,9 @@ const plans = [
     borderColor: 'border-slate-700',
     checkColor: 'text-green-400',
     features: [
-      { text: 'Upload your swing video', included: true },
-      { text: 'Primary leak identified', included: true },
-      { text: 'Direction on what to fix', included: true },
+      { text: 'Discover your Motor Profile', included: true },
+      { text: 'Spinner, Slingshotter, or Whipper?', included: true },
+      { text: 'Know your natural swing DNA', included: true },
       { text: 'Smart Sensor Kit', included: false },
       { text: 'Weekly coaching calls', included: false },
     ],
