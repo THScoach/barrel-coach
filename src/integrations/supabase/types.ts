@@ -180,6 +180,51 @@ export type Database = {
           },
         ]
       }
+      challenge_entries: {
+        Row: {
+          challenge_id: string
+          current_value: number | null
+          id: string
+          is_winner: boolean | null
+          player_id: string
+          swings_count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          challenge_id: string
+          current_value?: number | null
+          id?: string
+          is_winner?: boolean | null
+          player_id: string
+          swings_count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          challenge_id?: string
+          current_value?: number | null
+          id?: string
+          is_winner?: boolean | null
+          player_id?: string
+          swings_count?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_entries_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_entries_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_logs: {
         Row: {
           created_at: string | null
@@ -745,6 +790,163 @@ export type Database = {
           },
         ]
       }
+      kinetic_fingerprint_history: {
+        Row: {
+          fingerprint_snapshot: Json
+          id: string
+          player_id: string
+          recorded_at: string
+          swing_count: number
+        }
+        Insert: {
+          fingerprint_snapshot: Json
+          id?: string
+          player_id: string
+          recorded_at?: string
+          swing_count: number
+        }
+        Update: {
+          fingerprint_snapshot?: Json
+          id?: string
+          player_id?: string
+          recorded_at?: string
+          swing_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kinetic_fingerprint_history_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kinetic_fingerprints: {
+        Row: {
+          body_sequence: Json | null
+          created_at: string
+          id: string
+          intent_map: Json
+          last_updated: string
+          motor_profile: string | null
+          pattern_metrics: Json
+          player_id: string
+          swing_count: number
+          timing_signature: Json
+        }
+        Insert: {
+          body_sequence?: Json | null
+          created_at?: string
+          id?: string
+          intent_map: Json
+          last_updated?: string
+          motor_profile?: string | null
+          pattern_metrics: Json
+          player_id: string
+          swing_count?: number
+          timing_signature: Json
+        }
+        Update: {
+          body_sequence?: Json | null
+          created_at?: string
+          id?: string
+          intent_map?: Json
+          last_updated?: string
+          motor_profile?: string | null
+          pattern_metrics?: Json
+          player_id?: string
+          swing_count?: number
+          timing_signature?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kinetic_fingerprints_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kwon_analyses: {
+        Row: {
+          analysis_date: string
+          created_at: string
+          data_quality: string
+          four_b_scores: Json
+          id: string
+          kinetic_potential: Json
+          motor_profile: string
+          player_id: string
+          possible_leaks: Json
+          priority_focus: string
+          release_prediction: Json
+          secondary_focus: string
+          sensor_facts: Json
+          session_id: string
+          swings_analyzed: number
+          timing_prediction: Json
+          updated_at: string
+          upstream_prediction: Json
+        }
+        Insert: {
+          analysis_date?: string
+          created_at?: string
+          data_quality: string
+          four_b_scores: Json
+          id?: string
+          kinetic_potential: Json
+          motor_profile: string
+          player_id: string
+          possible_leaks?: Json
+          priority_focus: string
+          release_prediction: Json
+          secondary_focus: string
+          sensor_facts: Json
+          session_id: string
+          swings_analyzed: number
+          timing_prediction: Json
+          updated_at?: string
+          upstream_prediction: Json
+        }
+        Update: {
+          analysis_date?: string
+          created_at?: string
+          data_quality?: string
+          four_b_scores?: Json
+          id?: string
+          kinetic_potential?: Json
+          motor_profile?: string
+          player_id?: string
+          possible_leaks?: Json
+          priority_focus?: string
+          release_prediction?: Json
+          secondary_focus?: string
+          sensor_facts?: Json
+          session_id?: string
+          swings_analyzed?: number
+          timing_prediction?: Json
+          updated_at?: string
+          upstream_prediction?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kwon_analyses_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kwon_analyses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sensor_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       launch_monitor_sessions: {
         Row: {
           avg_distance: number | null
@@ -1215,6 +1417,8 @@ export type Database = {
           beta_notes: string | null
           can_login: boolean | null
           created_at: string | null
+          current_bat_speed: number | null
+          current_streak: number | null
           email: string | null
           fangraphs_id: string | null
           handedness: string | null
@@ -1224,6 +1428,9 @@ export type Database = {
           is_in_season: boolean | null
           is_public: boolean | null
           is_validation_study: boolean | null
+          kinetic_fingerprint_json: Json | null
+          kinetic_fingerprint_url: string | null
+          last_sensor_session_date: string | null
           latest_ball_score: number | null
           latest_bat_score: number | null
           latest_body_score: number | null
@@ -1231,16 +1438,25 @@ export type Database = {
           latest_composite_score: number | null
           latest_hittrax_session_id: string | null
           level: string | null
+          longest_streak: number | null
+          membership_tier: string | null
           mlb_id: string | null
+          motor_profile_sensor: string | null
           name: string
           notes: string | null
           phone: string | null
+          player_level: number | null
           position: string | null
           reboot_athlete_id: string | null
           reboot_player_id: string | null
+          sensor_baseline_complete: boolean | null
+          sensor_baseline_date: string | null
+          sensor_baseline_session_id: string | null
+          sessions_this_week: number | null
           sms_opt_in: boolean | null
           stripe_customer_id: string | null
           team: string | null
+          total_xp: number | null
           updated_at: string | null
           weight_lbs: number | null
         }
@@ -1255,6 +1471,8 @@ export type Database = {
           beta_notes?: string | null
           can_login?: boolean | null
           created_at?: string | null
+          current_bat_speed?: number | null
+          current_streak?: number | null
           email?: string | null
           fangraphs_id?: string | null
           handedness?: string | null
@@ -1264,6 +1482,9 @@ export type Database = {
           is_in_season?: boolean | null
           is_public?: boolean | null
           is_validation_study?: boolean | null
+          kinetic_fingerprint_json?: Json | null
+          kinetic_fingerprint_url?: string | null
+          last_sensor_session_date?: string | null
           latest_ball_score?: number | null
           latest_bat_score?: number | null
           latest_body_score?: number | null
@@ -1271,16 +1492,25 @@ export type Database = {
           latest_composite_score?: number | null
           latest_hittrax_session_id?: string | null
           level?: string | null
+          longest_streak?: number | null
+          membership_tier?: string | null
           mlb_id?: string | null
+          motor_profile_sensor?: string | null
           name: string
           notes?: string | null
           phone?: string | null
+          player_level?: number | null
           position?: string | null
           reboot_athlete_id?: string | null
           reboot_player_id?: string | null
+          sensor_baseline_complete?: boolean | null
+          sensor_baseline_date?: string | null
+          sensor_baseline_session_id?: string | null
+          sessions_this_week?: number | null
           sms_opt_in?: boolean | null
           stripe_customer_id?: string | null
           team?: string | null
+          total_xp?: number | null
           updated_at?: string | null
           weight_lbs?: number | null
         }
@@ -1295,6 +1525,8 @@ export type Database = {
           beta_notes?: string | null
           can_login?: boolean | null
           created_at?: string | null
+          current_bat_speed?: number | null
+          current_streak?: number | null
           email?: string | null
           fangraphs_id?: string | null
           handedness?: string | null
@@ -1304,6 +1536,9 @@ export type Database = {
           is_in_season?: boolean | null
           is_public?: boolean | null
           is_validation_study?: boolean | null
+          kinetic_fingerprint_json?: Json | null
+          kinetic_fingerprint_url?: string | null
+          last_sensor_session_date?: string | null
           latest_ball_score?: number | null
           latest_bat_score?: number | null
           latest_body_score?: number | null
@@ -1311,16 +1546,25 @@ export type Database = {
           latest_composite_score?: number | null
           latest_hittrax_session_id?: string | null
           level?: string | null
+          longest_streak?: number | null
+          membership_tier?: string | null
           mlb_id?: string | null
+          motor_profile_sensor?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
+          player_level?: number | null
           position?: string | null
           reboot_athlete_id?: string | null
           reboot_player_id?: string | null
+          sensor_baseline_complete?: boolean | null
+          sensor_baseline_date?: string | null
+          sensor_baseline_session_id?: string | null
+          sessions_this_week?: number | null
           sms_opt_in?: boolean | null
           stripe_customer_id?: string | null
           team?: string | null
+          total_xp?: number | null
           updated_at?: string | null
           weight_lbs?: number | null
         }
@@ -1848,6 +2092,194 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sensor_sessions: {
+        Row: {
+          attack_angle_avg: number | null
+          attack_direction_avg: number | null
+          avg_bat_speed: number | null
+          avg_hand_to_bat_ratio: number | null
+          bat_speed_avg: number | null
+          bat_speed_max: number | null
+          created_at: string | null
+          dk_session_uuid: string | null
+          duration_minutes: number | null
+          environment: string | null
+          four_b_bat: number | null
+          four_b_brain: number | null
+          hand_speed_max: number | null
+          id: string
+          kinetic_fingerprint_json: Json | null
+          max_bat_speed: number | null
+          player_id: string
+          session_date: string
+          status: string | null
+          synced_at: string | null
+          timing_variance: number | null
+          timing_variance_pct: number | null
+          total_swings: number | null
+          updated_at: string | null
+          video_storage_path: string | null
+          video_url: string | null
+        }
+        Insert: {
+          attack_angle_avg?: number | null
+          attack_direction_avg?: number | null
+          avg_bat_speed?: number | null
+          avg_hand_to_bat_ratio?: number | null
+          bat_speed_avg?: number | null
+          bat_speed_max?: number | null
+          created_at?: string | null
+          dk_session_uuid?: string | null
+          duration_minutes?: number | null
+          environment?: string | null
+          four_b_bat?: number | null
+          four_b_brain?: number | null
+          hand_speed_max?: number | null
+          id?: string
+          kinetic_fingerprint_json?: Json | null
+          max_bat_speed?: number | null
+          player_id: string
+          session_date?: string
+          status?: string | null
+          synced_at?: string | null
+          timing_variance?: number | null
+          timing_variance_pct?: number | null
+          total_swings?: number | null
+          updated_at?: string | null
+          video_storage_path?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          attack_angle_avg?: number | null
+          attack_direction_avg?: number | null
+          avg_bat_speed?: number | null
+          avg_hand_to_bat_ratio?: number | null
+          bat_speed_avg?: number | null
+          bat_speed_max?: number | null
+          created_at?: string | null
+          dk_session_uuid?: string | null
+          duration_minutes?: number | null
+          environment?: string | null
+          four_b_bat?: number | null
+          four_b_brain?: number | null
+          hand_speed_max?: number | null
+          id?: string
+          kinetic_fingerprint_json?: Json | null
+          max_bat_speed?: number | null
+          player_id?: string
+          session_date?: string
+          status?: string | null
+          synced_at?: string | null
+          timing_variance?: number | null
+          timing_variance_pct?: number | null
+          total_swings?: number | null
+          updated_at?: string | null
+          video_storage_path?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sensor_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sensor_swings: {
+        Row: {
+          applied_power: number | null
+          attack_angle_deg: number | null
+          attack_direction_deg: number | null
+          bat_speed_mph: number | null
+          created_at: string | null
+          dk_swing_id: string | null
+          hand_speed_mph: number | null
+          hand_to_bat_ratio: number | null
+          id: string
+          impact_location_x: number | null
+          impact_location_y: number | null
+          impact_location_z: number | null
+          invalid_reason: string | null
+          is_valid: boolean | null
+          max_acceleration: number | null
+          occurred_at: string
+          player_id: string
+          raw_dk_data: Json | null
+          session_id: string
+          swing_number: number | null
+          swing_plane_tilt_deg: number | null
+          trigger_to_impact_ms: number | null
+          warnings: string[] | null
+        }
+        Insert: {
+          applied_power?: number | null
+          attack_angle_deg?: number | null
+          attack_direction_deg?: number | null
+          bat_speed_mph?: number | null
+          created_at?: string | null
+          dk_swing_id?: string | null
+          hand_speed_mph?: number | null
+          hand_to_bat_ratio?: number | null
+          id?: string
+          impact_location_x?: number | null
+          impact_location_y?: number | null
+          impact_location_z?: number | null
+          invalid_reason?: string | null
+          is_valid?: boolean | null
+          max_acceleration?: number | null
+          occurred_at?: string
+          player_id: string
+          raw_dk_data?: Json | null
+          session_id: string
+          swing_number?: number | null
+          swing_plane_tilt_deg?: number | null
+          trigger_to_impact_ms?: number | null
+          warnings?: string[] | null
+        }
+        Update: {
+          applied_power?: number | null
+          attack_angle_deg?: number | null
+          attack_direction_deg?: number | null
+          bat_speed_mph?: number | null
+          created_at?: string | null
+          dk_swing_id?: string | null
+          hand_speed_mph?: number | null
+          hand_to_bat_ratio?: number | null
+          id?: string
+          impact_location_x?: number | null
+          impact_location_y?: number | null
+          impact_location_z?: number | null
+          invalid_reason?: string | null
+          is_valid?: boolean | null
+          max_acceleration?: number | null
+          occurred_at?: string
+          player_id?: string
+          raw_dk_data?: Json | null
+          session_id?: string
+          swing_number?: number | null
+          swing_plane_tilt_deg?: number | null
+          trigger_to_impact_ms?: number | null
+          warnings?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sensor_swings_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensor_swings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sensor_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -3213,6 +3645,106 @@ export type Database = {
           },
         ]
       }
+      weekly_challenges: {
+        Row: {
+          challenge_type: string
+          created_at: string | null
+          description: string | null
+          id: string
+          min_swings: number | null
+          name: string
+          status: string | null
+          target_metric: string | null
+          target_type: string | null
+          target_value: number | null
+          week_end: string
+          week_start: string
+          winner_player_id: string | null
+          winner_value: number | null
+        }
+        Insert: {
+          challenge_type: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          min_swings?: number | null
+          name: string
+          status?: string | null
+          target_metric?: string | null
+          target_type?: string | null
+          target_value?: number | null
+          week_end: string
+          week_start: string
+          winner_player_id?: string | null
+          winner_value?: number | null
+        }
+        Update: {
+          challenge_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          min_swings?: number | null
+          name?: string
+          status?: string | null
+          target_metric?: string | null
+          target_type?: string | null
+          target_value?: number | null
+          week_end?: string
+          week_start?: string
+          winner_player_id?: string | null
+          winner_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_challenges_winner_player_id_fkey"
+            columns: ["winner_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xp_log: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          new_total: number
+          player_id: string
+          reason: string
+          reference_id: string | null
+          reference_type: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          new_total: number
+          player_id: string
+          reason: string
+          reference_id?: string | null
+          reference_type?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          new_total?: number
+          player_id?: string
+          reason?: string
+          reference_id?: string | null
+          reference_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xp_log_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       pending_reboot_queue: {
@@ -3267,6 +3799,20 @@ export type Database = {
       }
     }
     Functions: {
+      award_xp: {
+        Args: {
+          p_amount: number
+          p_player_id: string
+          p_reason: string
+          p_reference_id?: string
+          p_reference_type?: string
+        }
+        Returns: {
+          leveled_up: boolean
+          new_level: number
+          new_xp: number
+        }[]
+      }
       backfill_players_from_profiles: {
         Args: { limit_count?: number }
         Returns: {
@@ -3276,6 +3822,7 @@ export type Database = {
           profile_id: string
         }[]
       }
+      calculate_player_level: { Args: { xp: number }; Returns: number }
       calculate_session_aggregates: {
         Args: { p_session_id: string }
         Returns: undefined
