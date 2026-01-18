@@ -513,8 +513,8 @@ export default function AdminInvites() {
                 <SelectContent className="bg-slate-900 border-slate-700">
                   <SelectItem value="beta">Beta Access</SelectItem>
                   <SelectItem value="diagnostic">Free Diagnostic</SelectItem>
-                  <SelectItem value="assessment">$37 Assessment</SelectItem>
-                  <SelectItem value="membership">Membership</SelectItem>
+                  <SelectItem value="assessment">The Academy</SelectItem>
+                  <SelectItem value="membership">Private Coaching</SelectItem>
                 </SelectContent>
               </Select>
             </div>

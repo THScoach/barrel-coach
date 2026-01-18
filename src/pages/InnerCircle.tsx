@@ -415,7 +415,7 @@ export default function InnerCircle() {
               IS THIS{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-400">FOR YOU?</span>
             </h2>
-            <p className="text-xl text-slate-400">The Inner Circle is perfect if...</p>
+            <p className="text-xl text-slate-400">Private Coaching is perfect if...</p>
           </div>
 
           <div className="space-y-4">
@@ -550,7 +550,7 @@ export default function InnerCircle() {
                     <Loader2 className="w-6 h-6 animate-spin" />
                   ) : (
                     <>
-                      Join Inner Circle
+                      Join Private Coaching
                       <ArrowRight className="w-5 h-5 ml-2" />
                     </>
                   )}

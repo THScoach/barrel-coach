@@ -714,8 +714,8 @@ export default function AdminVideos() {
                       </SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-700">
                         <SelectItem value="free">Free</SelectItem>
-                        <SelectItem value="paid">Paid</SelectItem>
-                        <SelectItem value="inner_circle">Inner Circle</SelectItem>
+                        <SelectItem value="paid">Academy</SelectItem>
+                        <SelectItem value="inner_circle">Private Coaching</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
