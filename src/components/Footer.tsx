@@ -1,9 +1,16 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Logo } from './Logo';
 import { Mail, Twitter, ArrowRight, Instagram } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function Footer() {
+  const navigate = useNavigate();
+
+  const goToFreeDiagnostic = () => {
+    // Ensure this still "works" even if the user is already on /diagnostic
+    navigate(`/diagnostic?r=${Date.now()}`);
+  };
+
   return (
     <footer className="bg-slate-950 border-t border-slate-800/50">
       {/* CTA Bar — Persistent Footer CTA */}
@@ -14,11 +21,9 @@ export function Footer() {
               <p className="text-white font-semibold">Ready to stop guessing?</p>
               <p className="text-slate-400 text-sm">Start with the Free Diagnostic.</p>
             </div>
-            <Button asChild className="bg-red-600 hover:bg-red-700 text-white font-bold">
-              <Link to="/diagnostic">
-                Start with the Free Diagnostic
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Link>
+            <Button onClick={goToFreeDiagnostic} className="bg-red-600 hover:bg-red-700 text-white font-bold">
+              Start with the Free Diagnostic
+              <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
         </div>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -162,6 +163,9 @@ function calculateMotorProfile(answers: Record<number, string>): MotorProfileTyp
 }
 
 export default function Diagnostic() {
+  const [searchParams] = useSearchParams();
+  const restartKey = searchParams.get("r");
+
   const [step, setStep] = useState<"quiz" | "capture" | "result">("quiz");
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -172,6 +176,19 @@ export default function Diagnostic() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [motorProfile, setMotorProfile] = useState<MotorProfileType | null>(null);
+
+  // Allow the "Start with the Free Diagnostic" buttons to restart the funnel
+  // even when the user is already on /diagnostic.
+  useEffect(() => {
+    if (!restartKey) return;
+    setStep("quiz");
+    setCurrentQuestion(0);
+    setAnswers({});
+    setFormData({ firstName: "", email: "", phone: "" });
+    setIsSubmitting(false);
+    setMotorProfile(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [restartKey]);
 
   const handleAnswer = (questionId: number, answerId: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: answerId }));

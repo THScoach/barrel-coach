@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Logo } from './Logo';
 import { Menu, X, ArrowRight } from 'lucide-react';
@@ -17,6 +17,12 @@ interface HeaderProps {
 export function Header({ showLogin = true }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const goToFreeDiagnostic = () => {
+    // Ensure this still "works" even if the user is already on /diagnostic
+    navigate(`/diagnostic?r=${Date.now()}`);
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/50">
@@ -45,11 +51,9 @@ export function Header({ showLogin = true }: HeaderProps) {
 
         {/* Desktop CTA + Login */}
         <div className="hidden md:flex items-center gap-4">
-          <Button asChild className="bg-red-600 hover:bg-red-700 text-white font-bold">
-            <Link to="/diagnostic">
-              Free Diagnostic
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Link>
+          <Button onClick={goToFreeDiagnostic} className="bg-red-600 hover:bg-red-700 text-white font-bold">
+            Free Diagnostic
+            <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
           {showLogin && (
             <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:text-white">
@@ -86,10 +90,14 @@ export function Header({ showLogin = true }: HeaderProps) {
               </Link>
             ))}
             <div className="pt-4 space-y-3">
-              <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
-                <Link to="/diagnostic" onClick={() => setMobileMenuOpen(false)}>
-                  Free Diagnostic
-                </Link>
+              <Button
+                onClick={() => {
+                  goToFreeDiagnostic();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold"
+              >
+                Free Diagnostic
               </Button>
               {showLogin && (
                 <Button asChild variant="outline" className="w-full border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800">
