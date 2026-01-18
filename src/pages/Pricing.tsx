@@ -1,7 +1,7 @@
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Check, ArrowRight, MessageCircle, Zap, Users, Clock, MapPin } from "lucide-react";
+import { Check, ArrowRight, Gift, BarChart3, Video, Users, Unlock, Target, TrendingUp, Phone, MessageCircle, ClipboardList, Zap, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   Accordion,
@@ -16,20 +16,20 @@ const faqs = [
     answer: "Yes. 100% free. No credit card. Upload your swing, get a snapshot of what's happening. Delivered via SMS. No drills. No guessing.",
   },
   {
-    question: "What's the $37 KRS Assessment?",
-    answer: "Your full KRS 4B report (Brain, Body, Bat, Ball), AI-powered explanation of your results, and starter drills to begin fixing your #1 issue. This is an assessment — not ongoing coaching.",
+    question: "What's included with the Smart Sensor Kit?",
+    answer: "You get a Diamond Kinetics sensor (retail $150) shipped to you for free when you join The Academy. It tracks every swing automatically and syncs with your Kinetic DNA dashboard.",
   },
   {
-    question: "What's included in the membership?",
-    answer: "1 structured swing review per month, KRS reports included, weekly group coaching calls, Rick AI + My Swing Lab access, and clear priorities — not drill overload. Membership can be paused anytime.",
+    question: "What is Monday Night Film Room?",
+    answer: "Every Monday, Coach Rick reviews member swings live. You watch, learn, and get direct feedback. It's group coaching that actually works.",
   },
   {
-    question: "What's the Founding Annual rate?",
-    answer: "The $899/year founding rate saves you ~24% vs monthly ($1,188/year). It's only available to early members who join before March 1, and the rate is locked in as long as you stay active.",
+    question: "How is Inner Circle different from The Academy?",
+    answer: "Inner Circle includes everything in The Academy plus 2x monthly private video lessons with Coach Rick, direct chat access, custom training plans, and priority analysis. Limited to 20 players.",
   },
   {
-    question: "Is coaching digital or in-person?",
-    answer: "All programs are currently delivered digitally. In-person coaching ($399) is offered seasonally (October–February) or by limited availability.",
+    question: "Can I upgrade from Academy to Inner Circle later?",
+    answer: "Yes, if spots are available. Inner Circle is capped at 20 players to ensure quality 1-on-1 time with Coach Rick.",
   },
   {
     question: "What if I'm in-season?",
@@ -54,165 +54,145 @@ export default function Pricing() {
       <section className="pt-32 pb-16">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-6xl font-black text-white mb-6">
-            CHOOSE HOW YOU WANT COACHING
+            CHOOSE YOUR PATH
           </h1>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-            No applications. No upsells. Just coaching.
+            Start with the free diagnostic. Level up when you're ready.
           </p>
         </div>
       </section>
 
       {/* Pricing Cards — Main 3 */}
       <section className="pb-12">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-6">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid md:grid-cols-3 gap-6 items-start">
             
             {/* 1. Free Diagnostic — $0 */}
             <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-6 flex flex-col">
-              <div className="mb-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-800 rounded-full mb-4">
-                  <MessageCircle className="w-4 h-4 text-slate-400" />
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Start Here</span>
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">Free Diagnostic</h3>
-                <div className="text-4xl font-black text-white mb-2">$0</div>
-                <p className="text-slate-500 text-sm">One-time</p>
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-white mb-2">Free Diagnostic</h3>
+                <div className="text-5xl font-black text-white mb-2">$0</div>
+                <p className="text-slate-500 text-sm">One-time · No credit card</p>
               </div>
               
-              <ul className="space-y-2 mb-4 flex-grow">
-                <li className="flex items-start gap-2 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                  One swing upload
+              <ul className="space-y-3 mb-6 flex-grow">
+                <li className="flex items-start gap-3 text-slate-300">
+                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                  <span>Single swing analysis</span>
                 </li>
-                <li className="flex items-start gap-2 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                  Snapshot of what's happening
+                <li className="flex items-start gap-3 text-slate-300">
+                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                  <span>Baseline scores</span>
                 </li>
-                <li className="flex items-start gap-2 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                  Direction, not coaching
+                <li className="flex items-start gap-3 text-slate-300">
+                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                  <span>Motor Profile identification</span>
                 </li>
               </ul>
 
-              <p className="text-slate-500 text-xs mb-4 border-t border-slate-800 pt-4">
-                Delivered via SMS. No drills. No guessing.
-              </p>
-
-              <Button asChild className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold">
-                <a href="https://link.hittingskool.com/payment-link/69657dcc94977cdce1d062c6" target="_blank" rel="noopener noreferrer">Get Free Diagnostic</a>
+              <Button asChild className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-6 text-lg">
+                <Link to="/diagnostic">Get Free Diagnostic</Link>
               </Button>
             </div>
 
-            {/* 2. KRS Assessment — $37 */}
-            <div className="bg-slate-900/80 border border-blue-500/30 rounded-2xl p-6 flex flex-col">
-              <div className="mb-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 rounded-full mb-4">
-                  <Zap className="w-4 h-4 text-blue-400" />
-                  <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">One-Time</span>
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">KRS Assessment</h3>
-                <div className="text-4xl font-black text-white mb-2">$37</div>
-                <p className="text-slate-500 text-sm">One-time purchase</p>
-              </div>
-              
-              <ul className="space-y-2 mb-4 flex-grow">
-                <li className="flex items-start gap-2 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  Full KRS 4B Report
-                </li>
-                <li className="flex items-start gap-2 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  AI-powered explanation
-                </li>
-                <li className="flex items-start gap-2 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  Starter drills to fix your #1 issue
-                </li>
-              </ul>
-
-              <p className="text-slate-500 text-xs mb-4 border-t border-slate-800 pt-4">
-                This is an assessment — not ongoing coaching.
-              </p>
-
-              <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                <a href="https://link.hittingskool.com/payment-link/69657e1494977c2574d06359" target="_blank" rel="noopener noreferrer">Get KRS Assessment</a>
-              </Button>
-            </div>
-
-            {/* 3. Catching Barrels Membership — $99/month OR $899/year (FEATURED) */}
-            <div className="bg-slate-900/80 border-2 border-red-500/50 rounded-2xl p-6 flex flex-col relative ring-2 ring-red-500/30">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
+            {/* 2. THE ACADEMY — $99/month (FEATURED / MOST PROMINENT) */}
+            <div className="bg-slate-900 border-2 border-red-500 rounded-2xl p-8 flex flex-col relative ring-4 ring-red-500/30 scale-105 shadow-2xl shadow-red-500/20 md:-mt-4 md:mb-4">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-6 py-2 bg-red-600 rounded-full text-sm font-bold text-white uppercase tracking-wider">
                 Most Popular
               </div>
               
-              <div className="mb-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-500/20 rounded-full mb-4">
-                  <Users className="w-4 h-4 text-red-400" />
-                  <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Ongoing</span>
+              <div className="mb-6 pt-2">
+                <h3 className="text-2xl font-bold text-white mb-2">The Academy</h3>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-5xl font-black text-white">$99</span>
+                  <span className="text-xl text-slate-400">/mo</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-1">Catching Barrels Membership</h3>
-                <p className="text-sm text-slate-400 mb-3">Ongoing correction. Clear priorities. Real accountability.</p>
+              </div>
+
+              <ul className="space-y-4 mb-8 flex-grow">
+                {/* FREE SENSOR KIT - HIGHLIGHTED */}
+                <li className="flex items-start gap-3 p-3 bg-gradient-to-r from-yellow-500/20 to-orange-500/10 border border-yellow-500/40 rounded-xl">
+                  <Gift className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-white font-bold">FREE Smart Sensor Kit</span>
+                    <span className="block text-yellow-400 text-sm font-medium">Retail $150 – We ship it today</span>
+                  </div>
+                </li>
                 
-                {/* Pricing Options */}
-                <div className="space-y-2 mb-2">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-black text-white">$99</span>
-                    <span className="text-lg text-slate-400">/month</span>
-                  </div>
-                  <div className="flex items-center gap-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                    <Clock className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-                    <div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-bold text-white">$899</span>
-                        <span className="text-sm text-slate-400">/year</span>
-                        <span className="text-xs font-bold text-yellow-400 bg-yellow-500/20 px-2 py-0.5 rounded">Save ~24%</span>
-                      </div>
-                      <p className="text-xs text-yellow-400/80">Founding Annual Rate – until March 1</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-sm text-slate-300 font-medium mb-3 border-t border-slate-800 pt-4">What's included:</p>
-              <ul className="space-y-2 mb-4 flex-grow">
-                <li className="flex items-start gap-2 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  1 structured swing review per month
+                <li className="flex items-start gap-3 text-slate-200">
+                  <BarChart3 className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>📊 Daily Kinetic DNA Tracking</span>
                 </li>
-                <li className="flex items-start gap-2 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  KRS reports included (no add-ons, no upsell games)
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Video className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>🎥 Auto-Video Analysis (Sensor triggers camera)</span>
                 </li>
-                <li className="flex items-start gap-2 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Weekly group coaching calls (film, Q&A, corrections)
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Users className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>⚾ Monday Night Film Room (Live Group Coaching with Coach Rick)</span>
                 </li>
-                <li className="flex items-start gap-2 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Rick AI + My Swing Lab access
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Unlock className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>🔓 Full Drill Library Access</span>
                 </li>
-                <li className="flex items-start gap-2 text-slate-300 text-sm">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Clear direction — not drill overload
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Target className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>👥 Community & Challenges</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200">
+                  <TrendingUp className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>📈 Kinetic Fingerprint & Progress Tracking</span>
                 </li>
               </ul>
 
-              <div className="text-xs text-slate-400 mb-3 border-t border-slate-800 pt-3">
-                <p className="font-medium text-slate-300 mb-1">This is coaching. Not drills. Not guesswork.</p>
-                <ul className="space-y-0.5 text-slate-500">
-                  <li>• Reviews are structured and intentional</li>
-                  <li>• Calls are group-based, not 1-on-1</li>
-                  <li>• Built for steady progress, not instant fixes</li>
-                </ul>
+              <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-6 text-lg">
+                <Link to="/coaching">Join The Academy</Link>
+              </Button>
+            </div>
+
+            {/* 3. INNER CIRCLE — $199/month */}
+            <div className="bg-slate-900/80 border border-slate-600 rounded-2xl p-6 flex flex-col">
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-white mb-2">Inner Circle</h3>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-5xl font-black text-white">$199</span>
+                  <span className="text-xl text-slate-400">/mo</span>
+                </div>
               </div>
 
-              <p className="text-xs text-slate-500 mb-4">
-                Membership can be paused anytime.<br />
-                <span className="text-slate-600">Digital coaching only. In-person options are seasonal.</span>
-              </p>
+              <ul className="space-y-4 mb-6 flex-grow">
+                {/* Everything in Academy */}
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                  <span className="font-semibold">✅ Everything in The Academy</span>
+                </li>
+                
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Phone className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <span>📞 2x Monthly Private Video Lessons (15-20 min Zoom with Coach Rick)</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200">
+                  <MessageCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <span>💬 Direct Chat Access (Skip the line – priority support)</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200">
+                  <ClipboardList className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <span>📋 Custom Training Plan (Personalized drill adjustments)</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Zap className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <span>⚡ Priority Analysis (Your swings reviewed first)</span>
+                </li>
+              </ul>
 
-              <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white font-bold">
-                <a href="https://link.hittingskool.com/payment-link/69657e5c3e9f2f549c38ab1f" target="_blank" rel="noopener noreferrer">Join Membership</a>
+              {/* Limited Spots Warning */}
+              <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg mb-6">
+                <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                <span className="text-amber-400 text-sm font-medium">⚠️ Limited to 20 players</span>
+              </div>
+
+              <Button asChild variant="outline" className="w-full border-slate-500 hover:bg-slate-800 text-white font-bold py-6 text-lg">
+                <Link to="/inner-circle">Apply for Inner Circle</Link>
               </Button>
             </div>
 
@@ -220,179 +200,35 @@ export default function Pricing() {
         </div>
       </section>
 
-      {/* Additional Options — In-Person + Transformation */}
-      <section className="pb-12">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-6">
-            
-            {/* In-Person Session Card */}
-            <div className="bg-slate-900/80 border border-amber-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-start gap-6">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
-                  <MapPin className="w-6 h-6 text-amber-400" />
-                </div>
-              </div>
-              <div className="flex-grow">
-                <div className="text-amber-400 font-bold text-xs uppercase tracking-wider mb-1">Limited Availability</div>
-                <h3 className="text-lg font-bold text-white mb-1">In-Person Swing Session</h3>
-                <div className="text-2xl font-black text-white mb-2">$399</div>
-                <ul className="space-y-1 text-sm text-slate-300 mb-3">
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                    1 in-person swing session
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                    High-speed video + breakdown
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                    Clear correction priorities
-                  </li>
-                </ul>
-                <p className="text-xs text-amber-400/80 mb-4">
-                  Available seasonally (October–February) or limited dates during spring training.
-                </p>
-                <Button asChild variant="outline" className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10">
-                  <a href="mailto:rick@catchingbarrels.io?subject=In-Person Session Request">Request In-Person Session</a>
-                </Button>
-              </div>
-            </div>
-
-            {/* 90-Day Transformation Program Card */}
-            <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-6">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
-                    <Zap className="w-6 h-6 text-purple-400" />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-purple-400 font-bold text-xs uppercase tracking-wider">Off-Season</span>
-                    <span className="text-xs font-bold text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded">October–February</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-white">The 90-Day Swing Transformation</h3>
-                  <p className="text-sm text-slate-400 mt-1">This is where swings actually change.</p>
-                </div>
-              </div>
-
-              <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-3xl font-black text-white">$1,299</span>
-                <span className="text-slate-400">· 90 Days</span>
-              </div>
-
-              <div className="mb-4">
-                <p className="text-sm text-slate-300 mb-2">This program is for hitters who:</p>
-                <ul className="space-y-1 text-sm text-slate-400 mb-3">
-                  <li>• Know something is off</li>
-                  <li>• Are tired of guessing</li>
-                  <li>• Want a real plan — not another drill</li>
-                </ul>
-                <p className="text-xs text-slate-500 italic">
-                  If you want feedback once in a while, the membership is enough.<br />
-                  If you want your swing rebuilt with intention, this is it.
-                </p>
-              </div>
-
-              <p className="text-sm text-slate-300 font-medium mb-2 border-t border-slate-800 pt-3">What the program includes:</p>
-              <ul className="space-y-1 text-sm text-slate-300 mb-4">
-                <li className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                  90-day structured swing rebuild
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                  Multiple swing reviews across the program
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                  Clear correction priorities (what to fix first, second, third)
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                  Progress checkpoints so nothing drifts
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                  Direct accountability, not endless options
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                  Full access to Catching Barrels systems + tools
-                </li>
-              </ul>
-
-              <div className="text-xs text-slate-500 mb-4 border-t border-slate-800 pt-3">
-                <p className="text-slate-400 mb-2">I don't layer drills on top of a broken pattern. I strip the swing down, rebuild the sequence, and make sure it holds.</p>
-                <div className="grid grid-cols-2 gap-2 text-slate-500">
-                  <div>
-                    <p className="font-medium text-slate-400 mb-1">This is not:</p>
-                    <ul className="space-y-0.5">
-                      <li>• a drill library</li>
-                      <li>• a one-time analysis</li>
-                      <li>• a shortcut</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-400 mb-1">This is:</p>
-                    <ul className="space-y-0.5">
-                      <li>• a process</li>
-                      <li>• a plan</li>
-                      <li>• real change over time</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-xs text-purple-400/80 mb-4">
-                Built for the off-season. Runs October through February. Limited enrollment to protect coaching quality.
-              </p>
-
-              <Button asChild variant="outline" className="w-full border-purple-500/50 text-purple-400 hover:bg-purple-500/10 mb-3">
-                <a href="mailto:rick@catchingbarrels.io?subject=90-Day Transformation Application">Apply for the Transformation Program</a>
-              </Button>
-
-              <p className="text-xs text-slate-600 text-center">
-                If you want guidance month-to-month, start with the Membership.<br />
-                If you want your swing rebuilt with a plan, this is the path.
-              </p>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* Availability Notice + Bottom Note */}
+      {/* Value Comparison */}
       <section className="pb-16">
-        <div className="max-w-3xl mx-auto px-4 text-center space-y-6">
-          <p className="text-sm text-slate-500">
-            <strong className="text-slate-400">Availability Note:</strong> All programs are currently delivered digitally. In-person coaching is offered seasonally (October–February) or by limited availability.
-          </p>
-          <p className="text-lg text-slate-400 italic">
-            "If you want results, consistency beats information every time."
-          </p>
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/5 border border-yellow-500/30 rounded-2xl p-8 text-center">
+            <Gift className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+            <h3 className="text-2xl font-bold text-white mb-2">The Academy Value</h3>
+            <p className="text-slate-300 mb-4">
+              Your first month includes the <span className="text-yellow-400 font-bold">FREE Smart Sensor Kit</span> (retail $150).
+            </p>
+            <p className="text-slate-400 text-sm">
+              That's $150 of hardware + full coaching access for just $99. No contracts. Cancel anytime.
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* FAQ Section */}
-      <section className="py-20 border-t border-slate-800">
+      {/* FAQ */}
+      <section className="py-16">
         <div className="max-w-3xl mx-auto px-4">
-          <h2 className="text-3xl font-black text-white text-center mb-12">
-            QUESTIONS?
+          <h2 className="text-3xl font-bold text-white mb-8 text-center">
+            Questions?
           </h2>
-          
-          <Accordion type="single" collapsible className="space-y-3">
+          <Accordion type="single" collapsible className="w-full">
             {faqs.map((faq, index) => (
-              <AccordionItem
-                key={index}
-                value={`item-${index}`}
-                className="bg-slate-900/80 border border-slate-800 rounded-xl px-6"
-              >
-                <AccordionTrigger className="text-left font-semibold text-white hover:no-underline py-5">
+              <AccordionItem key={index} value={`faq-${index}`} className="border-slate-800">
+                <AccordionTrigger className="text-white hover:text-red-400 text-left">
                   {faq.question}
                 </AccordionTrigger>
-                <AccordionContent className="text-slate-400 pb-5">
+                <AccordionContent className="text-slate-400">
                   {faq.answer}
                 </AccordionContent>
               </AccordionItem>
@@ -402,22 +238,18 @@ export default function Pricing() {
       </section>
 
       {/* Final CTA */}
-      <section className="py-20">
-        <div className="max-w-xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-black text-white mb-4">
-            READY TO START?
+      <section className="py-16 bg-slate-900/50">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold text-white mb-4">
+            Not sure? Start free.
           </h2>
           <p className="text-slate-400 mb-8">
-            Get your free diagnostic. No credit card. No commitment.
+            Upload one swing. See your scores. Then decide.
           </p>
-          <Button
-            asChild
-            size="lg"
-            className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 px-10 text-lg"
-          >
-            <Link to="/diagnostic">
+          <Button asChild size="lg" className="bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-6 text-lg">
+            <Link to="/diagnostic" className="flex items-center gap-2">
               Get Free Diagnostic
-              <ArrowRight className="w-5 h-5 ml-2" />
+              <ArrowRight className="w-5 h-5" />
             </Link>
           </Button>
         </div>
