@@ -26,7 +26,7 @@ export default function PlayerNewSession() {
     try {
       const { data, error } = await supabase.functions.invoke("create-player-session", {
         body: {
-          productType: "complete_review",
+          productType: "academy",
           environment,
         },
       });

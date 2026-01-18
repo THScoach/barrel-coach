@@ -2,7 +2,7 @@ import { Check, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Product, PRODUCTS, ASSESSMENT_3D } from '@/types/analysis';
+import { Product, PRODUCTS, PRIVATE_COACHING } from '@/types/analysis';
 import { cn } from '@/lib/utils';
 
 interface ProductSelectorProps {
@@ -33,20 +33,20 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
         ))}
       </div>
 
-      {/* 3D Assessment Card */}
+      {/* Private Coaching Card */}
       <div className="max-w-md mx-auto mb-10">
         <Card className="relative p-6 border-2 border-yellow-500/30 bg-gradient-to-br from-yellow-500/5 to-orange-500/5">
           <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold">
-            IN-PERSON
+            VIP ACCESS
           </Badge>
           
           <div className="text-center mb-4 pt-2">
-            <h3 className="text-xl font-bold mb-1">{ASSESSMENT_3D.name}</h3>
-            <p className="text-sm text-muted-foreground">Seasonal: Oct-Feb</p>
+            <h3 className="text-xl font-bold mb-1">{PRIVATE_COACHING.name}</h3>
+            <p className="text-sm text-muted-foreground">Direct access to Coach Rick</p>
           </div>
 
           <ul className="space-y-2 mb-4">
-            {ASSESSMENT_3D.features.map((feature, i) => (
+            {PRIVATE_COACHING.features.map((feature, i) => (
               <li key={i} className="flex items-start gap-2">
                 <Check className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />
                 <span className="text-sm">{feature}</span>
@@ -55,19 +55,20 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
           </ul>
 
           <p className="text-xs text-muted-foreground text-center mb-4 border-t border-yellow-500/20 pt-3">
-            Perfect for: {ASSESSMENT_3D.perfectFor}
+            Perfect for: {PRIVATE_COACHING.perfectFor}
           </p>
 
           <div className="text-center mb-4">
-            <span className="text-3xl font-bold">${ASSESSMENT_3D.price}</span>
+            <span className="text-3xl font-bold">${PRIVATE_COACHING.price}</span>
+            <span className="text-muted-foreground">/mo</span>
           </div>
 
           <Button 
             variant="outline"
             className="w-full border-yellow-500/50 hover:bg-yellow-500/10"
-            onClick={() => window.location.href = '/apply'}
+            onClick={() => window.location.href = '/pricing'}
           >
-            Apply for Session
+            Join Private Coaching
           </Button>
         </Card>
       </div>
@@ -119,7 +120,7 @@ interface ProductCardProps {
 }
 
 function ProductCard({ product, popular, onSelect }: ProductCardProps) {
-  const isMembership = product.id === 'complete_review';
+  const isMembership = product.id === 'academy';
 
   return (
     <Card 
