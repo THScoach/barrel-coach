@@ -164,19 +164,19 @@ export const PRODUCTS: Product[] = [
   }
 ];
 
-// Third product for 3D Assessment (used in pricing displays)
-export const ASSESSMENT_3D = {
-  id: '3d_assessment',
-  name: '3D Assessment',
-  price: 299,
+// Private Coaching product (used in pricing displays)
+export const PRIVATE_COACHING = {
+  id: 'private_coaching',
+  name: 'Private Coaching',
+  price: 199,
   features: [
-    'Full Reboot Motion capture session',
-    'Motor Profile CONFIRMED (not just a hint)',
-    '1-hour video review with Coach Rick',
-    '90-day personalized drill program',
-    'Full 4B Report with 3D precision'
+    'Everything in The Academy',
+    'Direct access to Coach Rick',
+    '1-on-1 video feedback',
+    'Priority support',
+    'Personalized training plans'
   ],
-  perfectFor: 'College commits, pro prospects, off-season deep dive'
+  perfectFor: 'Players wanting VIP access and direct coaching'
 };
 
 export const LEVELS: { value: PlayerLevel; label: string }[] = [

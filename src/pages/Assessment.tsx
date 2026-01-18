@@ -128,10 +128,10 @@ export default function Assessment() {
             </p>
             <div className="bg-slate-900/80 backdrop-blur-xl border border-yellow-500/30 rounded-2xl p-8 max-w-md mx-auto">
               <div className="flex justify-center items-baseline gap-3 mb-2">
-                <p className="text-5xl font-bold text-white">$299</p>
-                <p className="text-xl text-slate-500 line-through">$399</p>
+                <p className="text-5xl font-bold text-white">$199</p>
+                <span className="text-slate-400">/mo</span>
               </div>
-              <p className="text-yellow-400 text-sm mb-6">This price is only available until I leave for spring training.</p>
+              <p className="text-yellow-400 text-sm mb-6">Private Coaching — VIP access to Coach Rick</p>
               <Input
                 type="email"
                 placeholder="Enter your email to book"
@@ -140,7 +140,7 @@ export default function Assessment() {
                 className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 mb-4"
               />
               <Button onClick={handleBook} disabled={isLoading} className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3">
-                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : <>Book In-Person Assessment ($299) <ArrowRight className="ml-2 h-4 w-4" /></>}
+                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : <>Book Private Coaching ($199/mo) <ArrowRight className="ml-2 h-4 w-4" /></>}
               </Button>
               <div className="flex items-center justify-center gap-2 mt-4 text-sm text-slate-400">
                 <Shield className="w-4 h-4 text-green-400" />
@@ -252,7 +252,7 @@ export default function Assessment() {
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="bg-yellow-500 hover:bg-yellow-600 text-black px-8 py-3 rounded-full font-bold"
           >
-            Book for $299 <ArrowRight className="ml-2 h-4 w-4" />
+            Book Private Coaching — $199/mo <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
       </section>
