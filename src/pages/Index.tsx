@@ -383,7 +383,7 @@ export default function Index() {
                   PDF report delivered via email
                 </li>
               </ul>
-              <Button asChild variant="outline" className="w-full border-slate-600 hover:bg-slate-800 text-white font-bold">
+              <Button asChild className="w-full border border-slate-600 bg-transparent hover:bg-slate-800 text-white font-bold">
                 <Link to="/diagnostic">Get Your Free Diagnostic</Link>
               </Button>
             </div>
@@ -549,8 +549,7 @@ export default function Index() {
             <Button
               asChild
               size="lg"
-              variant="outline"
-              className="border-slate-600 text-white hover:bg-slate-800 h-14 px-10 text-lg"
+              className="border border-slate-600 bg-transparent hover:bg-slate-800 text-white font-bold h-14 px-10 text-lg"
             >
               <Link to="/coaching">
                 Start Coaching
