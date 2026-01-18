@@ -228,7 +228,7 @@ export default function Pricing() {
                 onClick={() => handleCheckout('inner-circle')}
                 className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-6 text-lg"
               >
-                Apply to Inner Circle
+                Apply for Private Coaching
               </Button>
             </div>
 
