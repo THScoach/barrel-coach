@@ -6,6 +6,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * DEPRECATED: This function was for the $37 KRS Assessment which no longer exists.
+ * Now redirects to The Academy ($99/mo) checkout.
+ * 
+ * New pricing structure:
+ * - Free Diagnostic: $0
+ * - The Academy: $99/mo
+ * - Private Coaching: $199/mo
+ */
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -32,24 +41,27 @@ serve(async (req) => {
 
     const origin = req.headers.get("origin") || "https://catchingbarrels.com";
 
-    // Create checkout session for $37 KRS Assessment (one-time)
+    // Redirect legacy KRS requests to The Academy subscription
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : email,
       line_items: [
         {
-          price: "price_1Sni9jA7XlInXgw8nyCx0srR", // KRS Assessment $37
+          price: "price_1Sou5UA7XlInXgw8BnazjWmP", // The Academy $99/mo
           quantity: 1,
         },
       ],
-      mode: "payment",
-      success_url: `${origin}/diagnostic/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/diagnostic`,
+      mode: "subscription",
+      success_url: `${origin}/pricing/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/pricing`,
       metadata: {
-        product_type: "krs_assessment",
+        product_type: "academy",
         email: email,
+        legacy_redirect: "krs_assessment",
       },
     });
+
+    console.log(`Legacy KRS checkout redirected to Academy for ${email}`);
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -57,7 +69,7 @@ serve(async (req) => {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error creating KRS assessment checkout:", errorMessage);
+    console.error("Error creating checkout:", errorMessage);
     return new Response(
       JSON.stringify({ error: errorMessage }),
       {

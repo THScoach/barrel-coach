@@ -25,8 +25,8 @@ serve(async (req) => {
       throw new Error("Missing required fields: productType, player, environment");
     }
 
-    // Validate product type - NO single_swing product exists
-    const validProductTypes = ["free_diagnostic", "complete_review", "membership"];
+    // Validate product type - New 3-tier structure + legacy support
+    const validProductTypes = ["free_diagnostic", "academy", "private_coaching", "complete_review", "membership"];
     if (!validProductTypes.includes(productType)) {
       throw new Error(`Invalid product type: ${productType}. Must be one of: ${validProductTypes.join(", ")}`);
     }
@@ -35,11 +35,8 @@ serve(async (req) => {
      * Swing Requirements by Product:
      * 
      * free_diagnostic: 1 swing only (teaser report, locked insights) - $0
-     * complete_review: 5-15 swings ($37, full 4B report + consistency analysis)
-     * membership: 5-15 swings per session ($99/month ongoing coaching)
-     * 
-     * Note: There is NO single-swing $37 product. The $37 KRS Assessment
-     * requires 5+ swings for proper consistency and pattern analysis.
+     * academy: 5-15 swings per session ($99/month ongoing coaching)
+     * private_coaching: 5-15 swings per session ($199/month VIP access)
      */
     let swingsRequired: number;
     let swingsMaxAllowed: number;
@@ -52,23 +49,30 @@ serve(async (req) => {
         swingsMaxAllowed = 1;
         priceCents = 0;
         break;
-      case "complete_review":
-        // $37 KRS Assessment - requires 5+ swings for full analysis
-        swingsRequired = 5;
-        swingsMaxAllowed = 15;
-        priceCents = 3700;
-        break;
-      case "membership":
+      case "academy":
         // $99/month coaching - 5-15 swings per session
         swingsRequired = 5;
         swingsMaxAllowed = 15;
         priceCents = 9900;
         break;
-      default:
-        // Default to complete_review specs
+      case "private_coaching":
+        // $199/month VIP - 5-15 swings per session
         swingsRequired = 5;
         swingsMaxAllowed = 15;
-        priceCents = 3700;
+        priceCents = 19900;
+        break;
+      // Legacy support for old product types
+      case "complete_review":
+      case "membership":
+        swingsRequired = 5;
+        swingsMaxAllowed = 15;
+        priceCents = 9900;
+        break;
+      default:
+        // Default to academy specs
+        swingsRequired = 5;
+        swingsMaxAllowed = 15;
+        priceCents = 9900;
     }
 
     // Format phone number if provided

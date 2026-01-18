@@ -223,7 +223,7 @@ export function ResultsPage({ results, userAccessLevel = 'paid' }: ResultsPagePr
         </Card>
       )}
 
-      {/* Upsell - Membership (Complete Review only) */}
+      {/* Upsell - The Academy (Complete Review only) */}
       {isCompleteReview && (
         <Card className="p-6 mb-8 bg-primary text-primary-foreground">
           <h2 className="text-lg font-bold mb-2">READY FOR ONGOING COACHING?</h2>
@@ -234,22 +234,25 @@ export function ResultsPage({ results, userAccessLevel = 'paid' }: ResultsPagePr
           
           <div className="p-4 rounded-lg bg-white/10 backdrop-blur">
             <div className="flex items-center justify-between mb-3">
-              <span className="font-bold">Catching Barrels Membership</span>
+              <span className="font-bold">The Academy</span>
               <span className="font-bold">$99/month</span>
             </div>
             <ul className="space-y-1 text-sm opacity-90 mb-4">
-              <li>• Weekly Monday night coaching calls</li>
-              <li>• Unlimited KRS retests</li>
-              <li>• Rick AI for instant answers</li>
+              <li>• Weekly AI-guided check-ins</li>
+              <li>• Ongoing data uploads</li>
+              <li>• Trend tracking & benchmarks</li>
               <li>• My Swing Lab access</li>
             </ul>
             <Button 
+              asChild
               variant="hero" 
               size="lg" 
               className="w-full"
             >
-              JOIN MEMBERSHIP
-              <ArrowRight className="w-4 h-4 ml-2" />
+              <a href="/pricing">
+                JOIN THE ACADEMY
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </a>
             </Button>
           </div>
         </Card>

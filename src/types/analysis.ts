@@ -1,4 +1,4 @@
-export type ProductType = 'single_swing' | 'complete_review';
+export type ProductType = 'free_diagnostic' | 'academy' | 'private_coaching' | 'single_swing' | 'complete_review';
 
 export type PlayerLevel = 
   | 'youth' 
@@ -120,36 +120,47 @@ export interface AnalysisState {
 
 export const PRODUCTS: Product[] = [
   {
-    id: 'single_swing',
-    name: 'KRS Report',
-    price: 37,
+    id: 'free_diagnostic',
+    name: 'Free Diagnostic',
+    price: 0,
     swingsRequired: 1,
-    swingsMaxAllowed: 15,
+    swingsMaxAllowed: 1,
     features: [
-      'One swing. One report. One truth.',
-      'Full 4B Score breakdown',
-      'Primary drill recommendation',
-      'PDF report emailed'
+      'One swing snapshot',
+      'Primary leak identification',
+      'Direction for next steps'
     ],
-    perfectFor: 'First-time analysis, tryout prep, second opinion'
+    perfectFor: 'First-time analysis, quick check-in'
   },
   {
-    id: 'complete_review',
+    id: 'academy',
     name: 'The Academy',
     price: 99,
     swingsRequired: 1,
     swingsMaxAllowed: 15,
     features: [
       'Unlimited swing uploads',
-      'BODY + BRAIN scores from video',
-      'Connect Diamond Kinetics → unlock BAT score',
-      'Upload Hittrax/Rapsodo → unlock BALL score',
-      'Upload Reboot Motion → upgrade to 3D precision',
-      'Session history & progress tracking',
-      'Weekly live calls with Coach Rick',
-      'Rick AI chat for drill questions'
+      'Weekly AI-guided check-ins',
+      'Trend tracking & benchmarks',
+      'Progress monitoring',
+      'My Swing Lab access'
     ],
     perfectFor: 'Serious players training weekly, travel ball, HS varsity'
+  },
+  {
+    id: 'private_coaching',
+    name: 'Private Coaching',
+    price: 199,
+    swingsRequired: 1,
+    swingsMaxAllowed: 15,
+    features: [
+      'Everything in The Academy',
+      'Direct access to Coach Rick',
+      '1-on-1 video feedback',
+      'Priority support',
+      'Personalized training plans'
+    ],
+    perfectFor: 'Players wanting VIP access and direct coaching'
   }
 ];
 

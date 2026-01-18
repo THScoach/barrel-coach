@@ -24,9 +24,9 @@ import { VideoRecorder } from "@/components/VideoRecorder";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 const PRODUCTS = [
-  { id: 'krs_assessment', name: 'KRS Assessment', price: 37, priceId: 'price_1Sni9jA7XlInXgw8nyCx0srR' },
-  { id: 'membership', name: 'Catching Barrels Membership', price: 99, priceId: 'price_1SoacUA7XlInXgw8erLx2iRH' },
-  { id: 'in_person_assessment', name: 'In-Person Assessment (Seasonal)', price: 299, priceId: 'price_1SnqwfA7XlInXgw809dC018v' },
+  { id: 'free_diagnostic', name: 'Free Diagnostic', price: 0, priceId: null },
+  { id: 'academy', name: 'The Academy', price: 99, priceId: 'price_1Sou5UA7XlInXgw8BnazjWmP' },
+  { id: 'private_coaching', name: 'Private Coaching', price: 199, priceId: 'price_1SqbzkA7XlInXgw8apXlotOs' },
 ];
 
 const PAYMENT_OPTIONS = [
