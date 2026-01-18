@@ -123,8 +123,8 @@ export default function Diagnostic() {
               size="lg"
               className="border-red-500/50 text-red-400 hover:bg-red-500/10"
             >
-              <Link to="/coaching">
-                Online Coaching — $99/mo
+              <Link to="/pricing">
+                The Academy — $99/mo
               </Link>
             </Button>
             <Button
@@ -133,8 +133,8 @@ export default function Diagnostic() {
               size="lg"
               className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
             >
-              <Link to="/assessment">
-                In-Person Assessment — $299
+              <Link to="/pricing">
+                Private Coaching — $199/mo
               </Link>
             </Button>
           </div>

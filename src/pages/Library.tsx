@@ -534,17 +534,17 @@ export default function Library() {
       <section className="py-20 bg-gradient-to-b from-slate-900 to-slate-950">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-            WANT <span className="text-red-500">UNLIMITED ACCESS?</span>
+            WANT <span className="text-red-500">FULL ACCESS?</span>
           </h2>
           <p className="text-lg text-slate-400 mb-8 max-w-2xl mx-auto">
-            Join the Inner Circle for full access to 200+ drills, weekly live calls with Coach Rick, and unlimited swing reviews.
+            Join The Academy for full access to 200+ drills, Smart Sensor Kit included, and weekly group coaching calls.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className="bg-red-500 hover:bg-red-600 text-white font-bold px-8 py-6 text-lg">
-              <a href="/inner-circle">Join Inner Circle — $297/mo</a>
+              <a href="/pricing">Join The Academy — $99/mo</a>
             </Button>
             <Button asChild size="lg" variant="outline" className="border-slate-600 text-white hover:bg-slate-800 px-8 py-6 text-lg">
-              <a href="/analyze">Get Single Analysis — $37</a>
+              <a href="/diagnostic">Get Free Diagnostic</a>
             </Button>
           </div>
         </div>

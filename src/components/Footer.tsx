@@ -64,10 +64,10 @@ export function Footer() {
                 <Link to="/diagnostic" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Free Diagnostic — $0</Link>
               </li>
               <li>
-                <Link to="/coaching" className="text-slate-400 hover:text-red-500 transition-colors text-sm">App Membership — $29/mo</Link>
+                <Link to="/pricing" className="text-slate-400 hover:text-red-500 transition-colors text-sm">The Academy — $99/mo</Link>
               </li>
               <li>
-                <Link to="/coaching" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Online Coaching — $99/mo</Link>
+                <Link to="/pricing" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Private Coaching — $199/mo</Link>
               </li>
             </ul>
           </div>

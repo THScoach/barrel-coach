@@ -289,22 +289,22 @@ export default function Results() {
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 rounded-full text-blue-400 text-xs font-bold uppercase tracking-wider mb-4">
                 Free Snapshot Complete
               </div>
-              <h2 className="font-bold text-xl text-white mb-2">Unlock Full KRS Report</h2>
+              <h2 className="font-bold text-xl text-white mb-2">Ready for Real Coaching?</h2>
               <p className="text-slate-300 mb-6">
-                Get your complete 4B breakdown, AI-powered explanation, and starter drills to fix your #1 issue.
+                Join The Academy for weekly coaching, Smart Sensor Kit included, and clear direction on what to fix.
               </p>
               <div className="flex flex-col gap-3 justify-center">
-                <Button size="lg" className="bg-blue-500 hover:bg-blue-600 text-white" asChild>
-                  <Link to="/diagnostic?upgrade=assessment">
-                    Unlock Full KRS Report – $37
+                <Button size="lg" className="bg-red-500 hover:bg-red-600 text-white" asChild>
+                  <Link to="/pricing">
+                    Join The Academy — $99/mo
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Link>
                 </Button>
                 <Link 
-                  to="/coaching" 
+                  to="/pricing" 
                   className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-4"
                 >
-                  Skip straight to Monthly Coaching – $99/mo or $899/year founding rate until March 1
+                  Or get Private Coaching — $199/mo (limited to 20 players)
                 </Link>
               </div>
             </CardContent>

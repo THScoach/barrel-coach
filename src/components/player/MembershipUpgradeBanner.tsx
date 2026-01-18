@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Clock, Crown, Zap } from "lucide-react";
+import { ArrowRight, Crown, Zap } from "lucide-react";
 
 interface MembershipUpgradeBannerProps {
   currentPlan: "assessment" | "monthly" | "annual" | "none";
@@ -56,24 +56,19 @@ export function MembershipUpgradeBanner({
                 <Zap className="w-5 h-5 text-yellow-400" />
               </div>
               <div>
-                <h3 className="font-semibold">Upgrade to Full Membership</h3>
+                <h3 className="font-semibold">Join The Academy</h3>
                 <p className="text-sm text-muted-foreground">
-                  Get weekly calls, unlimited uploads, Rick AI, and monthly retests.
+                  Get Smart Sensor Kit, weekly coaching calls, and clear direction.
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-sm font-bold text-white">$99/mo</span>
-                  <span className="text-sm text-muted-foreground">or</span>
-                  <span className="text-sm font-bold text-yellow-400">$899/year</span>
-                  <div className="flex items-center gap-1 text-xs text-yellow-400">
-                    <Clock className="w-3 h-3" />
-                    until March 1
-                  </div>
+                  <span className="text-sm text-muted-foreground">· Smart Sensor Kit included</span>
                 </div>
               </div>
             </div>
             <Button asChild className="bg-red-600 hover:bg-red-700 whitespace-nowrap">
-              <Link to="/coaching">
-                Upgrade Now
+              <Link to="/pricing">
+                Join The Academy
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
             </Button>
@@ -93,23 +88,23 @@ export function MembershipUpgradeBanner({
               <Zap className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <h3 className="font-semibold">Get Your Full KRS Report</h3>
+              <h3 className="font-semibold">Start Your Journey</h3>
               <p className="text-sm text-muted-foreground">
-                Start with a $37 assessment or go straight to membership.
+                Get a free diagnostic or join The Academy for full coaching.
               </p>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm font-bold text-blue-400">$37 one-time</span>
+                <span className="text-sm font-bold text-blue-400">Free Diagnostic</span>
                 <span className="text-sm text-muted-foreground">or</span>
-                <span className="text-sm font-bold text-red-400">$99/mo membership</span>
+                <span className="text-sm font-bold text-red-400">$99/mo Academy</span>
               </div>
             </div>
           </div>
           <div className="flex gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link to="/diagnostic">$37 Assessment</Link>
+              <Link to="/diagnostic">Free Diagnostic</Link>
             </Button>
             <Button asChild size="sm" className="bg-red-600 hover:bg-red-700">
-              <Link to="/coaching">Join Membership</Link>
+              <Link to="/pricing">Join The Academy</Link>
             </Button>
           </div>
         </div>

@@ -381,61 +381,29 @@ export function VideoRecommendations({
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* $37 KRS Assessment */}
-            <div 
-              className="border rounded-lg p-4 cursor-pointer hover:border-primary transition-colors"
-              onClick={() => {
-                setShowUpgradeModal(false);
-                navigate('/diagnostic?upgrade=assessment');
-              }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-bold text-lg">KRS Assessment</h3>
-                <span className="text-2xl font-bold text-primary">$37</span>
-              </div>
-              <ul className="space-y-1.5 text-sm text-muted-foreground mb-3">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Full KRS 4B Report
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  AI-powered explanation
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Starter drills included
-                </li>
-              </ul>
-              <Button className="w-full" variant="outline">
-                Get KRS Assessment
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-
-            {/* $99/mo Membership - Highlighted */}
+            {/* The Academy - $99/mo - Highlighted */}
             <div 
               className="border-2 border-accent rounded-lg p-4 cursor-pointer hover:bg-accent/5 transition-colors relative"
               onClick={() => {
                 setShowUpgradeModal(false);
-                navigate('/coaching');
+                navigate('/pricing');
               }}
             >
               <Badge className="absolute -top-2.5 left-4 bg-accent text-accent-foreground">
                 MOST POPULAR
               </Badge>
               <div className="flex items-center justify-between mb-2 mt-1">
-                <h3 className="font-bold text-lg">Catching Barrels Membership</h3>
+                <h3 className="font-bold text-lg">The Academy</h3>
                 <span className="text-2xl font-bold text-accent">$99/mo</span>
               </div>
               <ul className="space-y-1.5 text-sm text-muted-foreground mb-3">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Full KRS reports included
+                  Free Smart Sensor Kit included
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Weekly Monday night calls
+                  Weekly group coaching calls
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
@@ -445,13 +413,45 @@ export function VideoRecommendations({
                   <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
                   Rick AI for instant answers
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                  Monthly retests
-                </li>
               </ul>
               <Button className="w-full" variant="accent">
-                Join Membership
+                Join The Academy
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+
+            {/* Private Coaching - $199/mo */}
+            <div 
+              className="border rounded-lg p-4 cursor-pointer hover:border-primary transition-colors"
+              onClick={() => {
+                setShowUpgradeModal(false);
+                navigate('/pricing');
+              }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-lg">Private Coaching</h3>
+                  <Badge variant="outline" className="text-xs">VIP</Badge>
+                </div>
+                <span className="text-2xl font-bold text-primary">$199/mo</span>
+              </div>
+              <ul className="space-y-1.5 text-sm text-muted-foreground mb-3">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                  Everything in The Academy
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                  1-on-1 monthly video call with Rick
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                  Priority swing reviews
+                </li>
+              </ul>
+              <p className="text-xs text-muted-foreground mb-3">Limited to 20 players</p>
+              <Button className="w-full" variant="outline">
+                Apply for Private Coaching
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>

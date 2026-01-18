@@ -1,74 +1,73 @@
 import { Link } from 'react-router-dom';
-import { Check, MessageCircle, Zap, Users, Clock, MapPin } from 'lucide-react';
+import { Check, Sparkles, Users, Crown, MapPin, Zap, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const plans = [
   {
-    name: 'Free Diagnostic',
+    name: 'Kinetic DNA Diagnostic',
     price: 0,
-    period: 'one-time',
+    period: 'Free',
     description: 'Identify your #1 swing leak',
     featured: false,
-    icon: MessageCircle,
+    icon: Sparkles,
     iconColor: 'text-slate-400',
     borderColor: 'border-slate-700',
     checkColor: 'text-green-400',
     features: [
-      { text: 'One swing upload', included: true },
+      { text: 'Upload your swing video', included: true },
       { text: 'Primary leak identified', included: true },
-      { text: 'Delivered via SMS', included: true },
-      { text: 'Ongoing coaching', included: false },
-      { text: 'Drill prescriptions', included: false },
+      { text: 'Direction on what to fix', included: true },
+      { text: 'Smart Sensor Kit', included: false },
+      { text: 'Weekly coaching calls', included: false },
     ],
     cta: 'Get Free Diagnostic',
     ctaLink: '/diagnostic',
     ctaStyle: 'bg-slate-700 hover:bg-slate-600',
-    note: 'Delivered via SMS. No drills. No guessing.',
   },
   {
-    name: 'KRS Assessment',
-    price: 37,
-    period: 'one-time',
-    description: 'Full KRS 4B report with AI explanation',
-    featured: false,
-    icon: Zap,
-    iconColor: 'text-blue-400',
-    borderColor: 'border-blue-500/30',
-    checkColor: 'text-blue-400',
-    features: [
-      { text: 'Full KRS 4B Report', included: true },
-      { text: 'AI-powered explanation', included: true },
-      { text: 'Starter drills to fix your #1 issue', included: true },
-      { text: 'Ongoing coaching', included: false },
-      { text: 'Weekly calls with Rick', included: false },
-    ],
-    cta: 'Get KRS Assessment',
-    ctaLink: '/diagnostic',
-    ctaStyle: 'bg-blue-600 hover:bg-blue-700',
-    note: 'This is an assessment — not ongoing coaching.',
-  },
-  {
-    name: 'Catching Barrels Membership',
+    name: 'The Academy',
     price: 99,
     period: 'per month',
-    annualPrice: 899,
-    description: 'Ongoing correction. Clear priorities. Real accountability.',
+    description: 'Weekly coaching. Smart Sensor Kit included.',
     featured: true,
+    badge: 'Most Popular',
     icon: Users,
     iconColor: 'text-red-400',
     borderColor: 'border-red-500/50',
     checkColor: 'text-red-400',
     features: [
-      { text: '1 structured swing review per month', included: true },
-      { text: 'KRS reports included (no add-ons, no upsell games)', included: true },
-      { text: 'Weekly group coaching calls (film, Q&A, corrections)', included: true },
-      { text: 'Rick AI + My Swing Lab access', included: true },
+      { text: 'Free Smart Sensor Kit included', included: true },
+      { text: 'Weekly group coaching calls', included: true },
+      { text: 'My Swing Lab access', included: true },
+      { text: 'Rick AI for instant answers', included: true },
       { text: 'Clear direction — not drill overload', included: true },
     ],
-    cta: 'Join Membership',
-    ctaLink: '/coaching',
+    cta: 'Join The Academy',
+    ctaLink: '/pricing',
     ctaStyle: 'bg-red-600 hover:bg-red-700',
-    note: 'This is coaching. Not drills. Not guesswork. Membership can be paused anytime.',
+  },
+  {
+    name: 'Private Coaching',
+    price: 199,
+    period: 'per month',
+    description: '1-on-1 with Rick. Limited to 20 players.',
+    featured: false,
+    badge: 'VIP Access',
+    icon: Crown,
+    iconColor: 'text-yellow-400',
+    borderColor: 'border-yellow-500/30',
+    checkColor: 'text-yellow-400',
+    features: [
+      { text: 'Everything in The Academy', included: true },
+      { text: '1-on-1 monthly video call with Rick', included: true },
+      { text: 'Priority swing reviews', included: true },
+      { text: 'Direct text access to Rick', included: true },
+      { text: 'Custom training plan', included: true },
+    ],
+    cta: 'Apply Now',
+    ctaLink: '/pricing',
+    ctaStyle: 'bg-yellow-600 hover:bg-yellow-700',
+    note: 'Limited to 20 players',
   },
 ];
 
@@ -102,9 +101,9 @@ export function PricingSection() {
                   ${plan.featured ? 'ring-2 ring-red-500/50' : ''}
                 `}
               >
-                {plan.featured && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-xs font-bold uppercase tracking-wider px-4 py-1 rounded-full">
-                    Most Popular
+                {plan.badge && (
+                  <div className={`absolute -top-3 left-1/2 -translate-x-1/2 ${plan.featured ? 'bg-red-600' : 'bg-yellow-600'} text-white text-xs font-bold uppercase tracking-wider px-4 py-1 rounded-full`}>
+                    {plan.badge}
                   </div>
                 )}
 
@@ -114,18 +113,10 @@ export function PricingSection() {
                   </div>
                   <h3 className="text-lg font-bold text-white mb-2">{plan.name}</h3>
                   <div className="text-3xl font-bold text-white mb-1">
-                    ${plan.price.toLocaleString()}
+                    {plan.price === 0 ? 'FREE' : `$${plan.price}`}
                     {plan.period === 'per month' && <span className="text-lg text-slate-400">/mo</span>}
                   </div>
-                  {plan.annualPrice && (
-                    <div className="flex items-center justify-center gap-2 mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                      <Clock className="w-3 h-3 text-yellow-400" />
-                      <span className="text-sm text-yellow-400">
-                        or ${plan.annualPrice}/year – save ~24%
-                      </span>
-                    </div>
-                  )}
-                  {!plan.annualPrice && (
+                  {plan.period !== 'per month' && plan.period !== 'Free' && (
                     <p className="text-gray-500 text-sm">{plan.period}</p>
                   )}
                 </div>
@@ -245,22 +236,9 @@ export function PricingSection() {
             </Button>
 
             <p className="text-xs text-slate-600 text-center">
-              Month-to-month? Start with Membership. Want a rebuild? This is the path.
+              Month-to-month? Start with The Academy. Want a rebuild? This is the path.
             </p>
           </div>
-        </div>
-
-        {/* Founding Annual Note + Availability */}
-        <div className="mt-12 max-w-3xl mx-auto text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-            <Clock className="w-4 h-4 text-yellow-400" />
-            <span className="text-sm text-yellow-400">
-              Founding annual rate ($899/year) available until March 1 – locked in as long as you stay active
-            </span>
-          </div>
-          <p className="text-sm text-slate-500">
-            <strong className="text-slate-400">Availability Note:</strong> All programs are currently delivered digitally. In-person coaching is offered seasonally (October–February) or by limited availability.
-          </p>
         </div>
 
         {/* Ascension Logic */}
@@ -271,12 +249,12 @@ export function PricingSection() {
               <div className="text-white font-bold">Free Diagnostic</div>
             </div>
             <div className="p-4">
-              <div className="text-slate-400 text-sm mb-2">"Give me the full picture"</div>
-              <div className="text-white font-bold">$37 Assessment</div>
+              <div className="text-slate-400 text-sm mb-2">"I want real coaching"</div>
+              <div className="text-white font-bold">$99/mo Academy</div>
             </div>
             <div className="p-4">
-              <div className="text-slate-400 text-sm mb-2">"I want real coaching"</div>
-              <div className="text-white font-bold">$99/mo Membership</div>
+              <div className="text-slate-400 text-sm mb-2">"I want Rick 1-on-1"</div>
+              <div className="text-white font-bold">$199/mo Private</div>
             </div>
           </div>
         </div>
