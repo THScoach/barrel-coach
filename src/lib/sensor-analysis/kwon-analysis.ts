@@ -104,6 +104,32 @@ export function performKwonAnalysis(
 
     swingsAnalyzed: swings.length,
     dataQuality,
+    
+    // Empty fingerprint placeholder - calculate separately if needed
+    fingerprint: {
+      intentMap: {
+        horizontalMean: 0,
+        horizontalStdDev: 0,
+        verticalMean: 0,
+        verticalStdDev: 0,
+        depthIndex: 0,
+        depthConsistency: 0,
+      },
+      timingSignature: {
+        triggerToImpactMs: sensorFacts.timeToContactMean || 0,
+        timingVariance: sensorFacts.timeToContactStdDev || 0,
+        tempoCategory: timingPrediction.tempoCategory,
+      },
+      patternMetrics: {
+        tightness: 100 - (sensorFacts.timingCV * 100),
+        pullBias: sensorFacts.attackDirectionMean || 0,
+        zoneBias: 'middle',
+        comfortZone: {
+          horizontal: [-5, 5],
+          vertical: [5, 15],
+        },
+      },
+    },
   };
 }
 
