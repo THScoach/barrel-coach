@@ -84,6 +84,14 @@ export default function Pricing() {
       {/* Pricing Cards — 3 Tiers */}
       <section className="pb-12">
         <div className="max-w-6xl mx-auto px-4">
+          {/* Headline */}
+          <div className="text-center mb-12">
+            <h2 className="text-4xl md:text-5xl font-black text-white mb-3">
+              ELITE TRAINING. SIMPLE PRICING.
+            </h2>
+            <p className="text-slate-400 text-lg">No complicated tiers. Just results.</p>
+          </div>
+          
           <div className="grid md:grid-cols-3 gap-6 items-start">
             
             {/* 1. Kinetic DNA Diagnostic — FREE */}
@@ -170,7 +178,7 @@ export default function Pricing() {
             <div className="bg-gradient-to-b from-slate-900 to-red-950/30 border-2 border-red-500/50 rounded-2xl p-6 flex flex-col relative">
               {/* LIMITED Badge */}
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
-                Limited
+                VIP ACCESS
               </div>
               
               <div className="mb-6 pt-4">
@@ -199,6 +207,10 @@ export default function Pricing() {
                 <li className="flex items-start gap-3 text-slate-200">
                   <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                   <span>📉 Custom Training Plan adjustments</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>📅 Priority Session Booking</span>
                 </li>
               </ul>
 
