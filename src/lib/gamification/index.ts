@@ -1,6 +1,8 @@
 // ============================================================================
-// GAMIFICATION MODULE
+// GAMIFICATION MODULE INDEX
+// Catching Barrels
 // ============================================================================
 
-export * from './types';
-export * from './gamification-engine';
+export * from './xp';
+export * from './challenges';
+export * from './kinetic-fingerprint';
