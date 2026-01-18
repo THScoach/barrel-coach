@@ -360,110 +360,120 @@ export default function Index() {
       <section className="py-20 bg-slate-900/50 border-y border-slate-800">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-              CHOOSE YOUR PATH
+            <h2 className="text-3xl md:text-4xl font-black text-white mb-3">
+              ELITE TRAINING. SIMPLE PRICING.
             </h2>
-            <p className="text-lg text-slate-400">Start free. Go deeper when you're ready.</p>
+            <p className="text-lg text-slate-400">No complicated tiers. Just results.</p>
           </div>
 
           {/* 3 Pricing Cards */}
-          <div className="grid md:grid-cols-3 gap-6">
-            {/* Card 1 — The Diagnostic (Free) */}
-            <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-6 text-center hover:-translate-y-1 transition-transform flex flex-col">
-              <div className="text-slate-400 font-bold text-sm uppercase tracking-wider mb-2">Start Here</div>
-              <h3 className="text-xl font-bold text-white mb-2">The Diagnostic</h3>
-              <div className="text-4xl font-black text-white mb-1">Free</div>
+          <div className="grid md:grid-cols-3 gap-6 items-start">
+            {/* Card 1 — Kinetic DNA Diagnostic (Free) */}
+            <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-6 flex flex-col">
+              <div className="text-teal-400 font-bold text-xs uppercase tracking-wider mb-2">Start Here</div>
+              <h3 className="text-xl font-bold text-white mb-2">Kinetic DNA Diagnostic</h3>
+              <div className="text-4xl font-black text-white mb-1">FREE</div>
               <div className="text-slate-500 mb-6">one-time</div>
               <ul className="text-left space-y-2 mb-6 flex-grow text-sm">
                 <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                  Single swing analysis
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  Motor Profile Assessment
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                  Baseline scores
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  PDF report delivered via email
                 </li>
               </ul>
-              <Button asChild className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold">
-                <Link to="/diagnostic">Get Free Diagnostic</Link>
+              <Button asChild variant="outline" className="w-full border-slate-600 hover:bg-slate-800 text-white font-bold">
+                <Link to="/diagnostic">Get Your Free Diagnostic</Link>
               </Button>
             </div>
 
-            {/* Card 2 — Self-Guided Pro ($29/mo) - FEATURED */}
-            <div className="relative bg-slate-900/80 border-2 border-red-500 rounded-2xl p-6 text-center hover:-translate-y-1 transition-transform flex flex-col shadow-lg shadow-red-500/10">
+            {/* Card 2 — The Academy ($99/mo) - FEATURED */}
+            <div className="relative bg-slate-900/80 border-2 border-teal-500 rounded-2xl p-6 text-center flex flex-col shadow-lg shadow-teal-500/20 ring-4 ring-teal-500/30 scale-105 md:-mt-4 md:mb-4">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                <span className="bg-teal-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
                   Most Popular
                 </span>
               </div>
-              <div className="text-red-400 font-bold text-sm uppercase tracking-wider mb-2 mt-2">Self-Service</div>
-              <h3 className="text-xl font-bold text-white mb-2">The Self-Guided Pro</h3>
-              <div className="text-4xl font-black text-white mb-1">$29</div>
+              <div className="text-teal-400 font-bold text-xs uppercase tracking-wider mb-2 mt-2">Full Access</div>
+              <h3 className="text-xl font-bold text-white mb-2">The Academy</h3>
+              <div className="text-4xl font-black text-white mb-1">$99</div>
               <div className="text-slate-500 mb-6">/month</div>
               <ul className="text-left space-y-2 mb-6 flex-grow text-sm">
-                <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Unlimited AI video uploads
+                <li className="flex items-start gap-2 p-2 bg-gradient-to-r from-amber-500/20 to-orange-500/10 border border-amber-500/40 rounded-lg">
+                  <span className="text-amber-300 font-bold text-xs">🎁 FREE Smart Sensor Kit</span>
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  Historical trend tracking
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  📊 Daily Kinetic DNA Tracking
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  "Body & Brain" scoring
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  🎥 Auto-Video Analysis
                 </li>
-                <li className="flex items-start gap-2 text-slate-400 italic">
-                  <span className="w-4 h-4 flex-shrink-0 mt-0.5 text-center">—</span>
-                  No coaching feedback (Data only)
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  ⚾ Monday Night Film Room
+                </li>
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  🔓 Full Drill Library Access
                 </li>
               </ul>
               <Button 
-                onClick={() => handleSubscriptionCheckout('self_guided_pro')}
+                onClick={() => handleSubscriptionCheckout('academy' as any)}
                 disabled={loadingTier !== null}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold"
+                className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold"
               >
-                {loadingTier === 'self_guided_pro' ? (
+                {loadingTier === 'academy' ? (
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading...</>
                 ) : (
-                  'Start Monthly Access'
+                  'Join The Academy'
                 )}
               </Button>
             </div>
 
-            {/* Card 3 — Full Online Coaching ($99/mo) */}
-            <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-6 text-center hover:-translate-y-1 transition-transform flex flex-col">
-              <div className="text-blue-400 font-bold text-sm uppercase tracking-wider mb-2">Full Coaching</div>
-              <h3 className="text-xl font-bold text-white mb-2">Full Online Coaching</h3>
-              <div className="text-4xl font-black text-white mb-1">$99</div>
+            {/* Card 3 — Private Coaching ($199/mo) */}
+            <div className="bg-gradient-to-b from-slate-900 to-red-950/30 border-2 border-red-500/50 rounded-2xl p-6 flex flex-col relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
+                VIP ACCESS
+              </div>
+              <div className="text-red-400 font-bold text-xs uppercase tracking-wider mb-2 mt-4">1-on-1 Coaching</div>
+              <h3 className="text-xl font-bold text-white mb-2">Private Coaching</h3>
+              <div className="text-4xl font-black text-white mb-1">$199</div>
               <div className="text-slate-500 mb-6">/month</div>
               <ul className="text-left space-y-2 mb-6 flex-grow text-sm">
                 <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  Everything in Pro
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  ✅ Everything in The Academy
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  Weekly personal video analysis by Rick
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  📞 2x Monthly Private Video Lessons
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  Custom drill plans
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  💬 Direct Chat Access
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  Direct chat
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  📅 Priority Session Booking
+                </li>
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  ⚠️ Limited to 20 players
                 </li>
               </ul>
               <Button 
-                onClick={() => handleSubscriptionCheckout('full_coaching')}
+                onClick={() => handleSubscriptionCheckout('inner-circle' as any)}
                 disabled={loadingTier !== null}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold"
               >
-                {loadingTier === 'full_coaching' ? (
+                {loadingTier === 'inner-circle' ? (
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading...</>
                 ) : (
-                  'Apply for Coaching'
+                  'Apply for Private Coaching'
                 )}
               </Button>
             </div>
