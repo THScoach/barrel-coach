@@ -130,8 +130,8 @@ export function Footer() {
         <div className="mt-12 pt-8 border-t border-slate-800/50 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-slate-500">© 2025 Catching Barrels. All rights reserved.</p>
           <div className="flex gap-6 text-sm text-slate-500">
-            <a href="#" className="hover:text-red-500 transition-colors">Terms</a>
-            <a href="#" className="hover:text-red-500 transition-colors">Privacy</a>
+            <Link to="/terms" className="hover:text-red-500 transition-colors">Terms</Link>
+            <Link to="/privacy" className="hover:text-red-500 transition-colors">Privacy</Link>
           </div>
         </div>
       </div>

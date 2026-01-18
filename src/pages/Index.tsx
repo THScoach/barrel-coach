@@ -156,8 +156,7 @@ export default function Index() {
               <Button
                 asChild
                 size="lg"
-                variant="outline"
-                className="border-slate-600 text-white hover:bg-slate-800 h-14 px-8 text-lg"
+                className="border border-slate-600 bg-transparent text-white hover:bg-slate-800 h-14 px-8 text-lg font-bold"
               >
                 <Link to="/coaching">
                   Start Online Coaching
