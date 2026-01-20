@@ -1555,6 +1555,98 @@ export type Database = {
           },
         ]
       }
+      player_sessions: {
+        Row: {
+          ball_grade: string | null
+          ball_score: number | null
+          bat_grade: string | null
+          bat_score: number | null
+          body_grade: string | null
+          body_score: number | null
+          brain_grade: string | null
+          brain_score: number | null
+          core_flow: number | null
+          created_at: string
+          data_quality: string | null
+          ground_flow: number | null
+          id: string
+          leak_caption: string | null
+          leak_training: string | null
+          leak_type: string | null
+          overall_grade: string | null
+          overall_score: number | null
+          player_id: string
+          reboot_session_id: string | null
+          session_date: string
+          session_source: string | null
+          swing_count: number | null
+          updated_at: string
+          upper_flow: number | null
+        }
+        Insert: {
+          ball_grade?: string | null
+          ball_score?: number | null
+          bat_grade?: string | null
+          bat_score?: number | null
+          body_grade?: string | null
+          body_score?: number | null
+          brain_grade?: string | null
+          brain_score?: number | null
+          core_flow?: number | null
+          created_at?: string
+          data_quality?: string | null
+          ground_flow?: number | null
+          id?: string
+          leak_caption?: string | null
+          leak_training?: string | null
+          leak_type?: string | null
+          overall_grade?: string | null
+          overall_score?: number | null
+          player_id: string
+          reboot_session_id?: string | null
+          session_date?: string
+          session_source?: string | null
+          swing_count?: number | null
+          updated_at?: string
+          upper_flow?: number | null
+        }
+        Update: {
+          ball_grade?: string | null
+          ball_score?: number | null
+          bat_grade?: string | null
+          bat_score?: number | null
+          body_grade?: string | null
+          body_score?: number | null
+          brain_grade?: string | null
+          brain_score?: number | null
+          core_flow?: number | null
+          created_at?: string
+          data_quality?: string | null
+          ground_flow?: number | null
+          id?: string
+          leak_caption?: string | null
+          leak_training?: string | null
+          leak_type?: string | null
+          overall_grade?: string | null
+          overall_score?: number | null
+          player_id?: string
+          reboot_session_id?: string | null
+          session_date?: string
+          session_source?: string | null
+          swing_count?: number | null
+          updated_at?: string
+          upper_flow?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       players: {
         Row: {
           account_status: string | null
