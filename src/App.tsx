@@ -31,6 +31,8 @@ import SwingReport from "./pages/SwingReport";
 import ReportWireframes from "./pages/ReportWireframes";
 import MyData from "./pages/MyData";
 import Dashboard from "./pages/Dashboard";
+import Drills from "./pages/Drills";
+import DrillDetail from "./pages/DrillDetail";
 
 // Admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -91,6 +93,8 @@ const App = () => (
               <Route path="/wireframes/report" element={<ReportWireframes />} />
               <Route path="/my-data" element={<MyData />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/drills" element={<Drills />} />
+              <Route path="/drills/:slug" element={<DrillDetail />} />
 
               {/* Player Portal Routes - 4B First Dashboard */}
               <Route path="/player" element={<PlayerLayout />}>
