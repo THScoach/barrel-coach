@@ -5,53 +5,94 @@ import { Button } from "@/components/ui/button";
 import { 
   ArrowRight, 
   Target, 
-  Compass, 
-  Users, 
-  Zap,
   Check,
   X,
   MessageCircle,
-  MapPin,
-  Loader2
+  Loader2,
+  Brain,
+  Zap,
+  Activity,
+  TrendingUp
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-// SCOREBOARD cards - ESPN style
-const scoreboardCards = [
+// 4B Bio-Engine cards
+const fourBCards = [
   {
-    title: "CLARITY",
-    description: "Know exactly what's broken — and why.",
-    icon: Target,
-    color: "text-red-400",
-    bg: "bg-red-500/10",
-    border: "border-red-500/30",
+    key: "brain",
+    name: "BRAIN",
+    tagline: "Pattern Consistency",
+    description: "How repeatable is your movement pattern swing after swing?",
+    icon: Brain,
+    score: 62,
   },
   {
-    title: "DIRECTION",
-    description: "One priority. One path. No noise.",
-    icon: Compass,
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/30",
-  },
-  {
-    title: "ACCOUNTABILITY",
-    description: "Weekly check-ins. Real benchmarks. No hiding.",
-    icon: Users,
-    color: "text-emerald-400",
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/30",
-  },
-  {
-    title: "GAME TRANSFER",
-    description: "Practice performance that shows up when it counts.",
+    key: "body",
+    name: "BODY",
+    tagline: "Energy Production",
+    description: "How much power does your lower body and core generate?",
     icon: Zap,
-    color: "text-yellow-400",
-    bg: "bg-yellow-500/10",
-    border: "border-yellow-500/30",
+    score: 58,
   },
+  {
+    key: "bat",
+    name: "BAT",
+    tagline: "Energy Delivery",
+    description: "How efficiently does energy travel to the barrel?",
+    icon: Activity,
+    score: 55,
+  },
+  {
+    key: "ball",
+    name: "BALL",
+    tagline: "Output Consistency",
+    description: "How consistent is your power output swing after swing?",
+    icon: TrendingUp,
+    score: 51,
+  },
+];
+
+// Leak types
+const leakTypes = [
+  {
+    name: "Late Legs",
+    description: "Your legs fired after your hands moved. You're swinging with arms, not your whole body.",
+    color: "from-red-500 to-red-600",
+  },
+  {
+    name: "Early Arms",
+    description: "Your arms took over before your legs finished. You're cutting off your power source.",
+    color: "from-orange-500 to-orange-600",
+  },
+  {
+    name: "Torso Bypass",
+    description: "Energy jumped from legs to arms, skipping your core. Your core isn't amplifying power.",
+    color: "from-yellow-500 to-yellow-600",
+  },
+  {
+    name: "Lost in Translation",
+    description: "Energy didn't make it to the barrel. You're generating power but not delivering it.",
+    color: "from-purple-500 to-purple-600",
+  },
+];
+
+// How It Works steps
+const howItWorksSteps = [
+  { number: 1, title: "Capture", description: "Record your swings with video or sensor", icon: "📹" },
+  { number: 2, title: "Score", description: "Get your 4B scores on the 20-80 scale", icon: "⚙️" },
+  { number: 3, title: "Find Leak", description: "Pinpoint where energy is escaping", icon: "🔍" },
+  { number: 4, title: "Prescribe Fix", description: "Get drills matched to your leak", icon: "🎯" },
+  { number: 5, title: "Train & Improve", description: "Track progress over time", icon: "📈" },
+];
+
+// Differentiation points
+const differentiationPoints = [
+  { theirs: "They measure bat speed.", ours: "We measure what your body is capable of producing." },
+  { theirs: "They track results.", ours: "We find the leaks preventing better results." },
+  { theirs: "They tell you what happened.", ours: "We prescribe the drills to get you there." },
+  { theirs: "They require manual uploads.", ours: "We auto-sync your sessions. Just train." },
 ];
 
 // Who this is for / not for
@@ -59,7 +100,7 @@ const forPlayers = [
   "Players who want real feedback",
   "You're tired of random drills and want direction",
   "You want truth, not validation",
-  "You want coaching — not just drills or opinions",
+  "You want coaching — not just data",
 ];
 
 const notForPlayers = [
@@ -68,6 +109,50 @@ const notForPlayers = [
   "You expect results without reps",
   "You expect in-person access year-round",
 ];
+
+// Gauge component for 20-80 scale
+function ScoreGauge({ score, label }: { score: number; label: string }) {
+  const percentage = ((score - 20) / 60) * 100;
+  const getColor = () => {
+    if (score >= 70) return "text-teal-400";
+    if (score >= 60) return "text-emerald-400";
+    if (score >= 50) return "text-yellow-400";
+    if (score >= 40) return "text-orange-400";
+    return "text-red-400";
+  };
+  
+  return (
+    <div className="relative w-24 h-24 mx-auto">
+      <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+        {/* Background circle */}
+        <circle
+          cx="50"
+          cy="50"
+          r="40"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="8"
+          className="text-slate-700"
+        />
+        {/* Progress circle */}
+        <circle
+          cx="50"
+          cy="50"
+          r="40"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="8"
+          strokeLinecap="round"
+          strokeDasharray={`${percentage * 2.51} 251`}
+          className={getColor()}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className={`text-2xl font-black ${getColor()}`}>{score}</span>
+      </div>
+    </div>
+  );
+}
 
 export default function Index() {
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
@@ -117,23 +202,20 @@ export default function Index() {
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/20 mb-6">
               <Target className="w-4 h-4 text-red-400" />
               <span className="text-sm font-bold text-red-400 uppercase tracking-wider">
-                MLB Hitting Coach
+                4B Bio-Engine
               </span>
             </div>
 
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white mb-6 tracking-tight leading-[1.1]">
-              STOP GUESSING.{" "}
-              <span className="text-red-500">START CATCHING BARRELS.</span>
+              UNLOCK YOUR SWING'S{" "}
+              <span className="text-red-500">HIDDEN POTENTIAL</span>
             </h1>
 
-            <p className="text-xl md:text-2xl text-slate-300 mb-4 max-w-2xl leading-relaxed">
-              I'm Rick Strickland. I've coached thousands of hitters.
-            </p>
-            <p className="text-lg text-slate-400 mb-8 max-w-2xl">
-              This is how I coach when I'm not standing next to you — clear direction, one priority at a time.
+            <p className="text-xl md:text-2xl text-slate-300 mb-8 max-w-2xl leading-relaxed">
+              The 4B Bio-Engine measures capability, not just results. Find the hidden leaks in your kinetic chain.
             </p>
 
-            {/* CTAs — Primary: Get Your First Fix */}
+            {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex flex-col">
                 <Button
@@ -142,17 +224,14 @@ export default function Index() {
                   className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 px-8 text-lg"
                 >
                   <Link to="/diagnostic">
-                    Get Your First Fix
+                    Get My 4B Analysis
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Link>
                 </Button>
                 <span className="text-sm text-slate-500 mt-2 text-center">
-                  Upload one swing. I'll show you what's leaking power.
+                  Free • See your scores in minutes
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-4 sm:mt-0 sm:ml-4 self-center">
-                Digital coaching. Real accountability. Seasonal in-person options.
-              </p>
               <Button
                 asChild
                 size="lg"
@@ -185,139 +264,130 @@ export default function Index() {
         </div>
       </section>
 
-      {/* ===== HOW IT WORKS ===== */}
+      {/* ===== 4B BIO-ENGINE SECTION ===== */}
       <section className="py-20 bg-slate-900/50 border-y border-slate-800">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl md:text-4xl font-black text-white mb-12 text-center">
-            HOW THIS WORKS
-          </h2>
-          <div className="grid md:grid-cols-3 gap-8 text-center">
-            <div className="space-y-4">
-              <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto">
-                <span className="text-2xl font-black text-red-400">1</span>
-              </div>
-              <h3 className="text-xl font-bold text-white">Upload your swing</h3>
-              <p className="text-slate-400">Send me a video. Side angle. That's it.</p>
-            </div>
-            <div className="space-y-4">
-              <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto">
-                <span className="text-2xl font-black text-red-400">2</span>
-              </div>
-              <h3 className="text-xl font-bold text-white">Get the truth</h3>
-              <p className="text-slate-400">I'll tell you what's actually happening. No sugarcoating.</p>
-            </div>
-            <div className="space-y-4">
-              <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto">
-                <span className="text-2xl font-black text-red-400">3</span>
-              </div>
-              <h3 className="text-xl font-bold text-white">Fix what's holding you back</h3>
-              <p className="text-slate-400">One clear priority. One path forward.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== YOUR DATA. YOUR SCORE. ===== */}
-      <section className="py-20">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
+            <div className="inline-block px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-lg mb-4">
+              <span className="text-sm font-bold text-red-400 uppercase tracking-widest">The 4B Bio-Engine</span>
+            </div>
             <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-              YOUR DATA. YOUR SCORE.
+              FOUR DIMENSIONS OF SWING POTENTIAL
             </h2>
-            <p className="text-lg text-slate-400">
-              The more you bring, the clearer your path.
+            <p className="text-lg text-slate-400 max-w-2xl mx-auto">
+              Measured on the professional 20-80 scout scale. The same system MLB scouts use to evaluate talent.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Column 1 - Start with Video */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 text-center">
-              <div className="text-5xl mb-4">📹</div>
-              <h3 className="text-xl font-bold text-white mb-3">START WITH VIDEO</h3>
-              <p className="text-slate-400">
-                Upload any swing video. Get your <span className="text-blue-400 font-semibold">BODY</span> and{' '}
-                <span className="text-purple-400 font-semibold">BRAIN</span> scores instantly.
-              </p>
-            </div>
-
-            {/* Column 2 - Add Your Sensors */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 text-center">
-              <div className="text-5xl mb-4">🦇</div>
-              <h3 className="text-xl font-bold text-white mb-3">ADD YOUR SENSORS</h3>
-              <p className="text-slate-400">
-                Connect Diamond Kinetics or upload Hittrax data. Unlock{' '}
-                <span className="text-orange-400 font-semibold">BAT</span> and{' '}
-                <span className="text-green-400 font-semibold">BALL</span> scores.
-              </p>
-            </div>
-
-            {/* Column 3 - Complete Your 4B */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 text-center">
-              <div className="text-5xl mb-4">🎯</div>
-              <h3 className="text-xl font-bold text-white mb-3">COMPLETE YOUR 4B</h3>
-              <p className="text-slate-400">
-                The more data you bring, the clearer your path to catching barrels.
-              </p>
-            </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {fourBCards.map((card) => (
+              <div
+                key={card.key}
+                className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 text-center hover:border-red-500/50 transition-colors"
+              >
+                <card.icon className="w-8 h-8 text-red-400 mx-auto mb-4" />
+                <h3 className="text-xl font-black text-white mb-1">{card.name}</h3>
+                <p className="text-sm text-red-400 font-medium mb-4">{card.tagline}</p>
+                <ScoreGauge score={card.score} label={card.name} />
+                <p className="text-sm text-slate-400 mt-4">{card.description}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ===== WHAT YOU GET ===== */}
+      {/* ===== FIND YOUR LEAK SECTION ===== */}
       <section className="py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl md:text-4xl font-black text-white mb-4 text-center">
-            WHAT YOU GET
-          </h2>
-          <p className="text-xl text-slate-400 text-center mb-12">
-            No charts. No noise. Just direction.
-          </p>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
+              FIND YOUR LEAK
+            </h2>
+            <p className="text-lg text-slate-400 max-w-2xl mx-auto">
+              Every hitter has one. Energy should flow like a whip — when that chain breaks, you lose power. We pinpoint exactly where.
+            </p>
+          </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { label: "MOTOR PROFILE", desc: "How your body naturally moves" },
-              { label: "POWER LEAK", desc: "Where your power is bleeding out" },
-              { label: "FIRST FIX", desc: "The one thing to fix first" },
-              { label: "WHAT NOT TO CHANGE", desc: "What's already working for you" },
-              { label: "MATCHED DRILLS", desc: "Drills matched to your swing" },
-              { label: "COACH EXPLANATION", desc: "Short voice or video from Rick" },
-            ].map((item, i) => (
-              <div key={i} className="bg-slate-900/80 border border-slate-800 rounded-xl p-6">
-                <div className="text-red-400 font-bold text-sm uppercase tracking-wider mb-2">
-                  {item.label}
-                </div>
-                <p className="text-slate-300">{item.desc}</p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {leakTypes.map((leak, i) => (
+              <div
+                key={i}
+                className="relative bg-slate-900/80 border border-slate-800 rounded-2xl p-6 overflow-hidden group hover:border-slate-600 transition-colors"
+              >
+                <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${leak.color}`} />
+                <h3 className="text-lg font-bold text-white mb-2">{leak.name}</h3>
+                <p className="text-sm text-slate-400">{leak.description}</p>
               </div>
             ))}
           </div>
 
-          <p className="text-center text-slate-400 mt-10 text-lg">
-            Everything I do runs through the <strong className="text-white">4B System™</strong> — Body, Bat, Ball, Brain. It's how I've diagnosed hitters for 25+ years.
-          </p>
+          <div className="text-center mt-10">
+            <Button
+              asChild
+              className="bg-red-600 hover:bg-red-700 text-white font-bold h-12 px-8"
+            >
+              <Link to="/diagnostic">
+                Find My Leak
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </section>
 
-      {/* ===== SCOREBOARD SECTION ===== */}
-      <section className="py-20 bg-slate-900/30 border-y border-slate-800">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ===== HOW IT WORKS ===== */}
+      <section className="py-20 bg-slate-900/50 border-y border-slate-800">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <div className="inline-block px-4 py-2 bg-slate-800 rounded-lg mb-4">
-              <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">SCOREBOARD</span>
-            </div>
-            <h2 className="text-3xl md:text-4xl font-black text-white">
-              WHAT YOU'RE PLAYING FOR
+            <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
+              HOW IT WORKS
             </h2>
+            <p className="text-lg text-slate-400">
+              From swing capture to personalized training — fully automated.
+            </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {scoreboardCards.map((card, i) => (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-6">
+            {howItWorksSteps.map((step) => (
+              <div key={step.number} className="text-center">
+                <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">{step.icon}</span>
+                </div>
+                <div className="text-red-400 font-bold text-sm mb-1">Step {step.number}</div>
+                <h3 className="text-lg font-bold text-white mb-2">{step.title}</h3>
+                <p className="text-sm text-slate-400">{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== NOT ANOTHER BAT SPEED APP ===== */}
+      <section className="py-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
+              NOT ANOTHER BAT SPEED APP
+            </h2>
+            <p className="text-lg text-slate-400">
+              Potential, not performance. Capability, not outcome. Coaching, not just data.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {differentiationPoints.map((point, i) => (
               <div
                 key={i}
-                className={`relative p-6 rounded-2xl ${card.bg} border ${card.border} backdrop-blur-sm`}
+                className="grid md:grid-cols-2 gap-4"
               >
-                <card.icon className={`w-8 h-8 ${card.color} mb-4`} />
-                <h3 className="text-xl font-black text-white mb-2">{card.title}</h3>
-                <p className="text-slate-400 text-sm">{card.description}</p>
+                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 flex items-start gap-3">
+                  <X className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-slate-400">{point.theirs}</span>
+                </div>
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-5 flex items-start gap-3">
+                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span className="text-white">{point.ours}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -325,7 +395,7 @@ export default function Index() {
       </section>
 
       {/* ===== FREE DIAGNOSTIC CTA ===== */}
-      <section className="py-20">
+      <section className="py-20 bg-slate-900/30 border-y border-slate-800">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-full mb-6">
             <MessageCircle className="w-4 h-4 text-red-400" />
@@ -333,13 +403,10 @@ export default function Index() {
           </div>
 
           <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-            GET YOUR FIRST FIX
+            GET YOUR 4B ANALYSIS
           </h2>
-          <p className="text-lg text-slate-400 mb-4">
-            Upload your swing. I'll show you what's leaking power and what to fix first.
-          </p>
-          <p className="text-slate-500 mb-8 text-sm italic">
-            This isn't a score. It's a direction.
+          <p className="text-lg text-slate-400 mb-8 max-w-xl mx-auto">
+            Find your leak. Get your scores. See what's holding you back — and what to fix first.
           </p>
 
           <Button
@@ -348,15 +415,15 @@ export default function Index() {
             className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 px-10 text-lg"
           >
             <Link to="/diagnostic">
-              Get Your First Fix
+              Get My Free Analysis
               <ArrowRight className="w-5 h-5 ml-2" />
             </Link>
           </Button>
         </div>
       </section>
 
-      {/* ===== CHOOSE YOUR PATH (NEW PRICING) ===== */}
-      <section className="py-20 bg-slate-900/50 border-y border-slate-800">
+      {/* ===== CHOOSE YOUR PATH (PRICING) ===== */}
+      <section className="py-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-black text-white mb-3">
@@ -376,11 +443,15 @@ export default function Index() {
               <ul className="text-left space-y-2 mb-6 flex-grow text-sm">
                 <li className="flex items-start gap-2 text-slate-300">
                   <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
-                  Motor Profile Assessment
+                  Full 4B Score Analysis
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
                   <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
-                  PDF report delivered via email
+                  Leak Detection Report
+                </li>
+                <li className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  Motor Profile Assessment
                 </li>
               </ul>
               <Button asChild className="w-full border border-slate-600 bg-transparent hover:bg-slate-800 text-white font-bold">
@@ -405,74 +476,68 @@ export default function Index() {
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
                   <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
-                  📊 Daily Kinetic DNA Tracking
+                  Daily Kinetic DNA Tracking
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
                   <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
-                  🎥 Auto-Video Analysis
+                  Automated Drill Prescription
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
                   <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
-                  ⚾ Monday Night Film Room
+                  Progress Tracking Dashboard
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
                   <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
-                  🔓 Full Drill Library Access
+                  Weekly Coach Check-ins
                 </li>
               </ul>
               <Button 
-                onClick={() => handleSubscriptionCheckout('academy' as any)}
-                disabled={loadingTier !== null}
+                onClick={() => handleSubscriptionCheckout('academy')}
+                disabled={loadingTier === 'academy'}
                 className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold"
               >
                 {loadingTier === 'academy' ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading...</>
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  'Join The Academy'
+                  "Join The Academy"
                 )}
               </Button>
             </div>
 
             {/* Card 3 — Private Coaching ($199/mo) */}
-            <div className="bg-gradient-to-b from-slate-900 to-red-950/30 border-2 border-red-500/50 rounded-2xl p-6 flex flex-col relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
-                VIP ACCESS
-              </div>
-              <div className="text-red-400 font-bold text-xs uppercase tracking-wider mb-2 mt-4">1-on-1 Coaching</div>
+            <div className="bg-slate-900/80 border border-amber-500/40 rounded-2xl p-6 flex flex-col">
+              <div className="text-amber-400 font-bold text-xs uppercase tracking-wider mb-2">VIP Access</div>
               <h3 className="text-xl font-bold text-white mb-2">Private Coaching</h3>
               <div className="text-4xl font-black text-white mb-1">$199</div>
               <div className="text-slate-500 mb-6">/month</div>
               <ul className="text-left space-y-2 mb-6 flex-grow text-sm">
                 <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  ✅ Everything in The Academy
+                  <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  Everything in The Academy
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  📞 2x Monthly Private Video Lessons
+                  <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  Monthly 1:1 Zoom Sessions
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  💬 Direct Chat Access
+                  <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  Priority Video Analysis
                 </li>
                 <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  📅 Priority Session Booking
-                </li>
-                <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  ⚠️ Limited to 20 players
+                  <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  Direct Text Access to Coach
                 </li>
               </ul>
+              <div className="text-xs text-amber-400/70 mb-4 text-center">Limited to 20 players</div>
               <Button 
-                onClick={() => handleSubscriptionCheckout('inner-circle' as any)}
-                disabled={loadingTier !== null}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold"
+                onClick={() => handleSubscriptionCheckout('inner-circle')}
+                disabled={loadingTier === 'inner-circle'}
+                className="w-full border border-amber-500/40 bg-transparent hover:bg-amber-500/10 text-white font-bold"
               >
                 {loadingTier === 'inner-circle' ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading...</>
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  'Apply for Private Coaching'
+                  "Apply for Private Coaching"
                 )}
               </Button>
             </div>
@@ -480,8 +545,8 @@ export default function Index() {
         </div>
       </section>
 
-      {/* ===== WHO THIS IS FOR / NOT FOR ===== */}
-      <section className="py-20">
+      {/* ===== IS THIS FOR YOU? ===== */}
+      <section className="py-20 bg-slate-900/30 border-y border-slate-800">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-12 text-center">
             IS THIS FOR YOU?
@@ -489,15 +554,15 @@ export default function Index() {
 
           <div className="grid md:grid-cols-2 gap-8">
             {/* For */}
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-8">
-              <h3 className="text-xl font-bold text-emerald-400 mb-6 flex items-center gap-2">
-                <Check className="w-6 h-6" />
-                THIS IS FOR YOU IF...
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-6">
+              <h3 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+                <Check className="w-5 h-5" />
+                This is for you if...
               </h3>
-              <ul className="space-y-4">
+              <ul className="space-y-3">
                 {forPlayers.map((item, i) => (
                   <li key={i} className="flex items-start gap-3 text-slate-300">
-                    <Check className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-1" />
                     {item}
                   </li>
                 ))}
@@ -505,15 +570,15 @@ export default function Index() {
             </div>
 
             {/* Not For */}
-            <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-8">
-              <h3 className="text-xl font-bold text-red-400 mb-6 flex items-center gap-2">
-                <X className="w-6 h-6" />
-                THIS IS NOT FOR YOU IF...
+            <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-6">
+              <h3 className="text-lg font-bold text-red-400 mb-4 flex items-center gap-2">
+                <X className="w-5 h-5" />
+                This is NOT for you if...
               </h3>
-              <ul className="space-y-4">
+              <ul className="space-y-3">
                 {notForPlayers.map((item, i) => (
                   <li key={i} className="flex items-start gap-3 text-slate-300">
-                    <X className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                    <X className="w-4 h-4 text-red-400 flex-shrink-0 mt-1" />
                     {item}
                   </li>
                 ))}
@@ -523,18 +588,16 @@ export default function Index() {
         </div>
       </section>
 
-      {/* ===== CLOSING CTA ===== */}
-      <section className="py-20 bg-gradient-to-b from-slate-900 to-slate-950 border-t border-slate-800">
+      {/* ===== FINAL CTA ===== */}
+      <section className="py-20">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-            I'M NOT SELLING DRILLS.
+            READY TO UNLOCK YOUR POTENTIAL?
           </h2>
-          <p className="text-xl text-slate-400 mb-2">
-            I sell coaching to those who want to go pro.
+          <p className="text-lg text-slate-400 mb-8">
+            Stop guessing. Start catching barrels.
           </p>
-          <p className="text-xl text-slate-400 mb-8">
-            I sell the truth (raw data) to those who want to build their own path.
-          </p>
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               asChild
@@ -542,17 +605,17 @@ export default function Index() {
               className="bg-red-600 hover:bg-red-700 text-white font-bold h-14 px-10 text-lg"
             >
               <Link to="/diagnostic">
-                Get Free Diagnostic
+                Get My 4B Analysis
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Link>
             </Button>
             <Button
               asChild
               size="lg"
-              className="border border-slate-600 bg-transparent hover:bg-slate-800 text-white font-bold h-14 px-10 text-lg"
+              className="border border-slate-600 bg-transparent text-white hover:bg-slate-800 h-14 px-8 text-lg font-bold"
             >
               <Link to="/coaching">
-                Start Coaching
+                Explore Coaching
               </Link>
             </Button>
           </div>
