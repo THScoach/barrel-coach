@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.analyze-video-2d]
 verify_jwt = false
+
+[functions.calculate-4b-scores]
+verify_jwt = false
