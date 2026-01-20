@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.prescribe-drills]
 verify_jwt = false
+
+[functions.master-admin-sync]
+verify_jwt = false
