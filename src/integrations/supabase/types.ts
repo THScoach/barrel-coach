@@ -269,7 +269,9 @@ export type Database = {
       }
       drill_completions: {
         Row: {
+          assignment_id: string | null
           completed_at: string | null
+          difficulty_rating: number | null
           drill_id: string
           duration_seconds: number | null
           id: string
@@ -281,7 +283,9 @@ export type Database = {
           sets_completed: number | null
         }
         Insert: {
+          assignment_id?: string | null
           completed_at?: string | null
+          difficulty_rating?: number | null
           drill_id: string
           duration_seconds?: number | null
           id?: string
@@ -293,7 +297,9 @@ export type Database = {
           sets_completed?: number | null
         }
         Update: {
+          assignment_id?: string | null
           completed_at?: string | null
+          difficulty_rating?: number | null
           drill_id?: string
           duration_seconds?: number | null
           id?: string
@@ -305,6 +311,13 @@ export type Database = {
           sets_completed?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "drill_completions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "player_drill_assignments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "drill_completions_drill_id_fkey"
             columns: ["drill_id"]
@@ -324,6 +337,53 @@ export type Database = {
             columns: ["player_program_id"]
             isOneToOne: false
             referencedRelation: "player_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drill_prescriptions: {
+        Row: {
+          created_at: string | null
+          drill_id: string
+          four_b_weakness: string | null
+          id: string
+          is_active: boolean | null
+          leak_type: string | null
+          min_score_threshold: number | null
+          motor_profile: string | null
+          prescription_reason: string | null
+          priority: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          drill_id: string
+          four_b_weakness?: string | null
+          id?: string
+          is_active?: boolean | null
+          leak_type?: string | null
+          min_score_threshold?: number | null
+          motor_profile?: string | null
+          prescription_reason?: string | null
+          priority?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          drill_id?: string
+          four_b_weakness?: string | null
+          id?: string
+          is_active?: boolean | null
+          leak_type?: string | null
+          min_score_threshold?: number | null
+          motor_profile?: string | null
+          prescription_reason?: string | null
+          priority?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drill_prescriptions_drill_id_fkey"
+            columns: ["drill_id"]
+            isOneToOne: false
+            referencedRelation: "drills"
             referencedColumns: ["id"]
           },
         ]
@@ -411,58 +471,91 @@ export type Database = {
       }
       drills: {
         Row: {
+          common_mistakes: string | null
           created_at: string | null
           cues: string[] | null
           description: string | null
           difficulty: string | null
           duration_minutes: number | null
           equipment: string[] | null
+          focus_area: string | null
           four_b_category: string | null
           id: string
           instructions: string | null
           is_active: boolean | null
+          is_premium: boolean | null
           name: string
+          progression_tip: string | null
           reps: number | null
+          rest_seconds: number | null
           sets: number | null
+          skill_levels: string[] | null
+          slug: string | null
+          sort_order: number | null
           thumbnail_url: string | null
           updated_at: string | null
+          video_duration_seconds: number | null
+          video_thumbnail_url: string | null
           video_url: string | null
+          why_it_works: string | null
         }
         Insert: {
+          common_mistakes?: string | null
           created_at?: string | null
           cues?: string[] | null
           description?: string | null
           difficulty?: string | null
           duration_minutes?: number | null
           equipment?: string[] | null
+          focus_area?: string | null
           four_b_category?: string | null
           id?: string
           instructions?: string | null
           is_active?: boolean | null
+          is_premium?: boolean | null
           name: string
+          progression_tip?: string | null
           reps?: number | null
+          rest_seconds?: number | null
           sets?: number | null
+          skill_levels?: string[] | null
+          slug?: string | null
+          sort_order?: number | null
           thumbnail_url?: string | null
           updated_at?: string | null
+          video_duration_seconds?: number | null
+          video_thumbnail_url?: string | null
           video_url?: string | null
+          why_it_works?: string | null
         }
         Update: {
+          common_mistakes?: string | null
           created_at?: string | null
           cues?: string[] | null
           description?: string | null
           difficulty?: string | null
           duration_minutes?: number | null
           equipment?: string[] | null
+          focus_area?: string | null
           four_b_category?: string | null
           id?: string
           instructions?: string | null
           is_active?: boolean | null
+          is_premium?: boolean | null
           name?: string
+          progression_tip?: string | null
           reps?: number | null
+          rest_seconds?: number | null
           sets?: number | null
+          skill_levels?: string[] | null
+          slug?: string | null
+          sort_order?: number | null
           thumbnail_url?: string | null
           updated_at?: string | null
+          video_duration_seconds?: number | null
+          video_thumbnail_url?: string | null
           video_url?: string | null
+          why_it_works?: string | null
         }
         Relationships: []
       }
@@ -1122,6 +1215,63 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_drill_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_reason: string | null
+          completed_at: string | null
+          drill_id: string
+          id: string
+          leak_type_at_assignment: string | null
+          player_id: string
+          score_at_assignment: number | null
+          session_id: string | null
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_reason?: string | null
+          completed_at?: string | null
+          drill_id: string
+          id?: string
+          leak_type_at_assignment?: string | null
+          player_id: string
+          score_at_assignment?: number | null
+          session_id?: string | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_reason?: string | null
+          completed_at?: string | null
+          drill_id?: string
+          id?: string
+          leak_type_at_assignment?: string | null
+          player_id?: string
+          score_at_assignment?: number | null
+          session_id?: string | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_drill_assignments_drill_id_fkey"
+            columns: ["drill_id"]
+            isOneToOne: false
+            referencedRelation: "drills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_drill_assignments_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
             referencedColumns: ["id"]
           },
         ]
@@ -3925,6 +4075,27 @@ export type Database = {
           thumbnail_url: string
           title: string
           video_url: string
+        }[]
+      }
+      get_prescribed_drills: {
+        Args: {
+          p_leak_type?: string
+          p_motor_profile?: string
+          p_player_id: string
+          p_weakest_b?: string
+          p_weakest_score?: number
+        }
+        Returns: {
+          drill_id: string
+          drill_name: string
+          drill_slug: string
+          instructions: string
+          prescription_reason: string
+          priority: number
+          reps: number
+          sets: number
+          video_url: string
+          why_it_works: string
         }[]
       }
       get_recommended_videos: {
