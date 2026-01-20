@@ -3038,6 +3038,39 @@ export type Database = {
           },
         ]
       }
+      sync_logs: {
+        Row: {
+          created_at: string | null
+          details: Json | null
+          duration_ms: number | null
+          errors_count: number | null
+          id: string
+          players_checked: number | null
+          sessions_processed: number | null
+          sync_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          details?: Json | null
+          duration_ms?: number | null
+          errors_count?: number | null
+          id?: string
+          players_checked?: number | null
+          sessions_processed?: number | null
+          sync_type: string
+        }
+        Update: {
+          created_at?: string | null
+          details?: Json | null
+          duration_ms?: number | null
+          errors_count?: number | null
+          id?: string
+          players_checked?: number | null
+          sessions_processed?: number | null
+          sync_type?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
