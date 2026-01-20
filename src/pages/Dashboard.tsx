@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScoreCard } from "@/components/dashboard/ScoreCard";
 import { LeakAlert } from "@/components/dashboard/LeakAlert";
+import { PrescribedDrills } from "@/components/drills/PrescribedDrills";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Upload, TrendingUp, Activity, Target, Zap, Circle } from "lucide-react";
@@ -67,6 +68,7 @@ function getGrade(score: number | null): string {
 export default function Dashboard() {
   const { user } = useAuth();
   const [session, setSession] = useState<PlayerSession | null>(null);
+  const [playerId, setPlayerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -111,14 +113,15 @@ export default function Dashboard() {
         return;
       }
       
-      const playerId = players[0].id;
+      const fetchedPlayerId = players[0].id;
+      setPlayerId(fetchedPlayerId);
 
       // Try player_sessions first, then fall back to reboot_uploads
       let sessionData: PlayerSession | null = null;
       
       // Try player_sessions
       const psResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/player_sessions?player_id=eq.${playerId}&order=session_date.desc&limit=1`,
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/player_sessions?player_id=eq.${fetchedPlayerId}&order=session_date.desc&limit=1`,
         {
           headers: {
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
@@ -137,7 +140,7 @@ export default function Dashboard() {
       // Fall back to reboot_uploads if no player_sessions
       if (!sessionData) {
         const ruResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/reboot_uploads?player_id=eq.${playerId}&order=session_date.desc&limit=1`,
+          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/reboot_uploads?player_id=eq.${fetchedPlayerId}&order=session_date.desc&limit=1`,
           {
             headers: {
               'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
@@ -297,6 +300,13 @@ export default function Dashboard() {
               caption={session.leak_caption}
               training={session.leak_training}
             />
+          </div>
+        )}
+
+        {/* Prescribed Drills Section */}
+        {playerId && (
+          <div className="mb-10">
+            <PrescribedDrills playerId={playerId} />
           </div>
         )}
 
