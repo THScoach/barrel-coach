@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.calculate-4b-scores]
 verify_jwt = false
+
+[functions.reboot-polling-sync]
+verify_jwt = false
