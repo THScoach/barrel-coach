@@ -3645,6 +3645,57 @@ export type Database = {
           },
         ]
       }
+      waitlist: {
+        Row: {
+          converted_at: string | null
+          created_at: string | null
+          email: string
+          id: string
+          interests: string[] | null
+          invited_at: string | null
+          name: string | null
+          notes: string | null
+          phone: string | null
+          player_level: string | null
+          referral_code: string | null
+          source: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          converted_at?: string | null
+          created_at?: string | null
+          email: string
+          id?: string
+          interests?: string[] | null
+          invited_at?: string | null
+          name?: string | null
+          notes?: string | null
+          phone?: string | null
+          player_level?: string | null
+          referral_code?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          converted_at?: string | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          interests?: string[] | null
+          invited_at?: string | null
+          name?: string | null
+          notes?: string | null
+          phone?: string | null
+          player_level?: string | null
+          referral_code?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       weekly_challenges: {
         Row: {
           challenge_type: string
