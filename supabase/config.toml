@@ -83,3 +83,9 @@ verify_jwt = false
 
 [functions.reboot-polling-sync]
 verify_jwt = false
+
+[functions.reboot-motion-polling]
+verify_jwt = false
+
+[functions.prescribe-drills]
+verify_jwt = false
