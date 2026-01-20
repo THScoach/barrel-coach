@@ -4,3 +4,4 @@ export * from "./MetricCard";
 export * from "./RecentSessionsFeed";
 export * from "./MotorProfileChart";
 export * from "./LeakFrequencyChart";
+export * from "./SyncStatusWidget";

@@ -23,6 +23,7 @@ import {
   MotorProfileChart,
   LeakFrequencyChart,
   ScoreGauge,
+  SyncStatusWidget,
 } from "@/components/dashboard";
 
 export default function AdminDashboard() {
@@ -230,8 +231,8 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Middle Row - Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
+        {/* Middle Row - Charts + Sync Status */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
           <Card className="bg-slate-800/50 border-slate-700">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
@@ -255,6 +256,8 @@ export default function AdminDashboard() {
               <LeakFrequencyChart />
             </CardContent>
           </Card>
+
+          <SyncStatusWidget />
         </div>
 
         {/* Bottom Row - Recent Activity */}
