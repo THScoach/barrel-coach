@@ -16,11 +16,12 @@ import {
   Play,
   User,
   History,
-  TrendingUp
+  TrendingUp,
+  Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoSwingUploadModal } from "@/components/video-analyzer";
-import { calculateComposite4B, getGrade, getWeakestLink } from "@/lib/fourb-composite";
+import { calculateComposite4B, getWeakestLink } from "@/lib/fourb-composite";
 import { MembershipUpgradeBanner } from "@/components/player/MembershipUpgradeBanner";
 import { format } from "date-fns";
 
@@ -63,6 +64,9 @@ interface SessionHistory {
   video_count: number;
   status: string;
   context?: string;
+  source: 'video' | 'reboot';
+  composite_score?: number | null;
+  grade?: string | null;
 }
 
 export default function PlayerHome() {
@@ -117,16 +121,46 @@ export default function PlayerHome() {
   };
 
   const loadSessionHistory = async (playerId: string) => {
-    const { data } = await supabase
+    // Fetch from video_swing_sessions
+    const { data: videoSessions } = await supabase
       .from('video_swing_sessions')
       .select('id, session_date, video_count, status, context')
       .eq('player_id', playerId)
       .order('session_date', { ascending: false })
-      .limit(5);
+      .limit(10);
     
-    if (data) {
-      setSessionHistory(data);
-    }
+    // Fetch from reboot_uploads (3D sensor sessions)
+    const { data: rebootSessions } = await supabase
+      .from('reboot_uploads')
+      .select('id, session_date, composite_score, grade, processing_status, upload_source')
+      .eq('player_id', playerId)
+      .order('session_date', { ascending: false })
+      .limit(10);
+    
+    // Merge and sort both sources
+    const merged: SessionHistory[] = [
+      ...(videoSessions || []).map(s => ({
+        ...s,
+        source: 'video' as const,
+        composite_score: null,
+        grade: null,
+        context: s.context || 'Practice',
+      })),
+      ...(rebootSessions || []).map(s => ({
+        id: s.id,
+        session_date: s.session_date,
+        video_count: 1, // Reboot sessions are single-session
+        status: s.processing_status === 'complete' ? 'analyzed' : s.processing_status || 'pending',
+        context: s.upload_source === 'reboot_api' ? 'Reboot 3D' : '3D Sensor',
+        source: 'reboot' as const,
+        composite_score: s.composite_score,
+        grade: s.grade,
+      })),
+    ];
+    
+    // Sort by date descending and limit to 5
+    merged.sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime());
+    setSessionHistory(merged.slice(0, 5));
   };
 
   const checkWeeklyCheckinStatus = async (playerId: string) => {
@@ -495,6 +529,79 @@ export default function PlayerHome() {
         </CardContent>
       </Card>
 
+      {/* Progress Chart - Moved from Progress tab */}
+      {recentProgress && recentProgress.recentSessions.length > 1 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Score Trend
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-32 flex items-end gap-1">
+              {recentProgress.recentSessions.map((session, i, arr) => {
+                const min = Math.min(...arr.map(s => s.composite), 20);
+                const max = Math.max(...arr.map(s => s.composite), 80);
+                const range = max - min || 1;
+                const height = ((session.composite - min) / range) * 100;
+                const isLast = i === arr.length - 1;
+                const prevScore = i > 0 ? arr[i - 1].composite : null;
+                const delta = prevScore !== null ? session.composite - prevScore : null;
+
+                return (
+                  <div
+                    key={i}
+                    className="flex-1 flex flex-col items-center gap-1 min-w-0"
+                  >
+                    <div className="relative w-full">
+                      {isLast && delta !== null && (
+                        <div className={cn(
+                          "absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] font-bold whitespace-nowrap",
+                          delta > 0 ? "text-emerald-400" : delta < 0 ? "text-red-400" : "text-muted-foreground"
+                        )}>
+                          {delta > 0 ? '+' : ''}{Math.round(delta)}
+                        </div>
+                      )}
+                      <div 
+                        className={cn(
+                          "w-full rounded-t transition-all",
+                          isLast ? "bg-primary" : "bg-muted/50"
+                        )}
+                        style={{ height: `${Math.max(height, 8)}%`, minHeight: '8px' }}
+                      />
+                    </div>
+                    <span className="text-[9px] text-muted-foreground truncate w-full text-center">
+                      {session.date}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Progress summary */}
+            <div className="flex items-center justify-between mt-4 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">30-day change:</span>
+                <span className={cn(
+                  "font-semibold",
+                  recentProgress.delta30Days && recentProgress.delta30Days > 0 ? "text-emerald-400" : 
+                  recentProgress.delta30Days && recentProgress.delta30Days < 0 ? "text-red-400" : "text-muted-foreground"
+                )}>
+                  {recentProgress.delta30Days && recentProgress.delta30Days > 0 ? '+' : ''}
+                  {Math.round(recentProgress.delta30Days || 0)} pts
+                </span>
+              </div>
+              {recentProgress.mostImproved && (
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <TrendingUp className="h-3 w-3 text-emerald-400" />
+                  <span>{recentProgress.mostImproved.b}</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Next Actions */}
       {nextActions.length > 0 && (
         <Card>
@@ -574,33 +681,52 @@ export default function PlayerHome() {
               {sessionHistory.map(session => (
                 <Link
                   key={session.id}
-                  to={`/player/data?tab=video&session=${session.id}`}
+                  to={session.source === 'video' 
+                    ? `/player/data?tab=video&session=${session.id}` 
+                    : `/player/data?tab=scores`}
                   className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <Video className="h-4 w-4 text-muted-foreground" />
+                    {session.source === 'reboot' ? (
+                      <Activity className="h-4 w-4 text-emerald-400" />
+                    ) : (
+                      <Video className="h-4 w-4 text-muted-foreground" />
+                    )}
                     <div>
                       <p className="text-sm font-medium">
                         {format(new Date(session.session_date), 'MMM d, yyyy')}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {session.video_count} video{session.video_count !== 1 ? 's' : ''} • {session.context || 'Practice'}
+                        {session.source === 'reboot' ? 'Reboot 3D' : `${session.video_count} video${session.video_count !== 1 ? 's' : ''}`} • {session.context || 'Practice'}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge 
-                      variant={session.status === 'analyzed' ? 'default' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {session.status === 'analyzed' ? 'Analyzed' : session.status === 'pending' ? 'Pending' : session.status}
-                    </Badge>
+                    {/* Show composite score if available */}
+                    {session.composite_score && (
+                      <span className="text-sm font-bold text-primary">
+                        {Math.round(session.composite_score)}
+                      </span>
+                    )}
+                    {session.grade && (
+                      <Badge variant="outline" className="text-xs">
+                        {session.grade}
+                      </Badge>
+                    )}
+                    {!session.composite_score && (
+                      <Badge 
+                        variant={session.status === 'analyzed' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {session.status === 'analyzed' ? 'Analyzed' : session.status === 'pending' ? 'Pending' : session.status}
+                      </Badge>
+                    )}
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </Link>
               ))}
               <Button variant="link" className="p-0 h-auto text-sm" asChild>
-                <Link to="/player/data?tab=video">View all sessions →</Link>
+                <Link to="/player/data?tab=scores">View all sessions →</Link>
               </Button>
             </div>
           ) : (
