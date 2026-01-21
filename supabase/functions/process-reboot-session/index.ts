@@ -577,15 +577,16 @@ serve(async (req) => {
       }
 
       // Always create/update reboot_uploads so it shows in Upload History
+      // Round integer columns to avoid "invalid input syntax for type integer" errors
       const uploadData = {
-        brain_score: scores.brain_score,
-        body_score: scores.body_score,
-        bat_score: scores.bat_score,
-        composite_score: scores.composite_score,
+        brain_score: Math.round(scores.brain_score),
+        body_score: Math.round(scores.body_score),
+        bat_score: Math.round(scores.bat_score),
+        composite_score: scores.composite_score, // numeric type, no rounding needed
         grade: scores.grade,
-        ground_flow_score: scores.ground_flow_score,
-        core_flow_score: scores.core_flow_score,
-        upper_flow_score: scores.upper_flow_score,
+        ground_flow_score: Math.round(scores.ground_flow_score),
+        core_flow_score: Math.round(scores.core_flow_score),
+        upper_flow_score: Math.round(scores.upper_flow_score),
         weakest_link: scores.weakest_link,
         pelvis_velocity: scores.pelvis_velocity,
         torso_velocity: scores.torso_velocity,
@@ -652,15 +653,15 @@ serve(async (req) => {
         }
       }
 
-      // Update player's latest scores
+      // Update player's latest scores (round integer columns)
       const { error: playerUpdateError } = await supabase
         .from("players")
         .update({
-          latest_brain_score: scores.brain_score,
-          latest_body_score: scores.body_score,
-          latest_bat_score: scores.bat_score,
-          latest_ball_score: scores.ball_score,
-          latest_composite_score: scores.composite_score,
+          latest_brain_score: Math.round(scores.brain_score),
+          latest_body_score: Math.round(scores.body_score),
+          latest_bat_score: Math.round(scores.bat_score),
+          latest_ball_score: Math.round(scores.ball_score),
+          latest_composite_score: scores.composite_score, // numeric type
         })
         .eq("id", internalPlayerId);
 
