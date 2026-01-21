@@ -125,3 +125,6 @@ verify_jwt = false
 
 [functions.noa-webhook]
 verify_jwt = false
+
+[functions.generate-coach-message]
+verify_jwt = false
