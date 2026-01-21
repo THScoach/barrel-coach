@@ -594,6 +594,57 @@ export type Database = {
         }
         Relationships: []
       }
+      final_research_briefs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data_status: string
+          four_b_overlay: Json | null
+          id: string
+          missing_fields: string[] | null
+          player_name: string
+          powerpoint_slide_code: string | null
+          private_notes: string | null
+          raw_statcast_data: Json | null
+          scouting_notes: string | null
+          tags: string[] | null
+          updated_at: string
+          validated_data: Json | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data_status?: string
+          four_b_overlay?: Json | null
+          id?: string
+          missing_fields?: string[] | null
+          player_name: string
+          powerpoint_slide_code?: string | null
+          private_notes?: string | null
+          raw_statcast_data?: Json | null
+          scouting_notes?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          validated_data?: Json | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data_status?: string
+          four_b_overlay?: Json | null
+          id?: string
+          missing_fields?: string[] | null
+          player_name?: string
+          powerpoint_slide_code?: string | null
+          private_notes?: string | null
+          raw_statcast_data?: Json | null
+          scouting_notes?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          validated_data?: Json | null
+        }
+        Relationships: []
+      }
       game_weekly_reports: {
         Row: {
           ab: number | null
