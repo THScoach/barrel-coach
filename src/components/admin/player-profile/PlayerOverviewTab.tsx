@@ -1,40 +1,33 @@
 /**
- * Rick Lab Player Overview Tab - Interactive Control Panel
- * =========================================================
- * Fast access dashboard: Player header → 4B tiles → Quick actions → Coach To-Do
+ * Player Overview Tab - High-End Diagnostic Lab
+ * ==============================================
+ * Professional scouting report that identifies leaks and prescribes fixes
+ * Dark #0A0A0B background with #DC2626 Swing Rehab Red accents
  */
 
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSearchParams } from "react-router-dom";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { 
-  FileText, 
-  LineChart,
   Upload,
-  MessageSquare,
-  CheckCircle,
-  Circle,
   Loader2,
-  TrendingUp,
-  TrendingDown,
-  Sparkles,
-  Plus,
   ClipboardList
 } from "lucide-react";
 import { toast } from "sonner";
 import { usePlayerScorecard } from "@/hooks/usePlayerScorecard";
-import { Interactive4BTiles } from "./Interactive4BTiles";
+import { DiagnosticLabHeader } from "./DiagnosticLabHeader";
+import { ScoutGaugeGrid } from "./ScoutGaugeGrid";
+import { KineticLeakCard } from "./KineticLeakCard";
+import { PrescriptionCard } from "./PrescriptionCard";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { RebootSessionDetail } from "@/components/RebootSessionDetail";
 import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
 
 interface PlayerOverviewTabProps {
-  playerId: string; // player_profiles.id
-  playersTableId?: string; // players.id for data tables
+  playerId: string;
+  playersTableId?: string;
   playerName: string;
   playerLevel?: string;
   playerBats?: string;
@@ -42,11 +35,9 @@ interface PlayerOverviewTabProps {
   onNavigateToScores?: () => void;
 }
 
-interface ToDoItem {
-  id: string;
-  label: string;
-  completed: boolean;
-  action?: () => void;
+interface LatestSessionData {
+  type: 'reboot' | 'analyzer';
+  data: any;
 }
 
 export function PlayerOverviewTab({ 
@@ -58,7 +49,6 @@ export function PlayerOverviewTab({
   playerThrows,
   onNavigateToScores
 }: PlayerOverviewTabProps) {
-  const navigate = useNavigate();
   const [, setSearchParams] = useSearchParams();
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [mappedPlayersId, setMappedPlayersId] = useState<string | null>(playersTableId || null);
@@ -66,7 +56,35 @@ export function PlayerOverviewTab({
   // Session detail modals
   const [selectedRebootSession, setSelectedRebootSession] = useState<any>(null);
   const [selectedLaunchSession, setSelectedLaunchSession] = useState<any>(null);
-  const [latestSession, setLatestSession] = useState<any>(null);
+  const [latestSession, setLatestSession] = useState<LatestSessionData | null>(null);
+  
+  // Leak and prescription data
+  const [leakData, setLeakData] = useState<{
+    leakType: string | null;
+    leakEvidence: string | null;
+    motorProfile: string | null;
+    priorityDrill: string | null;
+  }>({
+    leakType: null,
+    leakEvidence: null,
+    motorProfile: null,
+    priorityDrill: null,
+  });
+  
+  // Prescription drill data
+  const [prescriptionDrill, setPrescriptionDrill] = useState<{
+    name: string | null;
+    whyItWorks: string | null;
+    sets: number | null;
+    reps: number | null;
+    videoUrl: string | null;
+  }>({
+    name: null,
+    whyItWorks: null,
+    sets: null,
+    reps: null,
+    videoUrl: null,
+  });
   
   // Scorecard data
   const { 
@@ -95,7 +113,7 @@ export function PlayerOverviewTab({
     }
   };
 
-  // Load latest session for "View Latest KRS Report"
+  // Load latest session and leak data
   useEffect(() => {
     if (mappedPlayersId) {
       loadLatestSession();
@@ -118,21 +136,76 @@ export function PlayerOverviewTab({
         .limit(1),
     ]);
 
-    // Get the most recent session across types
     const reboot = rebootRes.data?.[0];
     const session = sessionsRes.data?.[0];
 
     if (reboot && session) {
       const rebootDate = new Date(reboot.created_at);
       const sessionDate = new Date(session.created_at);
-      setLatestSession(rebootDate > sessionDate 
-        ? { type: 'reboot', data: reboot } 
-        : { type: 'analyzer', data: session }
-      );
+      if (rebootDate > sessionDate) {
+        setLatestSession({ type: 'reboot', data: reboot });
+        extractLeakData(reboot);
+      } else {
+        setLatestSession({ type: 'analyzer', data: session });
+        extractLeakDataFromSession(session);
+      }
     } else if (reboot) {
       setLatestSession({ type: 'reboot', data: reboot });
+      extractLeakData(reboot);
     } else if (session) {
       setLatestSession({ type: 'analyzer', data: session });
+      extractLeakDataFromSession(session);
+    }
+  };
+
+  const extractLeakData = (data: any) => {
+    setLeakData({
+      leakType: data.leak_detected || data.weakest_link,
+      leakEvidence: data.leak_evidence,
+      motorProfile: data.motor_profile,
+      priorityDrill: data.priority_drill,
+    });
+    
+    // Load prescription drill if available
+    if (data.priority_drill) {
+      loadPrescriptionDrill(data.priority_drill);
+    }
+  };
+
+  const extractLeakDataFromSession = (data: any) => {
+    setLeakData({
+      leakType: data.leak_type || data.weakest_category,
+      leakEvidence: data.coach_notes,
+      motorProfile: null,
+      priorityDrill: null,
+    });
+  };
+
+  const loadPrescriptionDrill = async (drillName: string) => {
+    const { data: drill } = await supabase
+      .from('drills')
+      .select('name, why_it_works, sets, reps, video_url')
+      .ilike('name', `%${drillName}%`)
+      .limit(1)
+      .single();
+
+    if (drill) {
+      setPrescriptionDrill({
+        name: drill.name,
+        whyItWorks: drill.why_it_works,
+        sets: drill.sets,
+        reps: drill.reps,
+        videoUrl: drill.video_url,
+      });
+    } else {
+      // Use the drill name from the session if not found in drills table
+      setPrescriptionDrill({
+        name: drillName,
+        whyItWorks: null,
+        sets: null,
+        reps: null,
+        videoUrl: null,
+      });
     }
   };
 
@@ -144,186 +217,62 @@ export function PlayerOverviewTab({
 
     if (latestSession.type === 'reboot') {
       setSelectedRebootSession(latestSession.data);
-    } else if (latestSession.type === 'analyzer') {
+    } else {
       toast.info('Analyzer session detail coming soon');
     }
   };
 
   const handleOpenProgression = () => {
-    // Navigate to Scores tab with sub-tab set to progression
     setSearchParams({ tab: 'scores', subtab: 'progression' });
   };
 
-  // Trend helper
-  const getTrend = (current: number | null, prev: number | null) => {
-    if (current === null || prev === null) return 'flat';
-    if (current > prev) return 'up';
-    if (current < prev) return 'down';
-    return 'flat';
+  const handleAssignDrill = () => {
+    toast.success('Drill assigned to player');
   };
-
-  // Dynamic Coach To-Do items based on player state
-  const generateTodos = (): ToDoItem[] => {
-    const todos: ToDoItem[] = [];
-    
-    if (!latestSession) {
-      todos.push({
-        id: 'first-session',
-        label: 'Upload first KRS session',
-        completed: false,
-        action: () => setUploadModalOpen(true),
-      });
-    } else {
-      todos.push({
-        id: 'review-report',
-        label: 'Review latest KRS report',
-        completed: false,
-        action: handleViewLatestReport,
-      });
-    }
-
-    if (scorecardData?.fourBScores.weakestLink) {
-      todos.push({
-        id: 'assign-drill',
-        label: `Assign drill for ${scorecardData.fourBScores.weakestLink.toUpperCase()} focus`,
-        completed: false,
-      });
-    }
-
-    todos.push({
-      id: 'send-message',
-      label: 'Send check-in message',
-      completed: false,
-      action: () => setSearchParams({ tab: 'communication' }),
-    });
-
-    todos.push({
-      id: 'review-progression',
-      label: 'Check progression trends',
-      completed: false,
-      action: handleOpenProgression,
-    });
-
-    return todos.slice(0, 5);
-  };
-
-  const todos = generateTodos();
 
   return (
-    <div className="space-y-6">
-      {/* ===== HERO HEADER: Catch Barrel Score + Primary Actions ===== */}
-      <Card className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-slate-700 overflow-hidden">
-        <CardContent className="p-4 md:p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            {/* Left: Catch Barrel Score */}
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <p className="text-xs font-bold uppercase tracking-wide text-primary mb-1">
-                  CATCH BARREL SCORE
-                </p>
-                {scorecardLoading ? (
-                  <Loader2 className="h-8 w-8 animate-spin text-slate-500 mx-auto" />
-                ) : (
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-5xl font-black text-white">
-                      {scorecardData?.fourBScores.composite ?? '—'}
-                    </span>
-                    {scorecardData?.fourBScores.prevComposite !== null && (
-                      <>
-                        {getTrend(
-                          scorecardData?.fourBScores.composite ?? null,
-                          scorecardData?.fourBScores.prevComposite ?? null
-                        ) === 'up' && <TrendingUp className="h-4 w-4 text-emerald-500" />}
-                        {getTrend(
-                          scorecardData?.fourBScores.composite ?? null,
-                          scorecardData?.fourBScores.prevComposite ?? null
-                        ) === 'down' && <TrendingDown className="h-4 w-4 text-red-500" />}
-                      </>
-                    )}
-                  </div>
-                )}
-                {scorecardData?.fourBScores.grade && (
-                  <Badge variant="secondary" className="mt-1 text-xs">
-                    {scorecardData.fourBScores.grade}
-                  </Badge>
-                )}
-              </div>
+    <div className="space-y-6 bg-[#0A0A0B] min-h-screen -m-6 p-6">
+      {/* ===== DIAGNOSTIC LAB HEADER ===== */}
+      <DiagnosticLabHeader
+        compositeScore={scorecardData?.fourBScores.composite ?? null}
+        prevCompositeScore={scorecardData?.fourBScores.prevComposite ?? null}
+        grade={scorecardData?.fourBScores.grade ?? null}
+        weakestLink={scorecardData?.fourBScores.weakestLink ?? null}
+        playerLevel={playerLevel}
+        playerBats={playerBats}
+        playerThrows={playerThrows}
+        isLoading={scorecardLoading}
+        onViewReport={handleViewLatestReport}
+        onOpenProgression={handleOpenProgression}
+      />
 
-              {/* Player Quick Info */}
-              <div className="hidden md:block border-l border-slate-700 pl-6 space-y-1">
-                {playerLevel && (
-                  <Badge variant="outline" className="text-xs border-slate-600 text-slate-300 mr-2">
-                    {playerLevel}
-                  </Badge>
-                )}
-                {playerBats && (
-                  <span className="text-xs text-slate-400">
-                    Bats: {playerBats}
-                  </span>
-                )}
-                {playerThrows && (
-                  <span className="text-xs text-slate-400 ml-2">
-                    Throws: {playerThrows}
-                  </span>
-                )}
-                {scorecardData?.fourBScores.weakestLink && (
-                  <div className="mt-2">
-                    <Badge variant="outline" className="text-xs border-slate-600 text-slate-300">
-                      <Sparkles className="w-3 h-3 mr-1 text-yellow-500" />
-                      Focus: {scorecardData.fourBScores.weakestLink.toUpperCase()}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right: Primary Actions */}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="default"
-                className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white font-semibold"
-                onClick={handleViewLatestReport}
-                disabled={!latestSession}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                View Latest KRS Report
-              </Button>
-              
-              <Button
-                variant="outline"
-                className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
-                onClick={handleOpenProgression}
-              >
-                <LineChart className="h-4 w-4 mr-2" />
-                Open Progression
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ===== INTERACTIVE 4B TILES ===== */}
+      {/* ===== 4B SCOUT GAUGE GRID ===== */}
       {scorecardLoading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <Loader2 className="h-8 w-8 animate-spin text-slate-600" />
         </div>
       ) : scorecardData ? (
-        <div>
-          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">
-            4B Breakdown
-          </h3>
-          <Interactive4BTiles fourBScores={scorecardData.fourBScores} />
-        </div>
+        <ScoutGaugeGrid
+          brainScore={scorecardData.fourBScores.brain}
+          bodyScore={scorecardData.fourBScores.body}
+          batScore={scorecardData.fourBScores.bat}
+          ballScore={scorecardData.fourBScores.ball}
+          weakestLink={scorecardData.fourBScores.weakestLink}
+          onCategoryClick={(category) => {
+            toast.info(`${category.toUpperCase()} details coming soon`);
+          }}
+        />
       ) : (
-        <Card className="bg-slate-900/80 border-slate-800">
+        <Card className="bg-[#111113] border-[#1a1a1c]">
           <CardContent className="py-12 text-center">
-            <ClipboardList className="h-12 w-12 mx-auto text-slate-500 mb-3" />
-            <p className="text-slate-400 font-medium">No player data available</p>
-            <p className="text-sm text-slate-500 mt-1">Upload data to generate 4B scores</p>
+            <ClipboardList className="h-12 w-12 mx-auto text-slate-600 mb-3" />
+            <p className="text-slate-400 font-medium">No diagnostic data available</p>
+            <p className="text-sm text-slate-600 mt-1">Upload session data to generate 4B scores</p>
             <Button
-              className="mt-4 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
+              className="mt-4 bg-[#DC2626] hover:bg-[#b91c1c] text-white"
               onClick={() => setUploadModalOpen(true)}
               disabled={!mappedPlayersId}
+              style={{ boxShadow: '0 4px 20px rgba(220, 38, 38, 0.3)' }}
             >
               <Upload className="h-4 w-4 mr-2" />
               Upload First Session
@@ -332,38 +281,29 @@ export function PlayerOverviewTab({
         </Card>
       )}
 
-      {/* ===== COACH TO-DO ===== */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-2">
-            <CheckCircle className="h-3.5 w-3.5 text-slate-400" />
-            Coach To-Do
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1 pt-0">
-          {todos.map((todo) => (
-            <div 
-              key={todo.id}
-              className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-700/50 transition-colors cursor-pointer group"
-              onClick={todo.action}
-            >
-              {todo.completed ? (
-                <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
-              ) : (
-                <Circle className="h-4 w-4 text-slate-600 group-hover:text-slate-400 shrink-0" />
-              )}
-              <span className={`text-sm ${todo.completed ? 'text-slate-500 line-through' : 'text-slate-300'}`}>
-                {todo.label}
-              </span>
-              {todo.action && (
-                <span className="ml-auto text-xs text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                  →
-                </span>
-              )}
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      {/* ===== KINETIC LEAK + PRESCRIPTION GRID ===== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Kinetic Leak Warning */}
+        <KineticLeakCard
+          leakType={leakData.leakType}
+          leakEvidence={leakData.leakEvidence}
+          weakestLink={scorecardData?.fourBScores.weakestLink ?? null}
+          motorProfile={leakData.motorProfile}
+          isLoading={scorecardLoading}
+        />
+
+        {/* Training Prescription */}
+        <PrescriptionCard
+          drillName={prescriptionDrill.name || leakData.priorityDrill}
+          whyItWorks={prescriptionDrill.whyItWorks}
+          leakType={leakData.leakType}
+          drillSets={prescriptionDrill.sets}
+          drillReps={prescriptionDrill.reps}
+          drillVideoUrl={prescriptionDrill.videoUrl}
+          onAssignDrill={handleAssignDrill}
+          isLoading={scorecardLoading}
+        />
+      </div>
 
       {/* ===== MODALS ===== */}
       <UnifiedDataUploadModal

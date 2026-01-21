@@ -18,3 +18,8 @@ export { PlayerVideoUpload } from './PlayerVideoUpload';
 export { PlayerUploadHistory } from './PlayerUploadHistory';
 export { RebootConnectionStatus } from './RebootConnectionStatus';
 export { SessionDetailModal } from './SessionDetailModal';
+// Diagnostic Lab components
+export { DiagnosticLabHeader } from './DiagnosticLabHeader';
+export { ScoutGaugeGrid } from './ScoutGaugeGrid';
+export { KineticLeakCard } from './KineticLeakCard';
+export { PrescriptionCard } from './PrescriptionCard';
