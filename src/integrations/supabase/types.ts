@@ -2147,6 +2147,45 @@ export type Database = {
           },
         ]
       }
+      playlist_videos: {
+        Row: {
+          added_at: string
+          id: string
+          playlist_id: string
+          position: number
+          video_id: string
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          playlist_id: string
+          position?: number
+          video_id: string
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          playlist_id?: string
+          position?: number
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlist_videos_playlist_id_fkey"
+            columns: ["playlist_id"]
+            isOneToOne: false
+            referencedRelation: "video_playlists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlist_videos_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "drill_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       problem_tags: {
         Row: {
           category: string
@@ -4005,6 +4044,51 @@ export type Database = {
           },
         ]
       }
+      video_playlists: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_published: boolean | null
+          name: string
+          playlist_type: string
+          smart_filter: Json | null
+          total_duration_seconds: number | null
+          updated_at: string
+          video_count: number | null
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_published?: boolean | null
+          name: string
+          playlist_type?: string
+          smart_filter?: Json | null
+          total_duration_seconds?: number | null
+          updated_at?: string
+          video_count?: number | null
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_published?: boolean | null
+          name?: string
+          playlist_type?: string
+          smart_filter?: Json | null
+          total_duration_seconds?: number | null
+          updated_at?: string
+          video_count?: number | null
+        }
+        Relationships: []
+      }
       video_swing_events: {
         Row: {
           created_at: string
@@ -4860,6 +4944,29 @@ export type Database = {
           title: string
           transcript: string
           video_type: string
+          video_url: string
+        }[]
+      }
+      search_videos_by_concept: {
+        Args: {
+          category_filter?: string
+          max_results?: number
+          search_query: string
+        }
+        Returns: {
+          description: string
+          duration_seconds: number
+          four_b_category: string
+          gumlet_hls_url: string
+          gumlet_playback_url: string
+          id: string
+          matched_excerpt: string
+          problems_addressed: string[]
+          relevance_score: number
+          status: string
+          thumbnail_url: string
+          title: string
+          transcript: string
           video_url: string
         }[]
       }
