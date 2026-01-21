@@ -36,24 +36,25 @@ serve(async (req) => {
   const signature = req.headers.get("stripe-signature");
   const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
 
+  // SECURITY: Reject requests without signature header
   if (!signature) {
-    return new Response("No signature", { status: 400 });
+    console.error("Missing stripe-signature header");
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  // SECURITY: Reject if webhook secret not configured
+  if (!webhookSecret) {
+    console.error("STRIPE_WEBHOOK_SECRET not configured - rejecting webhook");
+    return new Response("Webhook not configured", { status: 500 });
   }
 
   try {
     const body = await req.text();
     
-    let event: Stripe.Event;
-    
-    if (webhookSecret) {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-    } else {
-      // For testing without webhook secret
-      event = JSON.parse(body);
-      console.warn("Warning: Processing webhook without signature verification");
-    }
+    // Always verify signature - no fallback allowed
+    const event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
 
-    console.log("Received event:", event.type);
+    console.log("Verified event:", event.type);
 
     if (event.type === "checkout.session.completed") {
       const checkoutSession = event.data.object as Stripe.Checkout.Session;
