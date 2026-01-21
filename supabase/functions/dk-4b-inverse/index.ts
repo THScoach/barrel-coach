@@ -616,9 +616,10 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { session_id, swings: inlineSwings, session_context } = await req.json();
+    const { session_id, swings: inlineSwings, session_context: inlineContext } = await req.json();
 
     let swingsToProcess: CanonicalSwing[];
+    let sessionContext: SessionContext | undefined = inlineContext;
 
     // If swings provided inline, use those
     if (inlineSwings && Array.isArray(inlineSwings) && inlineSwings.length > 0) {
@@ -641,6 +642,23 @@ serve(async (req) => {
       }
 
       swingsToProcess = dbSwings;
+
+      // Fetch session context from sensor_sessions if not provided inline
+      if (!sessionContext) {
+        const { data: sessionData } = await supabase
+          .from("sensor_sessions")
+          .select("environment, estimated_pitch_speed")
+          .eq("id", session_id)
+          .single();
+
+        if (sessionData) {
+          sessionContext = {
+            environment: sessionData.environment as SessionContext["environment"],
+            estimatedPitchSpeed: sessionData.estimated_pitch_speed ?? undefined,
+          };
+          console.log(`Loaded session context from DB: env=${sessionContext.environment}, pitch=${sessionContext.estimatedPitchSpeed}mph`);
+        }
+      }
     } else {
       return new Response(
         JSON.stringify({ error: "Either session_id or swings array required" }),
@@ -650,8 +668,8 @@ serve(async (req) => {
 
     console.log(`Processing ${swingsToProcess.length} swings for 4B inverse engineering`);
 
-    // Run 4B analysis
-    const results = await processDKSession(swingsToProcess, session_context);
+    // Run 4B analysis with session context
+    const results = await processDKSession(swingsToProcess, sessionContext);
 
     // If session_id provided, save results to player_sessions
     if (session_id) {

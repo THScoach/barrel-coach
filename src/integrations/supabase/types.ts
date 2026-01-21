@@ -2716,6 +2716,7 @@ export type Database = {
           dk_session_uuid: string | null
           duration_minutes: number | null
           environment: string | null
+          estimated_pitch_speed: number | null
           four_b_bat: number | null
           four_b_brain: number | null
           hand_speed_max: number | null
@@ -2744,6 +2745,7 @@ export type Database = {
           dk_session_uuid?: string | null
           duration_minutes?: number | null
           environment?: string | null
+          estimated_pitch_speed?: number | null
           four_b_bat?: number | null
           four_b_brain?: number | null
           hand_speed_max?: number | null
@@ -2772,6 +2774,7 @@ export type Database = {
           dk_session_uuid?: string | null
           duration_minutes?: number | null
           environment?: string | null
+          estimated_pitch_speed?: number | null
           four_b_bat?: number | null
           four_b_brain?: number | null
           hand_speed_max?: number | null
