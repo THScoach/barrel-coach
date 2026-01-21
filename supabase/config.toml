@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.end-session]
 verify_jwt = false
+
+[functions.prospect-research-pipeline]
+verify_jwt = false
