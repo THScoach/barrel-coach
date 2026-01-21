@@ -594,7 +594,7 @@ async function prescribeDrills(
 // NOTIFICATION FLAG
 // =============================================================================
 
-async function setNewAnalysisFlag(supabase: SupabaseClient, playerId: string, sessionId: string) {
+async function setNewAnalysisFlag(supabase: SupabaseClient, playerId: string, sessionId: string, scores?: { brain?: number; body?: number; bat?: number; ball?: number }) {
   try {
     // Update player record with notification flag
     await supabase
@@ -620,6 +620,47 @@ async function setNewAnalysisFlag(supabase: SupabaseClient, playerId: string, se
         });
     } catch {
       // Ignore if notifications table doesn't exist
+    }
+
+    // Generate AI coach message for session complete
+    try {
+      await supabase.functions.invoke('generate-coach-message', {
+        body: {
+          player_id: playerId,
+          trigger_type: 'session_complete',
+          four_b_scores: scores || {},
+          session_id: sessionId,
+        },
+      });
+      console.log(`[Coach Message] Generated for player ${playerId}`);
+    } catch (msgError) {
+      console.log(`[Coach Message] Failed to generate: ${msgError}`);
+    }
+
+    // Check for low scores and generate alert
+    if (scores) {
+      const lowestScore = Math.min(
+        scores.brain ?? 100,
+        scores.body ?? 100,
+        scores.bat ?? 100,
+        scores.ball ?? 100
+      );
+      
+      if (lowestScore < 45 && lowestScore < 100) {
+        try {
+          await supabase.functions.invoke('generate-coach-message', {
+            body: {
+              player_id: playerId,
+              trigger_type: 'low_score',
+              four_b_scores: scores,
+              session_id: sessionId,
+            },
+          });
+          console.log(`[Coach Message] Low score alert generated for player ${playerId}`);
+        } catch {
+          // Ignore if message generation fails
+        }
+      }
     }
 
     console.log(`[Notification] Flag set for player ${playerId}`);

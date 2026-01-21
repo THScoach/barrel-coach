@@ -3,10 +3,32 @@ import { Home, MessageSquare, Dumbbell, User, LogOut, Database } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
+import { NotificationBell } from "@/components/player/NotificationBell";
+import { useEffect, useState } from "react";
 
 export function PlayerLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [playerId, setPlayerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const getPlayerId = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) return;
+
+      const { data: player } = await supabase
+        .from("players")
+        .select("id")
+        .eq("email", user.email)
+        .single();
+
+      if (player) {
+        setPlayerId(player.id);
+      }
+    };
+
+    getPlayerId();
+  }, []);
   
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -36,10 +58,13 @@ export function PlayerLayout() {
               <Logo size="sm" />
               <span className="font-bold text-lg hidden sm:inline">My Swing Lab</span>
             </NavLink>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Logout</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              {playerId && <NotificationBell playerId={playerId} />}
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Logout</span>
+              </Button>
+            </div>
           </div>
         </div>
       </header>

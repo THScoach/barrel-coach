@@ -28,6 +28,7 @@ import { calculateComposite4B, getWeakestLink } from "@/lib/fourb-composite";
 import { MembershipUpgradeBanner } from "@/components/player/MembershipUpgradeBanner";
 import { ActiveSessionPanel } from "@/components/player/ActiveSessionPanel";
 import { PrescribedVideos } from "@/components/player/PrescribedVideos";
+import { LockerRoomMessages } from "@/components/player/LockerRoomMessages";
 import { format } from "date-fns";
 
 interface LatestScores {
@@ -761,6 +762,15 @@ export default function PlayerHome() {
         <PrescribedVideos 
           playerId={player.id} 
           weakestCategory={weakestLink}
+        />
+      )}
+
+      {/* Locker Room Messages - AI coaching messages */}
+      {player && (
+        <LockerRoomMessages 
+          playerId={player.id} 
+          compact
+          maxMessages={5}
         />
       )}
 

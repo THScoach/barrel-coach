@@ -1443,6 +1443,79 @@ export type Database = {
           },
         ]
       }
+      locker_room_messages: {
+        Row: {
+          ai_model: string | null
+          content: string
+          created_at: string
+          drill_links: Json | null
+          four_b_context: Json | null
+          id: string
+          is_archived: boolean | null
+          is_read: boolean | null
+          message_type: string
+          player_id: string
+          read_at: string | null
+          session_id: string | null
+          summary: string | null
+          trigger_reason: string | null
+        }
+        Insert: {
+          ai_model?: string | null
+          content: string
+          created_at?: string
+          drill_links?: Json | null
+          four_b_context?: Json | null
+          id?: string
+          is_archived?: boolean | null
+          is_read?: boolean | null
+          message_type?: string
+          player_id: string
+          read_at?: string | null
+          session_id?: string | null
+          summary?: string | null
+          trigger_reason?: string | null
+        }
+        Update: {
+          ai_model?: string | null
+          content?: string
+          created_at?: string
+          drill_links?: Json | null
+          four_b_context?: Json | null
+          id?: string
+          is_archived?: boolean | null
+          is_read?: boolean | null
+          message_type?: string
+          player_id?: string
+          read_at?: string | null
+          session_id?: string | null
+          summary?: string | null
+          trigger_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locker_room_messages_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locker_room_messages_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locker_room_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           ai_generated: boolean | null
@@ -2097,6 +2170,7 @@ export type Database = {
           stripe_customer_id: string | null
           team: string | null
           total_xp: number | null
+          unread_locker_messages: number | null
           updated_at: string | null
           weight_lbs: number | null
         }
@@ -2152,6 +2226,7 @@ export type Database = {
           stripe_customer_id?: string | null
           team?: string | null
           total_xp?: number | null
+          unread_locker_messages?: number | null
           updated_at?: string | null
           weight_lbs?: number | null
         }
@@ -2207,6 +2282,7 @@ export type Database = {
           stripe_customer_id?: string | null
           team?: string | null
           total_xp?: number | null
+          unread_locker_messages?: number | null
           updated_at?: string | null
           weight_lbs?: number | null
         }
