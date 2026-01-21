@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { LogOut, User, Plus } from "lucide-react";
+import { LogOut, User, Plus, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlayerPickerModal } from "@/components/admin/PlayerPickerModal";
 
@@ -24,6 +24,7 @@ export function AdminHeader() {
     { to: "/admin/validation-queue", label: "Validation" },
     { to: "/admin/invites", label: "Invites" },
     { to: "/admin/library", label: "Library" },
+    { to: "/admin/vault", label: "Vault", icon: BookOpen },
   ];
 
   const isActive = (path: string) => {
@@ -49,12 +50,13 @@ export function AdminHeader() {
                 key={link.to}
                 to={link.to}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-semibold transition-all min-h-[44px] flex items-center",
+                  "px-4 py-2 rounded-lg text-sm font-semibold transition-all min-h-[44px] flex items-center gap-1.5",
                   isActive(link.to)
                     ? "bg-gradient-to-r from-red-600 to-orange-500 text-white shadow-lg shadow-red-900/30"
                     : "text-slate-200 hover:text-white hover:bg-slate-800"
                 )}
               >
+                {link.icon && <link.icon className="w-4 h-4" />}
                 {link.label}
               </Link>
             ))}

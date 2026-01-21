@@ -1166,6 +1166,57 @@ export type Database = {
           },
         ]
       }
+      knowledge_documents: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          error_message: string | null
+          extracted_text: string | null
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          original_url: string | null
+          source_type: string
+          status: string | null
+          storage_path: string | null
+          title: string
+          updated_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          error_message?: string | null
+          extracted_text?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          original_url?: string | null
+          source_type: string
+          status?: string | null
+          storage_path?: string | null
+          title: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          error_message?: string | null
+          extracted_text?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          original_url?: string | null
+          source_type?: string
+          status?: string | null
+          storage_path?: string | null
+          title?: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       kwon_analyses: {
         Row: {
           analysis_date: string

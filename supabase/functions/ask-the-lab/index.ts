@@ -11,6 +11,67 @@ interface QueryContext {
   players?: any[] | null;
   kineticFingerprints?: any[] | null;
   validationResults?: any[] | null;
+  vaultResults?: any[] | null;
+}
+
+// Search the vault for relevant knowledge
+async function searchVault(query: string, supabase: any): Promise<any[]> {
+  try {
+    const { data: documents } = await supabase
+      .from("knowledge_documents")
+      .select("id, title, description, extracted_text")
+      .eq("status", "ready")
+      .not("extracted_text", "is", null);
+
+    if (!documents || documents.length === 0) {
+      console.log("[AskTheLab] No vault documents available");
+      return [];
+    }
+
+    console.log("[AskTheLab] Searching", documents.length, "vault documents");
+
+    // Simple keyword-based relevance scoring
+    const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    
+    const scoredDocs = documents.map((doc: any) => {
+      const text = (doc.extracted_text || "").toLowerCase();
+      const title = (doc.title || "").toLowerCase();
+      
+      let score = 0;
+      for (const word of queryWords) {
+        if (title.includes(word)) score += 5;
+        if (text.includes(word)) score += 1;
+      }
+      
+      // Find relevant excerpts
+      let excerpt = "";
+      if (score > 0 && doc.extracted_text) {
+        for (const word of queryWords) {
+          const idx = text.indexOf(word);
+          if (idx > -1) {
+            const start = Math.max(0, idx - 200);
+            const end = Math.min(text.length, idx + 500);
+            excerpt = doc.extracted_text.substring(start, end);
+            break;
+          }
+        }
+      }
+      
+      return { ...doc, score, excerpt };
+    });
+
+    // Return top matches
+    const relevant = scoredDocs
+      .filter((d: any) => d.score > 0)
+      .sort((a: any, b: any) => b.score - a.score)
+      .slice(0, 5);
+
+    console.log("[AskTheLab] Found", relevant.length, "relevant vault documents");
+    return relevant;
+  } catch (err) {
+    console.error("[AskTheLab] Vault search error:", err);
+    return [];
+  }
 }
 
 Deno.serve(async (req) => {
@@ -21,6 +82,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { query, action, playerId, dateRange } = await req.json();
@@ -136,7 +198,11 @@ ${validationResults
       context.validationResults = validationResults;
 
     } else {
-      // Natural language query - fetch relevant data first
+      // SEARCH VAULT FIRST - This is the key integration
+      const vaultResults = await searchVault(query, supabase);
+      context.vaultResults = vaultResults;
+
+      // Natural language query - fetch relevant data
       const { data: players } = await supabase
         .from("players")
         .select(`
@@ -187,24 +253,46 @@ ${validationResults
         `)
         .limit(300);
 
-      context = { players, rebootSessions, kineticFingerprints };
+      context = { ...context, players, rebootSessions, kineticFingerprints };
 
-      // Use AI to analyze the data
-      const aiUrl = Deno.env.get("AI_GATEWAY_URL") || "https://ai.lovable.dev/v1/chat/completions";
-      const aiKey = Deno.env.get("AI_GATEWAY_KEY");
+      // Build vault context for AI
+      let vaultContext = "";
+      if (vaultResults.length > 0) {
+        vaultContext = `
 
-      const systemPrompt = `You are "The Lab" - an elite AI research assistant for a baseball training analytics platform. You have access to comprehensive player data, Reboot IK motion capture sessions, and kinetic fingerprints.
+## PRIVATE COACHING KNOWLEDGE (from The Vault - PRIORITIZE THIS):
+${vaultResults.map((doc, i) => `
+### Document: "${doc.title}"
+${doc.excerpt || doc.extracted_text?.substring(0, 1500) || "No excerpt available"}
+`).join('\n')}
 
-Your role is to:
-1. Analyze player performance data and find patterns
-2. Compare 2D video scores with 3D Reboot IK data
-3. Identify trends across the athlete population
-4. Provide actionable insights for coaches
+IMPORTANT: The above vault content represents Coach Rick's private coaching philosophy. 
+When relevant to the query, prioritize this knowledge over generic information.
+`;
+      }
 
-Current data context:
+      // Use AI to analyze the data with 8th-grade language filter
+      if (!lovableApiKey) {
+        throw new Error("LOVABLE_API_KEY not configured");
+      }
+
+      const systemPrompt = `You are "The Lab" - an elite AI research assistant for Coach Rick's baseball training analytics platform. You have access to comprehensive player data, Reboot IK motion capture sessions, kinetic fingerprints, AND Coach Rick's private coaching knowledge vault.
+
+## 8TH-GRADE LANGUAGE RULE (CRITICAL):
+No matter how technical the source material is, you MUST explain everything as if talking to a smart 8th grader:
+- Use simple words, not jargon
+- Use analogies and comparisons to everyday things
+- Break complex ideas into bite-sized pieces
+- If you use a technical term, immediately explain it in parentheses
+- Think: "How would I explain this to a 13-year-old who plays baseball?"
+
+${vaultContext}
+
+## DATA CONTEXT:
 - ${players?.length || 0} players in the system
 - ${rebootSessions?.length || 0} recent Reboot IK sessions
 - ${kineticFingerprints?.length || 0} kinetic fingerprints
+- ${vaultResults.length} relevant vault documents found
 
 Player Levels: Youth, HS, College, Indy, A, A+, AA, AAA, MLB
 
@@ -212,20 +300,21 @@ When analyzing:
 - Use specific numbers and percentages
 - Reference the 4B scoring system (Brain, Body, Bat, Ball)
 - Identify patterns and outliers
-- Be concise but thorough
+- BE CONCISE but thorough
+- ALWAYS use 8th-grade language
 
 Data available:
 Players: ${JSON.stringify(players?.slice(0, 20) || [], null, 2).substring(0, 3000)}...
 Recent Sessions: ${JSON.stringify(rebootSessions?.slice(0, 10) || [], null, 2).substring(0, 2000)}...`;
 
-      const aiResponse = await fetch(aiUrl, {
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(aiKey ? { "Authorization": `Bearer ${aiKey}` } : {}),
+          "Authorization": `Bearer ${lovableApiKey}`,
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-3-flash-preview",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: query },
@@ -236,6 +325,12 @@ Recent Sessions: ${JSON.stringify(rebootSessions?.slice(0, 10) || [], null, 2).s
       });
 
       if (!aiResponse.ok) {
+        if (aiResponse.status === 429) {
+          throw new Error("Rate limit exceeded. Please try again in a moment.");
+        }
+        if (aiResponse.status === 402) {
+          throw new Error("AI credits exhausted. Please add more credits.");
+        }
         const errorText = await aiResponse.text();
         console.error("[AskTheLab] AI Error:", errorText);
         throw new Error(`AI request failed: ${aiResponse.status}`);
@@ -243,6 +338,11 @@ Recent Sessions: ${JSON.stringify(rebootSessions?.slice(0, 10) || [], null, 2).s
 
       const aiData = await aiResponse.json();
       responseText = aiData.choices?.[0]?.message?.content || "I couldn't analyze that query. Please try rephrasing.";
+      
+      // Add vault attribution if used
+      if (vaultResults.length > 0) {
+        responseText += `\n\n---\n📚 *Sources: ${vaultResults.map(v => v.title).join(", ")}*`;
+      }
     }
 
     return new Response(
@@ -253,6 +353,7 @@ Recent Sessions: ${JSON.stringify(rebootSessions?.slice(0, 10) || [], null, 2).s
           playerCount: context.players?.length || 0,
           sessionCount: context.rebootSessions?.length || 0,
           validationCount: context.validationResults?.length || 0,
+          vaultDocsUsed: context.vaultResults?.length || 0,
         },
       }),
       {
