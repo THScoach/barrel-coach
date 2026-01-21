@@ -1,8 +1,10 @@
-export { DrillsTab } from './DrillsTab';
-export { DrillFormModal } from './DrillFormModal';
-export { ProgramsTab } from './ProgramsTab';
-export { ProgramBuilderModal } from './ProgramBuilderModal';
-export { VideosTab } from './VideosTab';
+export { AcademyUploader } from './AcademyUploader';
 export { CollectionsTab } from './CollectionsTab';
-export { PlaylistBuilderModal } from './PlaylistBuilderModal';
 export { ConceptSearch } from './ConceptSearch';
+export { DrillFormModal } from './DrillFormModal';
+export { DrillsTab } from './DrillsTab';
+export { PlaylistBuilderModal } from './PlaylistBuilderModal';
+export { ProgramBuilderModal } from './ProgramBuilderModal';
+export { ProgramsTab } from './ProgramsTab';
+export { TranscriptSearch } from './TranscriptSearch';
+export { VideosTab } from './VideosTab';
