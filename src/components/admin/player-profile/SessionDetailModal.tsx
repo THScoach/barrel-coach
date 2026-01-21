@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Brain, Activity, Zap, Target, TrendingUp, Gauge } from "lucide-react";
+import { Brain, Activity, Zap, Target, TrendingUp, Gauge, AlertTriangle, MessageSquare } from "lucide-react";
 
 interface SessionDetailModalProps {
   open: boolean;
@@ -29,6 +29,13 @@ interface SessionDetailModalProps {
     consistency_grade: string | null;
     weakest_link: string | null;
     reboot_session_id: string | null;
+    // AI coaching notes
+    leak_detected?: string | null;
+    leak_evidence?: string | null;
+    motor_profile?: string | null;
+    motor_profile_evidence?: string | null;
+    priority_drill?: string | null;
+    analysis_confidence?: number | null;
   } | null;
 }
 
@@ -175,6 +182,77 @@ export function SessionDetailModal({ open, onOpenChange, session }: SessionDetai
               />
             </div>
           </div>
+
+          <Separator className="bg-slate-700" />
+
+          {/* AI Coaching Notes */}
+          {(session.leak_detected || session.priority_drill || session.motor_profile || session.leak_evidence) && (
+            <>
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  AI Coaching Notes
+                </h3>
+                <div className="bg-slate-800/50 rounded-lg p-4 space-y-4">
+                  {/* Leak & Motor Profile Badges */}
+                  <div className="flex flex-wrap gap-3">
+                    {session.leak_detected && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                        <AlertTriangle className="h-4 w-4 text-red-400" />
+                        <div>
+                          <span className="text-red-300 font-semibold text-sm">
+                            {session.leak_detected.replace(/_/g, ' ')}
+                          </span>
+                          <span className="text-red-400/60 text-xs ml-2">Leak Detected</span>
+                        </div>
+                      </div>
+                    )}
+                    {session.motor_profile && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                        <Target className="h-4 w-4 text-blue-400" />
+                        <div>
+                          <span className="text-blue-300 font-semibold text-sm">{session.motor_profile}</span>
+                          <span className="text-blue-400/60 text-xs ml-2">Motor Profile</span>
+                        </div>
+                      </div>
+                    )}
+                    {session.analysis_confidence && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-500/10 border border-slate-500/20">
+                        <span className="text-slate-300 text-sm">
+                          {Math.round(session.analysis_confidence * 100)}% Confidence
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Leak Evidence */}
+                  {session.leak_evidence && (
+                    <div className="space-y-1">
+                      <span className="text-xs text-slate-500 uppercase tracking-wide">Leak Evidence</span>
+                      <p className="text-slate-300 text-sm leading-relaxed">{session.leak_evidence}</p>
+                    </div>
+                  )}
+
+                  {/* Motor Profile Evidence */}
+                  {session.motor_profile_evidence && (
+                    <div className="space-y-1">
+                      <span className="text-xs text-slate-500 uppercase tracking-wide">Motor Profile Evidence</span>
+                      <p className="text-slate-300 text-sm leading-relaxed">{session.motor_profile_evidence}</p>
+                    </div>
+                  )}
+
+                  {/* Priority Drill */}
+                  {session.priority_drill && (
+                    <div className="space-y-1 pt-2 border-t border-slate-700/50">
+                      <span className="text-xs text-emerald-500 uppercase tracking-wide">Priority Drill</span>
+                      <p className="text-emerald-300 font-medium">{session.priority_drill}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <Separator className="bg-slate-700" />
+            </>
+          )}
 
           <Separator className="bg-slate-700" />
 
