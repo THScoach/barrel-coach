@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface DrillLink {
   drill_name: string;
   video_url?: string;
+  thumbnail_url?: string;
 }
 
 interface LockerMessage {
@@ -294,15 +295,18 @@ export function LockerRoomMessages({
                             </div>
                           )}
 
-                          {/* Drill Links */}
+                          {/* Drill Links with Thumbnails */}
                           {message.drill_links && message.drill_links.length > 0 && (
                             <div className="space-y-2">
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                Recommended Drills
+                              </p>
                               {message.drill_links.map((drill, idx) => (
                                 <Button
                                   key={idx}
                                   variant="outline"
                                   size="sm"
-                                  className="w-full justify-start gap-2"
+                                  className="w-full justify-start gap-3 h-auto py-2"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (drill.video_url) {
@@ -310,13 +314,25 @@ export function LockerRoomMessages({
                                     }
                                   }}
                                 >
-                                  <Play className="h-4 w-4" />
-                                  {drill.drill_name}
-                                  {drill.video_url && (
-                                    <span className="text-xs text-muted-foreground ml-auto">
-                                      Watch →
-                                    </span>
+                                  {drill.thumbnail_url ? (
+                                    <img 
+                                      src={drill.thumbnail_url} 
+                                      alt={drill.drill_name}
+                                      className="w-12 h-8 object-cover rounded"
+                                    />
+                                  ) : (
+                                    <div className="w-12 h-8 bg-muted rounded flex items-center justify-center">
+                                      <Play className="h-4 w-4" />
+                                    </div>
                                   )}
+                                  <div className="flex-1 text-left">
+                                    <p className="font-medium text-sm">{drill.drill_name}</p>
+                                    {drill.video_url && (
+                                      <p className="text-xs text-muted-foreground">
+                                        Watch in The Vault →
+                                      </p>
+                                    )}
+                                  </div>
                                 </Button>
                               ))}
                             </div>
