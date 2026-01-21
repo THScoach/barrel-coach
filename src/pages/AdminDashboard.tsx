@@ -17,6 +17,7 @@ import {
   Target,
   AlertTriangle,
   Dumbbell,
+  FlaskConical,
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
@@ -35,6 +36,7 @@ import {
   BatScoreGauge,
   BallScoreGauge,
 } from "@/components/dashboard/ScoutScaleGauge";
+import { AskTheLabChat } from "@/components/admin/AskTheLabChat";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -473,6 +475,11 @@ export default function AdminDashboard() {
           </Card>
 
           <SyncStatusWidget />
+        </div>
+
+        {/* Ask The Lab - AI Research Agent */}
+        <div className="mb-6 md:mb-8">
+          <AskTheLabChat />
         </div>
 
         {/* Bottom Row - Recent Activity */}
