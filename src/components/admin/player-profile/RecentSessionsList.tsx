@@ -4,18 +4,29 @@
  * Compact list of the 5 most recent sessions with quick-open actions.
  */
 
-import { Card, CardContent } from "@/components/ui/card";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Activity, 
   BarChart3, 
   Target, 
   ChevronRight,
   Clock,
-  Database
+  Database,
+  Filter
 } from "lucide-react";
 import { format } from "date-fns";
+
+type SessionFilterType = 'all' | 'video' | 'reboot';
 
 interface SessionItem {
   id: string;
@@ -37,6 +48,7 @@ interface RecentSessionsListProps {
   onViewSession: (session: SessionItem) => void;
   onViewAll?: () => void;
   maxItems?: number;
+  showFilter?: boolean;
 }
 
 const typeIcons = {
@@ -56,9 +68,20 @@ export function RecentSessionsList({
   loading, 
   onViewSession, 
   onViewAll,
-  maxItems = 5 
+  maxItems = 5,
+  showFilter = true
 }: RecentSessionsListProps) {
-  const recentSessions = sessions.slice(0, maxItems);
+  const [filter, setFilter] = useState<SessionFilterType>('all');
+
+  // Filter sessions based on selected type
+  const filteredSessions = sessions.filter((session) => {
+    if (filter === 'all') return true;
+    if (filter === 'video') return session.type === 'analyzer';
+    if (filter === 'reboot') return session.type === 'reboot';
+    return true;
+  });
+
+  const recentSessions = filteredSessions.slice(0, maxItems);
 
   if (loading) {
     return (
@@ -73,7 +96,7 @@ export function RecentSessionsList({
     );
   }
 
-  if (recentSessions.length === 0) {
+  if (sessions.length === 0) {
     return (
       <Card className="bg-slate-900/80 border-slate-700">
         <CardContent className="py-8 text-center">
@@ -87,81 +110,120 @@ export function RecentSessionsList({
 
   return (
     <Card className="bg-slate-900/80 border-slate-700 overflow-hidden">
+      {/* Filter Header */}
+      {showFilter && (
+        <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-800">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium text-slate-300 flex items-center gap-2">
+              <Filter className="h-3.5 w-3.5" />
+              Filter Sessions
+            </CardTitle>
+            <Select value={filter} onValueChange={(v) => setFilter(v as SessionFilterType)}>
+              <SelectTrigger className="w-[140px] h-8 text-xs bg-slate-800 border-slate-700">
+                <SelectValue placeholder="All Sessions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sessions</SelectItem>
+                <SelectItem value="video">
+                  <span className="flex items-center gap-2">
+                    <BarChart3 className="h-3 w-3 text-primary" />
+                    Video (2D)
+                  </span>
+                </SelectItem>
+                <SelectItem value="reboot">
+                  <span className="flex items-center gap-2">
+                    <Activity className="h-3 w-3 text-blue-400" />
+                    Reboot (3D)
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+      )}
+
       <CardContent className="p-0">
-        <div className="divide-y divide-slate-800">
-          {recentSessions.map((session) => {
-            const Icon = typeIcons[session.type] || Database;
-            const colorClass = typeColors[session.type] || "text-slate-400";
+        {recentSessions.length === 0 ? (
+          <div className="py-8 text-center">
+            <Database className="h-8 w-8 mx-auto text-slate-600 mb-2" />
+            <p className="text-sm text-slate-400">No {filter === 'video' ? 'video' : filter === 'reboot' ? 'Reboot' : ''} sessions found</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-800">
+            {recentSessions.map((session) => {
+              const Icon = typeIcons[session.type] || Database;
+              const colorClass = typeColors[session.type] || "text-slate-400";
 
-            return (
-              <button
-                key={session.id}
-                className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors text-left group"
-                onClick={() => onViewSession(session)}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-slate-800">
-                    <Icon className={`h-4 w-4 ${colorClass}`} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-white group-hover:text-primary transition-colors">
-                      {session.typeName}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <Clock className="h-3 w-3" />
-                      {format(session.date, 'MMM d, yyyy')}
-                      {session.swingCount && (
-                        <>
-                          <span>•</span>
-                          <span>{session.swingCount} swings</span>
-                        </>
-                      )}
+              return (
+                <button
+                  key={session.id}
+                  className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors text-left group"
+                  onClick={() => onViewSession(session)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-slate-800">
+                      <Icon className={`h-4 w-4 ${colorClass}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white group-hover:text-primary transition-colors">
+                        {session.typeName}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <Clock className="h-3 w-3" />
+                        {format(session.date, 'MMM d, yyyy')}
+                        {session.swingCount && (
+                          <>
+                            <span>•</span>
+                            <span>{session.swingCount} swings</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-3">
-                  {/* Score Badges */}
-                  {session.scores && (
-                    <div className="hidden sm:flex gap-1">
-                      {session.scores.brain !== undefined && (
-                        <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-400">
-                          {session.scores.brain}
-                        </Badge>
-                      )}
-                      {session.scores.body !== undefined && (
-                        <Badge variant="outline" className="text-[10px] border-blue-500/30 text-blue-400">
-                          {session.scores.body}
-                        </Badge>
-                      )}
-                      {session.scores.bat !== undefined && (
-                        <Badge variant="outline" className="text-[10px] border-orange-500/30 text-orange-400">
-                          {session.scores.bat}
-                        </Badge>
-                      )}
-                      {session.scores.ball !== undefined && (
-                        <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400">
-                          {session.scores.ball}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                  <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-white transition-colors" />
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                  <div className="flex items-center gap-3">
+                    {/* Score Badges */}
+                    {session.scores && (
+                      <div className="hidden sm:flex gap-1">
+                        {session.scores.brain !== undefined && (
+                          <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-400">
+                            {session.scores.brain}
+                          </Badge>
+                        )}
+                        {session.scores.body !== undefined && (
+                          <Badge variant="outline" className="text-[10px] border-blue-500/30 text-blue-400">
+                            {session.scores.body}
+                          </Badge>
+                        )}
+                        {session.scores.bat !== undefined && (
+                          <Badge variant="outline" className="text-[10px] border-orange-500/30 text-orange-400">
+                            {session.scores.bat}
+                          </Badge>
+                        )}
+                        {session.scores.ball !== undefined && (
+                          <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400">
+                            {session.scores.ball}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                    <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-white transition-colors" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* View All Button */}
-        {onViewAll && sessions.length > maxItems && (
+        {onViewAll && filteredSessions.length > maxItems && (
           <div className="border-t border-slate-800 p-3">
             <Button 
               variant="ghost" 
               className="w-full text-slate-400 hover:text-white"
               onClick={onViewAll}
             >
-              View All {sessions.length} Sessions
+              View All {filteredSessions.length} Sessions
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
