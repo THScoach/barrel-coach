@@ -192,16 +192,23 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
 
     setSending(true);
     try {
-      // Get player phone
-      const { data: player } = await supabase
+      // Get player contact info
+      const { data: player, error: playerFetchError } = await supabase
         .from("players")
         .select("phone, email")
         .eq("id", playerId)
         .single();
 
+      if (playerFetchError) {
+        console.error("Failed to fetch player:", playerFetchError);
+        toast.error("Failed to fetch player info");
+        return;
+      }
+
       if (newMessage.channel === 'sms') {
         if (!player?.phone) {
-          toast.error("Player has no phone number");
+          toast.error("Player has no phone number on file");
+          setSending(false);
           return;
         }
 
@@ -214,17 +221,62 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
           },
         });
 
-        if (error) throw error;
-        toast.success("SMS sent!");
-      } else {
-        toast.info("Email sending coming soon");
+        if (error) {
+          console.error("SMS function error:", error);
+          throw error;
+        }
+        
+        if (data && !data.success) {
+          if (data.reason === "no_phone") {
+            toast.error("Player has no phone number on file");
+          } else if (data.reason === "opted_out") {
+            toast.error("Player has opted out of SMS");
+          } else {
+            toast.error(data.error || "Failed to send SMS");
+          }
+          setSending(false);
+          return;
+        }
+        
+        toast.success("SMS sent successfully!");
+      } else if (newMessage.channel === 'email') {
+        if (!player?.email) {
+          toast.error("Player has no email address on file");
+          setSending(false);
+          return;
+        }
+
+        const { data, error } = await supabase.functions.invoke("send-player-email", {
+          body: {
+            player_id: playerId,
+            message: newMessage.content,
+            subject: `Message from Coach Rick`,
+          },
+        });
+
+        if (error) {
+          console.error("Email function error:", error);
+          throw error;
+        }
+        
+        if (data && !data.success) {
+          if (data.reason === "no_email") {
+            toast.error("Player has no email on file");
+          } else {
+            toast.error(data.error || "Failed to send email");
+          }
+          setSending(false);
+          return;
+        }
+        
+        toast.success("Email sent successfully!");
       }
 
       setComposeOpen(false);
       setNewMessage({ channel: 'sms', content: '' });
     } catch (error) {
       console.error("Send error:", error);
-      toast.error("Failed to send message");
+      toast.error("Failed to send message. Check the console for details.");
     } finally {
       setSending(false);
     }
