@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   Dumbbell,
   FlaskConical,
+  FileCheck,
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
@@ -319,6 +320,15 @@ export default function AdminDashboard() {
               <MessageSquare className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Send Message</span>
               <span className="sm:hidden">Message</span>
+            </Button>
+            <Button
+              onClick={() => navigate("/admin/report-queue")}
+              variant="outline"
+              className="border-[#DC2626]/50 text-white hover:bg-[#DC2626]/20"
+            >
+              <FileCheck className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Report Queue</span>
+              <span className="sm:hidden">Queue</span>
             </Button>
           </div>
         </div>
