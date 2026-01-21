@@ -59,7 +59,7 @@ serve(async (req) => {
       );
     }
 
-    const { playerId, betaDays = 60, customMessage } = await req.json();
+    const { playerId, betaDays = 30, customMessage } = await req.json();
 
     if (!playerId) {
       return new Response(

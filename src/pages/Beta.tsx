@@ -112,7 +112,7 @@ export default function Beta() {
                 <span className="font-semibold text-white">Beta Tester Perks</span>
               </div>
               <ul className="space-y-2 text-sm text-slate-300">
-                <li>• 60 days of full access to all features</li>
+                <li>• 30 days of full access to all features</li>
                 <li>• Direct line to Coach Rick for feedback</li>
                 <li>• Special pricing when we launch</li>
                 <li>• Shape the future of the product</li>

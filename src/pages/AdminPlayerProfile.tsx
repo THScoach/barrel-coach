@@ -128,7 +128,7 @@ export default function AdminPlayerProfile() {
       }
 
       const response = await supabase.functions.invoke("send-beta-invite", {
-        body: { playerId: player.players_id, betaDays: 60 },
+        body: { playerId: player.players_id, betaDays: 30 },
       });
 
       if (response.error) {
@@ -672,7 +672,7 @@ export default function AdminPlayerProfile() {
                   className="text-yellow-400 focus:bg-slate-800 focus:text-yellow-400"
                 >
                   <Zap className="h-4 w-4 mr-2" />
-                  {isSendingBetaInvite ? "Sending..." : "Invite to Beta (60 days)"}
+                  {isSendingBetaInvite ? "Sending..." : "Invite to Beta (30 days)"}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-slate-300 focus:bg-slate-800 focus:text-white">
                   Archive
