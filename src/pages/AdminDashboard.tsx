@@ -12,6 +12,9 @@ import {
   MessageSquare,
   BarChart3,
   Activity,
+  Brain,
+  Zap,
+  Target,
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
@@ -22,9 +25,14 @@ import {
   RecentSessionsFeed,
   MotorProfileChart,
   LeakFrequencyChart,
-  ScoreGauge,
   SyncStatusWidget,
 } from "@/components/dashboard";
+import {
+  BrainScoreGauge,
+  BodyScoreGauge,
+  BatScoreGauge,
+  BallScoreGauge,
+} from "@/components/dashboard/ScoutScaleGauge";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -94,6 +102,35 @@ export default function AdminDashboard() {
     },
   });
 
+  // 4B Scores from latest reboot_uploads
+  const { data: fourBScores, isLoading: loadingFourB } = useQuery({
+    queryKey: ["4b-averages"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("reboot_uploads")
+        .select("brain_score, body_score, bat_score, composite_score")
+        .not("composite_score", "is", null)
+        .order("session_date", { ascending: false })
+        .limit(50);
+
+      if (!data || data.length === 0) {
+        return { brain: null, body: null, bat: null, ball: null };
+      }
+
+      const avg = (arr: (number | null)[]) => {
+        const valid = arr.filter((v): v is number => v !== null);
+        return valid.length > 0 ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : null;
+      };
+
+      return {
+        brain: avg(data.map((d) => d.brain_score)),
+        body: avg(data.map((d) => d.body_score)),
+        bat: avg(data.map((d) => d.bat_score)),
+        ball: avg(data.map((d) => d.composite_score)), // Use composite as proxy for ball
+      };
+    },
+  });
+
   // Players improved (comparing to 30 days ago - simplified)
   const { data: improvedData, isLoading: loadingImproved } = useQuery({
     queryKey: ["players-improved"],
@@ -132,7 +169,7 @@ export default function AdminDashboard() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen" style={{ backgroundColor: "#0A0A0B" }}>
       <AdminHeader />
 
       <main className={`container py-6 md:py-8 ${isMobile ? "pb-24" : ""}`}>
@@ -146,26 +183,61 @@ export default function AdminDashboard() {
           </p>
         </div>
 
+        {/* 4B Scout Scale Gauges */}
+        <Card 
+          className="mb-6 md:mb-8 border-2"
+          style={{ 
+            backgroundColor: "#111113",
+            borderColor: "rgba(220, 38, 38, 0.3)",
+            boxShadow: "0 0 30px rgba(220, 38, 38, 0.15)",
+          }}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
+              <Activity className="h-5 w-5" style={{ color: "#DC2626" }} />
+              4B Bio-Engine Averages
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingFourB ? (
+              <div className="flex justify-center py-8">
+                <div className="h-8 w-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#DC2626", borderTopColor: "transparent" }} />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-4">
+                <BrainScoreGauge score={fourBScores?.brain ?? null} size="md" />
+                <BodyScoreGauge score={fourBScores?.body ?? null} size="md" />
+                <BatScoreGauge score={fourBScores?.bat ?? null} size="md" />
+                <BallScoreGauge score={fourBScores?.ball ?? null} size="md" />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Top Row - Key Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
           <MetricCard
             title="Total Players"
             value={playerCount}
             icon={Users}
-            iconColor="text-blue-500"
-            iconBgColor="bg-blue-500/15"
+            iconColor="text-[#DC2626]"
+            iconBgColor="bg-[#DC2626]/15"
             loading={loadingPlayers}
+            className="border-[#DC2626]/20"
+            style={{ backgroundColor: "#111113" }}
           />
           <MetricCard
             title="Sessions This Week"
             value={weeklySessionData?.count || 0}
             trend={weeklySessionData?.trend}
             icon={Video}
-            iconColor="text-amber-500"
-            iconBgColor="bg-amber-500/15"
+            iconColor="text-[#DC2626]"
+            iconBgColor="bg-[#DC2626]/15"
             loading={loadingSessions}
+            className="border-[#DC2626]/20"
+            style={{ backgroundColor: "#111113" }}
           />
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="border-[#DC2626]/20" style={{ backgroundColor: "#111113" }}>
             <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between">
                 <div>
@@ -173,15 +245,11 @@ export default function AdminDashboard() {
                   {loadingAvgScore ? (
                     <div className="h-9 w-20 bg-slate-700 animate-pulse rounded" />
                   ) : (
-                    <ScoreGauge
-                      score={avgScoreData?.avg || 50}
-                      size="sm"
-                      showGrade={false}
-                    />
+                    <p className="text-3xl font-bold text-white">{avgScoreData?.avg || "—"}</p>
                   )}
                 </div>
-                <div className="p-3 rounded-xl bg-teal-500/15">
-                  <Activity className="h-6 w-6 text-teal-500" />
+                <div className="p-3 rounded-xl bg-[#DC2626]/15">
+                  <Activity className="h-6 w-6 text-[#DC2626]" />
                 </div>
               </div>
             </CardContent>
@@ -194,9 +262,11 @@ export default function AdminDashboard() {
                 : "—"
             }
             icon={TrendingUp}
-            iconColor="text-green-500"
-            iconBgColor="bg-green-500/15"
+            iconColor="text-[#DC2626]"
+            iconBgColor="bg-[#DC2626]/15"
             loading={loadingImproved}
+            className="border-[#DC2626]/20"
+            style={{ backgroundColor: "#111113" }}
           />
         </div>
 
@@ -208,21 +278,23 @@ export default function AdminDashboard() {
           <div className="flex flex-wrap gap-2 md:gap-3">
             <Button
               onClick={() => navigate("/admin/analyzer")}
-              className="btn-primary"
+              className="bg-[#DC2626] hover:bg-[#DC2626]/90 text-white"
             >
               <Upload className="h-4 w-4 mr-2" />
               Analyze Session
             </Button>
             <Button
               onClick={() => navigate("/admin/players/new")}
-              className="btn-secondary"
+              variant="outline"
+              className="border-[#DC2626]/50 text-white hover:bg-[#DC2626]/20"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Player
             </Button>
             <Button
               onClick={() => navigate("/admin/messages")}
-              className="btn-secondary"
+              variant="outline"
+              className="border-[#DC2626]/50 text-white hover:bg-[#DC2626]/20"
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Send Message</span>
@@ -233,10 +305,10 @@ export default function AdminDashboard() {
 
         {/* Middle Row - Charts + Sync Status */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="border-[#DC2626]/20" style={{ backgroundColor: "#111113" }}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-slate-400" />
+                <BarChart3 className="h-4 w-4 text-[#DC2626]" />
                 Motor Profile Distribution
               </CardTitle>
             </CardHeader>
@@ -245,10 +317,10 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="border-[#DC2626]/20" style={{ backgroundColor: "#111113" }}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
-                <Activity className="h-4 w-4 text-slate-400" />
+                <Activity className="h-4 w-4 text-[#DC2626]" />
                 Most Common Leaks
               </CardTitle>
             </CardHeader>
@@ -261,7 +333,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Bottom Row - Recent Activity */}
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card className="border-[#DC2626]/20" style={{ backgroundColor: "#111113" }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base font-semibold text-white">
               Recent Sessions
@@ -270,7 +342,7 @@ export default function AdminDashboard() {
               variant="ghost"
               size="sm"
               onClick={() => navigate("/admin/players")}
-              className="text-slate-400 hover:text-white"
+              className="text-slate-400 hover:text-white hover:bg-[#DC2626]/20"
             >
               View All
             </Button>
