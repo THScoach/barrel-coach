@@ -101,3 +101,6 @@ verify_jwt = false
 
 [functions.send-player-email]
 verify_jwt = false
+
+[functions.end-session]
+verify_jwt = false

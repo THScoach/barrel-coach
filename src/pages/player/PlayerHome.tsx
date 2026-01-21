@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { 
   Target, 
   ChevronRight,
@@ -17,12 +18,15 @@ import {
   User,
   History,
   TrendingUp,
-  Activity
+  Activity,
+  Plus,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoSwingUploadModal } from "@/components/video-analyzer";
 import { calculateComposite4B, getWeakestLink } from "@/lib/fourb-composite";
 import { MembershipUpgradeBanner } from "@/components/player/MembershipUpgradeBanner";
+import { ActiveSessionPanel } from "@/components/player/ActiveSessionPanel";
 import { format } from "date-fns";
 
 interface LatestScores {
@@ -70,12 +74,16 @@ interface SessionHistory {
 }
 
 export default function PlayerHome() {
+  const navigate = useNavigate();
   const [player, setPlayer] = useState<any>(null);
   const [latestScores, setLatestScores] = useState<LatestScores | null>(null);
   const [loading, setLoading] = useState(true);
   const [isInSeason, setIsInSeason] = useState(false);
   const [weeklyCheckinDue, setWeeklyCheckinDue] = useState(false);
   const [videoUploadOpen, setVideoUploadOpen] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [hasActiveSession, setHasActiveSession] = useState(false);
+  const [isStartingSession, setIsStartingSession] = useState(false);
   const [nextActions, setNextActions] = useState<NextAction[]>([]);
   const [weakestLink, setWeakestLink] = useState<string | null>(null);
   const [membershipPlan, setMembershipPlan] = useState<"assessment" | "monthly" | "annual" | "none">("none");
@@ -83,6 +91,20 @@ export default function PlayerHome() {
   const [sessionHistory, setSessionHistory] = useState<SessionHistory[]>([]);
   const [previousSession, setPreviousSession] = useState<PreviousSession | null>(null);
   const [recentProgress, setRecentProgress] = useState<RecentProgress | null>(null);
+
+  // Check for active session
+  const checkActiveSession = useCallback(async (playerId: string) => {
+    const { data } = await supabase
+      .from('video_swing_sessions')
+      .select('id')
+      .eq('player_id', playerId)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+    
+    setHasActiveSession(!!data);
+    setActiveSessionId(data?.id || null);
+  }, []);
 
   useEffect(() => {
     loadPlayerData();
@@ -108,6 +130,7 @@ export default function PlayerHome() {
         loadLatestScores(playerData.id),
         loadSessionHistory(playerData.id),
         loadProgressData(playerData.id),
+        checkActiveSession(playerData.id),
       ]);
       
       if (playerData.is_in_season) {
@@ -118,6 +141,49 @@ export default function PlayerHome() {
       buildNextActions(playerData);
     }
     setLoading(false);
+  };
+
+  // Start a new session
+  const handleStartSession = async () => {
+    if (!player) return;
+    
+    setIsStartingSession(true);
+    try {
+      // Create a new video_swing_session with is_active = true
+      const { data, error } = await supabase
+        .from('video_swing_sessions')
+        .insert({
+          player_id: player.id,
+          session_date: new Date().toISOString().split('T')[0],
+          source: 'player_upload',
+          context: 'practice',
+          status: 'pending',
+          video_count: 0,
+          is_active: true,
+        })
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      setActiveSessionId(data.id);
+      setHasActiveSession(true);
+      setVideoUploadOpen(true);
+      toast.success('Session started! Upload 5-15 swings.');
+    } catch (error) {
+      console.error('Failed to start session:', error);
+      toast.error('Failed to start session');
+    } finally {
+      setIsStartingSession(false);
+    }
+  };
+
+  // Handle session end callback
+  const handleSessionEnd = (sessionId: string, results: any) => {
+    setHasActiveSession(false);
+    setActiveSessionId(null);
+    // Refresh all data
+    loadPlayerData();
   };
 
   const loadSessionHistory = async (playerId: string) => {
@@ -643,28 +709,51 @@ export default function PlayerHome() {
         </Card>
       )}
 
-      {/* Upload Section - Primary Entry Point */}
-      <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Upload className="h-5 w-5 text-primary" />
-            Upload Swings
-          </CardTitle>
-          <CardDescription>
-            Upload videos or import from OnForm – this is how Coach Rick keeps eyes on your progress.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button 
-            onClick={() => setVideoUploadOpen(true)} 
-            size="lg"
-            className="w-full sm:w-auto"
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Add New Swings
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Session Management - Session-Based Architecture */}
+      {player && (
+        hasActiveSession ? (
+          <ActiveSessionPanel
+            playerId={player.id}
+            onSessionEnd={handleSessionEnd}
+            onUploadClick={(sessionId) => {
+              setActiveSessionId(sessionId);
+              setVideoUploadOpen(true);
+            }}
+          />
+        ) : (
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Video className="h-5 w-5 text-primary" />
+                Swing Analysis
+              </CardTitle>
+              <CardDescription>
+                Start a session, upload 5-15 swings, then end it to get your 4B scores.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={handleStartSession}
+                disabled={isStartingSession}
+                size="lg"
+                className="w-full sm:w-auto"
+              >
+                {isStartingSession ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Start New Session
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )
+      )}
 
       {/* Session History */}
       <Card>
@@ -774,6 +863,7 @@ export default function PlayerHome() {
           playerId={player.id}
           playerName={player.name || 'Player'}
           source="player_upload"
+          activeSessionId={activeSessionId || undefined}
           onSuccess={() => {
             // Refresh data after upload
             loadPlayerData();
