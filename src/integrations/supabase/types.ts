@@ -1173,6 +1173,7 @@ export type Database = {
           description: string | null
           error_message: string | null
           extracted_text: string | null
+          file_hash: string | null
           file_size: number | null
           id: string
           mime_type: string | null
@@ -1191,6 +1192,7 @@ export type Database = {
           description?: string | null
           error_message?: string | null
           extracted_text?: string | null
+          file_hash?: string | null
           file_size?: number | null
           id?: string
           mime_type?: string | null
@@ -1209,6 +1211,7 @@ export type Database = {
           description?: string | null
           error_message?: string | null
           extracted_text?: string | null
+          file_hash?: string | null
           file_size?: number | null
           id?: string
           mime_type?: string | null
@@ -4822,7 +4825,33 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: undefined
       }
+      check_duplicate_document: {
+        Args: { p_file_hash: string }
+        Returns: {
+          created_at: string
+          id: string
+          title: string
+        }[]
+      }
+      check_duplicate_url: {
+        Args: { p_url: string }
+        Returns: {
+          created_at: string
+          id: string
+          title: string
+        }[]
+      }
       ensure_player_linked: { Args: { p_profile_id: string }; Returns: string }
+      find_duplicate_documents: {
+        Args: never
+        Returns: {
+          document_ids: string[]
+          document_titles: string[]
+          duplicate_count: number
+          file_hash: string
+          total_size: number
+        }[]
+      }
       find_player_by_phone: { Args: { phone_input: string }; Returns: string }
       find_similar_videos: {
         Args: { max_results?: number; video_id_param: string }
