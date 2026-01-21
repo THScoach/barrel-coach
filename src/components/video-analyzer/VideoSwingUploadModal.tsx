@@ -10,7 +10,7 @@
  * 
  * @see src/lib/video-types.ts for architecture documentation
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +55,8 @@ interface VideoSwingUploadModalProps {
   playerName: string;
   source: 'player_upload' | 'admin_upload' | 'coach_upload';
   onSuccess: (sessionId: string) => void;
+  /** If provided, uploads go to this active session instead of creating a new one */
+  activeSessionId?: string;
 }
 
 interface VideoFile {
@@ -78,6 +80,7 @@ export function VideoSwingUploadModal({
   playerName,
   source,
   onSuccess,
+  activeSessionId,
 }: VideoSwingUploadModalProps) {
   const [videos, setVideos] = useState<VideoFile[]>([]);
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
@@ -86,6 +89,23 @@ export function VideoSwingUploadModal({
   const [activeTab, setActiveTab] = useState<'upload' | 'onform'>('upload');
   const [onformUrls, setOnformUrls] = useState('');
   const [importingOnform, setImportingOnform] = useState(false);
+  const [existingVideoCount, setExistingVideoCount] = useState(0);
+
+  // Load existing video count if we have an active session
+  useEffect(() => {
+    if (activeSessionId && open) {
+      supabase
+        .from('video_swing_sessions')
+        .select('video_count')
+        .eq('id', activeSessionId)
+        .single()
+        .then(({ data }) => {
+          setExistingVideoCount(data?.video_count || 0);
+        });
+    } else {
+      setExistingVideoCount(0);
+    }
+  }, [activeSessionId, open]);
 
   const resetState = () => {
     videos.forEach(v => URL.revokeObjectURL(v.previewUrl));
@@ -239,28 +259,42 @@ export function VideoSwingUploadModal({
       return;
     }
 
+    // Check if adding these videos would exceed the limit
+    const totalAfterUpload = existingVideoCount + videos.length;
+    if (totalAfterUpload > MAX_SWINGS) {
+      toast.error(`Can only upload ${MAX_SWINGS - existingVideoCount} more videos (session limit: ${MAX_SWINGS})`);
+      return;
+    }
+
     setIsCreating(true);
 
     try {
-      // 1. Create video_swing_sessions record
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('video_swing_sessions')
-        .insert({
-          player_id: playerId,
-          session_date: sessionDate,
-          source,
-          context,
-          status: 'pending',
-          video_count: videos.length,
-        })
-        .select('id')
-        .single();
+      let sessionId: string;
 
-      if (sessionError || !sessionData) {
-        throw new Error(sessionError?.message || 'Failed to create session');
+      // Use active session if provided, otherwise create new
+      if (activeSessionId) {
+        sessionId = activeSessionId;
+      } else {
+        // Create new video_swing_sessions record
+        const { data: sessionData, error: sessionError } = await supabase
+          .from('video_swing_sessions')
+          .insert({
+            player_id: playerId,
+            session_date: sessionDate,
+            source,
+            context,
+            status: 'pending',
+            video_count: videos.length,
+            is_active: true,
+          })
+          .select('id')
+          .single();
+
+        if (sessionError || !sessionData) {
+          throw new Error(sessionError?.message || 'Failed to create session');
+        }
+        sessionId = sessionData.id;
       }
-
-      const sessionId = sessionData.id;
 
       // 2. Upload each video and create video_swings records
       let uploadedCount = 0;
@@ -310,10 +344,11 @@ export function VideoSwingUploadModal({
         ));
       }
 
-      // 3. Update session with final count
+      // 3. Update session with final count (increment if active session)
+      const newVideoCount = activeSessionId ? existingVideoCount + uploadedCount : uploadedCount;
       await supabase
         .from('video_swing_sessions')
-        .update({ video_count: uploadedCount })
+        .update({ video_count: newVideoCount })
         .eq('id', sessionId);
 
       toast.success(`Uploaded ${uploadedCount} videos`);

@@ -3970,12 +3970,21 @@ export type Database = {
       video_swing_sessions: {
         Row: {
           analyzed_count: number | null
+          ball_score: number | null
+          bat_score: number | null
+          body_score: number | null
+          brain_score: number | null
+          composite_score: number | null
           context: string | null
           created_at: string
+          ended_at: string | null
           id: string
+          is_active: boolean | null
+          leak_frequency: number | null
           momentum_overlays: Json | null
           notes: string | null
           player_id: string
+          primary_leak: string | null
           session_date: string
           source: string | null
           status: string | null
@@ -3983,15 +3992,25 @@ export type Database = {
           updated_at: string
           video_count: number | null
           video_url: string | null
+          weakest_link: string | null
         }
         Insert: {
           analyzed_count?: number | null
+          ball_score?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          composite_score?: number | null
           context?: string | null
           created_at?: string
+          ended_at?: string | null
           id?: string
+          is_active?: boolean | null
+          leak_frequency?: number | null
           momentum_overlays?: Json | null
           notes?: string | null
           player_id: string
+          primary_leak?: string | null
           session_date?: string
           source?: string | null
           status?: string | null
@@ -3999,15 +4018,25 @@ export type Database = {
           updated_at?: string
           video_count?: number | null
           video_url?: string | null
+          weakest_link?: string | null
         }
         Update: {
           analyzed_count?: number | null
+          ball_score?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          composite_score?: number | null
           context?: string | null
           created_at?: string
+          ended_at?: string | null
           id?: string
+          is_active?: boolean | null
+          leak_frequency?: number | null
           momentum_overlays?: Json | null
           notes?: string | null
           player_id?: string
+          primary_leak?: string | null
           session_date?: string
           source?: string | null
           status?: string | null
@@ -4015,6 +4044,7 @@ export type Database = {
           updated_at?: string
           video_count?: number | null
           video_url?: string | null
+          weakest_link?: string | null
         }
         Relationships: [
           {
