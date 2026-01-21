@@ -15,6 +15,8 @@ import {
   Brain,
   Zap,
   Target,
+  AlertTriangle,
+  Dumbbell,
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
@@ -168,6 +170,22 @@ export default function AdminDashboard() {
     },
   });
 
+  // Latest leak and training data
+  const { data: leakData, isLoading: loadingLeak } = useQuery({
+    queryKey: ["latest-leak-data"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("reboot_uploads")
+        .select("leak_detected, leak_evidence, weakest_link, priority_drill, player_id")
+        .not("leak_detected", "is", null)
+        .order("session_date", { ascending: false })
+        .limit(1)
+        .single();
+
+      return data || null;
+    },
+  });
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#0A0A0B" }}>
       <AdminHeader />
@@ -301,6 +319,131 @@ export default function AdminDashboard() {
               <span className="sm:hidden">Message</span>
             </Button>
           </div>
+        </div>
+
+        {/* Kinetic Leak Warning & Training Prescription */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
+          {/* Kinetic Leak Warning */}
+          <Card 
+            className="border-2"
+            style={{ 
+              backgroundColor: "#111113",
+              borderColor: "rgba(220, 38, 38, 0.4)",
+              boxShadow: "0 0 20px rgba(220, 38, 38, 0.1)",
+            }}
+          >
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-bold text-white flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-[#DC2626]/20">
+                  <AlertTriangle className="h-5 w-5 text-[#DC2626]" />
+                </div>
+                Kinetic Leak Warning
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingLeak ? (
+                <div className="h-24 bg-slate-800 animate-pulse rounded-lg" />
+              ) : leakData?.leak_detected ? (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-[#DC2626]/10 border border-[#DC2626]/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#DC2626]">
+                        Detected Leak
+                      </span>
+                    </div>
+                    <p className="text-lg font-semibold text-white">
+                      {leakData.leak_detected}
+                    </p>
+                  </div>
+                  
+                  {leakData.leak_evidence && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Evidence
+                      </p>
+                      <p className="text-sm text-slate-300 leading-relaxed">
+                        {leakData.leak_evidence}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {leakData.weakest_link && (
+                    <div className="flex items-center gap-2 pt-2 border-t border-slate-700">
+                      <span className="text-xs text-slate-500">Weakest Link:</span>
+                      <span className="text-sm font-bold text-[#DC2626] uppercase">
+                        {leakData.weakest_link}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-slate-500">
+                  <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No recent leak data available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Training Prescription */}
+          <Card 
+            className="border-2"
+            style={{ 
+              backgroundColor: "#111113",
+              borderColor: "rgba(220, 38, 38, 0.4)",
+              boxShadow: "0 0 20px rgba(220, 38, 38, 0.1)",
+            }}
+          >
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-bold text-white flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-[#DC2626]/20">
+                  <Dumbbell className="h-5 w-5 text-[#DC2626]" />
+                </div>
+                Training Prescription
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingLeak ? (
+                <div className="h-24 bg-slate-800 animate-pulse rounded-lg" />
+              ) : leakData?.priority_drill ? (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-gradient-to-br from-[#DC2626]/15 to-[#DC2626]/5 border border-[#DC2626]/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#DC2626]">
+                        Priority Drill
+                      </span>
+                    </div>
+                    <p className="text-lg font-semibold text-white">
+                      {leakData.priority_drill}
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Why It Works
+                    </p>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      This drill targets the {leakData.weakest_link || "identified"} weakness by 
+                      reinforcing proper kinetic sequencing and energy transfer patterns.
+                    </p>
+                  </div>
+                  
+                  <Button 
+                    className="w-full bg-[#DC2626] hover:bg-[#DC2626]/90 text-white mt-2"
+                    onClick={() => navigate("/admin/library")}
+                  >
+                    <Dumbbell className="h-4 w-4 mr-2" />
+                    View Full Drill Library
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-slate-500">
+                  <Dumbbell className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No prescription available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Middle Row - Charts + Sync Status */}
