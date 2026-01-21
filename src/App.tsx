@@ -53,6 +53,7 @@ import AdminInvites from "./pages/AdminInvites";
 import AdminValidationQueue from "./pages/AdminValidationQueue";
 import AdminReportQueue from "./pages/AdminReportQueue";
 import AdminProspectLab from "./pages/AdminProspectLab";
+import AdminSessionSetup from "./pages/AdminSessionSetup";
 
 // Player pages
 import PlayerDashboard4B from "./pages/player/PlayerDashboard4B";
@@ -199,6 +200,11 @@ const App = () => (
               <Route path="/admin/prospect-lab" element={
                 <ProtectedAdminRoute>
                   <AdminProspectLab />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/session-setup" element={
+                <ProtectedAdminRoute>
+                  <AdminSessionSetup />
                 </ProtectedAdminRoute>
               } />
 
