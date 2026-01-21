@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { TrendIndicator } from "@/components/ui/TrendIndicator";
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
+import { CSSProperties } from "react";
 
 interface MetricCardProps {
   title: string;
@@ -12,6 +13,7 @@ interface MetricCardProps {
   iconBgColor?: string;
   loading?: boolean;
   className?: string;
+  style?: CSSProperties;
 }
 
 export function MetricCard({
@@ -23,9 +25,10 @@ export function MetricCard({
   iconBgColor = "bg-blue-500/15",
   loading = false,
   className,
+  style,
 }: MetricCardProps) {
   return (
-    <Card className={cn("bg-slate-800 border-slate-700", className)}>
+    <Card className={cn("bg-slate-800 border-slate-700", className)} style={style}>
       <CardContent className="pt-5 pb-5">
         <div className="flex items-center justify-between">
           <div>
