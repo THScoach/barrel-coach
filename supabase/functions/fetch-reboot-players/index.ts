@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const REBOOT_API_BASE = "https://api.rebootmotion.com";
-const REBOOT_API_KEY = Deno.env.get("REBOOT_API_KEY")!;
+const REBOOT_USERNAME = Deno.env.get("REBOOT_USERNAME")!;
+const REBOOT_PASSWORD = Deno.env.get("REBOOT_PASSWORD")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -10,6 +11,59 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+interface RebootTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+// Cache for access token
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+// Get OAuth access token from Reboot
+async function getRebootAccessToken(): Promise<string> {
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    return cachedToken.token;
+  }
+
+  console.log("[Auth] Fetching new Reboot access token");
+  
+  const response = await fetch(`${REBOOT_API_BASE}/oauth/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      username: REBOOT_USERNAME,
+      password: REBOOT_PASSWORD,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Reboot OAuth error (${response.status}): ${error}`);
+  }
+
+  const data: RebootTokenResponse = await response.json();
+  
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in - 300) * 1000, // 5 min buffer
+  };
+
+  return data.access_token;
+}
+
+// Get auth headers for Reboot API calls
+async function getRebootHeaders(): Promise<Record<string, string>> {
+  const token = await getRebootAccessToken();
+  return {
+    "Authorization": `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+}
 
 // Verify admin user
 async function verifyAdmin(req: Request): Promise<string> {
@@ -44,22 +98,20 @@ async function fetchRebootPlayers(): Promise<any[]> {
   const pageSize = 100;
   let hasMore = true;
 
+  const headers = await getRebootHeaders();
+
   while (hasMore) {
     console.log(`[Fetch Reboot Players] Fetching page ${page}...`);
     
     const url = new URL(`${REBOOT_API_BASE}/players`);
     url.searchParams.set("page", page.toString());
     url.searchParams.set("page_size", pageSize.toString());
-    // Also try limit/offset in case that's the format
     url.searchParams.set("limit", pageSize.toString());
     url.searchParams.set("offset", ((page - 1) * pageSize).toString());
 
     const response = await fetch(url.toString(), {
       method: "GET",
-      headers: {
-        "X-Api-Key": REBOOT_API_KEY,
-        "Content-Type": "application/json",
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -68,6 +120,11 @@ async function fetchRebootPlayers(): Promise<any[]> {
     }
 
     const data = await response.json();
+    
+    // Log first response to debug field names
+    if (page === 1) {
+      console.log("[Fetch Reboot Players] Sample response:", JSON.stringify(data).substring(0, 1000));
+    }
     
     // Handle different response formats
     let players: any[] = [];
@@ -79,8 +136,10 @@ async function fetchRebootPlayers(): Promise<any[]> {
       players = data.data;
     } else if (data.results && Array.isArray(data.results)) {
       players = data.results;
+    } else if (data.items && Array.isArray(data.items)) {
+      players = data.items;
     } else {
-      console.log("Unexpected response format:", JSON.stringify(data).substring(0, 500));
+      console.log("[Fetch Reboot Players] Unexpected response format:", JSON.stringify(data).substring(0, 500));
       break;
     }
 
@@ -97,8 +156,8 @@ async function fetchRebootPlayers(): Promise<any[]> {
       } else {
         page++;
         // Safety limit to prevent infinite loops
-        if (page > 50) {
-          console.log("[Fetch Reboot Players] Reached page limit of 50");
+        if (page > 100) {
+          console.log("[Fetch Reboot Players] Reached page limit of 100");
           hasMore = false;
         }
       }
@@ -183,32 +242,63 @@ serve(async (req) => {
 
     // If preview_only, return the list without syncing
     if (previewOnly) {
-      // Normalize player data for frontend consumption
+      // Normalize player data for frontend consumption - handle many field variations
       const normalizedPlayers = rebootPlayers.map(player => {
-        const rebootId = player.org_player_id || player.id || player.player_id;
-        const firstName = player.first_name || player.firstName || "";
-        const lastName = player.last_name || player.lastName || "";
-        const fullName = player.name || `${firstName} ${lastName}`.trim();
+        // Try multiple possible ID fields
+        const rebootId = player.org_player_id || player.orgPlayerId || player.id || player.player_id || player.playerId || player._id;
+        
+        // Try multiple possible name fields
+        const firstName = player.first_name || player.firstName || player.given_name || player.givenName || "";
+        const lastName = player.last_name || player.lastName || player.family_name || player.familyName || player.surname || "";
+        const fullName = player.name || player.full_name || player.fullName || player.display_name || player.displayName || `${firstName} ${lastName}`.trim();
+        
+        // Try multiple possible throws/bats fields
+        const bats = player.bats || player.hitting_hand || player.hittingHand || player.hits || player.bat_side || player.batSide || null;
+        const throws = player.throws || player.throwing_hand || player.throwingHand || player.throw_side || player.throwSide || null;
+        
+        // Log players with potentially unusual field names
+        if (!rebootId || !fullName) {
+          console.log("[Fetch Reboot Players] Player with missing ID or name:", JSON.stringify(player).substring(0, 500));
+        }
         
         return {
           reboot_id: rebootId,
           name: fullName,
           first_name: firstName,
           last_name: lastName,
-          height: player.height || null,
-          weight: player.weight || null,
-          bats: player.bats || player.hitting_hand || player.hits || null,
-          level: player.level || null,
-          team: player.team || player.organization || null,
+          height: player.height || player.height_display || null,
+          weight: player.weight || player.weight_display || null,
+          bats: bats,
+          throws: throws,
+          level: player.level || player.skill_level || player.skillLevel || null,
+          team: player.team || player.organization || player.org_name || player.orgName || null,
+          birth_date: player.birth_date || player.birthDate || player.dob || player.date_of_birth || null,
+          raw: player, // Include raw data for debugging
         };
-      }).filter(p => p.reboot_id && p.name);
+      });
+      
+      // Log counts before/after filtering
+      const withId = normalizedPlayers.filter(p => p.reboot_id);
+      const withName = normalizedPlayers.filter(p => p.name);
+      const valid = normalizedPlayers.filter(p => p.reboot_id && p.name);
+      
+      console.log(`[Fetch Reboot Players] Normalization: ${normalizedPlayers.length} total, ${withId.length} with ID, ${withName.length} with name, ${valid.length} valid`);
+      
+      // Remove raw field before returning (was just for debugging)
+      const cleanPlayers = valid.map(({ raw, ...rest }) => rest);
 
       return new Response(
         JSON.stringify({
           success: true,
           preview: true,
-          players: normalizedPlayers,
-          total: normalizedPlayers.length,
+          players: cleanPlayers,
+          total: cleanPlayers.length,
+          debug: {
+            total_from_api: rebootPlayers.length,
+            with_id: withId.length,
+            with_name: withName.length,
+            valid: valid.length,
+          }
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -218,7 +308,7 @@ serve(async (req) => {
     let playersToSync = rebootPlayers;
     if (selectedPlayerIds.length > 0) {
       playersToSync = rebootPlayers.filter(player => {
-        const rebootId = player.org_player_id || player.id || player.player_id;
+        const rebootId = player.org_player_id || player.orgPlayerId || player.id || player.player_id || player.playerId || player._id;
         return selectedPlayerIds.includes(rebootId);
       });
       console.log(`[Fetch Reboot Players] Filtered to ${playersToSync.length} selected players`);
@@ -229,45 +319,52 @@ serve(async (req) => {
 
     let created = 0;
     let updated = 0;
+    let skipped = 0;
     let errors: string[] = [];
 
     // 3. Sync each player
     for (const player of playersToSync) {
       try {
-        // Get the Reboot player ID (could be org_player_id, id, or player_id)
-        const rebootId = player.org_player_id || player.id || player.player_id;
+        // Get the Reboot player ID - try multiple possible field names
+        const rebootId = player.org_player_id || player.orgPlayerId || player.id || player.player_id || player.playerId || player._id;
         
         if (!rebootId) {
-          console.log("[Fetch Reboot Players] Skipping player with no ID:", player);
+          console.log("[Fetch Reboot Players] Skipping player with no ID:", JSON.stringify(player).substring(0, 300));
+          skipped++;
           continue;
         }
 
-        // Build player name
-        const firstName = player.first_name || player.firstName || "";
-        const lastName = player.last_name || player.lastName || "";
-        const fullName = player.name || `${firstName} ${lastName}`.trim();
+        // Build player name - try multiple possible field names
+        const firstName = player.first_name || player.firstName || player.given_name || player.givenName || "";
+        const lastName = player.last_name || player.lastName || player.family_name || player.familyName || player.surname || "";
+        const fullName = player.name || player.full_name || player.fullName || player.display_name || player.displayName || `${firstName} ${lastName}`.trim();
 
         if (!fullName) {
-          console.log("[Fetch Reboot Players] Skipping player with no name:", player);
+          console.log("[Fetch Reboot Players] Skipping player with no name:", JSON.stringify(player).substring(0, 300));
+          skipped++;
           continue;
         }
 
-        // Check if player already exists by reboot_athlete_id
+        // Check if player already exists by reboot_athlete_id OR reboot_id
         const { data: existingPlayer } = await supabase
           .from("players")
           .select("id")
-          .eq("reboot_athlete_id", rebootId)
-          .single();
+          .or(`reboot_athlete_id.eq.${rebootId},reboot_id.eq.${rebootId}`)
+          .maybeSingle();
 
+        // Extract handedness/bats - try multiple field names
+        const bats = player.bats || player.hitting_hand || player.hittingHand || player.hits || player.bat_side || player.batSide || null;
+        
         const playerData = {
           name: fullName,
           reboot_athlete_id: rebootId,
+          reboot_id: rebootId, // Also set reboot_id for compatibility
           // Optional fields - map from Reboot if available
-          height_inches: parseHeight(player.height),
-          weight_lbs: parseWeight(player.weight),
-          handedness: player.bats || player.hitting_hand || player.hits || null,
-          level: player.level || null,
-          team: player.team || player.organization || null,
+          height_inches: parseHeight(player.height || player.height_display),
+          weight_lbs: parseWeight(player.weight || player.weight_display),
+          handedness: bats,
+          level: player.level || player.skill_level || player.skillLevel || null,
+          team: player.team || player.organization || player.org_name || player.orgName || null,
         };
 
         if (existingPlayer) {
@@ -302,11 +399,12 @@ serve(async (req) => {
     // 4. Log activity
     await supabase.from("activity_log").insert({
       action: "reboot_players_synced",
-      description: `Synced ${created + updated} players from Reboot Motion (${created} new, ${updated} updated)`,
+      description: `Synced ${created + updated} players from Reboot Motion (${created} new, ${updated} updated, ${skipped} skipped)`,
       metadata: { 
         total_from_reboot: rebootPlayers.length,
         created,
         updated,
+        skipped,
         errors: errors.length > 0 ? errors : undefined
       },
     });
@@ -319,6 +417,7 @@ serve(async (req) => {
         synced: created + updated,
         created,
         updated,
+        skipped,
         total_in_reboot: rebootPlayers.length,
         errors: errors.length > 0 ? errors : undefined,
       }),
