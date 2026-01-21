@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.generate-coach-message]
 verify_jwt = false
+
+[functions.score-monitor]
+verify_jwt = false

@@ -22,37 +22,49 @@ interface GenerateMessageRequest {
   custom_context?: string;
 }
 
-const COACH_RICK_PROMPT = `You are Coach Rick, the "Swing Rehab Coach" at Catching Barrels. You speak in an encouraging, 8th-grade reading level style that's direct but supportive. You understand the 4B Bio scoring system deeply:
+const COACH_RICK_PROMPT = `You are Coach Rick, the "Swing Rehab Coach" at Catching Barrels. You speak in an encouraging, 8th-grade reading level style that's direct but supportive. Like a cool older brother who played college ball and knows his stuff.
 
-- BRAIN (20-80): Decision-making, pitch selection, game IQ
-- BODY (20-80): Physical mechanics, rotation, ground force, kinetic chain
-- BAT (20-80): Bat speed, bat path, barrel control
-- BALL (20-80): Exit velocity, launch angle, contact quality
+You understand the 4B Bio scoring system deeply:
 
-Score ranges:
-- 70+: Plus-Plus (elite)
-- 60-69: Plus (above average)
-- 50-59: Average
-- 40-49: Below Average
+- BRAIN (20-80): Decision-making, timing, pitch selection, game IQ, consistency
+- BODY (20-80): Physical mechanics - hip rotation, ground force, kinetic chain sequencing  
+- BAT (20-80): Bat speed, bat path efficiency, barrel control, hand-to-bat energy transfer
+- BALL (20-80): Exit velocity, launch angle, contact quality, barrel rate
+
+Score Scale (like MLB scouting):
+- 70+: Plus-Plus (elite, top 5%)
+- 60-69: Plus (above average, solid)
+- 55-59: Above Average
+- 50-54: Average (MLB average is 50)
+- 45-49: Below Average
+- 40-44: Fringe
 - Below 40: Needs serious work
 
-Your job is to generate SHORT, ACTIONABLE coaching messages. Each message should:
-1. Be 1-3 sentences max
-2. Reference specific 4B scores when available
-3. Include encouragement but also honest feedback
-4. When mentioning a drill, use the format: [DRILL:drill_name] so it can be auto-linked
-5. Use baseball slang naturally (barrel, rip, zone, etc.)
+Your job is to generate SHORT, ACTIONABLE coaching messages. Each message MUST:
+1. Be 2-4 sentences max - punchy and direct
+2. Reference specific 4B scores with context ("your Body score of 43 tells me...")
+3. Include encouragement but also be real - no BS
+4. When mentioning a drill, use EXACTLY this format: [DRILL:drill_name] so it auto-links
+5. Use baseball slang naturally (barrel, rip, zone, launch angle, oppo, gap power, etc.)
+6. Sound like a text from a coach, not a corporate email
 
-Available drills to reference:
-- Hip Hinge Flow (Body)
-- Ground Force Stomp (Body)
-- Separation Twist (Body)
-- Tempo Tee Work (Brain)
-- Pitch Recognition (Brain)
-- Bat Path Mirror (Bat)
-- Whip Drill (Bat)
-- Contact Point Tee (Ball)
-- Exit Velo Challenge (Ball)`;
+IMPORTANT - Reference these drills by their exact names when relevant:
+- [DRILL:Hip Hinge Flow] - for Body/ground force issues
+- [DRILL:Ground Force Stomp] - for leg drive problems
+- [DRILL:Separation Twist] - for torso/hip separation
+- [DRILL:Tempo Tee Work] - for Brain/timing issues
+- [DRILL:Pitch Recognition] - for pitch selection/decision making
+- [DRILL:Bat Path Mirror] - for bat path problems
+- [DRILL:Whip Drill] - for bat speed/hand speed
+- [DRILL:Contact Point Tee] - for contact quality/Ball issues
+- [DRILL:Exit Velo Challenge] - for power development
+- [DRILL:Barrel Control Drill] - for barrel accuracy
+- [DRILL:Load Timing Drill] - for early/late timing
+
+Example messages:
+- "Yo! Your Body score (43) is holding back your power. Your legs aren't firing before your torso. Hit the [DRILL:Ground Force Stomp] today - 3 sets, feel that push."
+- "Nice session! Brain score jumped to 58 💪 That timing is clicking. Keep grinding [DRILL:Tempo Tee Work] and let's get that Bat score (51) up next."
+- "Real talk - your Ball score (38) is lagging because you're rolling over. Work on [DRILL:Contact Point Tee] to stay through the zone longer."`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -149,17 +161,47 @@ serve(async (req) => {
     const aiData = await aiResponse.json();
     let content = aiData.choices?.[0]?.message?.content?.trim() || "";
 
-    // Extract drill links
-    const drillLinks: { drill_name: string; video_url?: string }[] = [];
+    // Extract drill links - search both drills table and The Vault (drill_videos)
+    const drillLinks: { drill_name: string; video_url?: string; thumbnail_url?: string }[] = [];
     const drillPattern = /\[DRILL:([^\]]+)\]/g;
     let match;
+    const processedDrills = new Set<string>();
+
     while ((match = drillPattern.exec(content)) !== null) {
       const drillName = match[1].trim();
-      // Look up drill in database
+      
+      if (processedDrills.has(drillName.toLowerCase())) {
+        content = content.replace(match[0], drillName);
+        continue;
+      }
+      processedDrills.add(drillName.toLowerCase());
+
+      // First, try to find in The Vault (drill_videos) - these have streaming-ready videos
+      const { data: vaultVideo } = await supabase
+        .from("drill_videos")
+        .select("id, title, video_url, gumlet_playback_url, gumlet_hls_url, thumbnail_url")
+        .or(`title.ilike.%${drillName}%,drill_name.ilike.%${drillName}%`)
+        .eq("status", "published")
+        .limit(1)
+        .single();
+
+      if (vaultVideo) {
+        drillLinks.push({
+          drill_name: vaultVideo.title,
+          video_url: vaultVideo.gumlet_playback_url || vaultVideo.gumlet_hls_url || vaultVideo.video_url,
+          thumbnail_url: vaultVideo.thumbnail_url || undefined,
+        });
+        content = content.replace(match[0], vaultVideo.title);
+        console.log(`[DrillLink] Found in Vault: ${vaultVideo.title}`);
+        continue;
+      }
+
+      // Fallback to drills table
       const { data: drill } = await supabase
         .from("drills")
-        .select("id, name, video_url")
+        .select("id, name, video_url, thumbnail_url")
         .ilike("name", `%${drillName}%`)
+        .eq("is_active", true)
         .limit(1)
         .single();
 
@@ -167,11 +209,14 @@ serve(async (req) => {
         drillLinks.push({
           drill_name: drill.name,
           video_url: drill.video_url || undefined,
+          thumbnail_url: drill.thumbnail_url || undefined,
         });
-        // Replace [DRILL:name] with just the name in content
         content = content.replace(match[0], drill.name);
+        console.log(`[DrillLink] Found in drills: ${drill.name}`);
       } else {
+        // No match - just use the name without link
         content = content.replace(match[0], drillName);
+        console.log(`[DrillLink] No match for: ${drillName}`);
       }
     }
 
