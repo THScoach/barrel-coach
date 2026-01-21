@@ -51,6 +51,7 @@ import AdminHitTraxImport from "./pages/AdminHitTraxImport";
 import AdminLibrary from "./pages/AdminLibrary";
 import AdminInvites from "./pages/AdminInvites";
 import AdminValidationQueue from "./pages/AdminValidationQueue";
+import AdminReportQueue from "./pages/AdminReportQueue";
 
 // Player pages
 import PlayerDashboard4B from "./pages/player/PlayerDashboard4B";
@@ -187,6 +188,11 @@ const App = () => (
               <Route path="/admin/validation-queue" element={
                 <ProtectedAdminRoute>
                   <AdminValidationQueue />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/report-queue" element={
+                <ProtectedAdminRoute>
+                  <AdminReportQueue />
                 </ProtectedAdminRoute>
               } />
 

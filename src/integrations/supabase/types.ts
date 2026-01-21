@@ -2212,6 +2212,7 @@ export type Database = {
           body_score: number | null
           brain_score: number | null
           camera_angle: string | null
+          coach_notes_edited: string | null
           completed_at: string | null
           composite_score: number | null
           consistency_cv: number | null
@@ -2219,6 +2220,7 @@ export type Database = {
           core_flow_score: number | null
           correlated_video_session_id: string | null
           created_at: string | null
+          eighth_grade_summary: string | null
           error_message: string | null
           frame_rate: number | null
           grade: string | null
@@ -2238,6 +2240,7 @@ export type Database = {
           player_id: string | null
           priority_drill: string | null
           processing_status: string | null
+          published_at: string | null
           reboot_session_id: string | null
           session_date: string
           torso_velocity: number | null
@@ -2263,6 +2266,7 @@ export type Database = {
           body_score?: number | null
           brain_score?: number | null
           camera_angle?: string | null
+          coach_notes_edited?: string | null
           completed_at?: string | null
           composite_score?: number | null
           consistency_cv?: number | null
@@ -2270,6 +2274,7 @@ export type Database = {
           core_flow_score?: number | null
           correlated_video_session_id?: string | null
           created_at?: string | null
+          eighth_grade_summary?: string | null
           error_message?: string | null
           frame_rate?: number | null
           grade?: string | null
@@ -2289,6 +2294,7 @@ export type Database = {
           player_id?: string | null
           priority_drill?: string | null
           processing_status?: string | null
+          published_at?: string | null
           reboot_session_id?: string | null
           session_date: string
           torso_velocity?: number | null
@@ -2314,6 +2320,7 @@ export type Database = {
           body_score?: number | null
           brain_score?: number | null
           camera_angle?: string | null
+          coach_notes_edited?: string | null
           completed_at?: string | null
           composite_score?: number | null
           consistency_cv?: number | null
@@ -2321,6 +2328,7 @@ export type Database = {
           core_flow_score?: number | null
           correlated_video_session_id?: string | null
           created_at?: string | null
+          eighth_grade_summary?: string | null
           error_message?: string | null
           frame_rate?: number | null
           grade?: string | null
@@ -2340,6 +2348,7 @@ export type Database = {
           player_id?: string | null
           priority_drill?: string | null
           processing_status?: string | null
+          published_at?: string | null
           reboot_session_id?: string | null
           session_date?: string
           torso_velocity?: number | null
