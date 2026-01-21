@@ -27,6 +27,7 @@ import { VideoSwingUploadModal } from "@/components/video-analyzer";
 import { calculateComposite4B, getWeakestLink } from "@/lib/fourb-composite";
 import { MembershipUpgradeBanner } from "@/components/player/MembershipUpgradeBanner";
 import { ActiveSessionPanel } from "@/components/player/ActiveSessionPanel";
+import { PrescribedVideos } from "@/components/player/PrescribedVideos";
 import { format } from "date-fns";
 
 interface LatestScores {
@@ -753,6 +754,14 @@ export default function PlayerHome() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Prescribed for You - Video recommendations based on weakest 4B */}
+      {player && weakestLink && (
+        <PrescribedVideos 
+          playerId={player.id} 
+          weakestCategory={weakestLink}
+        />
       )}
 
       {/* Next Actions */}
