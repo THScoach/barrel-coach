@@ -609,9 +609,9 @@ serve(async (req) => {
 
         if (error) {
           console.error("Error updating reboot_uploads:", error);
-        } else {
-          console.log(`[Process] Updated reboot_uploads ${upload_id}`);
+          throw new Error(`Database error saving session: ${error.message}`);
         }
+        console.log(`[Process] Updated reboot_uploads ${upload_id}`);
       } else {
         // Check for existing record by player + session (upsert logic)
         const { data: existing } = await supabase
@@ -630,9 +630,9 @@ serve(async (req) => {
 
           if (error) {
             console.error("Error updating existing reboot_uploads:", error);
-          } else {
-            console.log(`[Process] Updated existing record ${existing.id} for session ${session_id}`);
+            throw new Error(`Database error updating session: ${error.message}`);
           }
+          console.log(`[Process] Updated existing record ${existing.id} for session ${session_id}`);
         } else {
           // INSERT new record
           const { error } = await supabase
@@ -647,9 +647,9 @@ serve(async (req) => {
 
           if (error) {
             console.error("Error inserting reboot_uploads:", error);
-          } else {
-            console.log(`[Process] Created reboot_uploads for session ${session_id}`);
+            throw new Error(`Database error creating session record: ${error.message}`);
           }
+          console.log(`[Process] Created reboot_uploads for session ${session_id}`);
         }
       }
 
