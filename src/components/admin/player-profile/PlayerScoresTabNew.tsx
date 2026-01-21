@@ -22,13 +22,15 @@ import {
   Upload,
   TrendingUp,
   TrendingDown,
-  Minus
+  Minus,
+  Share2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { RebootSessionDetail } from "@/components/RebootSessionDetail";
 import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
 import { PlayerProgressionDashboard } from "./PlayerProgressionDashboard";
+import { SocialPostGenerator } from "../SocialPostGenerator";
 import { cn } from "@/lib/utils";
 
 interface PlayerScoresTabNewProps {
@@ -66,6 +68,8 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
   // Session detail modals
   const [selectedRebootSession, setSelectedRebootSession] = useState<any>(null);
   const [selectedLaunchSession, setSelectedLaunchSession] = useState<any>(null);
+  const [socialPostOpen, setSocialPostOpen] = useState(false);
+  const [socialPostSessionData, setSocialPostSessionData] = useState<any>(null);
 
   // Sync sub-tab with URL
   useEffect(() => {
@@ -336,17 +340,34 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-slate-400 hover:text-white"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewReport(report);
-                          }}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          {report.type === 'reboot' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-[#DC2626] hover:text-[#DC2626] hover:bg-[#DC2626]/10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSocialPostSessionData(report.rawData);
+                                setSocialPostOpen(true);
+                              }}
+                              title="Generate Social Post"
+                            >
+                              <Share2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-slate-400 hover:text-white"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewReport(report);
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -405,6 +426,14 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
           setSelectedLaunchSession(null);
           loadReports();
         }}
+      />
+
+      {/* Social Post Generator */}
+      <SocialPostGenerator
+        open={socialPostOpen}
+        onOpenChange={setSocialPostOpen}
+        sessionData={socialPostSessionData || {}}
+        playerName={playerName}
       />
     </div>
   );
