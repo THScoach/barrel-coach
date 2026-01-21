@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +21,11 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Search
+  Search,
+  AlertTriangle,
+  Copy,
+  Sparkles,
+  Eraser
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -33,9 +38,26 @@ interface KnowledgeDocument {
   original_url: string | null;
   extracted_text: string | null;
   file_size: number | null;
+  file_hash: string | null;
   status: 'pending' | 'processing' | 'ready' | 'error';
   error_message: string | null;
   created_at: string;
+}
+
+interface DuplicateGroup {
+  file_hash: string;
+  duplicate_count: number;
+  document_ids: string[];
+  document_titles: string[];
+  total_size: number;
+}
+
+// Hash function for browser (using Web Crypto API)
+async function hashFile(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
 }
 
 export default function AdminVault() {
@@ -47,6 +69,9 @@ export default function AdminVault() {
   const [urlDescription, setUrlDescription] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [uploadProgress, setUploadProgress] = useState<Record<string, { status: string; name: string }>>({});
+  const [isCleanupOpen, setIsCleanupOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   // Fetch documents
   const { data: documents, isLoading } = useQuery({
@@ -60,6 +85,17 @@ export default function AdminVault() {
       if (error) throw error;
       return data as KnowledgeDocument[];
     },
+  });
+
+  // Fetch duplicates for cleanup
+  const { data: duplicates, refetch: refetchDuplicates } = useQuery({
+    queryKey: ['duplicate-documents'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('find_duplicate_documents');
+      if (error) throw error;
+      return (data || []) as DuplicateGroup[];
+    },
+    enabled: isCleanupOpen,
   });
 
   // Process document mutation
@@ -83,20 +119,18 @@ export default function AdminVault() {
   // Delete document mutation
   const deleteMutation = useMutation({
     mutationFn: async (doc: KnowledgeDocument) => {
-      // Delete from storage if it's a file
       if (doc.storage_path) {
         await supabase.storage.from('coach_knowledge').remove([doc.storage_path]);
       }
-      
       const { error } = await supabase
         .from('knowledge_documents')
         .delete()
         .eq('id', doc.id);
-      
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['knowledge-documents'] });
+      refetchDuplicates();
       toast({ title: "Deleted", description: "Document removed from vault" });
     },
     onError: (error: Error) => {
@@ -104,27 +138,71 @@ export default function AdminVault() {
     },
   });
 
-  // Handle file upload
+  // Check for duplicate by hash
+  const checkDuplicateHash = async (hash: string): Promise<{ exists: boolean; title?: string }> => {
+    const { data } = await supabase.rpc('check_duplicate_document', { p_file_hash: hash });
+    if (data && data.length > 0) {
+      return { exists: true, title: data[0].title };
+    }
+    return { exists: false };
+  };
+
+  // Check for duplicate URL
+  const checkDuplicateUrl = async (url: string): Promise<{ exists: boolean; title?: string }> => {
+    const { data } = await supabase.rpc('check_duplicate_url', { p_url: url });
+    if (data && data.length > 0) {
+      return { exists: true, title: data[0].title };
+    }
+    return { exists: false };
+  };
+
+  // Handle file upload with deduplication
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
     setIsUploading(true);
+    const progressMap: Record<string, { status: string; name: string }> = {};
     
     try {
       for (const file of Array.from(files)) {
+        const fileId = `${Date.now()}-${file.name}`;
+        progressMap[fileId] = { status: 'hashing', name: file.name };
+        setUploadProgress({ ...progressMap });
+
+        const fileHash = await hashFile(file);
+        
+        progressMap[fileId].status = 'checking';
+        setUploadProgress({ ...progressMap });
+        
+        const duplicate = await checkDuplicateHash(fileHash);
+        if (duplicate.exists) {
+          progressMap[fileId].status = 'duplicate';
+          setUploadProgress({ ...progressMap });
+          toast({ 
+            title: "Duplicate Detected", 
+            description: `"${file.name}" already exists as "${duplicate.title}"`,
+            variant: "destructive"
+          });
+          continue;
+        }
+
+        progressMap[fileId].status = 'uploading';
+        setUploadProgress({ ...progressMap });
+        
         const fileExt = file.name.split('.').pop()?.toLowerCase();
         const sourceType = fileExt === 'pdf' ? 'pdf' : 'doc';
         const fileName = `${Date.now()}-${file.name}`;
         
-        // Upload to storage
         const { error: uploadError } = await supabase.storage
           .from('coach_knowledge')
           .upload(fileName, file);
         
         if (uploadError) throw uploadError;
 
-        // Create document record
+        progressMap[fileId].status = 'saving';
+        setUploadProgress({ ...progressMap });
+        
         const { data: docData, error: docError } = await supabase
           .from('knowledge_documents')
           .insert({
@@ -132,6 +210,7 @@ export default function AdminVault() {
             source_type: sourceType,
             storage_path: fileName,
             file_size: file.size,
+            file_hash: fileHash,
             mime_type: file.type,
             status: 'pending',
           })
@@ -140,8 +219,12 @@ export default function AdminVault() {
         
         if (docError) throw docError;
 
-        // Trigger processing
+        progressMap[fileId].status = 'processing';
+        setUploadProgress({ ...progressMap });
         processDocMutation.mutate(docData.id);
+        
+        progressMap[fileId].status = 'done';
+        setUploadProgress({ ...progressMap });
       }
       
       toast({ title: "Upload complete", description: "Files are being processed" });
@@ -150,17 +233,29 @@ export default function AdminVault() {
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
     } finally {
       setIsUploading(false);
+      setUploadProgress({});
       event.target.value = '';
     }
   }, [toast, queryClient, processDocMutation]);
 
-  // Handle URL submission
+  // Handle URL submission with deduplication
   const handleUrlSubmit = async () => {
     if (!urlInput.trim()) return;
     
     setIsUploading(true);
     
     try {
+      const duplicate = await checkDuplicateUrl(urlInput.trim());
+      if (duplicate.exists) {
+        toast({ 
+          title: "Duplicate URL", 
+          description: `This URL already exists as "${duplicate.title}"`,
+          variant: "destructive"
+        });
+        setIsUploading(false);
+        return;
+      }
+
       const { data: docData, error } = await supabase
         .from('knowledge_documents')
         .insert({
@@ -175,7 +270,6 @@ export default function AdminVault() {
       
       if (error) throw error;
 
-      // Trigger processing
       processDocMutation.mutate(docData.id);
       
       setUrlInput("");
@@ -188,6 +282,48 @@ export default function AdminVault() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  // Scan existing documents for duplicates
+  const scanForDuplicates = async () => {
+    setIsScanning(true);
+    toast({ title: "Scanning", description: "Checking for duplicates in existing documents..." });
+    
+    try {
+      const { data: unhashed } = await supabase
+        .from('knowledge_documents')
+        .select('id, storage_path, original_url')
+        .is('file_hash', null);
+
+      for (const doc of (unhashed || [])) {
+        if (doc.original_url) {
+          const encoder = new TextEncoder();
+          const data = encoder.encode(doc.original_url);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const urlHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+          
+          await supabase
+            .from('knowledge_documents')
+            .update({ file_hash: `url:${urlHash}` })
+            .eq('id', doc.id);
+        }
+      }
+
+      await refetchDuplicates();
+      toast({ title: "Scan complete", description: "Duplicate analysis updated" });
+    } catch (error: any) {
+      toast({ title: "Scan failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleDeleteDuplicate = async (docId: string) => {
+    const doc = documents?.find(d => d.id === docId);
+    if (doc) {
+      deleteMutation.mutate(doc);
     }
   };
 
@@ -215,6 +351,27 @@ export default function AdminVault() {
     }
   };
 
+  const getUploadStatusIcon = (status: string) => {
+    switch (status) {
+      case 'hashing':
+        return <Sparkles className="w-4 h-4 animate-pulse text-purple-400" />;
+      case 'checking':
+        return <Search className="w-4 h-4 animate-pulse text-blue-400" />;
+      case 'duplicate':
+        return <Copy className="w-4 h-4 text-red-400" />;
+      case 'uploading':
+        return <Upload className="w-4 h-4 animate-bounce text-yellow-400" />;
+      case 'saving':
+        return <Loader2 className="w-4 h-4 animate-spin text-blue-400" />;
+      case 'processing':
+        return <Sparkles className="w-4 h-4 animate-pulse text-primary" />;
+      case 'done':
+        return <CheckCircle2 className="w-4 h-4 text-green-400" />;
+      default:
+        return <Clock className="w-4 h-4 text-gray-400" />;
+    }
+  };
+
   const filteredDocs = documents?.filter(doc => 
     !searchQuery || 
     doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -226,20 +383,140 @@ export default function AdminVault() {
       <AdminHeader />
       
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <BookOpen className="w-8 h-8 text-primary" />
-            The Vault
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Private knowledge base for your coaching philosophy. The Research Assistant searches here first.
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+              <BookOpen className="w-8 h-8 text-primary" />
+              The Vault
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Private knowledge base with duplicate prevention. Files are hashed before upload.
+            </p>
+          </div>
+          
+          <Dialog open={isCleanupOpen} onOpenChange={setIsCleanupOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Eraser className="w-4 h-4" />
+                Cleanup Utility
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Eraser className="w-5 h-5" />
+                  Duplicate Cleanup
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Scan your vault for duplicate files and URLs
+                  </p>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={scanForDuplicates}
+                    disabled={isScanning}
+                  >
+                    {isScanning ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                    Scan Now
+                  </Button>
+                </div>
+
+                <ScrollArea className="h-[400px] border rounded-lg">
+                  {!duplicates || duplicates.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-green-400" />
+                      <p className="font-medium">No Duplicates Found</p>
+                      <p className="text-sm mt-1">Your vault is clean!</p>
+                    </div>
+                  ) : (
+                    <div className="p-4 space-y-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                        <span className="font-medium">{duplicates.length} duplicate group(s) found</span>
+                      </div>
+                      
+                      {duplicates.map((group) => (
+                        <Card key={group.file_hash} className="border-yellow-500/30">
+                          <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-sm font-medium">
+                                {group.duplicate_count} duplicate files
+                              </CardTitle>
+                              <Badge variant="secondary">
+                                {(group.total_size / 1024).toFixed(0)} KB total
+                              </Badge>
+                            </div>
+                            <CardDescription className="text-xs font-mono">
+                              Hash: {group.file_hash?.substring(0, 16)}...
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-2">
+                            {group.document_titles.map((title, idx) => (
+                              <div 
+                                key={group.document_ids[idx]} 
+                                className={`flex items-center justify-between p-2 rounded ${
+                                  idx === 0 ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {idx === 0 ? (
+                                    <Badge className="bg-green-500/20 text-green-400 text-xs">Keep</Badge>
+                                  ) : (
+                                    <Badge className="bg-red-500/20 text-red-400 text-xs">Delete</Badge>
+                                  )}
+                                  <span className="text-sm truncate max-w-[200px]">{title}</span>
+                                </div>
+                                {idx !== 0 && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost"
+                                    className="text-red-400 hover:text-red-300 h-7"
+                                    onClick={() => handleDeleteDuplicate(group.document_ids[idx])}
+                                  >
+                                    <Trash2 className="w-3 h-3 mr-1" />
+                                    Remove
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
+        {Object.keys(uploadProgress).length > 0 && (
+          <Card className="mb-6 border-primary/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Processing Uploads
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {Object.entries(uploadProgress).map(([id, { status, name }]) => (
+                  <div key={id} className="flex items-center gap-3 text-sm">
+                    {getUploadStatusIcon(status)}
+                    <span className="truncate flex-1">{name}</span>
+                    <span className="text-muted-foreground capitalize">{status}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-3">
-          {/* Upload Section */}
           <div className="lg:col-span-1 space-y-4">
-            {/* File Upload */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -247,7 +524,7 @@ export default function AdminVault() {
                   Upload Documents
                 </CardTitle>
                 <CardDescription>
-                  Upload PDFs and Word docs with your coaching materials
+                  Files are hashed to prevent duplicates automatically
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -258,9 +535,8 @@ export default function AdminVault() {
                     ) : (
                       <>
                         <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">
-                          Click to upload PDF or DOC
-                        </p>
+                        <p className="text-sm text-muted-foreground">Click to upload PDF or DOC</p>
+                        <p className="text-xs text-muted-foreground/70 mt-1">Duplicates will be blocked</p>
                       </>
                     )}
                   </div>
@@ -276,7 +552,6 @@ export default function AdminVault() {
               </CardContent>
             </Card>
 
-            {/* URL Input */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -284,31 +559,14 @@ export default function AdminVault() {
                   Add URL
                 </CardTitle>
                 <CardDescription>
-                  Paste links to articles, research papers, or web content
+                  URLs are checked for duplicates before processing
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Input
-                  placeholder="https://..."
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                />
-                <Input
-                  placeholder="Title (optional)"
-                  value={urlTitle}
-                  onChange={(e) => setUrlTitle(e.target.value)}
-                />
-                <Textarea
-                  placeholder="Description (optional)"
-                  value={urlDescription}
-                  onChange={(e) => setUrlDescription(e.target.value)}
-                  rows={2}
-                />
-                <Button 
-                  className="w-full" 
-                  onClick={handleUrlSubmit}
-                  disabled={!urlInput.trim() || isUploading}
-                >
+                <Input placeholder="https://..." value={urlInput} onChange={(e) => setUrlInput(e.target.value)} />
+                <Input placeholder="Title (optional)" value={urlTitle} onChange={(e) => setUrlTitle(e.target.value)} />
+                <Textarea placeholder="Description (optional)" value={urlDescription} onChange={(e) => setUrlDescription(e.target.value)} rows={2} />
+                <Button className="w-full" onClick={handleUrlSubmit} disabled={!urlInput.trim() || isUploading}>
                   {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   Add to Vault
                 </Button>
@@ -316,24 +574,16 @@ export default function AdminVault() {
             </Card>
           </div>
 
-          {/* Documents List */}
           <Card className="lg:col-span-2">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Knowledge Documents</CardTitle>
-                  <CardDescription>
-                    {documents?.length || 0} documents in your vault
-                  </CardDescription>
+                  <CardDescription>{documents?.length || 0} documents in your vault</CardDescription>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search..."
-                    className="pl-9 w-64"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
+                  <Input placeholder="Search..." className="pl-9 w-64" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
               </div>
             </CardHeader>
@@ -351,53 +601,30 @@ export default function AdminVault() {
                 ) : (
                   <div className="space-y-3">
                     {filteredDocs?.map((doc) => (
-                      <div 
-                        key={doc.id}
-                        className="p-4 bg-muted/30 rounded-lg border border-border/50"
-                      >
+                      <div key={doc.id} className="p-4 bg-muted/30 rounded-lg border border-border/50">
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-3 flex-1">
                             {getTypeIcon(doc.source_type)}
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-medium text-foreground truncate">
-                                {doc.title}
-                              </h3>
-                              {doc.description && (
-                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                  {doc.description}
-                                </p>
-                              )}
+                              <h3 className="font-medium text-foreground truncate">{doc.title}</h3>
+                              {doc.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{doc.description}</p>}
                               <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                                 <span>{format(new Date(doc.created_at), 'MMM d, yyyy')}</span>
-                                {doc.file_size && (
-                                  <span>{(doc.file_size / 1024).toFixed(0)} KB</span>
-                                )}
-                                {doc.extracted_text && (
-                                  <span>{doc.extracted_text.length.toLocaleString()} chars</span>
-                                )}
+                                {doc.file_size && <span>{(doc.file_size / 1024).toFixed(0)} KB</span>}
+                                {doc.file_hash && <span className="font-mono text-primary/70" title={doc.file_hash}>#{doc.file_hash.substring(0, 8)}</span>}
+                                {doc.extracted_text && <span>{doc.extracted_text.length.toLocaleString()} chars</span>}
                               </div>
-                              {doc.error_message && (
-                                <p className="text-xs text-red-400 mt-2">{doc.error_message}</p>
-                              )}
+                              {doc.error_message && <p className="text-xs text-red-400 mt-2">{doc.error_message}</p>}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 ml-4">
                             {getStatusBadge(doc.status)}
                             {doc.status === 'error' && (
-                              <Button 
-                                size="icon" 
-                                variant="ghost"
-                                onClick={() => processDocMutation.mutate(doc.id)}
-                              >
+                              <Button size="icon" variant="ghost" onClick={() => processDocMutation.mutate(doc.id)}>
                                 <RefreshCw className="w-4 h-4" />
                               </Button>
                             )}
-                            <Button 
-                              size="icon" 
-                              variant="ghost"
-                              className="text-red-400 hover:text-red-300"
-                              onClick={() => deleteMutation.mutate(doc)}
-                            >
+                            <Button size="icon" variant="ghost" className="text-red-400 hover:text-red-300" onClick={() => deleteMutation.mutate(doc)}>
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
