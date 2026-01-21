@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Video, Clock, CheckCircle, XCircle, Loader2, ChevronRight, Play } from "lucide-react";
+import { RefreshCw, Video, Clock, CheckCircle, XCircle, Loader2, ChevronRight, Play, AlertTriangle, Target, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { SessionDetailModal } from "./SessionDetailModal";
@@ -40,6 +40,13 @@ interface RebootUpload {
   weakest_link: string | null;
   reboot_session_id: string | null;
   video_url: string | null;
+  // AI coaching notes
+  leak_detected: string | null;
+  leak_evidence: string | null;
+  motor_profile: string | null;
+  motor_profile_evidence: string | null;
+  priority_drill: string | null;
+  analysis_confidence: number | null;
 }
 
 const statusConfig: Record<string, { color: string; icon: typeof Clock; label: string }> = {
@@ -221,66 +228,98 @@ export function PlayerUploadHistory({ playerId }: PlayerUploadHistoryProps) {
             <p className="text-sm mt-1">Upload a swing video to get started</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            <div className="grid grid-cols-8 gap-2 text-xs font-medium text-slate-400 px-3 py-2 border-b border-slate-700">
-              <span>Date</span>
-              <span className="col-span-2">Filename</span>
-              <span>Source</span>
-              <span>Status</span>
-              <span>Score</span>
-              <span>Action</span>
-              <span></span>
-            </div>
+          <div className="space-y-3">
             {uploads.map((upload) => (
               <div 
                 key={upload.id} 
-                className="grid grid-cols-8 gap-2 items-center px-3 py-2 rounded-lg hover:bg-slate-800/50 text-sm cursor-pointer transition-colors"
+                className="p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 cursor-pointer transition-colors"
                 onClick={() => setSelectedSession(upload)}
               >
-                <span className="text-slate-300">
-                  {format(new Date(upload.created_at || upload.session_date), 'MM/dd/yy')}
-                </span>
-                <span className="col-span-2 text-slate-300 truncate" title={upload.video_filename || 'Unknown'}>
-                  {upload.video_filename || 'Unknown'}
-                </span>
-                <span className="text-slate-400 text-xs">
-                  {upload.upload_source === 'reboot_api' ? 'Reboot' : upload.upload_source === 'admin_upload' ? 'Upload' : '-'}
-                </span>
-                <span>{getStatusDisplay(upload.processing_status)}</span>
-                <span className={getGradeColor(upload.grade)}>
-                  {upload.composite_score ? (
-                    <span className="font-medium">
-                      {upload.composite_score} <span className="text-xs opacity-75">({upload.grade})</span>
+                {/* Header Row */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-300 text-sm">
+                      {format(new Date(upload.created_at || upload.session_date), 'MMM d, yyyy')}
                     </span>
-                  ) : upload.processing_status === 'failed' ? (
-                    <span className="text-red-400 text-xs" title={upload.error_message || undefined}>Error</span>
-                  ) : (
-                    '-'
-                  )}
-                </span>
-                <span>
-                  {(upload.processing_status === 'pending_2d_analysis' || upload.processing_status === 'pending' || upload.processing_status === 'failed') && upload.video_url && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => handleRunAnalysis(upload, e)}
-                      disabled={analyzingId === upload.id}
-                      className="h-7 px-2 text-xs border-amber-500/50 text-amber-400 hover:bg-amber-500/20"
-                    >
-                      {analyzingId === upload.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <>
-                          <Play className="h-3 w-3 mr-1" />
-                          Analyze
-                        </>
+                    <span className="text-slate-400 text-xs truncate max-w-[200px]" title={upload.video_filename || 'Unknown'}>
+                      {upload.video_filename || 'Unknown'}
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      {upload.upload_source === 'reboot_api' ? 'Reboot' : upload.upload_source === 'admin_upload' ? 'Upload' : 'Import'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {getStatusDisplay(upload.processing_status)}
+                    {upload.composite_score && (
+                      <span className={`font-bold ${getGradeColor(upload.grade)}`}>
+                        {upload.composite_score} <span className="text-xs opacity-75">({upload.grade})</span>
+                      </span>
+                    )}
+                    {(upload.processing_status === 'pending_2d_analysis' || upload.processing_status === 'pending' || upload.processing_status === 'failed') && upload.video_url && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => handleRunAnalysis(upload, e)}
+                        disabled={analyzingId === upload.id}
+                        className="h-7 px-2 text-xs border-amber-500/50 text-amber-400 hover:bg-amber-500/20"
+                      >
+                        {analyzingId === upload.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <>
+                            <Play className="h-3 w-3 mr-1" />
+                            Analyze
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    <ChevronRight className="h-4 w-4 text-slate-500" />
+                  </div>
+                </div>
+
+                {/* AI Coaching Notes - Only show if analysis complete */}
+                {upload.processing_status === 'complete' && (upload.leak_detected || upload.priority_drill || upload.motor_profile) && (
+                  <div className="mt-3 pt-3 border-t border-slate-700/50 space-y-2">
+                    {/* Leak & Motor Profile Row */}
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      {upload.leak_detected && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-red-500/10 border border-red-500/20">
+                          <AlertTriangle className="h-3 w-3 text-red-400" />
+                          <span className="text-red-300 font-medium">{upload.leak_detected.replace(/_/g, ' ')}</span>
+                        </div>
                       )}
-                    </Button>
-                  )}
-                </span>
-                <span className="text-slate-500">
-                  <ChevronRight className="h-4 w-4" />
-                </span>
+                      {upload.motor_profile && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20">
+                          <Target className="h-3 w-3 text-blue-400" />
+                          <span className="text-blue-300 font-medium">{upload.motor_profile}</span>
+                        </div>
+                      )}
+                      {upload.analysis_confidence && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-500/10 border border-slate-500/20">
+                          <span className="text-slate-400">{Math.round(upload.analysis_confidence * 100)}% confidence</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Leak Evidence */}
+                    {upload.leak_evidence && (
+                      <div className="flex items-start gap-2 text-xs">
+                        <MessageSquare className="h-3 w-3 text-amber-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-slate-300 line-clamp-2">{upload.leak_evidence}</p>
+                      </div>
+                    )}
+                    
+                    {/* Priority Drill */}
+                    {upload.priority_drill && (
+                      <div className="flex items-start gap-2 text-xs">
+                        <Target className="h-3 w-3 text-emerald-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-emerald-300">
+                          <span className="font-medium">Priority:</span> {upload.priority_drill}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
