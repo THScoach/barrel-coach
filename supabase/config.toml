@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.search-vault]
 verify_jwt = false
+
+[functions.noa-webhook]
+verify_jwt = false
