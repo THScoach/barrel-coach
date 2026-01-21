@@ -107,3 +107,9 @@ verify_jwt = false
 
 [functions.prospect-research-pipeline]
 verify_jwt = false
+
+[functions.recover-ghost-session]
+verify_jwt = false
+
+[functions.dk-sync]
+verify_jwt = false
