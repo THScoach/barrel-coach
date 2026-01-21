@@ -54,6 +54,7 @@ import AdminValidationQueue from "./pages/AdminValidationQueue";
 import AdminReportQueue from "./pages/AdminReportQueue";
 import AdminProspectLab from "./pages/AdminProspectLab";
 import AdminSessionSetup from "./pages/AdminSessionSetup";
+import AdminVault from "./pages/AdminVault";
 
 // Player pages
 import PlayerDashboard4B from "./pages/player/PlayerDashboard4B";
@@ -209,6 +210,11 @@ const App = () => (
               <Route path="/admin/session-setup" element={
                 <ProtectedAdminRoute>
                   <AdminSessionSetup />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/vault" element={
+                <ProtectedAdminRoute>
+                  <AdminVault />
                 </ProtectedAdminRoute>
               } />
 
