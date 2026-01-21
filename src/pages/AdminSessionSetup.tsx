@@ -1,28 +1,48 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AdminHeader } from "@/components/AdminHeader";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SessionSetupCard, SessionContext } from "@/components/session";
-import { useSessionContext } from "@/hooks/useSessionContext";
+import { useSessionSetup } from "@/hooks/useSessionSetup";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Video, RotateCcw, CheckCircle2, Zap } from "lucide-react";
+import { Video, RotateCcw, CheckCircle2, Zap, Loader2, Database } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminSessionSetup() {
   const isMobile = useIsMobile();
-  const { context, resetContext, isReady, updateContext } = useSessionContext();
+  const [searchParams] = useSearchParams();
+  const playerId = searchParams.get("player") || undefined;
+  
+  const {
+    sessionId,
+    context,
+    isCreating,
+    completeSetup,
+    reset,
+  } = useSessionSetup({
+    playerId,
+    onSessionCreated: (id) => {
+      toast.success("Session created!", { description: `ID: ${id.slice(0, 8)}...` });
+    },
+  });
+
   const [isSetupComplete, setIsSetupComplete] = useState(false);
 
-  const handleSetupComplete = (sessionContext: SessionContext) => {
-    updateContext(sessionContext);
-    setIsSetupComplete(true);
-    toast.success("Session ready! Start recording swings.");
+  const handleSetupComplete = async (sessionContext: SessionContext) => {
+    const newSessionId = await completeSetup(sessionContext);
+    if (newSessionId) {
+      setIsSetupComplete(true);
+      toast.success("Session ready! Context saved to database.", {
+        description: `Pitch speed: ${sessionContext.estimatedPitchSpeed || "N/A"} mph`,
+      });
+    }
   };
 
   const handleReset = () => {
-    resetContext();
+    reset();
     setIsSetupComplete(false);
   };
 
@@ -49,10 +69,18 @@ export default function AdminSessionSetup() {
           <p className="text-slate-400">
             Set up your session before recording swings
           </p>
+          {playerId && (
+            <Badge variant="outline" className="mt-2 border-slate-600 text-slate-400">
+              Player: {playerId.slice(0, 8)}...
+            </Badge>
+          )}
         </div>
 
         {!isSetupComplete ? (
-          <SessionSetupCard onComplete={handleSetupComplete} />
+          <SessionSetupCard 
+            onComplete={handleSetupComplete}
+            className={isCreating ? "opacity-50 pointer-events-none" : ""}
+          />
         ) : (
           <div className="space-y-4">
             {/* Session Ready Card */}
@@ -65,13 +93,22 @@ export default function AdminSessionSetup() {
                   <div>
                     <h2 className="text-lg font-bold text-white">Session Ready</h2>
                     <p className="text-sm text-green-400">
-                      Your hitting context is set
+                      Context saved to sensor_sessions
                     </p>
                   </div>
                 </div>
               </div>
 
               <CardContent className="p-4 space-y-4">
+                {/* Session ID */}
+                {sessionId && (
+                  <div className="flex items-center gap-2 p-2 bg-blue-600/10 rounded-lg border border-blue-600/20">
+                    <Database className="h-4 w-4 text-blue-400" />
+                    <span className="text-xs text-slate-400">Session ID:</span>
+                    <code className="text-xs text-blue-300 font-mono">{sessionId}</code>
+                  </div>
+                )}
+
                 {/* Session Summary */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-800 rounded-lg p-3">
@@ -90,15 +127,15 @@ export default function AdminSessionSetup() {
                   </div>
                 </div>
 
-                {/* Context Badge */}
+                {/* Ghost Stats Info */}
                 <div className="flex items-center gap-2 p-3 bg-red-600/10 rounded-lg border border-red-600/20">
                   <Zap className="h-4 w-4 text-red-500" />
                   <span className="text-sm text-slate-300">
-                    Analysis will adjust for{" "}
+                    Ghost EV will use{" "}
                     <span className="text-white font-medium">
-                      {getEnvironmentLabel(context.environment)}
+                      {context.estimatedPitchSpeed || "default"} mph
                     </span>{" "}
-                    conditions
+                    pitch speed
                   </span>
                 </div>
 
@@ -106,8 +143,13 @@ export default function AdminSessionSetup() {
                 <div className="flex gap-3">
                   <Button
                     className="flex-1 bg-red-600 hover:bg-red-700 text-white h-12"
+                    disabled={isCreating}
                   >
-                    <Video className="h-5 w-5 mr-2" />
+                    {isCreating ? (
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    ) : (
+                      <Video className="h-5 w-5 mr-2" />
+                    )}
                     Start Recording
                   </Button>
                   <Button
@@ -121,17 +163,25 @@ export default function AdminSessionSetup() {
               </CardContent>
             </Card>
 
-            {/* Debug: Current Context */}
+            {/* Debug: Current Context + DB Flow */}
             <Card className="bg-slate-900/50 border-slate-800">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
                     Debug
                   </Badge>
-                  <span className="text-xs text-slate-500">current_session_context</span>
+                  <span className="text-xs text-slate-500">dk-4b-inverse context flow</span>
                 </div>
                 <pre className="text-xs text-slate-400 bg-slate-800 rounded p-3 overflow-x-auto">
-                  {JSON.stringify(context, null, 2)}
+{`// sensor_sessions row:
+{
+  "id": "${sessionId || "pending"}",
+  "environment": "${context.environment || "null"}",
+  "estimated_pitch_speed": ${context.estimatedPitchSpeed || "null"}
+}
+
+// dk-4b-inverse will load this and use:
+// Ghost EV = Bat Speed × 1.2 + ${context.estimatedPitchSpeed || 50} × 0.2`}
                 </pre>
               </CardContent>
             </Card>
