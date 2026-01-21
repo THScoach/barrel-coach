@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.send-weekly-lab-report]
 verify_jwt = false
+
+[functions.send-player-email]
+verify_jwt = false
