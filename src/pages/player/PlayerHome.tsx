@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -110,7 +110,7 @@ export default function PlayerHome() {
     loadPlayerData();
   }, []);
 
-  const loadPlayerData = async () => {
+  const loadPlayerData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setLoading(false);
@@ -141,7 +141,94 @@ export default function PlayerHome() {
       buildNextActions(playerData);
     }
     setLoading(false);
-  };
+  }, [checkActiveSession]);
+
+  // Realtime subscription for progress chart updates
+  useEffect(() => {
+    if (!player?.id) return;
+
+    const channel = supabase
+      .channel(`progress-updates-${player.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'reboot_uploads',
+          filter: `player_id=eq.${player.id}`,
+        },
+        (payload) => {
+          console.log('[Realtime] New reboot session:', payload);
+          // Refresh progress data and session history
+          loadProgressData(player.id);
+          loadSessionHistory(player.id);
+          loadLatestScores(player.id);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'reboot_uploads',
+          filter: `player_id=eq.${player.id}`,
+        },
+        (payload) => {
+          console.log('[Realtime] Reboot session updated:', payload);
+          loadProgressData(player.id);
+          loadSessionHistory(player.id);
+          loadLatestScores(player.id);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'video_swing_sessions',
+          filter: `player_id=eq.${player.id}`,
+        },
+        (payload) => {
+          console.log('[Realtime] New video session:', payload);
+          loadSessionHistory(player.id);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'video_swing_sessions',
+          filter: `player_id=eq.${player.id}`,
+        },
+        (payload) => {
+          console.log('[Realtime] Video session updated:', payload);
+          loadSessionHistory(player.id);
+          loadProgressData(player.id);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'swing_4b_scores',
+          filter: `player_id=eq.${player.id}`,
+        },
+        (payload) => {
+          console.log('[Realtime] New 4B score:', payload);
+          loadLatestScores(player.id);
+          loadProgressData(player.id);
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Realtime] Subscription status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [player?.id]);
 
   // Start a new session
   const handleStartSession = async () => {
