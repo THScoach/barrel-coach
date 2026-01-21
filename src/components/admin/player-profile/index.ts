@@ -22,4 +22,5 @@ export { SessionDetailModal } from './SessionDetailModal';
 export { DiagnosticLabHeader } from './DiagnosticLabHeader';
 export { ScoutGaugeGrid } from './ScoutGaugeGrid';
 export { KineticLeakCard } from './KineticLeakCard';
+export { LeakDetectionCard } from './LeakDetectionCard';
 export { PrescriptionCard } from './PrescriptionCard';

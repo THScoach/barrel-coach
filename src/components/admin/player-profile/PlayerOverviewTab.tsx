@@ -20,6 +20,7 @@ import { usePlayerScorecard } from "@/hooks/usePlayerScorecard";
 import { DiagnosticLabHeader } from "./DiagnosticLabHeader";
 import { ScoutGaugeGrid } from "./ScoutGaugeGrid";
 import { KineticLeakCard } from "./KineticLeakCard";
+import { LeakDetectionCard } from "./LeakDetectionCard";
 import { PrescriptionCard } from "./PrescriptionCard";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { RebootSessionDetail } from "@/components/RebootSessionDetail";
@@ -70,6 +71,16 @@ export function PlayerOverviewTab({
     motorProfile: null,
     priorityDrill: null,
   });
+
+  // Detailed leaks from dk-4b-inverse
+  const [detailedLeaks, setDetailedLeaks] = useState<Array<{
+    type: string;
+    category: "brain" | "body" | "bat" | "ball";
+    severity: "low" | "medium" | "high";
+    description: string;
+    metric_value: number;
+    threshold: number;
+  }>>([]);
   
   // Prescription drill data
   const [prescriptionDrill, setPrescriptionDrill] = useState<{
@@ -121,7 +132,7 @@ export function PlayerOverviewTab({
   }, [mappedPlayersId, playerId]);
 
   const loadLatestSession = async () => {
-    const [rebootRes, sessionsRes] = await Promise.all([
+    const [rebootRes, sessionsRes, kwonAnalysisRes] = await Promise.all([
       supabase
         .from('reboot_uploads')
         .select('*')
@@ -134,10 +145,34 @@ export function PlayerOverviewTab({
         .eq('player_id', playerId)
         .order('created_at', { ascending: false })
         .limit(1),
+      // Fetch kwon analyses with detailed leak data from dk-4b-inverse
+      supabase
+        .from('kwon_analyses')
+        .select('id, player_id, possible_leaks, four_b_scores, motor_profile, priority_focus, created_at')
+        .eq('player_id', mappedPlayersId)
+        .order('created_at', { ascending: false })
+        .limit(1),
     ]);
 
     const reboot = rebootRes.data?.[0];
     const session = sessionsRes.data?.[0];
+    const kwonAnalysis = kwonAnalysisRes.data?.[0];
+
+    // Extract detailed leaks from kwon_analyses.possible_leaks if available
+    if (kwonAnalysis?.possible_leaks) {
+      const possibleLeaks = kwonAnalysis.possible_leaks as any;
+      if (Array.isArray(possibleLeaks)) {
+        // Map to expected format
+        setDetailedLeaks(possibleLeaks.map((leak: any) => ({
+          type: leak.type || leak.leak_type || 'unknown',
+          category: leak.category || 'body',
+          severity: leak.severity || 'medium',
+          description: leak.description || leak.evidence || '',
+          metric_value: leak.metric_value ?? leak.value ?? 0,
+          threshold: leak.threshold ?? 0,
+        })));
+      }
+    }
 
     if (reboot && session) {
       const rebootDate = new Date(reboot.created_at);
@@ -279,6 +314,15 @@ export function PlayerOverviewTab({
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {/* ===== LEAK DETECTION CARD (from dk-4b-inverse) ===== */}
+      {(detailedLeaks.length > 0 || !scorecardLoading) && (
+        <LeakDetectionCard
+          leaks={detailedLeaks}
+          weakestCategory={scorecardData?.fourBScores.weakestLink}
+          isLoading={scorecardLoading}
+        />
       )}
 
       {/* ===== KINETIC LEAK + PRESCRIPTION GRID ===== */}
