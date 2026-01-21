@@ -2166,6 +2166,7 @@ export type Database = {
           consistency_cv: number | null
           consistency_grade: string | null
           core_flow_score: number | null
+          correlated_video_session_id: string | null
           created_at: string | null
           error_message: string | null
           frame_rate: number | null
@@ -2194,7 +2195,9 @@ export type Database = {
           upload_source: string | null
           uploaded_at: string | null
           upper_flow_score: number | null
+          validation_status: string | null
           video_2d_analysis: Json | null
+          video_composite_delta: number | null
           video_filename: string | null
           video_quality: string | null
           video_url: string | null
@@ -2214,6 +2217,7 @@ export type Database = {
           consistency_cv?: number | null
           consistency_grade?: string | null
           core_flow_score?: number | null
+          correlated_video_session_id?: string | null
           created_at?: string | null
           error_message?: string | null
           frame_rate?: number | null
@@ -2242,7 +2246,9 @@ export type Database = {
           upload_source?: string | null
           uploaded_at?: string | null
           upper_flow_score?: number | null
+          validation_status?: string | null
           video_2d_analysis?: Json | null
+          video_composite_delta?: number | null
           video_filename?: string | null
           video_quality?: string | null
           video_url?: string | null
@@ -2262,6 +2268,7 @@ export type Database = {
           consistency_cv?: number | null
           consistency_grade?: string | null
           core_flow_score?: number | null
+          correlated_video_session_id?: string | null
           created_at?: string | null
           error_message?: string | null
           frame_rate?: number | null
@@ -2290,7 +2297,9 @@ export type Database = {
           upload_source?: string | null
           uploaded_at?: string | null
           upper_flow_score?: number | null
+          validation_status?: string | null
           video_2d_analysis?: Json | null
+          video_composite_delta?: number | null
           video_filename?: string | null
           video_quality?: string | null
           video_url?: string | null
@@ -2298,6 +2307,13 @@ export type Database = {
           x_factor?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "reboot_uploads_correlated_video_session_id_fkey"
+            columns: ["correlated_video_session_id"]
+            isOneToOne: false
+            referencedRelation: "video_swing_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reboot_uploads_player_id_fkey"
             columns: ["player_id"]
@@ -3969,6 +3985,7 @@ export type Database = {
       }
       video_swing_sessions: {
         Row: {
+          accuracy_tier: string | null
           analyzed_count: number | null
           ball_score: number | null
           bat_score: number | null
@@ -3976,6 +3993,7 @@ export type Database = {
           brain_score: number | null
           composite_score: number | null
           context: string | null
+          correlated_reboot_id: string | null
           created_at: string
           ended_at: string | null
           id: string
@@ -3985,16 +4003,21 @@ export type Database = {
           notes: string | null
           player_id: string
           primary_leak: string | null
+          reboot_composite_delta: number | null
           session_date: string
           source: string | null
           status: string | null
           swing_count: number | null
           updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+          validation_status: string | null
           video_count: number | null
           video_url: string | null
           weakest_link: string | null
         }
         Insert: {
+          accuracy_tier?: string | null
           analyzed_count?: number | null
           ball_score?: number | null
           bat_score?: number | null
@@ -4002,6 +4025,7 @@ export type Database = {
           brain_score?: number | null
           composite_score?: number | null
           context?: string | null
+          correlated_reboot_id?: string | null
           created_at?: string
           ended_at?: string | null
           id?: string
@@ -4011,16 +4035,21 @@ export type Database = {
           notes?: string | null
           player_id: string
           primary_leak?: string | null
+          reboot_composite_delta?: number | null
           session_date?: string
           source?: string | null
           status?: string | null
           swing_count?: number | null
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string | null
           video_count?: number | null
           video_url?: string | null
           weakest_link?: string | null
         }
         Update: {
+          accuracy_tier?: string | null
           analyzed_count?: number | null
           ball_score?: number | null
           bat_score?: number | null
@@ -4028,6 +4057,7 @@ export type Database = {
           brain_score?: number | null
           composite_score?: number | null
           context?: string | null
+          correlated_reboot_id?: string | null
           created_at?: string
           ended_at?: string | null
           id?: string
@@ -4037,16 +4067,34 @@ export type Database = {
           notes?: string | null
           player_id?: string
           primary_leak?: string | null
+          reboot_composite_delta?: number | null
           session_date?: string
           source?: string | null
           status?: string | null
           swing_count?: number | null
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string | null
           video_count?: number | null
           video_url?: string | null
           weakest_link?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "video_swing_sessions_correlated_reboot_id_fkey"
+            columns: ["correlated_reboot_id"]
+            isOneToOne: false
+            referencedRelation: "pending_reboot_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_swing_sessions_correlated_reboot_id_fkey"
+            columns: ["correlated_reboot_id"]
+            isOneToOne: false
+            referencedRelation: "reboot_uploads"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "video_swing_sessions_player_id_fkey"
             columns: ["player_id"]
@@ -4435,6 +4483,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      unified_sessions: {
+        Row: {
+          accuracy_tier: string | null
+          ball_score: number | null
+          bat_score: number | null
+          body_score: number | null
+          brain_score: number | null
+          composite_score: number | null
+          correlated_reboot_id: string | null
+          created_at: string | null
+          ended_at: string | null
+          id: string | null
+          is_active: boolean | null
+          player_id: string | null
+          primary_leak: string | null
+          reboot_composite_delta: number | null
+          session_date: string | null
+          source_type: string | null
+          swing_count: number | null
+          updated_at: string | null
+          validation_status: string | null
+          weakest_link: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
