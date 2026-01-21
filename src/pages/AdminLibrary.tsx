@@ -1,15 +1,26 @@
 import { useState } from "react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dumbbell, BookOpen, Video, Folder, Search } from "lucide-react";
+import { Dumbbell, BookOpen, Video, Folder, Upload } from "lucide-react";
 import { DrillsTab } from "@/components/library/DrillsTab";
 import { ProgramsTab } from "@/components/library/ProgramsTab";
 import { VideosTab } from "@/components/library/VideosTab";
 import { CollectionsTab } from "@/components/library/CollectionsTab";
-import { ConceptSearch } from "@/components/library/ConceptSearch";
+import { TranscriptSearch } from "@/components/library/TranscriptSearch";
+import { AcademyUploader } from "@/components/library/AcademyUploader";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminLibrary() {
   const [activeTab, setActiveTab] = useState("videos");
+  const { toast } = useToast();
+
+  const handleUploadComplete = (videoId: string) => {
+    toast({
+      title: "Video Added",
+      description: "Your video is being transcribed and will appear in the library shortly."
+    });
+  };
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -17,15 +28,34 @@ export default function AdminLibrary() {
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white">Library</h1>
+          <h1 className="text-3xl font-bold text-white">Internal Academy</h1>
           <p className="text-slate-400 mt-1">
-            Videos, drills, collections, and training programs
+            Your private video library with transcript search & auto-prescriptions
           </p>
         </div>
 
-        {/* Concept Search */}
-        <div className="mb-8">
-          <ConceptSearch />
+        {/* Top Row: Upload + Search */}
+        <div className="grid gap-6 lg:grid-cols-2 mb-8">
+          {/* Academy Uploader */}
+          <AcademyUploader 
+            onUploadComplete={handleUploadComplete}
+            autoPublish={false}
+          />
+
+          {/* Transcript Search */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                Search by Transcript
+              </CardTitle>
+              <CardDescription>
+                Find videos where you mentioned specific words or phrases
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TranscriptSearch showInlinePlayer />
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

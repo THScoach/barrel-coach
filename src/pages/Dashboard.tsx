@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ScoreCard } from "@/components/dashboard/ScoreCard";
 import { LeakAlert } from "@/components/dashboard/LeakAlert";
 import { PrescribedDrills } from "@/components/drills/PrescribedDrills";
+import { PrescribedVideos } from "@/components/player/PrescribedVideos";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Upload, TrendingUp, Activity, Target, Zap, Circle } from "lucide-react";
@@ -299,6 +300,20 @@ export default function Dashboard() {
               type={session.leak_type}
               caption={session.leak_caption}
               training={session.leak_training}
+            />
+          </div>
+        )}
+
+        {/* Prescribed Videos Section */}
+        {playerId && session.leak_type && (
+          <div className="mb-10">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1.5 h-6 bg-[#DC2626] rounded-full" />
+              <h2 className="text-xl font-bold text-white">Watch & Learn</h2>
+            </div>
+            <PrescribedVideos 
+              playerId={playerId} 
+              weakestCategory={session.leak_type}
             />
           </div>
         )}

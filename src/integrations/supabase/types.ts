@@ -430,6 +430,7 @@ export type Database = {
           description: string | null
           drill_name: string | null
           duration_seconds: number | null
+          file_hash: string | null
           four_b_category: string | null
           gumlet_asset_id: string | null
           gumlet_dash_url: string | null
@@ -441,6 +442,7 @@ export type Database = {
           problems_addressed: string[] | null
           published_at: string | null
           status: string | null
+          storage_path: string | null
           tags: string[] | null
           thumbnail_url: string | null
           title: string
@@ -456,6 +458,7 @@ export type Database = {
           description?: string | null
           drill_name?: string | null
           duration_seconds?: number | null
+          file_hash?: string | null
           four_b_category?: string | null
           gumlet_asset_id?: string | null
           gumlet_dash_url?: string | null
@@ -467,6 +470,7 @@ export type Database = {
           problems_addressed?: string[] | null
           published_at?: string | null
           status?: string | null
+          storage_path?: string | null
           tags?: string[] | null
           thumbnail_url?: string | null
           title: string
@@ -482,6 +486,7 @@ export type Database = {
           description?: string | null
           drill_name?: string | null
           duration_seconds?: number | null
+          file_hash?: string | null
           four_b_category?: string | null
           gumlet_asset_id?: string | null
           gumlet_dash_url?: string | null
@@ -493,6 +498,7 @@ export type Database = {
           problems_addressed?: string[] | null
           published_at?: string | null
           status?: string | null
+          storage_path?: string | null
           tags?: string[] | null
           thumbnail_url?: string | null
           title?: string
@@ -1970,6 +1976,70 @@ export type Database = {
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_video_prescriptions: {
+        Row: {
+          created_at: string | null
+          four_b_category: string | null
+          id: string
+          is_completed: boolean | null
+          player_id: string
+          prescribed_reason: string | null
+          session_id: string | null
+          updated_at: string | null
+          video_id: string
+          watch_progress_pct: number | null
+          watched_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          four_b_category?: string | null
+          id?: string
+          is_completed?: boolean | null
+          player_id: string
+          prescribed_reason?: string | null
+          session_id?: string | null
+          updated_at?: string | null
+          video_id: string
+          watch_progress_pct?: number | null
+          watched_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          four_b_category?: string | null
+          id?: string
+          is_completed?: boolean | null
+          player_id?: string
+          prescribed_reason?: string | null
+          session_id?: string | null
+          updated_at?: string | null
+          video_id?: string
+          watch_progress_pct?: number | null
+          watched_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_video_prescriptions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_video_prescriptions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_video_prescriptions_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "drill_videos"
             referencedColumns: ["id"]
           },
         ]
@@ -4825,6 +4895,14 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: undefined
       }
+      check_academy_video_duplicate: {
+        Args: { p_file_hash: string }
+        Returns: {
+          id: string
+          title: string
+          video_url: string
+        }[]
+      }
       check_duplicate_document: {
         Args: { p_file_hash: string }
         Returns: {
@@ -4930,6 +5008,14 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      prescribe_videos_for_player: {
+        Args: {
+          p_player_id: string
+          p_session_id?: string
+          p_weakest_category: string
+        }
+        Returns: number
+      }
       search_video_transcripts: {
         Args: {
           category_filter?: string
