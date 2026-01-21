@@ -1168,6 +1168,7 @@ export type Database = {
       }
       knowledge_documents: {
         Row: {
+          category: string | null
           created_at: string | null
           description: string | null
           error_message: string | null
@@ -1175,6 +1176,7 @@ export type Database = {
           file_size: number | null
           id: string
           mime_type: string | null
+          noa_metadata: Json | null
           original_url: string | null
           source_type: string
           status: string | null
@@ -1184,6 +1186,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          category?: string | null
           created_at?: string | null
           description?: string | null
           error_message?: string | null
@@ -1191,6 +1194,7 @@ export type Database = {
           file_size?: number | null
           id?: string
           mime_type?: string | null
+          noa_metadata?: Json | null
           original_url?: string | null
           source_type: string
           status?: string | null
@@ -1200,6 +1204,7 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          category?: string | null
           created_at?: string | null
           description?: string | null
           error_message?: string | null
@@ -1207,6 +1212,7 @@ export type Database = {
           file_size?: number | null
           id?: string
           mime_type?: string | null
+          noa_metadata?: Json | null
           original_url?: string | null
           source_type?: string
           status?: string | null
