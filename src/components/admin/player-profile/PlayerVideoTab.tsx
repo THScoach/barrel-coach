@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { PlayerVideoUpload } from "./PlayerVideoUpload";
 import { PlayerUploadHistory } from "./PlayerUploadHistory";
 import { RebootConnectionStatus } from "./RebootConnectionStatus";
+import { SessionValidationOverlay } from "../validation/SessionValidationOverlay";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Video, Activity, Download, Loader2, Calendar, RefreshCw } from "lucide-react";
+import { Video, Activity, Download, Loader2, Calendar, RefreshCw, Link2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface PlayerVideoTabProps {
@@ -28,6 +29,7 @@ export function PlayerVideoTab({ playerId, playersTableId, playerName }: PlayerV
   const [availableSessions, setAvailableSessions] = useState<RebootSession[]>([]);
   const [fetchingsessions, setFetchingessions] = useState(false);
   const [importingSessionId, setImportingSessionId] = useState<string | null>(null);
+  const [showValidationOverlay, setShowValidationOverlay] = useState(false);
 
   // Fetch player's Reboot connection status from players table
   const { data: playerData } = useQuery({
@@ -126,6 +128,14 @@ export function PlayerVideoTab({ playerId, playersTableId, playerName }: PlayerV
 
   return (
     <div className="space-y-6">
+      {/* Validation Overlay */}
+      <SessionValidationOverlay
+        playerId={playersTableId}
+        playerName={playerName}
+        isOpen={showValidationOverlay}
+        onClose={() => setShowValidationOverlay(false)}
+      />
+
       {/* Reboot Connection Status */}
       <Card className="bg-slate-900/80 border-slate-800">
         <CardHeader className="pb-3">
@@ -134,7 +144,18 @@ export function PlayerVideoTab({ playerId, playersTableId, playerName }: PlayerV
               <Activity className="h-5 w-5" />
               Reboot Motion Status
             </span>
-            <RebootConnectionStatus rebootPlayerId={rebootPlayerId} />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowValidationOverlay(true)}
+                className="border-teal-500/50 text-teal-400 hover:bg-teal-500/10"
+              >
+                <Link2 className="h-4 w-4 mr-2" />
+                Session Validation
+              </Button>
+              <RebootConnectionStatus rebootPlayerId={rebootPlayerId} />
+            </div>
           </CardTitle>
         </CardHeader>
         {playerData?.latest_composite_score && (

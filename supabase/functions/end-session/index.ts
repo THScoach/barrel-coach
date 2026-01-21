@@ -9,15 +9,20 @@ const corsHeaders = {
 /**
  * End Session Edge Function
  * =========================
- * Ends an active session, triggers analysis on all swings, 
- * aggregates scores, and identifies the primary leak.
+ * Ends an active video session, triggers analysis on all swings, 
+ * aggregates scores into a unified 4B Report, identifies the primary leak,
+ * and attempts to correlate with same-day Reboot sessions for accuracy flagging.
  * 
  * Input:
  *   - sessionId: string (required)
  * 
  * Output:
  *   - success: boolean
- *   - data: aggregated scores and leak analysis
+ *   - data: {
+ *       sessionId, swingCount, analyzedCount, scores (4B),
+ *       primaryLeak, weakestLink, inSequenceCount,
+ *       correlatedRebootId, accuracyTier, compositeDelta
+ *     }
  */
 
 // Ideal sequence for 4B Body→Bat momentum chain
@@ -32,14 +37,37 @@ const SEGMENT_DISPLAY_NAMES: Record<string, string> = {
   bat: 'Bat',
 };
 
-// Leak type mappings
-const LEAK_TYPES = {
+// Leak type mappings with training recommendations
+const LEAK_TYPES: Record<string, { label: string; category: string; training: string }> = {
   early_torso: { label: 'Early Torso Rotation', category: 'body', training: 'Hip lead drills' },
   late_legs: { label: 'Late Lower Body', category: 'body', training: 'Load timing drills' },
   arms_before_torso: { label: 'Arms Before Torso', category: 'bat', training: 'Separation drills' },
   bat_drag: { label: 'Bat Drag', category: 'bat', training: 'Barrel path drills' },
   no_sequence: { label: 'No Clear Sequence', category: 'brain', training: 'Intent mapping' },
-} as const;
+  casting: { label: 'Casting', category: 'bat', training: 'Connection drills' },
+  lunging: { label: 'Lunging', category: 'body', training: 'Balance work' },
+  spinning: { label: 'Spinning Off', category: 'body', training: 'Stay-back drills' },
+};
+
+// Grade mappings for 20-80 scale
+function getGrade(score: number): string {
+  if (score >= 70) return 'Plus-Plus';
+  if (score >= 60) return 'Plus';
+  if (score >= 55) return 'Above Avg';
+  if (score >= 45) return 'Average';
+  if (score >= 40) return 'Below Avg';
+  if (score >= 30) return 'Fringe';
+  return 'Poor';
+}
+
+// Accuracy tier based on delta between video and Reboot scores
+function getAccuracyTier(delta: number | null): string | null {
+  if (delta === null) return null;
+  const absDelta = Math.abs(delta);
+  if (absDelta < 5) return 'high';
+  if (absDelta < 10) return 'medium';
+  return 'low';
+}
 
 // Generate sequence analysis for a swing
 function generateSequenceAnalysis(swingId: string) {
@@ -276,7 +304,42 @@ serve(async (req: Request) => {
     console.log('Primary leak:', primaryLeak);
     console.log('Weakest link:', weakestLink);
 
-    // 5. Update session with aggregated results
+    // 5. Find same-day Reboot session for correlation
+    let correlatedRebootId: string | null = null;
+    let compositeDelta: number | null = null;
+    let accuracyTier: string | null = null;
+
+    const { data: rebootSessions } = await supabase
+      .from('reboot_uploads')
+      .select('id, composite_score, session_date')
+      .eq('player_id', session.player_id)
+      .eq('session_date', session.session_date)
+      .eq('processing_status', 'complete')
+      .not('composite_score', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (rebootSessions && rebootSessions.length > 0) {
+      const rebootSession = rebootSessions[0];
+      correlatedRebootId = rebootSession.id;
+      compositeDelta = scores.composite - (rebootSession.composite_score || 0);
+      accuracyTier = getAccuracyTier(compositeDelta);
+      
+      console.log(`Found correlated Reboot session: ${correlatedRebootId}, delta: ${compositeDelta}, tier: ${accuracyTier}`);
+
+      // Update the Reboot session with correlation
+      await supabase
+        .from('reboot_uploads')
+        .update({
+          correlated_video_session_id: sessionId,
+          video_composite_delta: -compositeDelta, // Inverse perspective
+          validation_status: 'correlated',
+        })
+        .eq('id', correlatedRebootId);
+    }
+
+    // 6. Update session with aggregated results and correlation
+    const grade = getGrade(scores.composite);
     const { error: updateError } = await supabase
       .from('video_swing_sessions')
       .update({
@@ -292,6 +355,11 @@ serve(async (req: Request) => {
         primary_leak: primaryLeak?.type || null,
         leak_frequency: primaryLeak?.frequency || 0,
         weakest_link: weakestLink,
+        // Correlation fields
+        correlated_reboot_id: correlatedRebootId,
+        reboot_composite_delta: compositeDelta,
+        accuracy_tier: accuracyTier,
+        validation_status: correlatedRebootId ? 'correlated' : 'pending',
         updated_at: new Date().toISOString(),
       })
       .eq('id', sessionId);
@@ -301,7 +369,7 @@ serve(async (req: Request) => {
       throw new Error(`Failed to update session: ${updateError.message}`);
     }
 
-    // 6. Update player's latest scores
+    // 7. Update player's latest scores
     const { error: playerUpdateError } = await supabase
       .from('players')
       .update({
@@ -318,7 +386,7 @@ serve(async (req: Request) => {
       console.warn('Error updating player scores:', playerUpdateError);
     }
 
-    // 7. Save to video_swing_scores for historical tracking
+    // 8. Save to video_swing_scores for historical tracking
     const avgSequenceScore = analyses.length > 0
       ? Math.round(analyses.reduce((sum, a) => sum + a.sequenceScore, 0) / analyses.length)
       : 0;
@@ -334,10 +402,10 @@ serve(async (req: Request) => {
         sequence_match: inSequenceCount === analyses.length,
         sequence_order: analyses[0]?.actualOrder || IDEAL_SEQUENCE,
         sequence_errors: analyses.flatMap(a => a.detectedLeaks.slice(0, 2)),
-        notes: `Session ended. ${swingCount} swings analyzed. Primary leak: ${primaryLeak?.label || 'None'}. Weakest: ${weakestLink}.`,
+        notes: `Session ended. ${swingCount} swings analyzed. Grade: ${grade}. Primary leak: ${primaryLeak?.label || 'None'}. Weakest: ${weakestLink}.${correlatedRebootId ? ` Correlated with Reboot (Δ${compositeDelta?.toFixed(1)} - ${accuracyTier} accuracy).` : ''}`,
       }, { onConflict: 'swing_session_id' });
 
-    console.log(`Session ${sessionId} ended successfully`);
+    console.log(`Session ${sessionId} ended successfully. Grade: ${grade}, Accuracy: ${accuracyTier || 'unvalidated'}`);
 
     return new Response(
       JSON.stringify({
@@ -347,9 +415,14 @@ serve(async (req: Request) => {
           swingCount,
           analyzedCount: analyses.length,
           scores,
+          grade,
           primaryLeak,
           weakestLink,
           inSequenceCount,
+          // Correlation data
+          correlatedRebootId,
+          compositeDelta,
+          accuracyTier,
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
