@@ -72,6 +72,8 @@ export default function AdminVault() {
   const [uploadProgress, setUploadProgress] = useState<Record<string, { status: string; name: string }>>({});
   const [isCleanupOpen, setIsCleanupOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [selectedDuplicates, setSelectedDuplicates] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Fetch documents
   const { data: documents, isLoading } = useQuery({
@@ -327,6 +329,75 @@ export default function AdminVault() {
     }
   };
 
+  // Toggle selection of a duplicate document
+  const toggleDuplicateSelection = (docId: string) => {
+    setSelectedDuplicates(prev => {
+      const next = new Set(prev);
+      if (next.has(docId)) {
+        next.delete(docId);
+      } else {
+        next.add(docId);
+      }
+      return next;
+    });
+  };
+
+  // Select all duplicates (excluding the first "keep" item in each group)
+  const selectAllDuplicates = () => {
+    if (!duplicates) return;
+    const allDuplicateIds = new Set<string>();
+    duplicates.forEach(group => {
+      group.document_ids.slice(1).forEach(id => allDuplicateIds.add(id));
+    });
+    setSelectedDuplicates(allDuplicateIds);
+  };
+
+  // Clear all selections
+  const clearSelection = () => {
+    setSelectedDuplicates(new Set());
+  };
+
+  // Bulk delete selected duplicates
+  const handleBulkDelete = async () => {
+    if (selectedDuplicates.size === 0) return;
+    
+    setIsBulkDeleting(true);
+    const idsToDelete = Array.from(selectedDuplicates);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const docId of idsToDelete) {
+      const doc = documents?.find(d => d.id === docId);
+      if (doc) {
+        try {
+          if (doc.storage_path) {
+            await supabase.storage.from('coach_knowledge').remove([doc.storage_path]);
+          }
+          const { error } = await supabase
+            .from('knowledge_documents')
+            .delete()
+            .eq('id', doc.id);
+          if (error) throw error;
+          successCount++;
+        } catch (err) {
+          errorCount++;
+          console.error('Failed to delete:', doc.id, err);
+        }
+      }
+    }
+
+    setSelectedDuplicates(new Set());
+    queryClient.invalidateQueries({ queryKey: ['knowledge-documents'] });
+    refetchDuplicates();
+    setIsBulkDeleting(false);
+
+    toast({
+      title: "Bulk Delete Complete",
+      description: `Deleted ${successCount} document(s)${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+      variant: errorCount > 0 ? "destructive" : "default",
+    });
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ready':
@@ -409,20 +480,66 @@ export default function AdminVault() {
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <p className="text-sm text-muted-foreground">
                     Scan your vault for duplicate files and URLs
                   </p>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={scanForDuplicates}
-                    disabled={isScanning}
-                  >
-                    {isScanning ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                    Scan Now
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={scanForDuplicates}
+                      disabled={isScanning || isBulkDeleting}
+                    >
+                      {isScanning ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                      Scan Now
+                    </Button>
+                  </div>
                 </div>
+
+                {duplicates && duplicates.length > 0 && (
+                  <div className="flex items-center justify-between gap-2 p-3 bg-muted/50 rounded-lg border">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">
+                        {selectedDuplicates.size} selected
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={selectAllDuplicates}
+                        disabled={isBulkDeleting}
+                        className="text-xs h-7"
+                      >
+                        Select All Duplicates
+                      </Button>
+                      {selectedDuplicates.size > 0 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={clearSelection}
+                          disabled={isBulkDeleting}
+                          className="text-xs h-7"
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={handleBulkDelete}
+                      disabled={selectedDuplicates.size === 0 || isBulkDeleting}
+                      className="gap-1"
+                    >
+                      {isBulkDeleting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                      Delete Selected ({selectedDuplicates.size})
+                    </Button>
+                  </div>
+                )}
 
                 <ScrollArea className="h-[400px] border rounded-lg">
                   {!duplicates || duplicates.length === 0 ? (
@@ -454,34 +571,48 @@ export default function AdminVault() {
                             </CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-2">
-                            {group.document_titles.map((title, idx) => (
-                              <div 
-                                key={group.document_ids[idx]} 
-                                className={`flex items-center justify-between p-2 rounded ${
-                                  idx === 0 ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  {idx === 0 ? (
-                                    <Badge className="bg-green-500/20 text-green-400 text-xs">Keep</Badge>
-                                  ) : (
-                                    <Badge className="bg-red-500/20 text-red-400 text-xs">Delete</Badge>
+                            {group.document_titles.map((title, idx) => {
+                              const docId = group.document_ids[idx];
+                              const isSelected = selectedDuplicates.has(docId);
+                              return (
+                                <div 
+                                  key={docId} 
+                                  className={`flex items-center justify-between p-2 rounded ${
+                                    idx === 0 ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'
+                                  } ${isSelected ? 'ring-2 ring-primary' : ''}`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    {idx !== 0 && (
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => toggleDuplicateSelection(docId)}
+                                        disabled={isBulkDeleting}
+                                        className="w-4 h-4 rounded border-muted-foreground/50 text-primary focus:ring-primary"
+                                      />
+                                    )}
+                                    {idx === 0 ? (
+                                      <Badge className="bg-green-500/20 text-green-400 text-xs">Keep</Badge>
+                                    ) : (
+                                      <Badge className="bg-red-500/20 text-red-400 text-xs">Duplicate</Badge>
+                                    )}
+                                    <span className="text-sm truncate max-w-[180px]">{title}</span>
+                                  </div>
+                                  {idx !== 0 && (
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost"
+                                      className="text-red-400 hover:text-red-300 h-7"
+                                      onClick={() => handleDeleteDuplicate(docId)}
+                                      disabled={isBulkDeleting}
+                                    >
+                                      <Trash2 className="w-3 h-3 mr-1" />
+                                      Remove
+                                    </Button>
                                   )}
-                                  <span className="text-sm truncate max-w-[200px]">{title}</span>
                                 </div>
-                                {idx !== 0 && (
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost"
-                                    className="text-red-400 hover:text-red-300 h-7"
-                                    onClick={() => handleDeleteDuplicate(group.document_ids[idx])}
-                                  >
-                                    <Trash2 className="w-3 h-3 mr-1" />
-                                    Remove
-                                  </Button>
-                                )}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </CardContent>
                         </Card>
                       ))}
