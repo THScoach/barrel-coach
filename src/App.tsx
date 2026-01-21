@@ -55,6 +55,7 @@ import AdminReportQueue from "./pages/AdminReportQueue";
 import AdminProspectLab from "./pages/AdminProspectLab";
 import AdminSessionSetup from "./pages/AdminSessionSetup";
 import AdminVault from "./pages/AdminVault";
+import AdminCoachRickVault from "./pages/AdminCoachRickVault";
 
 // Player pages
 import PlayerDashboard4B from "./pages/player/PlayerDashboard4B";
@@ -215,6 +216,11 @@ const App = () => (
               <Route path="/admin/vault" element={
                 <ProtectedAdminRoute>
                   <AdminVault />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/coach-rick-vault" element={
+                <ProtectedAdminRoute>
+                  <AdminCoachRickVault />
                 </ProtectedAdminRoute>
               } />
 
