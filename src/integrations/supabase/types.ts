@@ -805,6 +805,82 @@ export type Database = {
           },
         ]
       }
+      ghost_sessions: {
+        Row: {
+          avg_bat_speed: number | null
+          created_at: string
+          detected_at: string
+          environment: string | null
+          estimated_pitch_speed: number | null
+          id: string
+          max_bat_speed: number | null
+          notification_sent: boolean | null
+          player_id: string
+          recovered_at: string | null
+          session_id: string | null
+          status: string
+          swing_count: number
+          swings_data: Json
+          updated_at: string
+        }
+        Insert: {
+          avg_bat_speed?: number | null
+          created_at?: string
+          detected_at?: string
+          environment?: string | null
+          estimated_pitch_speed?: number | null
+          id?: string
+          max_bat_speed?: number | null
+          notification_sent?: boolean | null
+          player_id: string
+          recovered_at?: string | null
+          session_id?: string | null
+          status?: string
+          swing_count?: number
+          swings_data: Json
+          updated_at?: string
+        }
+        Update: {
+          avg_bat_speed?: number | null
+          created_at?: string
+          detected_at?: string
+          environment?: string | null
+          estimated_pitch_speed?: number | null
+          id?: string
+          max_bat_speed?: number | null
+          notification_sent?: boolean | null
+          player_id?: string
+          recovered_at?: string | null
+          session_id?: string | null
+          status?: string
+          swing_count?: number
+          swings_data?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ghost_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ghost_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ghost_sessions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sensor_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hittrax_sessions: {
         Row: {
           avg_distance: number | null
@@ -1855,6 +1931,7 @@ export type Database = {
           email: string | null
           fangraphs_id: string | null
           handedness: string | null
+          has_ghost_session: boolean | null
           height_inches: number | null
           id: string
           is_beta_tester: boolean | null
@@ -1909,6 +1986,7 @@ export type Database = {
           email?: string | null
           fangraphs_id?: string | null
           handedness?: string | null
+          has_ghost_session?: boolean | null
           height_inches?: number | null
           id?: string
           is_beta_tester?: boolean | null
@@ -1963,6 +2041,7 @@ export type Database = {
           email?: string | null
           fangraphs_id?: string | null
           handedness?: string | null
+          has_ghost_session?: boolean | null
           height_inches?: number | null
           id?: string
           is_beta_tester?: boolean | null
