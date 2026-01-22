@@ -135,8 +135,5 @@ verify_jwt = false
 [functions.broadcast-email]
 verify_jwt = false
 
-[functions.sync-to-ghl]
-verify_jwt = false
-
 [functions.send-sms]
 verify_jwt = false

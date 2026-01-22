@@ -1,3 +1,9 @@
+// ============================================================
+// COACH RICK AI MESSAGE GENERATOR
+// Swing Rehab Coach persona - Lovable AI (Gemini)
+// Philosophy: "Oreo, 4B, Sequence > Effort"
+// ============================================================
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -8,55 +14,56 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// System prompt for Coach Rick SMS personality
-const COACH_RICK_SMS_PROMPT = `You are Coach Rick texting a player about their swing analysis.
+// Swing Rehab Coach persona - biomechanics-focused, short, punchy
+const SWING_REHAB_COACH_PROMPT = `You are Coach Rick, a Swing Rehab Coach texting a player. Your philosophy: "Oreo, 4B, Sequence > Effort"
 
 VOICE:
-- Casual but professional (it's a text, not an email)
-- Encouraging, belief-building like Mike Adams
-- Direct and action-focused like Alex Hormozi
+- Casual but knowledgeable (text message, not email)
+- Biomechanics-focused: reference sequence, efficiency, transfer
+- Direct and punchy - no fluff
 - Use their first name
-- Keep it SHORT (under 200 chars if possible, max 320 chars / 2 texts)
-- Use occasional emoji sparingly (💪, ✅, 👊)
-- Ask a question to invite reply when appropriate
-- Reference specific numbers from their session when available
+- Keep it SHORT (under 160 chars ideal, max 320 chars / 2 texts)
+- Use occasional emoji sparingly (💪, ✅, 👊, 🎯)
+- Reference specific numbers when available
 
-GOALS:
-1. Acknowledge their effort (they uploaded, that's commitment)
-2. Give ONE key insight from the analysis
-3. Invite conversation (ask a question)
-4. Build toward action (drill, next session)
+4B SYSTEM CONTEXT:
+- Brain: Timing, rhythm, intent, pitch recognition
+- Body: Kinetic chain, ground force, hip-shoulder separation  
+- Bat: Path, attack angle, barrel control
+- Ball: Exit velo, launch angle, sweet spot contact
+
+KEY PHRASES TO USE:
+- "Let the sequence work"
+- "Ground up, not arms down"
+- "Transfer efficiency"
+- "Oreo pattern" (load → coil → fire)
+- "Feel the stretch"
+- "Trust the engine"
+- "Catching barrels"
 
 NEVER:
-- Sound like a bot
+- Sound like marketing or a bot
 - Send walls of text
 - Be generic ("keep up the good work!")
-- Lecture
+- Lecture about mechanics
 - Use more than 2-3 sentences
-
-CONTEXT YOU HAVE:
-- Player's name and recent analysis data
-- Their 4B scores (Body, Brain, Bat, Ball)
-- Detected leaks and motor profile
-- Conversation history if replying
 
 EXAMPLES:
 
-After good session:
-"CJ - 61 composite today, that's Plus range 💪 Your transfer efficiency jumped 4%. Whatever you're doing, keep doing it. What felt different?"
+After session with Body leak:
+"CJ - good power source but it's leaking at the hips. Check your locker - dropped a Hip Lead drill in there. 10 reps before you hit 👊"
 
-After session with issues:
-"Hey CJ, looked at your session. Good power in the lower half but the arms are jumping early. You feeling rushed lately or is this intentional?"
+After high score:
+"61 composite - that's Plus range 💪 Transfer efficiency jumped. Whatever you're feeling, that's the move."
+
+Check-in:
+"CJ - 8 days since your last session. Ready when you are."
 
 Drill reminder:
-"Quick reminder: Hip Lead Drill before you hit today. 10 reps, feel that stretch. Let me know how it goes 👊"
+"Pre-swing today: Oreo Drill. Load slow, feel the stretch, let it fire. Trust the sequence."
 
-Check-in (7+ days inactive):
-"CJ - haven't seen a session in 8 days. Everything good? Ready when you are."
-
-Replying to player:
-Player: "Yeah I've been feeling rushed"
-Rick: "That makes sense. New pressure = rushing. This week: let it come to you. Hip Lead Drill before every AB. Trust the engine - it's there."
+Replying to player "Yeah I've been feeling rushed":
+"That makes sense. New pressure = rushing. This week: let it come to you. Hip Lead before every AB. Trust the engine."
 
 CURRENT CONTEXT:
 {context}
@@ -67,7 +74,7 @@ CONVERSATION HISTORY:
 Generate a single Coach Rick SMS response. Just the message text, nothing else.`;
 
 interface SMSRequest {
-  type: "analysis_complete" | "reply" | "check_in" | "drill_reminder" | "custom";
+  type: "analysis_complete" | "reply" | "check_in" | "drill_reminder" | "custom" | "leak_detection";
   player_id: string;
   incoming_message?: string;
   custom_context?: string;
@@ -95,7 +102,7 @@ serve(async (req) => {
       throw new Error("player_id is required");
     }
 
-    console.log(`[Coach Rick SMS] Generating ${type} message for player ${player_id}`);
+    console.log(`[coach-rick-sms] Generating ${type} message for player ${player_id}`);
 
     // Fetch player data
     const { data: player, error: playerError } = await supabase
@@ -110,7 +117,7 @@ serve(async (req) => {
 
     // Check SMS opt-in
     if (player.sms_opt_in === false) {
-      console.log(`[Coach Rick SMS] Player ${player_id} has opted out of SMS`);
+      console.log(`[coach-rick-sms] Player ${player_id} has opted out`);
       return new Response(
         JSON.stringify({ success: false, reason: "opted_out" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -141,24 +148,33 @@ serve(async (req) => {
     
     if (player.level) context += `Level: ${player.level}\n`;
     if (player.team) context += `Team: ${player.team}\n`;
+    if (player.motor_profile_sensor) context += `Motor Profile: ${player.motor_profile_sensor}\n`;
+    
+    // Add 4B scores
+    context += `\n4B Scores:\n`;
+    context += `- Brain: ${player.latest_brain_score || 0}\n`;
+    context += `- Body: ${player.latest_body_score || 0}\n`;
+    context += `- Bat: ${player.latest_bat_score || 0}\n`;
+    context += `- Ball: ${player.latest_ball_score || 0}\n`;
     
     if (latestUpload) {
       context += `\nLatest Session (${latestUpload.session_date || "recent"}):\n`;
       context += `- Composite: ${latestUpload.composite_score} (${latestUpload.grade})\n`;
-      context += `- Body: ${latestUpload.body_score}, Brain: ${latestUpload.brain_score}, Bat: ${latestUpload.bat_score}\n`;
-      if (latestUpload.weakest_link) context += `- Weakest: ${latestUpload.weakest_link}\n`;
+      if (latestUpload.weakest_link) context += `- Weakest Link: ${latestUpload.weakest_link}\n`;
       if (latestUpload.transfer_efficiency) context += `- Transfer Efficiency: ${latestUpload.transfer_efficiency}%\n`;
       if (latestUpload.consistency_grade) context += `- Consistency: ${latestUpload.consistency_grade}\n`;
     }
 
     if (type === "analysis_complete") {
-      context += `\nMessage type: Just completed an analysis, share the key insight\n`;
+      context += `\nMessage type: Just completed analysis - share key insight and invite conversation\n`;
+    } else if (type === "leak_detection") {
+      context += `\nMessage type: Detected a leak in their swing - point them to the drill in their locker\n`;
     } else if (type === "reply" && incoming_message) {
       context += `\nPlayer just texted: "${incoming_message}"\n`;
-      context += `Respond naturally to their message while staying on coaching track.\n`;
+      context += `Respond naturally while staying on coaching track.\n`;
     } else if (type === "check_in") {
       const lastSession = latestUpload?.session_date;
-      context += `\nMessage type: Check-in (player hasn't uploaded in a while)\n`;
+      context += `\nMessage type: Check-in (player hasn't trained in a while)\n`;
       if (lastSession) context += `Last session: ${lastSession}\n`;
     } else if (type === "drill_reminder") {
       context += `\nMessage type: Drill reminder - encourage them to do their assigned drill\n`;
@@ -179,7 +195,7 @@ serve(async (req) => {
     }
 
     // Build the prompt
-    const prompt = COACH_RICK_SMS_PROMPT
+    const prompt = SWING_REHAB_COACH_PROMPT
       .replace("{context}", context)
       .replace("{history}", historyStr);
 
@@ -199,14 +215,14 @@ serve(async (req) => {
             : `Generate a ${type} SMS message for ${firstName}.` 
           }
         ],
-        max_tokens: 200,
-        temperature: 0.8,
+        max_tokens: 150,
+        temperature: 0.7,
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("[Coach Rick SMS] AI error:", errorText);
+      console.error("[coach-rick-sms] AI error:", errorText);
       throw new Error("AI service error");
     }
 
@@ -228,7 +244,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[Coach Rick SMS] Generated message (${message.length} chars): ${message}`);
+    console.log(`[coach-rick-sms] Generated message (${message.length} chars): ${message}`);
 
     return new Response(
       JSON.stringify({ 
@@ -241,7 +257,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("[Coach Rick SMS] Error:", error);
+    console.error("[coach-rick-sms] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
