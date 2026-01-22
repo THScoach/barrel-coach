@@ -319,7 +319,7 @@ serve(async (req) => {
     }
 
     // Generate invite URL
-    const origin = "https://catchingbarrels.com";
+    const origin = "https://catchingbarrels.io";
     const invitePath = INVITE_TYPE_PATHS[invite.invite_type] || "/";
     const inviteUrl = `${origin}${invitePath}?invite=${invite.invite_token}`;
 
