@@ -248,16 +248,68 @@ export function PlayerCommunicationTabNew({ playerId, playersTableId, playerName
     setLoadingNotes(false);
   };
 
+  const [sendingMessage, setSendingMessage] = useState(false);
+
   const handleSendMessage = async () => {
     if (!newMessage.content.trim()) {
       toast.error("Please enter a message");
       return;
     }
+
+    setSendingMessage(true);
     
-    // TODO: Integrate with actual SMS/Email sending
-    toast.success("Message sent!");
-    setComposeOpen(false);
-    setNewMessage({ channel: 'sms', subject: '', content: '' });
+    try {
+      if (newMessage.channel === 'sms') {
+        // Send SMS via Coach Rick SMS function with skip_ai for custom message
+        const { data, error } = await supabase.functions.invoke("send-coach-rick-sms", {
+          body: {
+            type: "custom",
+            player_id: dataPlayerId,
+            skip_ai: true,
+            custom_message: newMessage.content,
+          },
+        });
+
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || "Failed to send SMS");
+
+        toast.success("SMS sent successfully!");
+      } else if (newMessage.channel === 'email') {
+        // Send email via player email function
+        const { data, error } = await supabase.functions.invoke("send-player-email", {
+          body: {
+            player_id: dataPlayerId,
+            subject: newMessage.subject || "Message from Coach Rick",
+            body: newMessage.content,
+          },
+        });
+
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || "Failed to send email");
+
+        toast.success("Email sent successfully!");
+      } else {
+        // App message - insert directly to locker_room_messages
+        const { error } = await supabase.from("locker_room_messages").insert({
+          player_id: dataPlayerId,
+          content: newMessage.content,
+          message_type: "coach_note",
+          is_read: false,
+        });
+
+        if (error) throw error;
+        toast.success("App message sent!");
+      }
+
+      setComposeOpen(false);
+      setNewMessage({ channel: 'sms', subject: '', content: '' });
+      loadMessages(); // Refresh the message list
+    } catch (err: any) {
+      console.error("Send message error:", err);
+      toast.error(err.message || "Failed to send message");
+    } finally {
+      setSendingMessage(false);
+    }
   };
 
   const handleAddNote = async () => {
@@ -638,9 +690,14 @@ export function PlayerCommunicationTabNew({ playerId, playersTableId, playerName
             </Button>
             <Button 
               onClick={handleSendMessage}
+              disabled={sendingMessage}
               className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
             >
-              <Send className="h-4 w-4 mr-2" /> Send Now
+              {sendingMessage ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</>
+              ) : (
+                <><Send className="h-4 w-4 mr-2" /> Send Now</>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
