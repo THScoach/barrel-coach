@@ -1,10 +1,39 @@
+// ============================================================
+// DISABLED: Direct Twilio SMS sending
+// Reason: Toll-free number verification issues (Error 30032)
+// All SMS communications now handled via GoHighLevel Workflows
+// See: sync-to-ghl function for contact/score syncing
+// ============================================================
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  // Return informative response about the migration to GHL
+  console.log("[send-sms] DISABLED - SMS now handled via GHL Workflows");
+  
+  return new Response(
+    JSON.stringify({ 
+      success: false, 
+      disabled: true,
+      reason: "Direct SMS sending disabled. Twilio toll-free verification issues (Error 30032).",
+      migration: "All SMS communications are now handled via GoHighLevel Workflows.",
+      action: "Use sync-to-ghl function to sync player data, then trigger SMS via GHL workflow.",
+    }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+  );
+});
+
+/* ORIGINAL IMPLEMENTATION - PRESERVED FOR REFERENCE
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Variable replacement for templates
 function replaceVariables(template: string, session: any, appUrl: string): string {
@@ -165,3 +194,4 @@ serve(async (req) => {
     );
   }
 });
+*/

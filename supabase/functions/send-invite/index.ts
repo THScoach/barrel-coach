@@ -32,50 +32,115 @@ function formatPhoneNumber(phone: string): string {
   return formatted;
 }
 
-// Send SMS via Twilio
-async function sendSMS(phone: string, message: string): Promise<{ success: boolean; error?: string; sid?: string }> {
-  const twilioSid = Deno.env.get("TWILIO_ACCOUNT_SID");
-  const twilioToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-  const twilioPhone = Deno.env.get("TWILIO_PHONE_NUMBER");
+// ============================================================
+// TWILIO SMS DISABLED - Using GHL for all SMS communications
+// Error 30032 toll-free verification issues
+// ============================================================
+// async function sendSMS(phone: string, message: string): Promise<{ success: boolean; error?: string; sid?: string }> {
+//   const twilioSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+//   const twilioToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+//   const twilioPhone = Deno.env.get("TWILIO_PHONE_NUMBER");
+//
+//   if (!twilioSid || !twilioToken || !twilioPhone) {
+//     console.error("Twilio credentials not configured");
+//     return { success: false, error: "Twilio not configured" };
+//   }
+//
+//   try {
+//     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`;
+//     const twilioAuth = btoa(`${twilioSid}:${twilioToken}`);
+//
+//     const response = await fetch(twilioUrl, {
+//       method: "POST",
+//       headers: {
+//         "Authorization": `Basic ${twilioAuth}`,
+//         "Content-Type": "application/x-www-form-urlencoded",
+//       },
+//       body: new URLSearchParams({
+//         To: phone,
+//         From: twilioPhone,
+//         Body: message,
+//       }),
+//     });
+//
+//     const result = await response.json();
+//
+//     if (!response.ok) {
+//       console.error("Twilio error:", result);
+//       return { success: false, error: result.message || "Twilio send failed" };
+//     }
+//
+//     console.log("SMS sent successfully:", result.sid);
+//     return { success: true, sid: result.sid };
+//   } catch (error) {
+//     console.error("SMS send error:", error);
+//     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+//   }
+// }
 
-  if (!twilioSid || !twilioToken || !twilioPhone) {
-    console.error("Twilio credentials not configured");
-    return { success: false, error: "Twilio not configured" };
+// Sync contact to GoHighLevel via webhook
+async function syncToGHL(contact: {
+  email?: string;
+  phone?: string;
+  name?: string;
+  inviteType: string;
+  inviteUrl: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const GHL_WEBHOOK_URL = Deno.env.get("GHL_WEBHOOK_URL");
+  
+  if (!GHL_WEBHOOK_URL) {
+    console.log("[send-invite] GHL_WEBHOOK_URL not configured, skipping GHL sync");
+    return { success: false, error: "GHL webhook not configured" };
   }
 
   try {
-    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`;
-    const twilioAuth = btoa(`${twilioSid}:${twilioToken}`);
+    const nameParts = (contact.name || "").trim().split(" ");
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
 
-    const response = await fetch(twilioUrl, {
+    const payload = {
+      event: "new_invite",
+      email: contact.email || undefined,
+      phone: contact.phone || undefined,
+      firstName,
+      lastName,
+      fullName: contact.name || "",
+      inviteType: contact.inviteType,
+      inviteUrl: contact.inviteUrl,
+      source: "catching_barrels_app",
+      timestamp: new Date().toISOString(),
+      // Custom fields for GHL workflow triggers
+      customField: {
+        cb_invite_type: contact.inviteType,
+        cb_invite_url: contact.inviteUrl,
+      },
+    };
+
+    console.log("[send-invite] Syncing to GHL:", JSON.stringify(payload));
+
+    const response = await fetch(GHL_WEBHOOK_URL, {
       method: "POST",
       headers: {
-        "Authorization": `Basic ${twilioAuth}`,
-        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Type": "application/json",
       },
-      body: new URLSearchParams({
-        To: phone,
-        From: twilioPhone,
-        Body: message,
-      }),
+      body: JSON.stringify(payload),
     });
 
-    const result = await response.json();
-
-    if (!response.ok) {
-      console.error("Twilio error:", result);
-      return { success: false, error: result.message || "Twilio send failed" };
+    if (response.ok) {
+      console.log("[send-invite] GHL sync successful");
+      return { success: true };
+    } else {
+      const errorText = await response.text();
+      console.error("[send-invite] GHL sync failed:", response.status, errorText);
+      return { success: false, error: `GHL webhook failed: ${response.status}` };
     }
-
-    console.log("SMS sent successfully:", result.sid);
-    return { success: true, sid: result.sid };
   } catch (error) {
-    console.error("SMS send error:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    console.error("[send-invite] GHL sync error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "GHL sync failed" };
   }
 }
 
-// Send Email via Resend
+// Send Email via Resend (STILL ACTIVE - Email works fine)
 async function sendEmail(email: string, subject: string, html: string): Promise<{ success: boolean; error?: string; id?: string }> {
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
@@ -105,14 +170,6 @@ async function sendEmail(email: string, subject: string, html: string): Promise<
     console.error("Email send error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
-}
-
-// Generate invite message for SMS
-function generateSMSMessage(playerName: string | null, inviteType: string, inviteUrl: string): string {
-  const firstName = playerName?.split(" ")[0] || "there";
-  const typeLabel = INVITE_TYPE_LABELS[inviteType] || inviteType;
-
-  return `Hey ${firstName}! 🎯\n\nCoach Rick here from Catching Barrels. You're invited to check out our ${typeLabel}.\n\nTap here to get started:\n${inviteUrl}\n\nLet's get to work! 💪`;
 }
 
 // Generate invite email HTML
@@ -251,7 +308,7 @@ serve(async (req) => {
           phone: phone ? formatPhoneNumber(phone) : null,
           player_name: player_name || null,
           invite_type,
-          delivery_method: phone ? "sms" : "email",
+          delivery_method: "pending", // Will be updated based on what succeeds
           invited_by: user?.id || null,
         })
         .select()
@@ -267,29 +324,26 @@ serve(async (req) => {
     const inviteUrl = `${origin}${invitePath}?invite=${invite.invite_token}`;
 
     // Track delivery results
-    let smsSent = false;
-    let smsError: string | null = null;
     let emailSent = false;
     let emailError: string | null = null;
+    let ghlSynced = false;
+    let ghlError: string | null = null;
 
-    // Send SMS if phone is available (preferred channel)
-    if (invite.phone) {
-      const smsMessage = generateSMSMessage(invite.player_name, invite.invite_type, inviteUrl);
-      const smsResult = await sendSMS(invite.phone, smsMessage);
-      smsSent = smsResult.success;
-      smsError = smsResult.error || null;
+    // ============================================================
+    // SYNC TO GHL - This will trigger SMS via GHL Workflows
+    // GHL handles all SMS delivery now (Twilio toll-free issues)
+    // ============================================================
+    const ghlResult = await syncToGHL({
+      email: invite.email,
+      phone: invite.phone,
+      name: invite.player_name,
+      inviteType: invite.invite_type,
+      inviteUrl,
+    });
+    ghlSynced = ghlResult.success;
+    ghlError = ghlResult.error || null;
 
-      // Log SMS attempt
-      await supabase.from("sms_logs").insert({
-        phone_number: invite.phone,
-        trigger_name: isResend ? "invite_resend" : "invite_new",
-        message_sent: smsMessage,
-        status: smsSent ? "sent" : "failed",
-        error_message: smsError,
-      });
-    }
-
-    // Send email if available (send BOTH SMS and email when both are available)
+    // Send email via Resend (still works fine)
     if (invite.email) {
       const emailSubject = `You're Invited: ${INVITE_TYPE_LABELS[invite.invite_type] || invite.invite_type}`;
       const emailHtml = generateEmailHTML(invite.player_name, invite.invite_type, inviteUrl);
@@ -298,8 +352,8 @@ serve(async (req) => {
       emailError = emailResult.error || null;
     }
 
-    // Update invite with delivery status - track if both channels were used
-    const deliveryMethod = smsSent && emailSent ? "sms" : smsSent ? "sms" : emailSent ? "email" : "failed";
+    // Update invite with delivery status
+    const deliveryMethod = emailSent ? "email" : ghlSynced ? "sms" : "failed";
     await supabase
       .from("invites")
       .update({
@@ -313,39 +367,39 @@ serve(async (req) => {
       payload: {
         invite_id: invite.id,
         invite_type: invite.invite_type,
-        sms_sent: smsSent,
+        ghl_synced: ghlSynced,
         email_sent: emailSent,
-        sms_error: smsError,
+        ghl_error: ghlError,
         email_error: emailError,
       },
-      status: smsSent || emailSent ? "sent" : "failed",
-      error_message: smsError || emailError,
+      status: emailSent || ghlSynced ? "sent" : "failed",
+      error_message: emailError || ghlError,
     });
 
     // Log to activity
     await supabase.from("activity_log").insert({
-      event_type: isResend ? "invite_resent" : "invite_sent",
-      entity_type: "invite",
-      entity_id: invite.id,
-      user_id: user?.id || null,
+      action: isResend ? "invite_resent" : "invite_sent",
+      description: `Invite ${isResend ? "resent" : "sent"}: ${invite.invite_type}`,
       metadata: {
         invite_type: invite.invite_type,
-        sms_sent: smsSent,
+        ghl_synced: ghlSynced,
         email_sent: emailSent,
         player_name: invite.player_name,
+        delivery_via: ghlSynced ? "ghl_workflow" : emailSent ? "resend_email" : "none",
       },
     });
 
     return new Response(
       JSON.stringify({ 
-        success: smsSent || emailSent,
+        success: emailSent || ghlSynced,
         invite_id: invite.id,
         invite_url: inviteUrl,
-        sms_sent: smsSent,
-        sms_error: smsError,
+        ghl_synced: ghlSynced,
+        ghl_error: ghlError,
         email_sent: emailSent,
         email_error: emailError,
-        delivery_method: smsSent ? "sms" : emailSent ? "email" : "none",
+        delivery_method: emailSent ? "email" : ghlSynced ? "ghl_workflow" : "none",
+        note: "SMS is now handled via GHL Workflows after contact sync",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
