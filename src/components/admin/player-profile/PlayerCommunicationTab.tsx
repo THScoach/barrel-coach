@@ -99,8 +99,8 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
     }
   };
 
-  // Fetch messages
-  const { data: messages, isLoading: loadingMessages } = useQuery({
+  // Fetch messages with react-query
+  const { data: messages, isLoading: loadingMessages, refetch: refetchMessages } = useQuery({
     queryKey: ["player-messages", playerId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -114,6 +114,30 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
       return data || [];
     },
   });
+
+  // Subscribe to realtime message updates for delivery status
+  useEffect(() => {
+    const channel = supabase
+      .channel(`messages-${playerId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `player_id=eq.${playerId}`,
+        },
+        (payload) => {
+          console.log('[Realtime] Message update:', payload);
+          refetchMessages();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [playerId, refetchMessages]);
 
   // Fetch activity log (system events)
   const { data: activityLog, isLoading: loadingActivity } = useQuery({
@@ -324,6 +348,39 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
 
   const isLoading = loadingMessages || loadingActivity || loadingDrills;
 
+  // Get status badge styling based on Twilio delivery status
+  const getStatusBadgeStyle = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'delivered':
+        return 'bg-emerald-900/50 text-emerald-400 border-emerald-600';
+      case 'sent':
+        return 'bg-blue-900/50 text-blue-400 border-blue-600';
+      case 'queued':
+      case 'accepted':
+        return 'bg-amber-900/50 text-amber-400 border-amber-600';
+      case 'failed':
+      case 'undelivered':
+        return 'bg-red-900/50 text-red-400 border-red-600';
+      case 'received':
+        return 'bg-purple-900/50 text-purple-400 border-purple-600';
+      default:
+        return 'bg-slate-800 text-slate-400';
+    }
+  };
+
+  // Get status icon
+  const getStatusIcon = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'delivered':
+        return <CheckCircle2 className="h-3 w-3 mr-1" />;
+      case 'failed':
+      case 'undelivered':
+        return <AlertTriangle className="h-3 w-3 mr-1" />;
+      default:
+        return null;
+    }
+  };
+
   const getItemIcon = (item: FeedItem) => {
     if (item.type === 'message') {
       if (item.channel === 'email') return <Mail className="h-4 w-4 text-blue-400" />;
@@ -441,8 +498,12 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
                             <span className="text-xs text-slate-500">
                               {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
                             </span>
-                            {item.status && (
-                              <Badge variant="secondary" className="text-xs bg-slate-800 text-slate-400">
+                            {item.status && item.type === 'message' && (
+                              <Badge 
+                                variant="secondary" 
+                                className={`text-xs ${getStatusBadgeStyle(item.status)}`}
+                              >
+                                {getStatusIcon(item.status)}
                                 {item.status}
                               </Badge>
                             )}

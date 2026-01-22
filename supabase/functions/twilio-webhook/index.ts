@@ -108,9 +108,48 @@ serve(async (req) => {
   try {
     // Parse form data from Twilio webhook
     const formData = await req.formData();
+    
+    // Check if this is a status callback (delivery receipt)
+    const messageSid = formData.get("MessageSid") as string;
+    const messageStatus = formData.get("MessageStatus") as string;
+    
+    // Handle status callback updates
+    if (messageStatus && messageSid && !formData.get("Body")) {
+      console.log("[Twilio Webhook] Status update:", messageSid, "->", messageStatus);
+      
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      // Update message status in database
+      const { error } = await supabase
+        .from("messages")
+        .update({ 
+          status: messageStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq("twilio_sid", messageSid);
+      
+      if (error) {
+        console.error("[Twilio Webhook] Failed to update status:", error);
+      } else {
+        console.log("[Twilio Webhook] Status updated successfully");
+      }
+      
+      // Also update sms_logs for consistency
+      await supabase
+        .from("sms_logs")
+        .update({ status: messageStatus })
+        .eq("twilio_sid", messageSid);
+      
+      return new Response("OK", {
+        headers: { ...corsHeaders, "Content-Type": "text/plain" },
+        status: 200,
+      });
+    }
+    
     const from = formData.get("From") as string;
     const body = formData.get("Body") as string;
-    const messageSid = formData.get("MessageSid") as string;
 
     console.log("[Twilio Webhook] Received SMS from:", from, "Body:", body);
 
