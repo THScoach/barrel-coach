@@ -289,7 +289,7 @@ serve(async (req) => {
       });
     }
 
-    // Send email if available (and SMS wasn't sent, or as backup)
+    // Send email if available (send BOTH SMS and email when both are available)
     if (invite.email) {
       const emailSubject = `You're Invited: ${INVITE_TYPE_LABELS[invite.invite_type] || invite.invite_type}`;
       const emailHtml = generateEmailHTML(invite.player_name, invite.invite_type, inviteUrl);
@@ -298,14 +298,29 @@ serve(async (req) => {
       emailError = emailResult.error || null;
     }
 
-    // Update invite with delivery status
-    const deliveryStatus = smsSent || emailSent ? "sent" : "failed";
+    // Update invite with delivery status - track if both channels were used
+    const deliveryMethod = smsSent && emailSent ? "sms" : smsSent ? "sms" : emailSent ? "email" : "failed";
     await supabase
       .from("invites")
       .update({
-        delivery_method: smsSent ? "sms" : emailSent ? "email" : "failed",
+        delivery_method: deliveryMethod,
       })
       .eq("id", invite.id);
+    
+    // Log to communication_logs for tracking
+    await supabase.from("communication_logs").insert({
+      event_type: isResend ? "invite_resend" : "invite_new",
+      payload: {
+        invite_id: invite.id,
+        invite_type: invite.invite_type,
+        sms_sent: smsSent,
+        email_sent: emailSent,
+        sms_error: smsError,
+        email_error: emailError,
+      },
+      status: smsSent || emailSent ? "sent" : "failed",
+      error_message: smsError || emailError,
+    });
 
     // Log to activity
     await supabase.from("activity_log").insert({

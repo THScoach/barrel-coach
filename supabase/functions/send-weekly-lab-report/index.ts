@@ -3,6 +3,7 @@
  * =======================
  * Sends branded HTML email with 4B scores on 20-80 scale
  * Uses Resend for delivery with #DC2626 red branding
+ * Includes video thumbnails for prescribed drills
  * 
  * Branding: Catching Barrels Laboratory
  */
@@ -18,6 +19,13 @@ const corsHeaders = {
 
 interface WeeklyReportPayload {
   player_id: string;
+}
+
+interface PrescribedVideo {
+  title: string;
+  thumbnail_url: string | null;
+  video_url: string;
+  four_b_category: string | null;
 }
 
 function getGradeLabel(score: number | null): string {
@@ -41,6 +49,32 @@ function getScoreColor(score: number | null): string {
   return "#ef4444";
 }
 
+function buildVideoCard(video: PrescribedVideo): string {
+  const thumbnailUrl = video.thumbnail_url || "https://barrel-coach.lovable.app/placeholder.svg";
+  const categoryBadge = video.four_b_category 
+    ? `<span style="display: inline-block; padding: 4px 8px; background-color: #DC262620; color: #DC2626; font-size: 10px; font-weight: 600; text-transform: uppercase; border-radius: 4px; margin-bottom: 8px;">${video.four_b_category}</span>`
+    : "";
+
+  return `
+    <td style="width: 50%; padding: 8px; vertical-align: top;">
+      <a href="${video.video_url}" style="text-decoration: none; display: block;">
+        <div style="background-color: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #2d2d2d;">
+          <div style="position: relative;">
+            <img src="${thumbnailUrl}" alt="${video.title}" style="width: 100%; height: 100px; object-fit: cover; display: block;" />
+            <div style="position: absolute; bottom: 8px; right: 8px; background-color: rgba(0,0,0,0.8); padding: 4px 8px; border-radius: 4px;">
+              <span style="color: white; font-size: 10px;">▶ Watch</span>
+            </div>
+          </div>
+          <div style="padding: 12px;">
+            ${categoryBadge}
+            <div style="font-size: 13px; font-weight: 600; color: #f1f5f9; line-height: 1.3;">${video.title}</div>
+          </div>
+        </div>
+      </a>
+    </td>
+  `;
+}
+
 function buildEmailHtml(data: {
   playerName: string;
   brainScore: number | null;
@@ -54,11 +88,12 @@ function buildEmailHtml(data: {
   motorProfile: string | null;
   weekStart: string;
   weekEnd: string;
+  prescribedVideos: PrescribedVideo[];
 }): string {
   const { 
     playerName, brainScore, bodyScore, batScore, ballScore, 
     compositeScore, grade, leakDetected, priorityDrill, motorProfile,
-    weekStart, weekEnd
+    weekStart, weekEnd, prescribedVideos
   } = data;
 
   const firstName = playerName?.split(" ")[0] || "Athlete";
@@ -71,6 +106,35 @@ function buildEmailHtml(data: {
       <div style="font-size: 11px; color: ${getScoreColor(score)}; margin-top: 4px;">${getGradeLabel(score)}</div>
     </td>
   `;
+
+  // Build video grid (2 per row)
+  let videoGridHtml = "";
+  if (prescribedVideos.length > 0) {
+    videoGridHtml = `
+      <!-- Prescribed Videos Section -->
+      <tr>
+        <td style="padding: 0 24px 24px; background-color: #111113;">
+          <div style="font-size: 11px; color: #DC2626; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px;">🎬 YOUR LOCKER - PRESCRIBED DRILLS</div>
+          <table width="100%" cellpadding="0" cellspacing="0">
+    `;
+    
+    for (let i = 0; i < prescribedVideos.length; i += 2) {
+      videoGridHtml += "<tr>";
+      videoGridHtml += buildVideoCard(prescribedVideos[i]);
+      if (prescribedVideos[i + 1]) {
+        videoGridHtml += buildVideoCard(prescribedVideos[i + 1]);
+      } else {
+        videoGridHtml += '<td style="width: 50%;"></td>';
+      }
+      videoGridHtml += "</tr>";
+    }
+    
+    videoGridHtml += `
+          </table>
+        </td>
+      </tr>
+    `;
+  }
 
   return `
 <!DOCTYPE html>
@@ -158,6 +222,8 @@ function buildEmailHtml(data: {
           </tr>
           ` : ""}
 
+          ${videoGridHtml}
+
           <!-- CTA -->
           <tr>
             <td style="padding: 0 24px 32px; background-color: #111113;">
@@ -207,7 +273,7 @@ serve(async (req) => {
     // Get player info
     const { data: player, error: playerError } = await supabase
       .from("players")
-      .select("id, name, email")
+      .select("id, name, email, email_opt_in")
       .eq("id", player_id)
       .single();
 
@@ -218,6 +284,14 @@ serve(async (req) => {
     if (!player.email) {
       return new Response(
         JSON.stringify({ success: false, reason: "no_email" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check email opt-in
+    if (player.email_opt_in === false) {
+      return new Response(
+        JSON.stringify({ success: false, reason: "opted_out" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -239,6 +313,36 @@ serve(async (req) => {
       );
     }
 
+    // Get prescribed videos for this player (with thumbnails)
+    const { data: prescriptions } = await supabase
+      .from("player_video_prescriptions")
+      .select(`
+        video_id,
+        four_b_category,
+        drill_videos:video_id (
+          title,
+          thumbnail_url,
+          video_url,
+          gumlet_playback_url,
+          four_b_category
+        )
+      `)
+      .eq("player_id", player_id)
+      .eq("is_completed", false)
+      .order("created_at", { ascending: false })
+      .limit(4);
+
+    const prescribedVideos: PrescribedVideo[] = (prescriptions || [])
+      .filter((p: any) => p.drill_videos)
+      .map((p: any) => ({
+        title: p.drill_videos.title,
+        thumbnail_url: p.drill_videos.thumbnail_url,
+        video_url: p.drill_videos.gumlet_playback_url || p.drill_videos.video_url,
+        four_b_category: p.drill_videos.four_b_category || p.four_b_category,
+      }));
+
+    console.log(`[Weekly Lab Report] Found ${prescribedVideos.length} prescribed videos`);
+
     // Calculate week range
     const now = new Date();
     const weekStart = new Date(now);
@@ -252,7 +356,7 @@ serve(async (req) => {
       brainScore: latestUpload.brain_score,
       bodyScore: latestUpload.body_score,
       batScore: latestUpload.bat_score,
-      ballScore: null, // Not in reboot_uploads, could be from launch monitor
+      ballScore: null,
       compositeScore: latestUpload.composite_score ? Math.round(Number(latestUpload.composite_score)) : null,
       grade: latestUpload.grade,
       leakDetected: latestUpload.leak_detected,
@@ -260,6 +364,7 @@ serve(async (req) => {
       motorProfile: latestUpload.motor_profile,
       weekStart: weekStartStr,
       weekEnd: weekEndStr,
+      prescribedVideos,
     });
 
     // Send email
@@ -275,21 +380,22 @@ serve(async (req) => {
       throw new Error(emailError.message);
     }
 
-    console.log(`[Weekly Lab Report] Sent to ${player.email}`);
+    console.log(`[Weekly Lab Report] Sent to ${player.email} with ${prescribedVideos.length} video thumbnails`);
 
     // Log activity
     await supabase.from("activity_log").insert({
       action: "email_sent",
-      description: `Weekly Lab Report sent`,
+      description: `Weekly Lab Report sent with ${prescribedVideos.length} video thumbnails`,
       player_id: player.id,
       metadata: {
         email_id: emailResult?.id,
         composite_score: latestUpload.composite_score,
+        videos_included: prescribedVideos.length,
       },
     });
 
     return new Response(
-      JSON.stringify({ success: true, email_id: emailResult?.id }),
+      JSON.stringify({ success: true, email_id: emailResult?.id, videos_included: prescribedVideos.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
