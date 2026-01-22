@@ -33,6 +33,7 @@ import MyData from "./pages/MyData";
 import Dashboard from "./pages/Dashboard";
 import Drills from "./pages/Drills";
 import DrillDetail from "./pages/DrillDetail";
+import Session from "./pages/Session";
 
 // Admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -102,6 +103,7 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/drills" element={<Drills />} />
               <Route path="/drills/:slug" element={<DrillDetail />} />
+              <Route path="/session" element={<Session />} />
 
               {/* Player Portal Routes - 4B First Dashboard */}
               <Route path="/player" element={<PlayerLayout />}>

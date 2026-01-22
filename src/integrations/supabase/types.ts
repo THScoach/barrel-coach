@@ -201,6 +201,154 @@ export type Database = {
           },
         ]
       }
+      capture_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          environment: string | null
+          id: string
+          notes: string | null
+          player_id: string | null
+          started_at: string
+          status: string
+          total_swings: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          environment?: string | null
+          id?: string
+          notes?: string | null
+          player_id?: string | null
+          started_at?: string
+          status?: string
+          total_swings?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          environment?: string | null
+          id?: string
+          notes?: string | null
+          player_id?: string | null
+          started_at?: string
+          status?: string
+          total_swings?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capture_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      captured_swings: {
+        Row: {
+          analysis_result: Json | null
+          analyzed_at: string | null
+          attack_angle_deg: number | null
+          bat_speed_mph: number | null
+          captured_at: string
+          created_at: string
+          efficiency_rating: number | null
+          hand_speed_mph: number | null
+          id: string
+          motor_profile_prediction: string | null
+          peak_acceleration_g: number | null
+          player_id: string | null
+          raw_sensor_data: Json | null
+          session_id: string
+          swing_number: number
+          tempo_score: number | null
+          thumbnail_path: string | null
+          time_to_contact_ms: number | null
+          video_path: string | null
+          video_url: string | null
+        }
+        Insert: {
+          analysis_result?: Json | null
+          analyzed_at?: string | null
+          attack_angle_deg?: number | null
+          bat_speed_mph?: number | null
+          captured_at?: string
+          created_at?: string
+          efficiency_rating?: number | null
+          hand_speed_mph?: number | null
+          id?: string
+          motor_profile_prediction?: string | null
+          peak_acceleration_g?: number | null
+          player_id?: string | null
+          raw_sensor_data?: Json | null
+          session_id: string
+          swing_number: number
+          tempo_score?: number | null
+          thumbnail_path?: string | null
+          time_to_contact_ms?: number | null
+          video_path?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          analysis_result?: Json | null
+          analyzed_at?: string | null
+          attack_angle_deg?: number | null
+          bat_speed_mph?: number | null
+          captured_at?: string
+          created_at?: string
+          efficiency_rating?: number | null
+          hand_speed_mph?: number | null
+          id?: string
+          motor_profile_prediction?: string | null
+          peak_acceleration_g?: number | null
+          player_id?: string | null
+          raw_sensor_data?: Json | null
+          session_id?: string
+          swing_number?: number
+          tempo_score?: number | null
+          thumbnail_path?: string | null
+          time_to_contact_ms?: number | null
+          video_path?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "captured_swings_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "captured_swings_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "captured_swings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "capture_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       challenge_entries: {
         Row: {
           challenge_id: string
