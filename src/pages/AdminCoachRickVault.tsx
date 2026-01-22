@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +36,8 @@ import {
   Pill,
   Pause,
   Play,
-  X
+  X,
+  Trash2
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -107,6 +109,8 @@ export default function AdminCoachRickVault() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<UploadingVideo[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
   const pollingRef = useRef<Set<string>>(new Set());
   const activeUploadsRef = useRef<number>(0);
 
@@ -118,13 +122,95 @@ export default function AdminCoachRickVault() {
         .from('drill_videos')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
       
       if (error) throw error;
       return data as ProcessedVideo[];
     },
     refetchInterval: 10000,
   });
+
+  // Delete a single video (from storage + database)
+  const deleteVideo = async (video: ProcessedVideo) => {
+    try {
+      // Delete from storage if storage_path exists
+      if (video.storage_path) {
+        const { error: storageError } = await supabase.storage
+          .from(BUCKET_NAME)
+          .remove([video.storage_path]);
+        
+        if (storageError) {
+          console.warn('Storage delete warning:', storageError);
+          // Continue even if storage delete fails (file may not exist)
+        }
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('drill_videos')
+        .delete()
+        .eq('id', video.id);
+
+      if (dbError) throw dbError;
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  // Bulk delete selected videos
+  const bulkDeleteVideos = async (videoIds: string[]) => {
+    setIsDeleting(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    const videosToDelete = videos?.filter(v => videoIds.includes(v.id)) || [];
+
+    for (const video of videosToDelete) {
+      const result = await deleteVideo(video);
+      if (result.success) {
+        successCount++;
+      } else {
+        failCount++;
+      }
+    }
+
+    setIsDeleting(false);
+    setSelectedVideos(new Set());
+    queryClient.invalidateQueries({ queryKey: ['coach-rick-vault-videos'] });
+
+    toast({
+      title: failCount === 0 ? 'Deleted Successfully' : 'Deletion Complete',
+      description: `Deleted ${successCount} video${successCount !== 1 ? 's' : ''}${failCount > 0 ? `, ${failCount} failed` : ''}`,
+      variant: failCount > 0 ? 'destructive' : 'default',
+    });
+  };
+
+  // Select all failed videos
+  const selectAllFailed = () => {
+    const failedVideos = videos?.filter(v => v.status === 'failed' || v.status === 'pending') || [];
+    setSelectedVideos(new Set(failedVideos.map(v => v.id)));
+  };
+
+  // Toggle video selection
+  const toggleVideoSelection = (videoId: string) => {
+    setSelectedVideos(prev => {
+      const next = new Set(prev);
+      if (next.has(videoId)) {
+        next.delete(videoId);
+      } else {
+        next.add(videoId);
+      }
+      return next;
+    });
+  };
+
+  // Clear selection
+  const clearSelection = () => {
+    setSelectedVideos(new Set());
+  };
 
   // Process next queued items
   const processNextInQueue = useCallback(() => {
@@ -708,19 +794,77 @@ export default function AdminCoachRickVault() {
         )}
 
         {/* Intelligence Cards */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            Video Intelligence
-          </h2>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['coach-rick-vault-videos'] })}
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
+        <div className="flex flex-col gap-4 mb-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              Video Intelligence
+              {videos && videos.length > 0 && (
+                <Badge variant="outline" className="ml-2">{videos.length} videos</Badge>
+              )}
+            </h2>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['coach-rick-vault-videos'] })}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+
+          {/* Bulk Actions Bar */}
+          {videos && videos.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/30 rounded-lg border">
+              <span className="text-sm text-muted-foreground">Bulk Actions:</span>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={selectAllFailed}
+                disabled={isDeleting}
+              >
+                <AlertTriangle className="w-4 h-4 mr-1 text-orange-400" />
+                Select All Failed/Pending
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setSelectedVideos(new Set(videos.map(v => v.id)))}
+                disabled={isDeleting}
+              >
+                Select All
+              </Button>
+              
+              {selectedVideos.size > 0 && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={clearSelection}
+                    disabled={isDeleting}
+                  >
+                    Clear ({selectedVideos.size})
+                  </Button>
+                  
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => bulkDeleteVideos(Array.from(selectedVideos))}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4 mr-1" />
+                    )}
+                    Delete Selected ({selectedVideos.size})
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {isLoading ? (
@@ -733,27 +877,60 @@ export default function AdminCoachRickVault() {
               const category = video.four_b_category?.toLowerCase() || 'brain';
               const config = fourBConfig[category] || fourBConfig.brain;
               const CategoryIcon = config.icon;
+              const isSelected = selectedVideos.has(video.id);
+              const isFailed = video.status === 'failed' || video.status === 'pending';
               
               return (
-                <Card key={video.id} className="overflow-hidden">
-                  <div className={`h-2 ${config.bg}`} />
+                <Card 
+                  key={video.id} 
+                  className={`overflow-hidden transition-all ${
+                    isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
+                  } ${isFailed ? 'border-destructive/50' : ''}`}
+                >
+                  <div className={`h-2 ${isFailed ? 'bg-destructive/50' : config.bg}`} />
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleVideoSelection(video.id)}
+                          className="shrink-0"
+                        />
                         <div className={`p-1.5 rounded-lg ${config.bg}`}>
                           <CategoryIcon className={`w-4 h-4 ${config.color}`} />
                         </div>
                         <CardTitle className="text-base truncate">{video.title}</CardTitle>
                       </div>
-                      <Badge 
-                        variant={video.status === 'published' ? 'default' : 'secondary'}
-                        className="shrink-0 text-xs"
-                      >
-                        {video.status}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge 
+                          variant={video.status === 'published' ? 'default' : video.status === 'failed' ? 'destructive' : 'secondary'}
+                          className="shrink-0 text-xs"
+                        >
+                          {video.status}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            if (confirm(`Delete "${video.title}"?`)) {
+                              deleteVideo(video).then((result) => {
+                                if (result.success) {
+                                  queryClient.invalidateQueries({ queryKey: ['coach-rick-vault-videos'] });
+                                  toast({ title: 'Deleted', description: `"${video.title}" removed` });
+                                } else {
+                                  toast({ title: 'Error', description: result.error, variant: 'destructive' });
+                                }
+                              });
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                     {video.duration_seconds && (
-                      <CardDescription className="text-xs">
+                      <CardDescription className="text-xs ml-7">
                         {Math.floor(video.duration_seconds / 60)}:{(video.duration_seconds % 60).toString().padStart(2, '0')}
                       </CardDescription>
                     )}
