@@ -129,13 +129,15 @@ export function VideosTab() {
       const data = await res.json();
       setVideos(data);
       
-      const hasProcessing = data.some((v: DrillVideo) => 
-        ['processing', 'transcribing', 'analyzing'].includes(v.status)
+      // Check for non-terminal statuses that need polling
+      const hasActiveProcessing = data.some((v: DrillVideo) => 
+        ['processing', 'transcribing', 'analyzing', 'pending'].includes(v.status)
       );
       
-      if (hasProcessing && !pollIntervalRef.current) {
+      if (hasActiveProcessing && !pollIntervalRef.current) {
         pollIntervalRef.current = window.setInterval(fetchVideos, 5000);
-      } else if (!hasProcessing && pollIntervalRef.current) {
+      } else if (!hasActiveProcessing && pollIntervalRef.current) {
+        // All videos have reached terminal state (ready_for_review, published, draft, failed)
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
