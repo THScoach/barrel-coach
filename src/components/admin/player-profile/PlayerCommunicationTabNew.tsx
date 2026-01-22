@@ -103,61 +103,41 @@ export function PlayerCommunicationTabNew({ playerId, playersTableId, playerName
   // Use the players table ID for message queries (where data actually lives)
   const dataPlayerId = playersTableId || playerId;
 
-  // Load all data on mount and when IDs change
+  // Debug: log which ID we're using
   useEffect(() => {
-    loadMessages();
-    loadActivities();
-    loadNotes();
+    console.log('[Communication Tab] IDs:', { 
+      playerId, 
+      playersTableId, 
+      dataPlayerId: playersTableId || playerId 
+    });
   }, [playerId, playersTableId]);
 
-  // Subscribe to realtime updates for messages
+  // Clear data when player changes to prevent stale data
   useEffect(() => {
-    if (!dataPlayerId) return;
+    setMessages([]);
+    setActivities([]);
+    setNotes([]);
+  }, [playerId]);
 
-    const channel = supabase
-      .channel(`comm-messages-${dataPlayerId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'messages',
-          filter: `player_id=eq.${dataPlayerId}`,
-        },
-        () => loadMessages()
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'locker_room_messages',
-          filter: `player_id=eq.${dataPlayerId}`,
-        },
-        () => loadMessages()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [dataPlayerId]);
-
-  // Load messages from both tables
+  // Load messages function - defined before useEffect that calls it
   const loadMessages = async () => {
+    const targetId = playersTableId || playerId;
+    if (!targetId) return;
+    
+    console.log('[Communication Tab] Loading messages for:', targetId);
     setLoadingMessages(true);
     
     const [smsRes, lockerRes] = await Promise.all([
       supabase
         .from('messages')
         .select('*')
-        .eq('player_id', dataPlayerId)
+        .eq('player_id', targetId)
         .order('created_at', { ascending: false })
         .limit(50),
       supabase
         .from('locker_room_messages')
         .select('*')
-        .eq('player_id', dataPlayerId)
+        .eq('player_id', targetId)
         .order('created_at', { ascending: false })
         .limit(50),
     ]);
@@ -185,9 +165,62 @@ export function PlayerCommunicationTabNew({ playerId, playersTableId, playerName
       })),
     ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+    console.log('[Communication Tab] Loaded messages:', allMessages.length);
     setMessages(allMessages);
     setLoadingMessages(false);
   };
+
+  // Load all data on mount and when IDs change
+  useEffect(() => {
+    if (dataPlayerId) {
+      loadMessages();
+      loadActivities();
+      loadNotes();
+    }
+  }, [dataPlayerId]);
+
+  // Subscribe to realtime updates for messages
+  useEffect(() => {
+    if (!dataPlayerId) return;
+
+    console.log('[Communication Tab] Setting up realtime subscription for:', dataPlayerId);
+    
+    const channel = supabase
+      .channel(`comm-messages-${dataPlayerId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `player_id=eq.${dataPlayerId}`,
+        },
+        () => {
+          console.log('[Communication Tab] Realtime: messages table changed');
+          loadMessages();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'locker_room_messages',
+          filter: `player_id=eq.${dataPlayerId}`,
+        },
+        () => {
+          console.log('[Communication Tab] Realtime: locker_room_messages table changed');
+          loadMessages();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [dataPlayerId]);
+
+  // Note: loadMessages is defined above with proper ID closure
 
   const loadActivities = async () => {
     setLoadingActivities(true);
