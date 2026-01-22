@@ -44,7 +44,7 @@ import {
   RefreshCw,
   MailOpen,
   Phone,
-  ExternalLink,
+  MessageSquare,
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
@@ -135,11 +135,19 @@ export default function AdminInvites() {
       return data;
     },
     onSuccess: (data) => {
-      if (data?.ghl_sent) {
-        toast.success("Invite created and sent to GoHighLevel!");
+      if (data?.sms_sent && data?.email_sent) {
+        toast.success("Invite sent via SMS and Email!");
+      } else if (data?.sms_sent) {
+        toast.success("Invite sent via SMS!", {
+          description: data?.email_error ? `Email failed: ${data.email_error}` : undefined,
+        });
+      } else if (data?.email_sent) {
+        toast.success("Invite sent via Email!", {
+          description: data?.sms_error ? `SMS failed: ${data.sms_error}` : undefined,
+        });
       } else {
-        toast.success("Invite created! Contact will be handled in GoHighLevel.", {
-          description: data?.ghl_error || "Check GoHighLevel for communication",
+        toast.error("Failed to send invite", {
+          description: data?.sms_error || data?.email_error || "Check delivery settings",
         });
       }
       setShowNewInvite(false);
@@ -161,10 +169,13 @@ export default function AdminInvites() {
       return data;
     },
     onSuccess: (data) => {
-      if (data?.ghl_sent) {
-        toast.success("Invite resent to GoHighLevel!");
+      if (data?.sms_sent || data?.email_sent) {
+        const channels = [data?.sms_sent && "SMS", data?.email_sent && "Email"].filter(Boolean).join(" + ");
+        toast.success(`Invite resent via ${channels}!`);
       } else {
-        toast.success("Invite updated! Check GoHighLevel for communication.");
+        toast.error("Failed to resend invite", {
+          description: data?.sms_error || data?.email_error,
+        });
       }
       queryClient.invalidateQueries({ queryKey: ["invites"] });
     },
@@ -217,7 +228,7 @@ export default function AdminInvites() {
               Invites
             </h1>
             <p className="text-slate-400 text-sm md:text-base mt-0.5">
-              Invites are sent via GoHighLevel
+              Sent directly via SMS (Twilio) and Email (Resend)
             </p>
           </div>
           <Button
@@ -457,12 +468,12 @@ export default function AdminInvites() {
             <DialogTitle className="text-white">Create New Invite</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-sm text-slate-400">
+            <div className="p-3 rounded-lg bg-green-950/30 border border-green-500/30 text-sm text-green-300">
               <div className="flex items-center gap-2 mb-1">
-                <ExternalLink className="h-4 w-4" />
-                <span className="font-medium text-slate-300">GoHighLevel Integration</span>
+                <Send className="h-4 w-4" />
+                <span className="font-medium">Direct Delivery</span>
               </div>
-              <p>Contact will be created and communication handled through GoHighLevel workflows.</p>
+              <p className="text-green-400/80">Invites are sent directly via SMS (preferred) or Email based on contact info provided.</p>
             </div>
 
             <div className="space-y-2">

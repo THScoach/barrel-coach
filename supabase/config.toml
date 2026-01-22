@@ -57,12 +57,6 @@ verify_jwt = false
 [functions.gumlet-webhook]
 verify_jwt = false
 
-[functions.ghl-webhook]
-verify_jwt = false
-
-[functions.ghl-api]
-verify_jwt = false
-
 [functions.fetch-reboot-players]
 verify_jwt = false
 
@@ -130,4 +124,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.score-monitor]
+verify_jwt = false
+
+[functions.send-invite]
 verify_jwt = false
