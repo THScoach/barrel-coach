@@ -101,6 +101,8 @@ export async function getPlayerScorecard(
   const [
     playerRes,
     fourbRes,
+    playerSessionsRes,
+    rebootUploadsRes,
     videoScoresRes,
     videoSessionsRes,
     launchRes,
@@ -114,13 +116,29 @@ export async function getPlayerScorecard(
       .eq('id', playerId)
       .single(),
     
-    // 4B historical scores
+    // 4B historical scores from swing_4b_scores
     supabase
       .from('swing_4b_scores')
       .select('composite_score, brain_score, body_score, bat_score, ball_score, weakest_link, grade, created_at')
       .eq('player_id', playerId)
       .order('created_at', { ascending: false })
       .limit(10),
+    
+    // 4B scores from player_sessions (alternative source)
+    supabase
+      .from('player_sessions')
+      .select('brain_score, body_score, bat_score, ball_score, overall_score, brain_grade, body_grade, bat_grade, ball_grade, overall_grade, leak_type, created_at')
+      .eq('player_id', playerId)
+      .order('created_at', { ascending: false })
+      .limit(5),
+    
+    // 4B scores from reboot_uploads (another alternative)
+    supabase
+      .from('reboot_uploads')
+      .select('brain_score, body_score, bat_score, composite_score, grade, weakest_link, created_at')
+      .eq('player_id', playerId)
+      .order('created_at', { ascending: false })
+      .limit(5),
     
     // Video swing scores (latest)
     supabase
@@ -171,6 +189,8 @@ export async function getPlayerScorecard(
 
   const player = playerRes.data;
   const fourbScores = fourbRes.data || [];
+  const playerSessions = playerSessionsRes.data || [];
+  const rebootUploads = rebootUploadsRes.data || [];
   const latestFourb = fourbScores[0];
   const prevFourb = fourbScores[1];
   const launchSessions = launchRes.data || [];
@@ -179,20 +199,80 @@ export async function getPlayerScorecard(
   const weeklyReport = weeklyRes.data?.[0];
   const externalProfile = gameStatsRes.data?.[0];
 
-  // Process 4B Scores
+  // Get latest scores from any source (prioritize swing_4b_scores, then player_sessions, then reboot_uploads)
+  const latestPlayerSession = playerSessions[0];
+  const latestReboot = rebootUploads[0];
+
+  // Determine best source for each score
+  const getBestScore = (
+    playerLatest: number | null,
+    fourbLatest: number | null,
+    sessionLatest: number | null,
+    rebootLatest: number | null
+  ): number | null => {
+    return playerLatest ?? fourbLatest ?? sessionLatest ?? rebootLatest ?? null;
+  };
+
+  // Determine weakest link from available sources
+  const getWeakestLink = (): string | null => {
+    if (latestFourb?.weakest_link) return latestFourb.weakest_link;
+    if (latestPlayerSession?.leak_type) return latestPlayerSession.leak_type;
+    if (latestReboot?.weakest_link) return latestReboot.weakest_link;
+    
+    // Calculate from scores if no explicit weakest_link
+    const scores = {
+      brain: getBestScore(player.latest_brain_score, latestFourb?.brain_score, latestPlayerSession?.brain_score, latestReboot?.brain_score),
+      body: getBestScore(player.latest_body_score, latestFourb?.body_score, latestPlayerSession?.body_score, latestReboot?.body_score),
+      bat: getBestScore(player.latest_bat_score, latestFourb?.bat_score, latestPlayerSession?.bat_score, latestReboot?.bat_score),
+      ball: getBestScore(player.latest_ball_score, latestFourb?.ball_score, latestPlayerSession?.ball_score, null),
+    };
+    
+    const validScores = Object.entries(scores).filter(([, v]) => v != null) as [string, number][];
+    if (validScores.length === 0) return null;
+    
+    const lowest = validScores.reduce((min, [key, val]) => val < min[1] ? [key, val] : min, validScores[0]);
+    return lowest[0];
+  };
+
+  // Process 4B Scores with fallbacks
   const fourBScores: FourBScores = {
-    composite: player.latest_composite_score ?? latestFourb?.composite_score ?? null,
-    brain: player.latest_brain_score ?? latestFourb?.brain_score ?? null,
-    body: player.latest_body_score ?? latestFourb?.body_score ?? null,
-    bat: player.latest_bat_score ?? latestFourb?.bat_score ?? null,
-    ball: player.latest_ball_score ?? latestFourb?.ball_score ?? null,
-    prevComposite: prevFourb?.composite_score ?? null,
-    prevBrain: prevFourb?.brain_score ?? null,
-    prevBody: prevFourb?.body_score ?? null,
-    prevBat: prevFourb?.bat_score ?? null,
-    prevBall: prevFourb?.ball_score ?? null,
-    weakestLink: latestFourb?.weakest_link ?? null,
-    grade: latestFourb?.grade ?? null,
+    composite: getBestScore(
+      player.latest_composite_score,
+      latestFourb?.composite_score,
+      latestPlayerSession?.overall_score,
+      latestReboot?.composite_score
+    ),
+    brain: getBestScore(
+      player.latest_brain_score,
+      latestFourb?.brain_score,
+      latestPlayerSession?.brain_score,
+      latestReboot?.brain_score
+    ),
+    body: getBestScore(
+      player.latest_body_score,
+      latestFourb?.body_score,
+      latestPlayerSession?.body_score,
+      latestReboot?.body_score
+    ),
+    bat: getBestScore(
+      player.latest_bat_score,
+      latestFourb?.bat_score,
+      latestPlayerSession?.bat_score,
+      latestReboot?.bat_score
+    ),
+    ball: getBestScore(
+      player.latest_ball_score,
+      latestFourb?.ball_score,
+      latestPlayerSession?.ball_score,
+      null // reboot_uploads doesn't have ball_score
+    ),
+    prevComposite: prevFourb?.composite_score ?? playerSessions[1]?.overall_score ?? rebootUploads[1]?.composite_score ?? null,
+    prevBrain: prevFourb?.brain_score ?? playerSessions[1]?.brain_score ?? rebootUploads[1]?.brain_score ?? null,
+    prevBody: prevFourb?.body_score ?? playerSessions[1]?.body_score ?? rebootUploads[1]?.body_score ?? null,
+    prevBat: prevFourb?.bat_score ?? playerSessions[1]?.bat_score ?? rebootUploads[1]?.bat_score ?? null,
+    prevBall: prevFourb?.ball_score ?? playerSessions[1]?.ball_score ?? null,
+    weakestLink: getWeakestLink(),
+    grade: latestFourb?.grade ?? latestPlayerSession?.overall_grade ?? latestReboot?.grade ?? null,
   };
 
   // Process Video Sequence Data
