@@ -2280,6 +2280,7 @@ export type Database = {
           current_bat_speed: number | null
           current_streak: number | null
           email: string | null
+          email_opt_in: boolean | null
           fangraphs_id: string | null
           handedness: string | null
           has_ghost_session: boolean | null
@@ -2336,6 +2337,7 @@ export type Database = {
           current_bat_speed?: number | null
           current_streak?: number | null
           email?: string | null
+          email_opt_in?: boolean | null
           fangraphs_id?: string | null
           handedness?: string | null
           has_ghost_session?: boolean | null
@@ -2392,6 +2394,7 @@ export type Database = {
           current_bat_speed?: number | null
           current_streak?: number | null
           email?: string | null
+          email_opt_in?: boolean | null
           fangraphs_id?: string | null
           handedness?: string | null
           has_ghost_session?: boolean | null
