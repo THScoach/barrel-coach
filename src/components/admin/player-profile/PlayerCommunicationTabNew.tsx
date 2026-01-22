@@ -63,11 +63,23 @@ interface Note {
   is_private: boolean;
 }
 
+interface MessageItem {
+  id: string;
+  type: 'sms' | 'locker' | 'email';
+  direction: 'inbound' | 'outbound';
+  content: string;
+  created_at: string;
+  status?: string;
+  isAi?: boolean;
+  triggerType?: string;
+}
+
 export function PlayerCommunicationTabNew({ playerId, playersTableId, playerName }: PlayerCommunicationTabNewProps) {
   const [activeSubTab, setActiveSubTab] = useState('messages');
-  const [messages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(true);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [loadingNotes, setLoadingNotes] = useState(true);
   
@@ -88,11 +100,94 @@ export function PlayerCommunicationTabNew({ playerId, playersTableId, playerName
   
   const [newTag, setNewTag] = useState('');
 
-  // Load activities
+  // Use the players table ID for message queries (where data actually lives)
+  const dataPlayerId = playersTableId || playerId;
+
+  // Load all data on mount and when IDs change
   useEffect(() => {
+    loadMessages();
     loadActivities();
     loadNotes();
   }, [playerId, playersTableId]);
+
+  // Subscribe to realtime updates for messages
+  useEffect(() => {
+    if (!dataPlayerId) return;
+
+    const channel = supabase
+      .channel(`comm-messages-${dataPlayerId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `player_id=eq.${dataPlayerId}`,
+        },
+        () => loadMessages()
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'locker_room_messages',
+          filter: `player_id=eq.${dataPlayerId}`,
+        },
+        () => loadMessages()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [dataPlayerId]);
+
+  // Load messages from both tables
+  const loadMessages = async () => {
+    setLoadingMessages(true);
+    
+    const [smsRes, lockerRes] = await Promise.all([
+      supabase
+        .from('messages')
+        .select('*')
+        .eq('player_id', dataPlayerId)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('locker_room_messages')
+        .select('*')
+        .eq('player_id', dataPlayerId)
+        .order('created_at', { ascending: false })
+        .limit(50),
+    ]);
+
+    const allMessages: MessageItem[] = [
+      ...(smsRes.data || []).map((m): MessageItem => ({
+        id: m.id,
+        type: m.trigger_type?.includes('email') ? 'email' : 'sms',
+        direction: m.direction as 'inbound' | 'outbound',
+        content: m.body,
+        created_at: m.created_at,
+        status: m.status,
+        isAi: m.ai_generated,
+        triggerType: m.trigger_type,
+      })),
+      ...(lockerRes.data || []).map((m): MessageItem => ({
+        id: m.id,
+        type: 'locker',
+        direction: 'outbound',
+        content: m.content,
+        created_at: m.created_at,
+        status: m.is_read ? 'read' : 'unread',
+        isAi: true,
+        triggerType: m.message_type,
+      })),
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    setMessages(allMessages);
+    setLoadingMessages(false);
+  };
 
   const loadActivities = async () => {
     setLoadingActivities(true);
@@ -267,7 +362,11 @@ export function PlayerCommunicationTabNew({ playerId, playersTableId, playerName
 
         {/* ===== MESSAGES TAB ===== */}
         <TabsContent value="messages" className="mt-6">
-          {messages.length === 0 ? (
+          {loadingMessages ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+            </div>
+          ) : messages.length === 0 ? (
             <Card className="bg-slate-900/80 border-slate-800">
               <CardContent className="py-12 text-center">
                 <Inbox className="h-12 w-12 mx-auto text-slate-600 mb-3" />
@@ -283,7 +382,88 @@ export function PlayerCommunicationTabNew({ playerId, playersTableId, playerName
             </Card>
           ) : (
             <div className="space-y-3">
-              {/* Message thread would go here */}
+              {messages.map((msg) => (
+                <Card 
+                  key={msg.id} 
+                  className={`bg-slate-900/80 border-slate-800 ${
+                    msg.direction === 'inbound' ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-red-500'
+                  }`}
+                >
+                  <CardContent className="py-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className="mt-0.5">
+                          {msg.type === 'locker' ? (
+                            <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                              <MessageSquare className="h-4 w-4 text-purple-400" />
+                            </div>
+                          ) : msg.type === 'email' ? (
+                            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                              <Mail className="h-4 w-4 text-blue-400" />
+                            </div>
+                          ) : msg.direction === 'inbound' ? (
+                            <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                              <Inbox className="h-4 w-4 text-emerald-400" />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                              <Send className="h-4 w-4 text-red-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-slate-200 text-sm">
+                              {msg.type === 'locker' 
+                                ? '🤖 Coach Rick AI' 
+                                : msg.direction === 'inbound' 
+                                  ? playerName 
+                                  : 'You'}
+                            </span>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                msg.type === 'locker' 
+                                  ? 'border-purple-500/50 text-purple-400' 
+                                  : msg.type === 'email'
+                                    ? 'border-blue-500/50 text-blue-400'
+                                    : 'border-emerald-500/50 text-emerald-400'
+                              }`}
+                            >
+                              {msg.type === 'locker' ? 'App Message' : msg.type === 'email' ? 'Email' : 'SMS'}
+                            </Badge>
+                            {msg.isAi && msg.type !== 'locker' && (
+                              <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-400">
+                                AI
+                              </Badge>
+                            )}
+                            {msg.status && (
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${
+                                  msg.status === 'sent' || msg.status === 'delivered' || msg.status === 'read'
+                                    ? 'border-emerald-500/50 text-emerald-400'
+                                    : msg.status === 'failed'
+                                      ? 'border-red-500/50 text-red-400'
+                                      : 'border-slate-500/50 text-slate-400'
+                                }`}
+                              >
+                                {msg.status}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-slate-300 text-sm whitespace-pre-wrap break-words">
+                            {msg.content}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-slate-500 shrink-0">
+                        {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </TabsContent>
