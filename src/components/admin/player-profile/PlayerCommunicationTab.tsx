@@ -54,10 +54,50 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
   const [activeTab, setActiveTab] = useState<'all' | 'messages' | 'system' | 'drills'>('all');
   const [composeOpen, setComposeOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sendingTestSms, setSendingTestSms] = useState(false);
   const [newMessage, setNewMessage] = useState({
     channel: 'sms' as MessageChannel,
     content: '',
   });
+
+  const handleSendTestSms = async () => {
+    setSendingTestSms(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-coach-rick-sms", {
+        body: {
+          type: "custom",
+          player_id: playerId,
+          skip_ai: true,
+          custom_message: `🧪 Test SMS from Catching Barrels Lab at ${new Date().toLocaleTimeString()}`,
+        },
+      });
+
+      if (error) {
+        console.error("Test SMS function error:", error);
+        throw error;
+      }
+
+      if (data && !data.success) {
+        if (data.reason === "no_phone") {
+          toast.error("Player has no phone number on file");
+        } else if (data.reason === "opted_out") {
+          toast.error("Player has opted out of SMS");
+        } else {
+          toast.error(data.error || "Failed to send test SMS");
+        }
+        return;
+      }
+
+      toast.success("Test SMS sent successfully!", {
+        description: `SID: ${data?.sid?.slice(-8) || 'N/A'}`,
+      });
+    } catch (error) {
+      console.error("Test SMS error:", error);
+      toast.error("Failed to send test SMS");
+    } finally {
+      setSendingTestSms(false);
+    }
+  };
 
   // Fetch messages
   const { data: messages, isLoading: loadingMessages } = useQuery({
@@ -304,12 +344,27 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
           <h3 className="text-lg font-semibold text-white">Communication Feed</h3>
           <p className="text-sm text-slate-400">Messages, system logs, and drill completions</p>
         </div>
-        <Button 
-          onClick={() => setComposeOpen(true)}
-          className="bg-[#DC2626] hover:bg-[#b91c1c]"
-        >
-          <Plus className="h-4 w-4 mr-2" /> Send Message
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            onClick={handleSendTestSms}
+            disabled={sendingTestSms}
+            className="border-amber-600 text-amber-500 hover:bg-amber-950/50"
+          >
+            {sendingTestSms ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4 mr-2" />
+            )}
+            Test SMS
+          </Button>
+          <Button 
+            onClick={() => setComposeOpen(true)}
+            className="bg-[#DC2626] hover:bg-[#b91c1c]"
+          >
+            <Plus className="h-4 w-4 mr-2" /> Send Message
+          </Button>
+        </div>
       </div>
 
       {/* Tab Filters */}
