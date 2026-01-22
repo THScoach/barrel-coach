@@ -78,7 +78,7 @@ function formatPhoneNumber(phone: string): string {
 //   }
 // }
 
-// Create/update contact in GoHighLevel via REST API
+// Create/update contact in GoHighLevel via REST API v2
 async function syncToGHL(contact: {
   email?: string;
   phone?: string;
@@ -87,10 +87,16 @@ async function syncToGHL(contact: {
   inviteUrl: string;
 }): Promise<{ success: boolean; error?: string; contactId?: string }> {
   const GHL_API_KEY = Deno.env.get("GHL_API_KEY");
+  const GHL_LOCATION_ID = Deno.env.get("GHL_LOCATION_ID");
   
   if (!GHL_API_KEY) {
     console.log("[send-invite] GHL_API_KEY not configured, skipping GHL sync");
     return { success: false, error: "GHL API key not configured" };
+  }
+
+  if (!GHL_LOCATION_ID) {
+    console.log("[send-invite] GHL_LOCATION_ID not configured, skipping GHL sync");
+    return { success: false, error: "GHL location ID not configured" };
   }
 
   try {
@@ -98,31 +104,33 @@ async function syncToGHL(contact: {
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
 
-    // GHL REST API v1 contact payload
+    // GHL REST API v2 contact payload
     const payload: Record<string, unknown> = {
+      locationId: GHL_LOCATION_ID,
       firstName,
       lastName,
       name: contact.name || "",
       source: "Catching Barrels App",
       tags: [`invite_${contact.inviteType}`, "catching_barrels"],
-      customField: {
-        cb_invite_type: contact.inviteType,
-        cb_invite_url: contact.inviteUrl,
-        cb_invite_sent_at: new Date().toISOString(),
-      },
+      customFields: [
+        { key: "cb_invite_type", value: contact.inviteType },
+        { key: "cb_invite_url", value: contact.inviteUrl },
+        { key: "cb_invite_sent_at", value: new Date().toISOString() },
+      ],
     };
 
     // Only include email/phone if provided
     if (contact.email) payload.email = contact.email;
     if (contact.phone) payload.phone = contact.phone;
 
-    console.log("[send-invite] Creating GHL contact via REST API:", JSON.stringify(payload));
+    console.log("[send-invite] Creating GHL contact via REST API v2:", JSON.stringify(payload));
 
-    const response = await fetch("https://rest.gohighlevel.com/v1/contacts/", {
+    const response = await fetch("https://services.leadconnectorhq.com/contacts/", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${GHL_API_KEY}`,
         "Content-Type": "application/json",
+        "Version": "2021-07-28",
       },
       body: JSON.stringify(payload),
     });
