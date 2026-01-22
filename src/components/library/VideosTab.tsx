@@ -14,6 +14,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { 
   Upload, Trash2, Edit, Eye, EyeOff, Loader2, Video, 
@@ -100,6 +110,11 @@ export function VideosTab() {
     tags: '',
     transcript: ''
   });
+
+  // Bulk delete state
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [videoToDelete, setVideoToDelete] = useState<DrillVideo | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchVideos = useCallback(async () => {
     try {
@@ -305,25 +320,84 @@ export function VideosTab() {
     await fetchVideos();
   };
 
+  // Extract storage path from video_url 
+  const extractStoragePath = (video: DrillVideo): string | null => {
+    if (!video.video_url) return null;
+    // URL format: https://xxx.supabase.co/storage/v1/object/public/videos/drills/xxx.mp4
+    const match = video.video_url.match(/\/videos\/(.+)$/);
+    return match ? match[1] : null;
+  };
+
+  const deleteVideoWithStorage = async (video: DrillVideo) => {
+    // Try to delete from storage first
+    const storagePath = extractStoragePath(video);
+    if (storagePath) {
+      try {
+        await supabase.storage.from('videos').remove([storagePath]);
+      } catch (storageError) {
+        console.warn('Storage delete failed (may already be deleted):', storageError);
+      }
+    }
+    
+    // Delete from database via edge function
+    const { data: { session: deleteSession } } = await supabase.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos?id=${video.id}`, {
+      method: 'DELETE',
+      headers: { 
+        'Authorization': `Bearer ${deleteSession?.access_token}`
+      }
+    });
+
+    if (!res.ok) throw new Error('Delete failed');
+  };
+
   const handleDelete = async (video: DrillVideo) => {
-    if (!confirm('Delete this video? This cannot be undone.')) return;
+    setVideoToDelete(video);
+  };
 
+  const confirmDelete = async () => {
+    if (!videoToDelete) return;
+    
+    setIsDeleting(true);
     try {
-      const { data: { session: deleteSession } } = await supabase.auth.getSession();
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos?id=${video.id}`, {
-        method: 'DELETE',
-        headers: { 
-          'Authorization': `Bearer ${deleteSession?.access_token}`
-        }
-      });
-
-      if (!res.ok) throw new Error('Delete failed');
-
+      await deleteVideoWithStorage(videoToDelete);
       toast.success('Video deleted');
       await fetchVideos();
     } catch (error) {
       toast.error('Failed to delete');
+    } finally {
+      setIsDeleting(false);
+      setVideoToDelete(null);
     }
+  };
+
+  const handleBulkDeleteFailed = async () => {
+    const failedVideos = videos.filter(v => 
+      ['failed', 'processing_failed', 'pending'].includes(v.status)
+    );
+    
+    if (failedVideos.length === 0) {
+      toast.error('No failed videos to delete');
+      setShowBulkDeleteDialog(false);
+      return;
+    }
+
+    setIsDeleting(true);
+    let deletedCount = 0;
+    
+    for (const video of failedVideos) {
+      try {
+        await deleteVideoWithStorage(video);
+        deletedCount++;
+      } catch (error) {
+        console.error('Failed to delete video:', video.id, error);
+      }
+    }
+    
+    toast.success(`Deleted ${deletedCount} failed video(s)`);
+    setIsDeleting(false);
+    setShowBulkDeleteDialog(false);
+    await fetchVideos();
   };
 
   const openEdit = (video: DrillVideo) => {
@@ -367,10 +441,13 @@ export function VideosTab() {
 
   const filteredVideos = statusFilter === 'all' 
     ? videos 
-    : videos.filter(v => v.status === statusFilter);
+    : statusFilter === 'failed'
+      ? videos.filter(v => ['failed', 'processing_failed', 'pending'].includes(v.status))
+      : videos.filter(v => v.status === statusFilter);
 
   const readyCount = videos.filter(v => v.status === 'ready_for_review').length;
   const processingCount = videos.filter(v => ['processing', 'transcribing', 'analyzing'].includes(v.status)).length;
+  const failedCount = videos.filter(v => ['failed', 'processing_failed', 'pending'].includes(v.status)).length;
 
   if (loading) {
     return (
@@ -474,8 +551,21 @@ export function VideosTab() {
               <SelectItem value="ready_for_review">Ready for Review ({readyCount})</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
               <SelectItem value="published">Published</SelectItem>
+              <SelectItem value="failed">Failed ({failedCount})</SelectItem>
             </SelectContent>
           </Select>
+
+          {failedCount > 0 && (
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => setShowBulkDeleteDialog(true)}
+              disabled={isDeleting}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear All Failed ({failedCount})
+            </Button>
+          )}
         </div>
 
         {selectedVideos.size > 0 && (
@@ -609,6 +699,70 @@ export function VideosTab() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent className="bg-slate-900 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Delete All Failed Uploads?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              This will permanently delete {failedCount} failed/pending video(s) and their storage files. 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkDeleteFailed}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete All Failed'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Individual Delete Confirmation Dialog */}
+      <AlertDialog open={!!videoToDelete} onOpenChange={(open) => !open && setVideoToDelete(null)}>
+        <AlertDialogContent className="bg-slate-900 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Delete Video?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              This will permanently delete "{videoToDelete?.title}" and its storage file. 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Edit Dialog */}
       <Dialog open={!!editVideo} onOpenChange={() => setEditVideo(null)}>
