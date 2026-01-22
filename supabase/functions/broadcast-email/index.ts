@@ -63,6 +63,10 @@ serve(async (req) => {
       try {
         const firstName = player.name?.split(' ')[0] || 'there';
         
+        // Generate unsubscribe link
+        const unsubscribeToken = btoa(player.id).replace(/=/g, "");
+        const unsubscribeUrl = `${supabaseUrl}/functions/v1/unsubscribe?player_id=${player.id}&token=${unsubscribeToken}`;
+        
         const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -103,13 +107,18 @@ ${message}
       </div>
     </div>
 
-    <!-- Footer -->
+    <!-- Footer with Unsubscribe -->
     <div style="text-align: center; margin-top: 24px;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
         Catching Barrels Laboratory • 4B Diagnostic System
       </p>
       <p style="color: #404040; font-size: 11px; margin: 8px 0 0 0;">
         You're receiving this because you opted in to email updates.
+      </p>
+      <p style="margin-top: 12px;">
+        <a href="${unsubscribeUrl}" style="color: #525252; font-size: 11px; text-decoration: underline;">
+          Unsubscribe from emails
+        </a>
       </p>
     </div>
   </div>
