@@ -55,18 +55,58 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
   const [composeOpen, setComposeOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendingTestSms, setSendingTestSms] = useState(false);
+  const [resolvedPlayersId, setResolvedPlayersId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState({
     channel: 'sms' as MessageChannel,
     content: '',
   });
 
+  // Resolve the players table ID from the profile ID
+  useEffect(() => {
+    const resolvePlayerId = async () => {
+      // First check if playerId is already a players table ID
+      const { data: directPlayer } = await supabase
+        .from("players")
+        .select("id")
+        .eq("id", playerId)
+        .maybeSingle();
+      
+      if (directPlayer) {
+        setResolvedPlayersId(playerId);
+        return;
+      }
+
+      // Otherwise, look up via player_profiles
+      const { data: profile } = await supabase
+        .from("player_profiles")
+        .select("players_id")
+        .eq("id", playerId)
+        .maybeSingle();
+
+      if (profile?.players_id) {
+        setResolvedPlayersId(profile.players_id);
+      } else {
+        // Fallback: use ensure_player_linked RPC
+        const { data: linkedId } = await supabase.rpc('ensure_player_linked', {
+          p_profile_id: playerId
+        });
+        if (linkedId) {
+          setResolvedPlayersId(linkedId);
+        }
+      }
+    };
+
+    resolvePlayerId();
+  }, [playerId]);
+
   const handleSendTestSms = async () => {
     setSendingTestSms(true);
     try {
+      const targetId = resolvedPlayersId || playerId;
       const { data, error } = await supabase.functions.invoke("send-coach-rick-sms", {
         body: {
           type: "custom",
-          player_id: playerId,
+          player_id: targetId,
           skip_ai: true,
           custom_message: `🧪 Test SMS from Catching Barrels Lab at ${new Date().toLocaleTimeString()}`,
         },
@@ -99,37 +139,72 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
     }
   };
 
-  // Fetch messages with react-query
+  // Fetch messages with react-query using resolved player ID
   const { data: messages, isLoading: loadingMessages, refetch: refetchMessages } = useQuery({
-    queryKey: ["player-messages", playerId],
+    queryKey: ["player-messages", resolvedPlayersId],
     queryFn: async () => {
+      if (!resolvedPlayersId) return [];
       const { data, error } = await supabase
         .from("messages")
         .select("*")
-        .eq("player_id", playerId)
+        .eq("player_id", resolvedPlayersId)
         .order("created_at", { ascending: false })
         .limit(50);
 
       if (error) throw error;
       return data || [];
     },
+    enabled: !!resolvedPlayersId,
+  });
+
+  // Fetch locker room messages (Coach Rick AI messages)
+  const { data: lockerMessages, isLoading: loadingLocker, refetch: refetchLocker } = useQuery({
+    queryKey: ["player-locker-messages", resolvedPlayersId],
+    queryFn: async () => {
+      if (!resolvedPlayersId) return [];
+      const { data, error } = await supabase
+        .from("locker_room_messages")
+        .select("*")
+        .eq("player_id", resolvedPlayersId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!resolvedPlayersId,
   });
 
   // Subscribe to realtime message updates for delivery status
   useEffect(() => {
+    if (!resolvedPlayersId) return;
+
     const channel = supabase
-      .channel(`messages-${playerId}`)
+      .channel(`messages-${resolvedPlayersId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'messages',
-          filter: `player_id=eq.${playerId}`,
+          filter: `player_id=eq.${resolvedPlayersId}`,
         },
         (payload) => {
           console.log('[Realtime] Message update:', payload);
           refetchMessages();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'locker_room_messages',
+          filter: `player_id=eq.${resolvedPlayersId}`,
+        },
+        (payload) => {
+          console.log('[Realtime] Locker message update:', payload);
+          refetchLocker();
         }
       )
       .subscribe();
@@ -137,28 +212,31 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [playerId, refetchMessages]);
+  }, [resolvedPlayersId, refetchMessages, refetchLocker]);
 
-  // Fetch activity log (system events)
+  // Fetch activity log (system events) - use resolved player ID
   const { data: activityLog, isLoading: loadingActivity } = useQuery({
-    queryKey: ["player-activity", playerId],
+    queryKey: ["player-activity", resolvedPlayersId],
     queryFn: async () => {
+      if (!resolvedPlayersId) return [];
       const { data, error } = await supabase
         .from("activity_log")
         .select("*")
-        .eq("player_id", playerId)
+        .eq("player_id", resolvedPlayersId)
         .order("created_at", { ascending: false })
         .limit(50);
 
       if (error) throw error;
       return data || [];
     },
+    enabled: !!resolvedPlayersId,
   });
 
-  // Fetch drill completions
+  // Fetch drill completions - use resolved player ID
   const { data: drillCompletions, isLoading: loadingDrills } = useQuery({
-    queryKey: ["player-drill-completions", playerId],
+    queryKey: ["player-drill-completions", resolvedPlayersId],
     queryFn: async () => {
+      if (!resolvedPlayersId) return [];
       const { data, error } = await supabase
         .from("drill_completions")
         .select(`
@@ -174,28 +252,48 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
             four_b_category
           )
         `)
-        .eq("player_id", playerId)
+        .eq("player_id", resolvedPlayersId)
         .order("completed_at", { ascending: false })
         .limit(20);
 
       if (error) throw error;
       return data || [];
     },
+    enabled: !!resolvedPlayersId,
   });
 
   // Transform data into unified feed
   const feedItems: FeedItem[] = [
-    // Messages
+    // SMS/Email Messages (from messages table)
     ...(messages || []).map((msg): FeedItem => ({
       id: msg.id,
       type: 'message',
       channel: msg.trigger_type?.includes('email') ? 'email' : 'sms',
       direction: msg.direction as 'inbound' | 'outbound',
-      title: msg.direction === 'inbound' ? `Message from ${playerName}` : 'Message sent',
+      title: msg.direction === 'inbound' 
+        ? `Message from ${playerName}` 
+        : `📱 SMS Sent (${msg.trigger_type || 'manual'})`,
       body: msg.body,
       timestamp: msg.created_at,
       isAiGenerated: msg.ai_generated,
       status: msg.status,
+    })),
+    // Locker Room Messages (Coach Rick AI messages)
+    ...(lockerMessages || []).map((lm): FeedItem => ({
+      id: lm.id,
+      type: 'message',
+      channel: 'app',
+      direction: 'outbound',
+      title: `🤖 Coach Rick: ${lm.message_type?.replace(/_/g, ' ') || 'AI Message'}`,
+      body: lm.content,
+      timestamp: lm.created_at,
+      isAiGenerated: true,
+      status: lm.is_read ? 'read' : 'unread',
+      metadata: {
+        summary: lm.summary,
+        trigger: lm.trigger_reason,
+        fourBContext: lm.four_b_context,
+      },
     })),
     // System events
     ...(activityLog || []).map((log): FeedItem => {
@@ -256,11 +354,12 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
 
     setSending(true);
     try {
-      // Get player contact info
+      // Get player contact info using resolved ID
+      const targetId = resolvedPlayersId || playerId;
       const { data: player, error: playerFetchError } = await supabase
         .from("players")
         .select("phone, email")
-        .eq("id", playerId)
+        .eq("id", targetId)
         .single();
 
       if (playerFetchError) {
@@ -279,7 +378,7 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
         const { data, error } = await supabase.functions.invoke("send-coach-rick-sms", {
           body: {
             type: "custom",
-            player_id: playerId,
+            player_id: targetId,
             skip_ai: true,
             custom_message: newMessage.content,
           },
@@ -312,7 +411,7 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
 
         const { data, error } = await supabase.functions.invoke("send-player-email", {
           body: {
-            player_id: playerId,
+            player_id: targetId,
             message: newMessage.content,
             subject: `Message from Coach Rick`,
           },
@@ -346,7 +445,7 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
     }
   };
 
-  const isLoading = loadingMessages || loadingActivity || loadingDrills;
+  const isLoading = loadingMessages || loadingLocker || loadingActivity || loadingDrills || !resolvedPlayersId;
 
   // Get status badge styling based on Twilio delivery status
   const getStatusBadgeStyle = (status: string) => {
@@ -383,6 +482,7 @@ export function PlayerCommunicationTab({ playerId, playerName }: PlayerCommunica
 
   const getItemIcon = (item: FeedItem) => {
     if (item.type === 'message') {
+      if (item.channel === 'app') return <Bot className="h-4 w-4 text-purple-400" />;
       if (item.channel === 'email') return <Mail className="h-4 w-4 text-blue-400" />;
       if (item.direction === 'inbound') return <ArrowDownLeft className="h-4 w-4 text-emerald-400" />;
       return <ArrowUpRight className="h-4 w-4 text-[#DC2626]" />;
