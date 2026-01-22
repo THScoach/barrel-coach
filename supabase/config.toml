@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.send-invite]
 verify_jwt = false
+
+[functions.broadcast-email]
+verify_jwt = false
