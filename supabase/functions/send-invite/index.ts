@@ -87,16 +87,12 @@ async function syncToGHL(contact: {
   inviteUrl: string;
 }): Promise<{ success: boolean; error?: string; contactId?: string }> {
   const GHL_API_KEY = Deno.env.get("GHL_API_KEY");
-  const GHL_LOCATION_ID = Deno.env.get("GHL_LOCATION_ID");
+  // Location ID for Catching Barrels GHL account
+  const GHL_LOCATION_ID = "A4qcEPhepBHlXWhd52IR";
   
   if (!GHL_API_KEY) {
     console.log("[send-invite] GHL_API_KEY not configured, skipping GHL sync");
     return { success: false, error: "GHL API key not configured" };
-  }
-
-  if (!GHL_LOCATION_ID) {
-    console.log("[send-invite] GHL_LOCATION_ID not configured, skipping GHL sync");
-    return { success: false, error: "GHL location ID not configured" };
   }
 
   try {
