@@ -21,8 +21,7 @@ const corsHeaders = {
 // Thresholds for triggering messages
 const SCORE_THRESHOLDS = {
   CRITICAL: 35,      // Send urgent alert
-  LOW: 45,           // Send improvement message
-  NEEDS_WORK: 50,    // Send encouragement
+  LEAK: 50,          // Any score below 50 is considered a leak
   STREAK_DAYS: 5,    // Days inactive before "come back" message
 };
 
@@ -153,26 +152,44 @@ serve(async (req) => {
         let customContext = "";
         let prescribedVideo: { title: string; url: string; thumbnail_url: string | null } | null = null;
 
-        // Determine if we should send a message
-        if (weakest.score < SCORE_THRESHOLDS.LOW) {
+        // Determine if we should send a message - ANY score below 50 is a LEAK
+        if (weakest.score < SCORE_THRESHOLDS.LEAK) {
           triggerType = "low_score";
 
-          // Query academy_videos for matching leak category
+          // Query drill_videos for matching leak category
           const categoryTags = CATEGORY_TAG_MAP[weakest.category] || [weakest.category];
-          console.log(`[ScoreMonitor] Searching videos for ${weakest.category} leak, tags:`, categoryTags);
+          console.log(`[ScoreMonitor] Searching videos for ${weakest.category} leak (score: ${weakest.score}), tags:`, categoryTags);
+
+          // Build the OR filter for matching videos
+          const orFilters = [
+            ...categoryTags.map(tag => `four_b_category.ilike.%${tag}%`),
+            ...categoryTags.map(tag => `title.ilike.%${tag}%`),
+          ].join(",");
 
           // Search drill_videos for matching category or tags
-          const { data: matchingVideos } = await supabase
+          let matchingVideos: { id: string; title: string; video_url: string; gumlet_playback_url: string | null; thumbnail_url: string | null; four_b_category: string | null }[] | null = null;
+          
+          const { data: categoryVideos } = await supabase
             .from("drill_videos")
-            .select("id, title, video_url, gumlet_playback_url, thumbnail_url, four_b_category, problems_addressed")
+            .select("id, title, video_url, gumlet_playback_url, thumbnail_url, four_b_category")
             .in("status", ["published", "ready_for_review"])
-            .or(
-              categoryTags.map(tag => `four_b_category.ilike.%${tag}%`).join(",") + "," +
-              categoryTags.map(tag => `problems_addressed.cs.{${tag}}`).join(",") + "," +
-              categoryTags.map(tag => `title.ilike.%${tag}%`).join(",")
-            )
+            .or(orFilters)
             .order("created_at", { ascending: false })
             .limit(5);
+          
+          matchingVideos = categoryVideos;
+
+          // FALLBACK: If no exact category match, get any published video
+          if (!matchingVideos || matchingVideos.length === 0) {
+            console.log(`[ScoreMonitor] No exact ${weakest.category} videos found, using fallback`);
+            const { data: fallbackVideos } = await supabase
+              .from("drill_videos")
+              .select("id, title, video_url, gumlet_playback_url, thumbnail_url, four_b_category")
+              .in("status", ["published", "ready_for_review"])
+              .order("created_at", { ascending: false })
+              .limit(10);
+            matchingVideos = fallbackVideos;
+          }
 
           if (matchingVideos && matchingVideos.length > 0) {
             // Pick a random video from matching ones
@@ -183,10 +200,10 @@ serve(async (req) => {
               thumbnail_url: video.thumbnail_url,
             };
             results.videosPrescribed++;
-            console.log(`[ScoreMonitor] Prescribing video: ${video.title}`);
+            console.log(`[ScoreMonitor] Prescribing video: ${video.title} (category: ${video.four_b_category})`);
 
             // Store video prescription for player (upsert pattern)
-            const { error: prescriptionError } = await supabase
+            await supabase
               .from("player_video_prescriptions")
               .upsert({
                 player_id: player.id,
@@ -194,21 +211,14 @@ serve(async (req) => {
                 prescribed_reason: `Leak detected in ${weakest.category} (score: ${weakest.score})`,
                 four_b_category: weakest.category,
               }, { onConflict: "player_id,video_id" });
+          } else {
+            console.log(`[ScoreMonitor] No videos available to prescribe for ${player.name}`);
           }
 
           if (weakest.score < SCORE_THRESHOLDS.CRITICAL) {
             customContext = `URGENT: ${player.name}'s ${weakest.category} score is critically low at ${weakest.score}. They need immediate help with targeted drills.`;
           } else {
-            customContext = `${player.name}'s ${weakest.category} score (${weakest.score}) needs work. Suggest a specific drill to improve it.`;
-          }
-        } else if (weakest.score < SCORE_THRESHOLDS.NEEDS_WORK) {
-          const daysSinceLastMessage = lastMessage
-            ? (Date.now() - new Date(lastMessage.created_at).getTime()) / (1000 * 60 * 60 * 24)
-            : 999;
-          
-          if (daysSinceLastMessage > 2) {
-            triggerType = "drill_reminder";
-            customContext = `${player.name}'s ${weakest.category} score is ${weakest.score} - close to average but room to grow.`;
+            customContext = `${player.name}'s ${weakest.category} score (${weakest.score}) is below average and needs work. Suggest a specific drill to improve it.`;
           }
         }
 
