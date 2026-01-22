@@ -879,6 +879,17 @@ export default function AdminCoachRickVault() {
               const CategoryIcon = config.icon;
               const isSelected = selectedVideos.has(video.id);
               const isFailed = video.status === 'failed' || video.status === 'pending';
+              const isProcessing = video.status === 'processing' || video.status === 'transcribing' || video.status === 'analyzing';
+              
+              // Build playable video URL - prefer storage_path for immediate access
+              const getVideoUrl = () => {
+                if (video.storage_path) {
+                  // Use public URL from storage bucket
+                  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${video.storage_path}`;
+                }
+                return video.video_url;
+              };
+              const videoSrc = getVideoUrl();
               
               return (
                 <Card 
@@ -887,8 +898,29 @@ export default function AdminCoachRickVault() {
                     isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
                   } ${isFailed ? 'border-destructive/50' : ''}`}
                 >
-                  <div className={`h-2 ${isFailed ? 'bg-destructive/50' : config.bg}`} />
-                  <CardHeader className="pb-2">
+                  {/* Video Preview with Processing Overlay */}
+                  <div className="relative aspect-video bg-black">
+                    <video
+                      src={videoSrc}
+                      className="w-full h-full object-contain"
+                      controls
+                      preload="metadata"
+                      playsInline
+                    />
+                    {/* Processing overlay - doesn't block controls */}
+                    {isProcessing && (
+                      <div className="absolute top-2 left-2 right-2 flex items-center gap-2 bg-black/70 backdrop-blur-sm rounded-md px-2 py-1 pointer-events-none">
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        <span className="text-xs text-white font-medium">
+                          {video.status === 'transcribing' ? 'Transcribing...' : 
+                           video.status === 'analyzing' ? 'Analyzing...' : 'Processing...'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className={`h-1.5 ${isFailed ? 'bg-destructive/50' : isProcessing ? 'bg-primary/50 animate-pulse' : config.bg}`} />
+                  <CardHeader className="pb-2 pt-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <Checkbox
@@ -899,7 +931,7 @@ export default function AdminCoachRickVault() {
                         <div className={`p-1.5 rounded-lg ${config.bg}`}>
                           <CategoryIcon className={`w-4 h-4 ${config.color}`} />
                         </div>
-                        <CardTitle className="text-base truncate">{video.title}</CardTitle>
+                        <CardTitle className="text-sm truncate">{video.title}</CardTitle>
                       </div>
                       <div className="flex items-center gap-1">
                         <Badge 
