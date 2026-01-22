@@ -78,19 +78,19 @@ function formatPhoneNumber(phone: string): string {
 //   }
 // }
 
-// Sync contact to GoHighLevel via webhook
+// Create/update contact in GoHighLevel via REST API
 async function syncToGHL(contact: {
   email?: string;
   phone?: string;
   name?: string;
   inviteType: string;
   inviteUrl: string;
-}): Promise<{ success: boolean; error?: string }> {
-  const GHL_WEBHOOK_URL = Deno.env.get("GHL_WEBHOOK_URL");
+}): Promise<{ success: boolean; error?: string; contactId?: string }> {
+  const GHL_API_KEY = Deno.env.get("GHL_API_KEY");
   
-  if (!GHL_WEBHOOK_URL) {
-    console.log("[send-invite] GHL_WEBHOOK_URL not configured, skipping GHL sync");
-    return { success: false, error: "GHL webhook not configured" };
+  if (!GHL_API_KEY) {
+    console.log("[send-invite] GHL_API_KEY not configured, skipping GHL sync");
+    return { success: false, error: "GHL API key not configured" };
   }
 
   try {
@@ -98,41 +98,43 @@ async function syncToGHL(contact: {
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
 
-    const payload = {
-      event: "new_invite",
-      email: contact.email || undefined,
-      phone: contact.phone || undefined,
+    // GHL REST API v1 contact payload
+    const payload: Record<string, unknown> = {
       firstName,
       lastName,
-      fullName: contact.name || "",
-      inviteType: contact.inviteType,
-      inviteUrl: contact.inviteUrl,
-      source: "catching_barrels_app",
-      timestamp: new Date().toISOString(),
-      // Custom fields for GHL workflow triggers
+      name: contact.name || "",
+      source: "Catching Barrels App",
+      tags: [`invite_${contact.inviteType}`, "catching_barrels"],
       customField: {
         cb_invite_type: contact.inviteType,
         cb_invite_url: contact.inviteUrl,
+        cb_invite_sent_at: new Date().toISOString(),
       },
     };
 
-    console.log("[send-invite] Syncing to GHL:", JSON.stringify(payload));
+    // Only include email/phone if provided
+    if (contact.email) payload.email = contact.email;
+    if (contact.phone) payload.phone = contact.phone;
 
-    const response = await fetch(GHL_WEBHOOK_URL, {
+    console.log("[send-invite] Creating GHL contact via REST API:", JSON.stringify(payload));
+
+    const response = await fetch("https://rest.gohighlevel.com/v1/contacts/", {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${GHL_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
     });
 
-    if (response.ok) {
-      console.log("[send-invite] GHL sync successful");
-      return { success: true };
+    const result = await response.json();
+
+    if (response.ok && result.contact) {
+      console.log("[send-invite] GHL contact created:", result.contact.id);
+      return { success: true, contactId: result.contact.id };
     } else {
-      const errorText = await response.text();
-      console.error("[send-invite] GHL sync failed:", response.status, errorText);
-      return { success: false, error: `GHL webhook failed: ${response.status}` };
+      console.error("[send-invite] GHL API error:", response.status, JSON.stringify(result));
+      return { success: false, error: result.message || `GHL API failed: ${response.status}` };
     }
   } catch (error) {
     console.error("[send-invite] GHL sync error:", error);
