@@ -172,6 +172,34 @@ export function PlayerOverviewTab({
           threshold: leak.threshold ?? 0,
         })));
       }
+    } else if (reboot) {
+      // Synthesize leaks from low 4B scores when no kwon_analyses data exists
+      const synthesizedLeaks: typeof detailedLeaks = [];
+      const LEAK_THRESHOLD = 50; // Below Average on 20-80 scale
+      const CRITICAL_THRESHOLD = 40;
+      
+      const scores = [
+        { category: 'brain' as const, score: reboot.brain_score, name: 'Timing Variance', evidence: 'Inconsistent timing pattern' },
+        { category: 'body' as const, score: reboot.body_score, name: 'Energy Transfer', evidence: 'Power leaking at core rotation phase' },
+        { category: 'bat' as const, score: reboot.bat_score, name: 'Bat Path', evidence: 'Inefficient barrel delivery' },
+      ];
+      
+      for (const item of scores) {
+        if (item.score && item.score < LEAK_THRESHOLD) {
+          synthesizedLeaks.push({
+            type: item.name.toLowerCase().replace(/\s+/g, '_'),
+            category: item.category,
+            severity: item.score < CRITICAL_THRESHOLD ? 'high' : item.score < 45 ? 'medium' : 'low',
+            description: `${item.name} detected: ${item.evidence}. Score ${item.score} is below the ${LEAK_THRESHOLD} threshold.`,
+            metric_value: 100 - item.score, // Inverse - higher is worse
+            threshold: 100 - LEAK_THRESHOLD, // 50 on inverted scale
+          });
+        }
+      }
+      
+      if (synthesizedLeaks.length > 0) {
+        setDetailedLeaks(synthesizedLeaks);
+      }
     }
 
     if (reboot && session) {
