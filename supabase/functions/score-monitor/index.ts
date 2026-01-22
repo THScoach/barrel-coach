@@ -51,8 +51,7 @@ interface PlayerScores {
   latest_bat_score: number | null;
   latest_ball_score: number | null;
   latest_composite_score: number | null;
-  last_analysis_at: string | null;
-  leak_detected: string | null;
+  last_sensor_session_date: string | null;
 }
 
 serve(async (req) => {
@@ -86,9 +85,9 @@ serve(async (req) => {
         id, name, email, phone, sms_opt_in,
         latest_brain_score, latest_body_score, 
         latest_bat_score, latest_ball_score,
-        latest_composite_score, last_analysis_at
+        latest_composite_score, last_sensor_session_date
       `)
-      .eq("account_status", "active")
+      .in("account_status", ["active", "beta"])
       .not("latest_composite_score", "is", null);
 
     if (body.mode === "single_player" && body.player_id) {
@@ -166,7 +165,7 @@ serve(async (req) => {
           const { data: matchingVideos } = await supabase
             .from("drill_videos")
             .select("id, title, video_url, gumlet_playback_url, thumbnail_url, four_b_category, problems_addressed")
-            .eq("status", "published")
+            .in("status", ["published", "ready_for_review"])
             .or(
               categoryTags.map(tag => `four_b_category.ilike.%${tag}%`).join(",") + "," +
               categoryTags.map(tag => `problems_addressed.cs.{${tag}}`).join(",") + "," +
@@ -214,9 +213,9 @@ serve(async (req) => {
         }
 
         // Check for inactive players (streak mode)
-        if (body.mode === "inactive_check" && player.last_analysis_at) {
+        if (body.mode === "inactive_check" && player.last_sensor_session_date) {
           const daysSinceAnalysis = 
-            (Date.now() - new Date(player.last_analysis_at).getTime()) / (1000 * 60 * 60 * 24);
+            (Date.now() - new Date(player.last_sensor_session_date).getTime()) / (1000 * 60 * 60 * 24);
           
           if (daysSinceAnalysis >= SCORE_THRESHOLDS.STREAK_DAYS) {
             triggerType = "streak";
