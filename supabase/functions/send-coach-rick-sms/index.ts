@@ -1,3 +1,10 @@
+// ============================================================
+// DISABLED: Direct Twilio SMS sending for Coach Rick messages
+// Reason: Toll-free number verification issues (Error 30032)
+// All SMS communications now handled via GoHighLevel Workflows
+// See: sync-to-ghl function for contact/score syncing
+// ============================================================
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -6,13 +13,93 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { type, player_id, custom_context } = await req.json();
+    
+    console.log(`[send-coach-rick-sms] DISABLED - Redirecting to GHL sync for player ${player_id}`);
+    
+    // Instead of sending SMS directly, sync to GHL which will trigger workflow
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Trigger GHL sync instead of direct SMS
+    const GHL_WEBHOOK_URL = Deno.env.get("GHL_WEBHOOK_URL");
+    
+    if (GHL_WEBHOOK_URL && player_id) {
+      // Fetch player data
+      const { data: player } = await supabase
+        .from("players")
+        .select("id, name, email, phone, composite_brain, composite_body, composite_bat, composite_ball, motor_profile")
+        .eq("id", player_id)
+        .single();
+
+      if (player) {
+        // Send to GHL webhook - this will trigger GHL workflow for SMS
+        await fetch(GHL_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "coach_rick_message",
+            trigger_type: type,
+            player_id: player.id,
+            email: player.email,
+            phone: player.phone,
+            firstName: player.name?.split(" ")[0] || "",
+            context: custom_context,
+            scores: {
+              brain: player.composite_brain,
+              body: player.composite_body,
+              bat: player.composite_bat,
+              ball: player.composite_ball,
+            },
+            archetype: player.motor_profile,
+            timestamp: new Date().toISOString(),
+          }),
+        });
+
+        console.log("[send-coach-rick-sms] Synced to GHL for workflow trigger");
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        disabled: true,
+        redirected_to: "ghl_workflow",
+        reason: "Direct SMS sending disabled. Twilio toll-free verification issues (Error 30032).",
+        migration: "Coach Rick SMS now triggered via GoHighLevel Workflows after contact sync.",
+        action: "GHL webhook called - workflow will handle SMS delivery.",
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+    );
+
+  } catch (error) {
+    console.error("[send-coach-rick-sms] Error:", error);
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        disabled: true,
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+    );
+  }
+});
+
+/* ORIGINAL IMPLEMENTATION - PRESERVED FOR REFERENCE
 interface SendRequest {
   type: "analysis_complete" | "reply" | "check_in" | "drill_reminder" | "custom";
   player_id: string;
   incoming_message?: string;
   custom_context?: string;
   session_id?: string;
-  skip_ai?: boolean;  // If true, use custom_message directly
+  skip_ai?: boolean;
   custom_message?: string;
 }
 
@@ -42,7 +129,6 @@ serve(async (req) => {
 
     console.log(`[Send Coach Rick SMS] Processing ${type} for player ${player_id}`);
 
-    // Get player phone number
     const { data: player, error: playerError } = await supabase
       .from("players")
       .select("id, name, phone, sms_opt_in")
@@ -54,7 +140,6 @@ serve(async (req) => {
     }
 
     if (!player.phone) {
-      console.log(`[Send Coach Rick SMS] Player ${player_id} has no phone number`);
       return new Response(
         JSON.stringify({ success: false, reason: "no_phone" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -62,7 +147,6 @@ serve(async (req) => {
     }
 
     if (player.sms_opt_in === false) {
-      console.log(`[Send Coach Rick SMS] Player ${player_id} opted out`);
       return new Response(
         JSON.stringify({ success: false, reason: "opted_out" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -72,16 +156,13 @@ serve(async (req) => {
     let messageBody: string;
     
     if (skip_ai && custom_message) {
-      // Use the provided custom message directly
       messageBody = custom_message;
     } else {
-      // Generate message using Coach Rick AI
       const { data: aiResponse, error: aiError } = await supabase.functions.invoke("coach-rick-sms", {
         body: { type, player_id, incoming_message, custom_context, session_id }
       });
 
       if (aiError || !aiResponse?.success) {
-        console.error("[Send Coach Rick SMS] AI generation failed:", aiError || aiResponse?.error);
         throw new Error(aiResponse?.error || "Failed to generate AI message");
       }
 
@@ -92,7 +173,6 @@ serve(async (req) => {
       throw new Error("No message to send");
     }
 
-    // Format phone number
     let formattedPhone = player.phone.replace(/\D/g, "");
     if (formattedPhone.length === 10) {
       formattedPhone = "+1" + formattedPhone;
@@ -100,7 +180,6 @@ serve(async (req) => {
       formattedPhone = "+" + formattedPhone;
     }
 
-    // Send via Twilio
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
     const credentials = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
 
@@ -120,14 +199,10 @@ serve(async (req) => {
     const twilioData = await twilioResponse.json();
 
     if (!twilioResponse.ok) {
-      console.error("[Send Coach Rick SMS] Twilio error:", twilioData);
       throw new Error(twilioData.message || "Failed to send SMS");
     }
 
-    console.log(`[Send Coach Rick SMS] Sent to ${formattedPhone}: ${messageBody.slice(0, 50)}...`);
-
-    // Log to messages table
-    const { error: msgError } = await supabase.from("messages").insert({
+    await supabase.from("messages").insert({
       player_id: player_id,
       phone_number: formattedPhone,
       direction: "outbound",
@@ -138,12 +213,7 @@ serve(async (req) => {
       ai_generated: !skip_ai,
     });
 
-    if (msgError) {
-      console.error("[Send Coach Rick SMS] Failed to log message:", msgError);
-    }
-
-    // Also log to sms_logs for the admin dashboard
-    const { error: smsLogError } = await supabase.from("sms_logs").insert({
+    await supabase.from("sms_logs").insert({
       session_id: session_id || null,
       phone_number: formattedPhone,
       trigger_name: `coach_rick_${type}`,
@@ -151,10 +221,6 @@ serve(async (req) => {
       twilio_sid: twilioData.sid,
       status: "sent",
     });
-    
-    if (smsLogError) {
-      console.error("sms_logs insert error:", smsLogError);
-    }
 
     return new Response(
       JSON.stringify({ 
@@ -166,7 +232,6 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("[Send Coach Rick SMS] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
@@ -174,3 +239,4 @@ serve(async (req) => {
     );
   }
 });
+*/
