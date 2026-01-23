@@ -1,11 +1,10 @@
 /**
- * Playlist Builder Modal - Create/edit manual playlists by selecting videos
+ * Playlist Builder Modal - Create/edit manual playlists with drag-and-drop ordering
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { 
   Loader2, Play, Clock, Search, Brain, Dumbbell, Target, Zap, 
-  GripVertical, X
+  GripVertical, X, ArrowUp, ArrowDown
 } from "lucide-react";
 
 interface VideoPlaylist {
@@ -68,6 +67,11 @@ export function PlaylistBuilderModal({ open, onOpenChange, playlist, onSaved }: 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Drag and drop state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const dragNodeRef = useRef<HTMLDivElement | null>(null);
 
   const fetchVideos = useCallback(async () => {
     setLoading(true);
@@ -153,6 +157,61 @@ export function PlaylistBuilderModal({ open, onOpenChange, playlist, onSaved }: 
       return newSet;
     });
     setOrderedVideos(prev => prev.filter(v => v.id !== videoId));
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index.toString());
+    // Add a slight delay to show the dragging state
+    setTimeout(() => {
+      if (dragNodeRef.current) {
+        dragNodeRef.current.style.opacity = '0.5';
+      }
+    }, 0);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    if (dragNodeRef.current) {
+      dragNodeRef.current.style.opacity = '1';
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) return;
+
+    setOrderedVideos(prev => {
+      const newOrder = [...prev];
+      const [draggedItem] = newOrder.splice(draggedIndex, 1);
+      newOrder.splice(dropIndex, 0, draggedItem);
+      return newOrder;
+    });
+
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const moveVideo = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= orderedVideos.length) return;
+
+    setOrderedVideos(prev => {
+      const newOrder = [...prev];
+      [newOrder[index], newOrder[newIndex]] = [newOrder[newIndex], newOrder[index]];
+      return newOrder;
+    });
   };
 
   const handleSave = async () => {
@@ -354,19 +413,54 @@ export function PlaylistBuilderModal({ open, onOpenChange, playlist, onSaved }: 
                     {orderedVideos.map((video, index) => (
                       <div 
                         key={video.id}
-                        className="flex items-center gap-2 p-2 bg-slate-900 rounded-lg group"
+                        ref={draggedIndex === index ? dragNodeRef : null}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, index)}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDrop={(e) => handleDrop(e, index)}
+                        className={`flex items-center gap-2 p-2 rounded-lg group transition-all cursor-grab active:cursor-grabbing ${
+                          dragOverIndex === index 
+                            ? 'bg-primary/30 border-2 border-primary border-dashed' 
+                            : 'bg-slate-900 border border-transparent'
+                        } ${draggedIndex === index ? 'opacity-50' : ''}`}
                       >
-                        <GripVertical className="h-4 w-4 text-slate-600" />
-                        <span className="text-xs text-slate-500 w-4">{index + 1}</span>
+                        <GripVertical className="h-4 w-4 text-slate-500 group-hover:text-slate-300" />
+                        <span className="text-xs text-slate-500 w-4 font-mono">{index + 1}</span>
+                        <div className="w-10 h-7 bg-slate-800 rounded flex-shrink-0 overflow-hidden">
+                          {video.thumbnail_url ? (
+                            <img src={video.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Play className="h-3 w-3 text-slate-600" />
+                            </div>
+                          )}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-white truncate">{video.title}</p>
                         </div>
-                        <button 
-                          onClick={() => handleRemoveFromOrder(video.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-800 rounded"
-                        >
-                          <X className="h-3 w-3 text-slate-400" />
-                        </button>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                          <button 
+                            onClick={() => moveVideo(index, 'up')}
+                            disabled={index === 0}
+                            className="p-1 hover:bg-slate-800 rounded disabled:opacity-30"
+                          >
+                            <ArrowUp className="h-3 w-3 text-slate-400" />
+                          </button>
+                          <button 
+                            onClick={() => moveVideo(index, 'down')}
+                            disabled={index === orderedVideos.length - 1}
+                            className="p-1 hover:bg-slate-800 rounded disabled:opacity-30"
+                          >
+                            <ArrowDown className="h-3 w-3 text-slate-400" />
+                          </button>
+                          <button 
+                            onClick={() => handleRemoveFromOrder(video.id)}
+                            className="p-1 hover:bg-red-900/50 rounded"
+                          >
+                            <X className="h-3 w-3 text-red-400" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
