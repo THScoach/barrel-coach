@@ -271,7 +271,7 @@ export function ScoreboardCard({
                         ) : (
                           <LockedMessage 
                             icon={Link2} 
-                            message="Connect Diamond Kinetics to unlock BAT details" 
+                            message="Link your Diamond Kinetics account to unlock BAT details" 
                           />
                         )}
                       </>

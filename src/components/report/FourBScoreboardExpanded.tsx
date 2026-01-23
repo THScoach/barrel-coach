@@ -25,7 +25,7 @@ const TOOLTIPS = {
   fourBAnalysis: "Your 4B Score measures four parts of your swing: Body (how you move), Brain (your timing), Bat (how you deliver), Ball (your results).",
   body: "Body score measures how well you create and transfer energy from the ground up. Higher = more efficient movement.",
   brain: "Brain score measures your timing and rhythm. It's about WHEN things happen, not how hard you swing.",
-  bat: "Bat score measures how you deliver the barrel to the ball. Requires Diamond Kinetics sensor data.",
+  bat: "Bat score measures how you deliver the barrel to the ball. Connect your Diamond Kinetics sensor to unlock.",
   ball: "Ball score measures what actually happens when you make contact. Requires batted ball data (Hittrax, Rapsodo, etc).",
   loadSequence: "Time between your hips moving forward and shoulders starting to rotate. Positive = good (hips lead).",
   separation: "The gap between hip and shoulder rotation at front foot strike. More separation = more stored energy.",
