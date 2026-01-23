@@ -27,6 +27,8 @@ import {
   ResponsiveContainer
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { WeaponPanel } from "@/components/sensor";
+import { useWeaponMetrics } from "@/hooks/useWeaponMetrics";
 
 interface PlayerScoresTabProps {
   playerId: string;
@@ -336,8 +338,18 @@ export function PlayerScoresTab({ playerId, playerName }: PlayerScoresTabProps) 
     );
   }
 
+  // Fetch weapon metrics for the player
+  const { metrics: weaponMetrics, swingCount: dkSwingCount } = useWeaponMetrics({ playerId });
+  const hasDKData = dkSwingCount > 0;
+
   return (
     <div className="space-y-4">
+      {/* Weapon Panel - DK Metrics */}
+      <WeaponPanel 
+        metrics={weaponMetrics} 
+        isConnected={hasDKData}
+      />
+
       {/* Season Snapshot - Box Score Style */}
       <div className="grid grid-cols-5 gap-3">
         <StatBox
