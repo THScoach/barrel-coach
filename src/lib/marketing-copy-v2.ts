@@ -361,7 +361,7 @@ export const MARKETING_COPY = {
   faq: [
     {
       question: "What equipment do I need?",
-      answer: "You need a Reboot Motion markerless motion capture setup. Once connected, your sessions auto-sync to the 4B Bio-Engine every 12 hours. Diamond Kinetics bat sensor integration is coming soon.",
+      answer: "You need a Reboot Motion markerless motion capture setup. Once connected, your sessions auto-sync to the 4B Bio-Engine every 12 hours. Diamond Kinetics bat sensor integration is now live—connect your DK account to unlock BAT metrics.",
     },
     {
       question: "Do I have to upload files manually?",
