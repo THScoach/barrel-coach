@@ -95,14 +95,14 @@ export function AcademyUploader({ onUploadComplete, autoPublish = false }: Acade
         return;
       }
 
-      // Step 3: Upload to storage
+      // Step 3: Upload to storage (videos bucket for Gumlet pipeline)
       setStatus('uploading');
       setProgress(40);
 
-      const storagePath = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const storagePath = `drills/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       
       const { error: uploadError } = await supabase.storage
-        .from('academy_videos')
+        .from('videos')
         .upload(storagePath, file, {
           cacheControl: '3600',
           upsert: false
@@ -112,46 +112,33 @@ export function AcademyUploader({ onUploadComplete, autoPublish = false }: Acade
 
       setProgress(70);
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('academy_videos')
-        .getPublicUrl(storagePath);
-
-      // Step 4: Create database record
+      // Step 4: Trigger Gumlet processing pipeline
+      // This creates the drill_videos record, generates HLS/DASH streams,
+      // thumbnails, and triggers transcription automatically
       setStatus('processing');
       setProgress(85);
 
-      const { data: videoRecord, error: dbError } = await supabase
-        .from('drill_videos')
-        .insert({
-          title: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
-          video_url: urlData.publicUrl,
-          storage_path: storagePath,
-          file_hash: fileHash,
-          status: 'pending',
-        })
-        .select()
-        .single();
-
-      if (dbError) throw dbError;
-
-      // Step 5: Trigger transcription pipeline
-      await supabase.functions.invoke('transcribe-video', {
+      const { data: gumletResponse, error: gumletError } = await supabase.functions.invoke('upload-to-gumlet', {
         body: { 
-          video_id: videoRecord.id,
-          auto_publish: autoPublish
+          storage_path: storagePath,
+          original_title: file.name.replace(/\.[^/.]+$/, ''),
+          auto_publish: autoPublish,
+          file_hash: fileHash
         }
       });
+
+      if (gumletError) throw gumletError;
+      if (!gumletResponse?.success) throw new Error(gumletResponse?.error || 'Gumlet processing failed');
 
       setStatus('complete');
       setProgress(100);
 
       toast({
         title: "Upload Complete",
-        description: "Video is being transcribed and tagged automatically"
+        description: "Video is being processed for streaming, transcription & auto-tagging"
       });
 
-      onUploadComplete?.(videoRecord.id, urlData.publicUrl);
+      onUploadComplete?.(gumletResponse.video_id, gumletResponse.video_url);
 
     } catch (err: any) {
       console.error('Upload error:', err);
