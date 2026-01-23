@@ -35,6 +35,7 @@ import Drills from "./pages/Drills";
 import DrillDetail from "./pages/DrillDetail";
 import Consent from "./pages/Consent";
 import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
 import Session from "./pages/Session";
 
 // Admin pages
@@ -108,6 +109,7 @@ const App = () => (
               <Route path="/drills/:slug" element={<DrillDetail />} />
               <Route path="/consent" element={<Consent />} />
               <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
               <Route path="/session" element={<Session />} />
 
               {/* Player Portal Routes - 4B First Dashboard */}
