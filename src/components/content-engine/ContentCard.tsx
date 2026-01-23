@@ -30,6 +30,7 @@ interface ContentCardProps {
   contentType?: string;
   status: string;
   createdAt: string;
+  thumbnailUrl?: string;
   outputs?: ContentOutput[];
   onApprove?: (id: string) => void;
   onReject?: (id: string) => void;
@@ -74,6 +75,7 @@ export function ContentCard({
   contentType,
   status,
   createdAt,
+  thumbnailUrl,
   outputs = [],
   onApprove,
   onReject,
@@ -139,6 +141,22 @@ export function ContentCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* Video Thumbnail */}
+        {sourceType === 'video' && thumbnailUrl && (
+          <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+            <img 
+              src={thumbnailUrl} 
+              alt="Video thumbnail" 
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+              <div className="p-2 rounded-full bg-black/50">
+                <Video className="h-6 w-6 text-white" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Topics */}
         {topics.length > 0 && (
           <div className="flex flex-wrap gap-1">

@@ -4,7 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { Video, Square, Circle, RotateCcw, Check, Play, Pause, X } from "lucide-react";
 
 interface VideoMemoRecorderProps {
-  onRecorded: (blob: Blob, duration: number) => void;
+  onRecorded: (blob: Blob, duration: number, thumbnail?: Blob) => void;
   onCancel?: () => void;
   maxDuration?: number; // in seconds
 }
@@ -139,11 +139,41 @@ export function VideoMemoRecorder({
     startCamera();
   }, [startCamera]);
 
-  const confirmRecording = useCallback(() => {
+  // Capture thumbnail from video
+  const captureThumbnail = useCallback(async (): Promise<Blob | null> => {
+    if (!videoRef.current) return null;
+    
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 360;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    
+    // Seek to 1 second or 10% of the video, whichever is smaller
+    const seekTime = Math.min(1, video.duration * 0.1);
+    
+    return new Promise((resolve) => {
+      const handleSeeked = () => {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          video.removeEventListener('seeked', handleSeeked);
+          resolve(blob);
+        }, 'image/jpeg', 0.85);
+      };
+      
+      video.addEventListener('seeked', handleSeeked);
+      video.currentTime = seekTime;
+    });
+  }, []);
+
+  const confirmRecording = useCallback(async () => {
     if (recordedBlob) {
-      onRecorded(recordedBlob, recordingTime);
+      const thumbnail = await captureThumbnail();
+      onRecorded(recordedBlob, recordingTime, thumbnail || undefined);
     }
-  }, [recordedBlob, recordingTime, onRecorded]);
+  }, [recordedBlob, recordingTime, onRecorded, captureThumbnail]);
 
   const toggleFacingMode = useCallback(() => {
     const newMode = facingMode === 'user' ? 'environment' : 'user';

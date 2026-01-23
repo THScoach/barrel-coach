@@ -512,6 +512,7 @@ export type Database = {
           source_metadata: Json | null
           source_type: string
           status: string
+          thumbnail_url: string | null
           topics: string[] | null
           transcript: string | null
         }
@@ -528,6 +529,7 @@ export type Database = {
           source_metadata?: Json | null
           source_type: string
           status?: string
+          thumbnail_url?: string | null
           topics?: string[] | null
           transcript?: string | null
         }
@@ -544,6 +546,7 @@ export type Database = {
           source_metadata?: Json | null
           source_type?: string
           status?: string
+          thumbnail_url?: string | null
           topics?: string[] | null
           transcript?: string | null
         }
