@@ -39,7 +39,7 @@ serve(async (req) => {
   }
 
   try {
-    const { storage_path, original_title, auto_publish = false } = await req.json()
+    const { storage_path, original_title, auto_publish = false, file_hash } = await req.json()
 
     if (!storage_path) {
       throw new Error('No storage_path provided')
@@ -101,12 +101,14 @@ serve(async (req) => {
       .from('videos')
       .createSignedUrl(storage_path, 60 * 60 * 24 * 365) // 1 year
 
-    // Step 4: Create database record with Gumlet info
+    // Step 4: Create database record with Gumlet info and file_hash for deduplication
     const { data: video, error: dbError } = await supabase
       .from('drill_videos')
       .insert({
         title: original_title || 'Processing...',
         video_url: longUrlData?.signedUrl || urlData.signedUrl,
+        storage_path: storage_path,
+        file_hash: file_hash || null,
         gumlet_asset_id: gumletData.asset_id,
         gumlet_playback_url: gumletData.playback_url || null,
         gumlet_hls_url: gumletData.output_hls_url || null,
