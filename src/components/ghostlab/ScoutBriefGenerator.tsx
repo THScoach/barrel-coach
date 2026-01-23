@@ -1,5 +1,6 @@
 /**
  * Scout Brief Generator - Creates 8th-grade friendly summary of swing leaks
+ * Now includes Diamond Kinetics weapon metrics (WIP Index, Plane Integrity, etc.)
  */
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { FileText, Sparkles, Copy, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { WeaponMetrics, getWeaponGrade } from "@/lib/weapon-metrics";
 
 interface ScoutBriefGeneratorProps {
   playerName: string;
@@ -21,6 +23,7 @@ interface ScoutBriefGeneratorProps {
   leaks?: string[];
   projectedEV?: number | null;
   avgVBA?: number | null;
+  weaponMetrics?: WeaponMetrics | null;
 }
 
 // 8th-grade friendly leak translations
@@ -37,7 +40,7 @@ const LEAK_TRANSLATIONS: Record<string, string> = {
 
 // Generate a simple brief locally (fallback)
 function generateLocalBrief(props: ScoutBriefGeneratorProps): string {
-  const { playerName, brainScore, bodyScore, batScore, ballScore, compositeScore, weakestLink, leaks, projectedEV, avgVBA } = props;
+  const { playerName, brainScore, bodyScore, batScore, ballScore, compositeScore, weakestLink, leaks, projectedEV, avgVBA, weaponMetrics } = props;
   
   const firstName = playerName.split(' ')[0] || 'This player';
   const grade = compositeScore !== null 
@@ -63,6 +66,45 @@ function generateLocalBrief(props: ScoutBriefGeneratorProps): string {
     if (strongest.name === 'Bat') brief += "Energy transfers efficiently to the barrel.";
     if (strongest.name === 'Ball') brief += "They square the ball up consistently.";
     brief += '\n\n';
+  }
+  
+  // Weapon Metrics Section
+  if (weaponMetrics && Object.values(weaponMetrics).some(v => v !== null)) {
+    brief += `**Weapon Report (DK Sensor):**\n`;
+    
+    if (weaponMetrics.wipIndex !== null) {
+      const wipGrade = getWeaponGrade(weaponMetrics.wipIndex);
+      const wipInsight = weaponMetrics.wipIndex >= 55 
+        ? "Great bat whip - energy transfers well from hands to barrel"
+        : "Working on getting more 'whip' in the swing - hands leading, then the barrel snaps through";
+      brief += `- **WIP Index:** ${weaponMetrics.wipIndex} (${wipGrade}) - ${wipInsight}\n`;
+    }
+    
+    if (weaponMetrics.planeIntegrity !== null) {
+      const planeGrade = getWeaponGrade(weaponMetrics.planeIntegrity);
+      const planeInsight = weaponMetrics.planeIntegrity >= 55
+        ? "Consistent swing plane - bat path repeats well"
+        : "Swing plane varies - focus on staying on plane with tee work";
+      brief += `- **Plane Integrity:** ${weaponMetrics.planeIntegrity} (${planeGrade}) - ${planeInsight}\n`;
+    }
+    
+    if (weaponMetrics.squareUpConsistency !== null) {
+      const sqGrade = getWeaponGrade(weaponMetrics.squareUpConsistency);
+      const sqInsight = weaponMetrics.squareUpConsistency >= 55
+        ? "Hitting the barrel sweet spot consistently"
+        : "Contact point moves around - need more barrel awareness drills";
+      brief += `- **Square-Up:** ${weaponMetrics.squareUpConsistency} (${sqGrade}) - ${sqInsight}\n`;
+    }
+    
+    if (weaponMetrics.impactMomentum !== null) {
+      const impactGrade = getWeaponGrade(weaponMetrics.impactMomentum);
+      const impactInsight = weaponMetrics.impactMomentum >= 55
+        ? "Good power at contact - ball jumps off the bat"
+        : "Building more power delivery at contact - sequencing drills will help";
+      brief += `- **Impact Momentum:** ${weaponMetrics.impactMomentum} (${impactGrade}) - ${impactInsight}\n`;
+    }
+    
+    brief += '\n';
   }
   
   // What to fix
@@ -106,6 +148,21 @@ export function ScoutBriefGenerator(props: ScoutBriefGeneratorProps) {
     setLoading(true);
     
     try {
+      // Build weapon metrics context for AI
+      let weaponContext = '';
+      if (props.weaponMetrics) {
+        const wm = props.weaponMetrics;
+        const metrics = [];
+        if (wm.wipIndex !== null) metrics.push(`WIP Index: ${wm.wipIndex} (${getWeaponGrade(wm.wipIndex)}) - measures bat whip efficiency`);
+        if (wm.planeIntegrity !== null) metrics.push(`Plane Integrity: ${wm.planeIntegrity} (${getWeaponGrade(wm.planeIntegrity)}) - swing plane consistency`);
+        if (wm.squareUpConsistency !== null) metrics.push(`Square-Up: ${wm.squareUpConsistency} (${getWeaponGrade(wm.squareUpConsistency)}) - barrel contact repeatability`);
+        if (wm.impactMomentum !== null) metrics.push(`Impact Momentum: ${wm.impactMomentum} (${getWeaponGrade(wm.impactMomentum)}) - power at contact`);
+        
+        if (metrics.length > 0) {
+          weaponContext = `\n\nDiamond Kinetics Weapon Metrics (20-80 scout scale, 50=average, 55+=above avg, 65+=plus):\n${metrics.join('\n')}`;
+        }
+      }
+
       // Try to call the AI endpoint first
       const { data, error } = await supabase.functions.invoke('ask-the-lab', {
         body: {
@@ -115,10 +172,12 @@ export function ScoutBriefGenerator(props: ScoutBriefGeneratorProps) {
             Weakest link: ${props.weakestLink ?? 'None identified'}.
             ${props.leaks?.length ? `Detected leaks: ${props.leaks.join(', ')}` : ''}
             ${props.projectedEV ? `Projected exit velo: ${props.projectedEV} mph` : ''}
-            ${props.avgVBA !== null ? `Average VBA: ${props.avgVBA}°` : ''}
+            ${props.avgVBA !== null ? `Average VBA: ${props.avgVBA}°` : ''}${weaponContext}
             
             Write it like a coach talking to a middle schooler - simple words, encouraging tone, 
-            focus on what they can actually DO to get better.`,
+            focus on what they can actually DO to get better. Include insights about their weapon metrics 
+            (WIP Index shows bat whip, Plane Integrity shows consistency, Square-Up shows barrel contact, 
+            Impact Momentum shows power delivery).`,
           context: 'scout_brief'
         }
       });
