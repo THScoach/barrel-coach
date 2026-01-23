@@ -22,7 +22,7 @@ import {
   ScoutBriefGenerator 
 } from "@/components/ghostlab";
 import { VideoSwingUploadModal } from "@/components/video-analyzer";
-import { WeaponPanel } from "@/components/sensor";
+import { WeaponPanel, WeaponMetricsComparison } from "@/components/sensor";
 import { useWeaponMetrics } from "@/hooks/useWeaponMetrics";
 
 interface SessionData {
@@ -246,6 +246,9 @@ export default function PlayerGhostLab() {
 
           {/* Weapon Panel - DK Metrics */}
           <WeaponPanelWrapper playerId={player?.id ?? null} />
+
+          {/* Weapon Metrics Comparison */}
+          <WeaponComparisonWrapper playerId={player?.id ?? null} />
         </div>
 
         {/* Right Column */}
@@ -322,6 +325,17 @@ function WeaponPanelWrapper({ playerId }: { playerId: string | null }) {
       metrics={metrics} 
       isConnected={hasData || !isLoading}
     />
+  );
+}
+
+// Wrapper for WeaponMetricsComparison
+function WeaponComparisonWrapper({ playerId }: { playerId: string | null }) {
+  const { metrics, swingCount } = useWeaponMetrics({ playerId });
+  
+  if (swingCount < 5) return null; // Need minimum swings for comparison
+  
+  return (
+    <WeaponMetricsComparison metrics={metrics} />
   );
 }
 
