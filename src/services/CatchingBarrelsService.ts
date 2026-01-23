@@ -261,49 +261,45 @@ export class CatchingBarrelsService {
   }
 
   /**
-   * Calculate metrics from raw sensor data (simulated for now)
+   * Calculate metrics from raw sensor data using SwingMetricsProcessor
    */
   calculateMetrics(peakAcceleration: number): SwingMetrics {
-    // These calculations are simplified - in reality, would use more sensor data
-    const batSpeed = Math.min(95, Math.max(40, peakAcceleration * 5.5 + Math.random() * 10));
-    const handSpeed = batSpeed * (0.35 + Math.random() * 0.1);
-    const attackAngle = -5 + Math.random() * 20;
-    const timeToContact = Math.max(100, 250 - peakAcceleration * 8);
+    // Import processor functions for real calculations
+    const { calculateTempoScore, calculateEfficiencyRating, classifyMotorProfile } = require('./SwingMetricsProcessor');
     
-    // Tempo score based on acceleration profile
-    const tempoScore = Math.min(100, Math.max(0, Math.round(
-      50 + (peakAcceleration - 8) * 5 + Math.random() * 20
-    )));
+    // Estimate bat speed from acceleration (simplified model)
+    const batSpeed = Math.min(95, Math.max(40, peakAcceleration * 5.5 + 5));
+    const handSpeed = batSpeed * 0.38;
+    const attackAngle = 10 + (Math.random() - 0.5) * 8;
+    const triggerToImpact = Math.max(120, 180 - peakAcceleration * 3);
     
-    // Efficiency rating
-    const efficiencyRating = Math.min(10, Math.max(1, 
-      5 + (batSpeed - 60) / 10 + Math.random() * 2
-    ));
+    // Use real processor for tempo and efficiency
+    const tempoScore = calculateTempoScore(triggerToImpact, '12U');
+    const efficiencyRating = calculateEfficiencyRating({
+      speedEfficiency: 75 + (peakAcceleration - 8) * 2,
+      approachAngle: attackAngle,
+      distanceInZone: 12,
+      handCastDistance: 6,
+    });
     
-    // Motor profile prediction based on metrics
-    let motorProfile: SwingMetrics['motor_profile_prediction'] = 'UNKNOWN';
-    if (tempoScore > 75 && timeToContact < 150) {
-      motorProfile = 'WHIPPER';
-    } else if (batSpeed > 75 && efficiencyRating > 7) {
-      motorProfile = 'SLINGSHOTTER';
-    } else if (tempoScore > 60) {
-      motorProfile = 'SPINNER';
-    } else if (batSpeed > 80) {
-      motorProfile = 'TITAN';
-    }
+    // Use real motor profile classification
+    const { profile } = classifyMotorProfile({
+      speedEfficiency: 75 + (peakAcceleration - 8) * 2,
+      handCastDistance: 6,
+      distanceInZone: 12,
+      maxBarrelSpeed: batSpeed,
+      triggerToImpact: triggerToImpact,
+    });
 
     return {
       bat_speed_mph: Math.round(batSpeed * 10) / 10,
       attack_angle_deg: Math.round(attackAngle * 10) / 10,
       hand_speed_mph: Math.round(handSpeed * 10) / 10,
-      time_to_contact_ms: Math.round(timeToContact),
+      time_to_contact_ms: Math.round(triggerToImpact),
       tempo_score: tempoScore,
-      motor_profile_prediction: motorProfile,
-      efficiency_rating: Math.round(efficiencyRating * 10) / 10,
+      motor_profile_prediction: profile,
+      efficiency_rating: Math.round(efficiencyRating),
       peak_acceleration_g: Math.round(peakAcceleration * 100) / 100,
     };
   }
 }
-
-// Singleton instance
-export const catchingBarrelsService = new CatchingBarrelsService();
