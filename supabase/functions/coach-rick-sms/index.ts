@@ -143,6 +143,55 @@ serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(10);
 
+    // Fetch weapon metrics from sensor_swings (last 20 swings for reliable averages)
+    const { data: sensorSwings } = await supabase
+      .from("sensor_swings")
+      .select("bat_speed_mph, hand_speed_mph, attack_angle_deg, swing_plane_tilt_deg, impact_location_x, impact_location_y, applied_power, time_to_contact_ms")
+      .eq("player_id", player_id)
+      .order("captured_at", { ascending: false })
+      .limit(20);
+
+    // Calculate weapon metrics if we have sensor data
+    let weaponContext = "";
+    if (sensorSwings && sensorSwings.length >= 5) {
+      // Calculate WIP Index (bat speed / hand speed ratio)
+      const validWipSwings = sensorSwings.filter(s => s.bat_speed_mph && s.hand_speed_mph);
+      if (validWipSwings.length >= 3) {
+        const avgBatSpeed = validWipSwings.reduce((sum, s) => sum + (s.bat_speed_mph || 0), 0) / validWipSwings.length;
+        const avgHandSpeed = validWipSwings.reduce((sum, s) => sum + (s.hand_speed_mph || 0), 0) / validWipSwings.length;
+        const wipRatio = avgHandSpeed > 0 ? avgBatSpeed / avgHandSpeed : 0;
+        // Convert to 20-80 scale (typical ratio 2.5-3.5)
+        const wipScore = Math.round(Math.min(80, Math.max(20, 50 + (wipRatio - 3.0) * 30)));
+        weaponContext += `\nWeapon Metrics (20-80 scout scale):\n`;
+        weaponContext += `- WIP Index: ${wipScore} (wrist-to-impact power / bat whip - ${wipScore >= 55 ? 'efficient transfer' : 'power leaking early'})\n`;
+      }
+
+      // Calculate Plane Integrity (attack angle consistency)
+      const validPlaneSwings = sensorSwings.filter(s => s.attack_angle_deg !== null);
+      if (validPlaneSwings.length >= 3) {
+        const angles = validPlaneSwings.map(s => s.attack_angle_deg as number);
+        const mean = angles.reduce((a, b) => a + b, 0) / angles.length;
+        const stdDev = Math.sqrt(angles.reduce((sum, a) => sum + Math.pow(a - mean, 2), 0) / angles.length);
+        // Lower std dev = better plane integrity (target <3 deg)
+        const planeScore = Math.round(Math.min(80, Math.max(20, 80 - stdDev * 6)));
+        weaponContext += `- Plane Integrity: ${planeScore} (swing path consistency - ${planeScore >= 55 ? 'repeatable barrel path' : 'path wandering'})\n`;
+      }
+
+      // Calculate Square-Up (impact location consistency)
+      const validImpactSwings = sensorSwings.filter(s => s.impact_location_x !== null && s.impact_location_y !== null);
+      if (validImpactSwings.length >= 3) {
+        const xVals = validImpactSwings.map(s => s.impact_location_x as number);
+        const yVals = validImpactSwings.map(s => s.impact_location_y as number);
+        const xMean = xVals.reduce((a, b) => a + b, 0) / xVals.length;
+        const yMean = yVals.reduce((a, b) => a + b, 0) / yVals.length;
+        const xStd = Math.sqrt(xVals.reduce((sum, x) => sum + Math.pow(x - xMean, 2), 0) / xVals.length);
+        const yStd = Math.sqrt(yVals.reduce((sum, y) => sum + Math.pow(y - yMean, 2), 0) / yVals.length);
+        const combinedStd = Math.sqrt(xStd * xStd + yStd * yStd);
+        const squareUpScore = Math.round(Math.min(80, Math.max(20, 80 - combinedStd * 4)));
+        weaponContext += `- Square-Up: ${squareUpScore} (barrel contact repeatability - ${squareUpScore >= 55 ? 'finding the sweet spot' : 'contact point inconsistent'})\n`;
+      }
+    }
+
     // Build context based on type
     let context = `Player: ${firstName}\n`;
     
@@ -157,6 +206,11 @@ serve(async (req) => {
     context += `- Bat: ${player.latest_bat_score || 0}\n`;
     context += `- Ball: ${player.latest_ball_score || 0}\n`;
     
+    // Add weapon metrics context
+    if (weaponContext) {
+      context += weaponContext;
+    }
+    
     if (latestUpload) {
       context += `\nLatest Session (${latestUpload.session_date || "recent"}):\n`;
       context += `- Composite: ${latestUpload.composite_score} (${latestUpload.grade})\n`;
@@ -167,6 +221,7 @@ serve(async (req) => {
 
     if (type === "analysis_complete") {
       context += `\nMessage type: Just completed analysis - share key insight and invite conversation\n`;
+      if (weaponContext) context += `Reference weapon metrics if they show a strength or weakness.\n`;
     } else if (type === "leak_detection") {
       context += `\nMessage type: Detected a leak in their swing - point them to the drill in their locker\n`;
     } else if (type === "reply" && incoming_message) {
