@@ -1,9 +1,27 @@
+/**
+ * KOMMODO IMPORT - Downloads videos to Supabase Storage for permanent hosting
+ * 
+ * Instead of storing expiring Kommodo signed URLs, this function:
+ * 1. Downloads the video from Kommodo
+ * 2. Uploads to Supabase Storage (videos bucket)
+ * 3. Routes through upload-to-gumlet for HLS streaming
+ * 4. Preserves transcript if available
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Generate a hash from video URL for deduplication
+async function hashString(str: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(str)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32)
 }
 
 serve(async (req) => {
@@ -50,7 +68,7 @@ serve(async (req) => {
       )
     }
 
-    // Import selected recordings
+    // Import selected recordings - now downloads to Supabase Storage
     if (action === 'import') {
       const { recording_ids, auto_publish = false } = await req.json()
 
@@ -58,7 +76,7 @@ serve(async (req) => {
         throw new Error('recording_ids array required')
       }
 
-      console.log('Importing recordings:', recording_ids)
+      console.log('Importing recordings to permanent storage:', recording_ids)
       const results: { id: string; success: boolean; error?: string; video_id?: string }[] = []
 
       for (const recordingId of recording_ids) {
@@ -77,7 +95,7 @@ serve(async (req) => {
           const recording = await response.json()
           console.log('Recording details:', recording)
 
-          // Extract data from Kommodo response - URLs are nested under 'urls' object
+          // Extract data from Kommodo response
           const videoUrl = recording.urls?.video || recording.urls?.page || recording.video_url || recording.playback_url || recording.url
           const thumbnailUrl = recording.urls?.poster || recording.thumbnail_url || null
           const transcriptUrl = recording.urls?.transcript || null
@@ -88,6 +106,18 @@ serve(async (req) => {
             throw new Error('No video URL found in recording')
           }
 
+          // Generate file hash from source URL for deduplication
+          const fileHash = await hashString(videoUrl + recordingId)
+
+          // Check if already imported by hash
+          const { data: existing } = await supabase
+            .rpc('check_academy_video_duplicate', { p_file_hash: fileHash })
+
+          if (existing && existing.length > 0) {
+            results.push({ id: recordingId, success: false, error: `Already imported as "${existing[0].title}"` })
+            continue
+          }
+
           // Fetch transcript from VTT URL if available
           let transcript = ''
           if (transcriptUrl) {
@@ -95,7 +125,6 @@ serve(async (req) => {
               const vttResponse = await fetch(transcriptUrl)
               if (vttResponse.ok) {
                 const vttText = await vttResponse.text()
-                // Parse VTT to plain text (remove timestamps and WEBVTT header)
                 transcript = vttText
                   .split('\n')
                   .filter(line => !line.startsWith('WEBVTT') && !line.match(/^\d{2}:\d{2}/) && line.trim() !== '')
@@ -108,41 +137,77 @@ serve(async (req) => {
             }
           }
 
-          // Check if already imported
-          const { data: existing } = await supabase
-            .from('drill_videos')
-            .select('id')
-            .eq('video_url', videoUrl)
-            .single()
-
-          if (existing) {
-            results.push({ id: recordingId, success: false, error: 'Already imported' })
-            continue
+          // STEP 1: Download video from Kommodo
+          console.log('Downloading video from Kommodo:', videoUrl)
+          const videoResponse = await fetch(videoUrl)
+          if (!videoResponse.ok) {
+            throw new Error(`Failed to download video: ${videoResponse.status}`)
           }
 
-          // Insert into drill_videos
-          const { data: video, error: dbError } = await supabase
-            .from('drill_videos')
-            .insert({
-              title,
-              video_url: videoUrl,
-              thumbnail_url: thumbnailUrl,
-              transcript,
-              duration_seconds: Math.round(duration),
-              status: transcript ? 'analyzing' : 'ready_for_review'
+          const videoBlob = await videoResponse.blob()
+          const contentType = videoResponse.headers.get('content-type') || 'video/mp4'
+          const extension = contentType.includes('quicktime') ? 'mov' : 
+                           contentType.includes('webm') ? 'webm' : 'mp4'
+          
+          console.log(`Downloaded video: ${(videoBlob.size / 1024 / 1024).toFixed(2)}MB, type: ${contentType}`)
+
+          // STEP 2: Upload to Supabase Storage
+          const storagePath = `drills/kommodo-${recordingId}-${Date.now()}.${extension}`
+          
+          const { error: uploadError } = await supabase.storage
+            .from('videos')
+            .upload(storagePath, videoBlob, {
+              contentType,
+              cacheControl: '3600',
+              upsert: false
             })
-            .select()
-            .single()
 
-          if (dbError) {
-            throw dbError
+          if (uploadError) {
+            throw new Error(`Storage upload failed: ${uploadError.message}`)
           }
 
-          console.log('Imported video:', video.id)
+          console.log('Uploaded to storage:', storagePath)
 
-          // If we have a transcript, trigger auto-tagging
+          // STEP 3: Route through Gumlet pipeline for HLS streaming
+          const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+          const gumletResponse = await fetch(`${supabaseUrl}/functions/v1/upload-to-gumlet`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+            },
+            body: JSON.stringify({
+              storage_path: storagePath,
+              original_title: title,
+              auto_publish,
+              file_hash: fileHash
+            })
+          })
+
+          if (!gumletResponse.ok) {
+            const errorText = await gumletResponse.text()
+            throw new Error(`Gumlet processing failed: ${errorText}`)
+          }
+
+          const gumletData = await gumletResponse.json()
+          
+          if (!gumletData.success) {
+            throw new Error(gumletData.error || 'Gumlet processing failed')
+          }
+
+          console.log('Gumlet pipeline started for video:', gumletData.video_id)
+
+          // STEP 4: Update record with transcript if available
           if (transcript) {
-            const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+            await supabase
+              .from('drill_videos')
+              .update({ 
+                transcript,
+                duration_seconds: Math.round(duration)
+              })
+              .eq('id', gumletData.video_id)
+
+            // Trigger auto-tagging with existing transcript
             fetch(`${supabaseUrl}/functions/v1/auto-tag-video`, {
               method: 'POST',
               headers: {
@@ -150,13 +215,13 @@ serve(async (req) => {
                 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
               },
               body: JSON.stringify({ 
-                video_id: video.id,
+                video_id: gumletData.video_id,
                 auto_publish
               })
             }).catch(err => console.error('Failed to trigger auto-tag:', err))
           }
 
-          results.push({ id: recordingId, success: true, video_id: video.id })
+          results.push({ id: recordingId, success: true, video_id: gumletData.video_id })
 
         } catch (err) {
           console.error('Error importing recording:', recordingId, err)
