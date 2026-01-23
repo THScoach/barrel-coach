@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminHeader } from "@/components/AdminHeader";
-import { VoiceMemoRecorder, ConversationImport, ContentQueue } from "@/components/content-engine";
+import { VoiceMemoRecorder, VideoMemoRecorder, ConversationImport, ContentQueue } from "@/components/content-engine";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,6 @@ export default function AdminContentEngine() {
   // Upload voice memo
   const voiceMutation = useMutation({
     mutationFn: async ({ blob, duration }: { blob: Blob; duration: number }) => {
-      // Upload to storage
       const fileName = `voice-memo-${Date.now()}.webm`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('content-engine')
@@ -24,7 +23,6 @@ export default function AdminContentEngine() {
       
       if (uploadError) throw uploadError;
 
-      // Create content item
       const { data, error } = await supabase
         .from('content_items')
         .insert({
@@ -38,7 +36,6 @@ export default function AdminContentEngine() {
       
       if (error) throw error;
 
-      // Trigger processing
       await supabase.functions.invoke('process-content', {
         body: { content_item_id: data.id },
       });
@@ -56,10 +53,49 @@ export default function AdminContentEngine() {
     },
   });
 
+  // Upload video memo
+  const videoMutation = useMutation({
+    mutationFn: async ({ blob, duration }: { blob: Blob; duration: number }) => {
+      const fileName = `video-memo-${Date.now()}.webm`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('content-engine')
+        .upload(fileName, blob, { contentType: 'video/webm' });
+      
+      if (uploadError) throw uploadError;
+
+      const { data, error } = await supabase
+        .from('content_items')
+        .insert({
+          source_type: 'video',
+          status: 'processing',
+          media_url: uploadData.path,
+          media_duration_seconds: duration,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+
+      await supabase.functions.invoke('process-content', {
+        body: { content_item_id: data.id },
+      });
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-items'] });
+      toast.success('Video uploaded and processing!');
+      setCaptureMode(null);
+    },
+    onError: (error) => {
+      console.error('Video upload error:', error);
+      toast.error('Failed to upload video');
+    },
+  });
+
   // Import conversation
   const conversationMutation = useMutation({
     mutationFn: async ({ content, source }: { content: string; source: string }) => {
-      // Create content item
       const { data, error } = await supabase
         .from('content_items')
         .insert({
@@ -73,7 +109,6 @@ export default function AdminContentEngine() {
       
       if (error) throw error;
 
-      // Trigger processing
       await supabase.functions.invoke('process-content', {
         body: { content_item_id: data.id },
       });
@@ -94,6 +129,10 @@ export default function AdminContentEngine() {
   const handleVoiceRecorded = useCallback((blob: Blob, duration: number) => {
     voiceMutation.mutate({ blob, duration });
   }, [voiceMutation]);
+
+  const handleVideoRecorded = useCallback((blob: Blob, duration: number) => {
+    videoMutation.mutate({ blob, duration });
+  }, [videoMutation]);
 
   const handleConversationImport = useCallback(async (content: string, source: 'claude' | 'chatgpt' | 'other') => {
     conversationMutation.mutate({ content, source });
@@ -162,21 +201,18 @@ export default function AdminContentEngine() {
                 </Card>
 
                 <Card 
-                  className="cursor-pointer hover:border-primary transition-colors opacity-60"
-                  onClick={() => toast.info('Video capture coming soon!')}
+                  className="cursor-pointer hover:border-primary transition-colors"
+                  onClick={() => setCaptureMode('video')}
                 >
                   <CardHeader>
-                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mb-2">
-                      <Video className="h-6 w-6 text-muted-foreground" />
+                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
+                      <Video className="h-6 w-6 text-primary" />
                     </div>
                     <CardTitle>Video Clip</CardTitle>
                     <CardDescription>
-                      Record or upload a video. Perfect for quick tips or explanations.
+                      Record a quick video tip. Perfect for demonstrations and explanations.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <span className="text-xs text-muted-foreground">Coming soon</span>
-                  </CardContent>
                 </Card>
               </div>
             ) : (
@@ -186,6 +222,7 @@ export default function AdminContentEngine() {
                     <CardTitle className="flex items-center gap-2">
                       {captureMode === 'voice' && <><Mic className="h-5 w-5" /> Record Voice Memo</>}
                       {captureMode === 'conversation' && <><MessageSquare className="h-5 w-5" /> Import Conversation</>}
+                      {captureMode === 'video' && <><Video className="h-5 w-5" /> Record Video Clip</>}
                     </CardTitle>
                     <Button variant="ghost" onClick={() => setCaptureMode(null)}>
                       Cancel
@@ -201,6 +238,13 @@ export default function AdminContentEngine() {
                   )}
                   {captureMode === 'conversation' && (
                     <ConversationImport onImport={handleConversationImport} />
+                  )}
+                  {captureMode === 'video' && (
+                    <VideoMemoRecorder 
+                      onRecorded={handleVideoRecorded}
+                      onCancel={() => setCaptureMode(null)}
+                      maxDuration={120}
+                    />
                   )}
                 </CardContent>
               </Card>

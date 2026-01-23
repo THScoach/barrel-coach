@@ -103,13 +103,17 @@ serve(async (req) => {
     // Step 1: Transcribe if it's audio/video
     let transcript = contentItem.transcript || contentItem.raw_content;
     
-    if (contentItem.source_type === "voice" && contentItem.media_url && !contentItem.transcript) {
-      // Get signed URL for the audio file
+    if ((contentItem.source_type === "voice" || contentItem.source_type === "video") && contentItem.media_url && !contentItem.transcript) {
+      // Get signed URL for the media file
       const { data: signedUrl } = await supabase.storage
         .from("content-engine")
         .createSignedUrl(contentItem.media_url, 3600);
 
       if (signedUrl?.signedUrl && lovableApiKey) {
+        const isVideo = contentItem.source_type === "video";
+        const mediaType = isVideo ? "video_url" : "audio_url";
+        const mediaUrlKey = isVideo ? "video_url" : "audio_url";
+        
         // Use Lovable AI for transcription via chat completion
         const transcribeResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -123,8 +127,13 @@ serve(async (req) => {
               {
                 role: "user",
                 content: [
-                  { type: "text", text: "Transcribe this audio recording exactly as spoken. Return only the transcription, no additional commentary." },
-                  { type: "audio_url", audio_url: { url: signedUrl.signedUrl } },
+                  { 
+                    type: "text", 
+                    text: isVideo 
+                      ? "Watch this video and transcribe what the person is saying. Also note any key visual demonstrations or actions they perform that are important for teaching. Return the transcription with [VISUAL: description] markers for important visual moments."
+                      : "Transcribe this audio recording exactly as spoken. Return only the transcription, no additional commentary."
+                  },
+                  { type: mediaType, [mediaUrlKey]: { url: signedUrl.signedUrl } },
                 ],
               },
             ],
@@ -140,6 +149,8 @@ serve(async (req) => {
             .from("content_items")
             .update({ transcript })
             .eq("id", content_item_id);
+        } else {
+          console.error("Transcription failed:", await transcribeResponse.text());
         }
       }
     }
