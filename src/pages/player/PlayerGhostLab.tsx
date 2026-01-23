@@ -256,9 +256,10 @@ export default function PlayerGhostLab() {
             swings={swings.map(s => ({ vba: s.attack_angle_deg }))}
           />
 
-          {/* Scout Brief Generator */}
-          <ScoutBriefGenerator
+          {/* Scout Brief Generator with Weapon Metrics */}
+          <ScoutBriefWithWeapons
             playerName={player?.name ?? 'Player'}
+            playerId={player?.id ?? null}
             brainScore={latestSession?.brain_score ?? null}
             bodyScore={latestSession?.body_score ?? null}
             batScore={latestSession?.bat_score ?? null}
@@ -320,6 +321,33 @@ function WeaponPanelWrapper({ playerId }: { playerId: string | null }) {
     <WeaponPanel 
       metrics={metrics} 
       isConnected={hasData || !isLoading}
+    />
+  );
+}
+
+// Wrapper to pass weapon metrics to ScoutBriefGenerator
+function ScoutBriefWithWeapons({ 
+  playerId, 
+  ...props 
+}: { 
+  playerId: string | null;
+  playerName: string;
+  brainScore: number | null;
+  bodyScore: number | null;
+  batScore: number | null;
+  ballScore: number | null;
+  compositeScore: number | null;
+  weakestLink: string | null;
+  leaks: string[];
+  projectedEV: number | null;
+  avgVBA: number | null;
+}) {
+  const { metrics } = useWeaponMetrics({ playerId });
+  
+  return (
+    <ScoutBriefGenerator
+      {...props}
+      weaponMetrics={metrics}
     />
   );
 }
