@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dumbbell, BookOpen, Video, Folder, Upload } from "lucide-react";
+import { Dumbbell, BookOpen, Video, ListVideo, Upload } from "lucide-react";
 import { DrillsTab } from "@/components/library/DrillsTab";
 import { ProgramsTab } from "@/components/library/ProgramsTab";
 import { VideosTab } from "@/components/library/VideosTab";
@@ -68,11 +68,11 @@ export default function AdminLibrary() {
               Videos
             </TabsTrigger>
             <TabsTrigger 
-              value="collections" 
+              value="playlists" 
               className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2"
             >
-              <Folder className="h-4 w-4" />
-              Collections
+              <ListVideo className="h-4 w-4" />
+              Playlists
             </TabsTrigger>
             <TabsTrigger 
               value="drills" 
@@ -94,7 +94,7 @@ export default function AdminLibrary() {
             <VideosTab />
           </TabsContent>
 
-          <TabsContent value="collections">
+          <TabsContent value="playlists">
             <CollectionsTab />
           </TabsContent>
 
