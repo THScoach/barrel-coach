@@ -498,6 +498,63 @@ export type Database = {
           },
         ]
       }
+      dk_accounts: {
+        Row: {
+          access_token: string
+          created_at: string
+          dk_email: string | null
+          dk_user_id: string
+          id: string
+          last_sync_at: string | null
+          player_id: string
+          refresh_token: string | null
+          sync_enabled: boolean
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          dk_email?: string | null
+          dk_user_id: string
+          id?: string
+          last_sync_at?: string | null
+          player_id: string
+          refresh_token?: string | null
+          sync_enabled?: boolean
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          dk_email?: string | null
+          dk_user_id?: string
+          id?: string
+          last_sync_at?: string | null
+          player_id?: string
+          refresh_token?: string | null
+          sync_enabled?: boolean
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dk_accounts_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dk_accounts_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drill_completions: {
         Row: {
           assignment_id: string | null
