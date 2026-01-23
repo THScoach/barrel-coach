@@ -1,6 +1,6 @@
 /**
  * Ghost Lab Dashboard - Player-facing swing analytics
- * Shows 4B Scorecard, Virtual Statcast, Hot Zone Map, and Scout Brief
+ * Shows 4B Scorecard, Virtual Statcast, Weapon Panel, Hot Zone Map, and Scout Brief
  */
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -22,6 +22,8 @@ import {
   ScoutBriefGenerator 
 } from "@/components/ghostlab";
 import { VideoSwingUploadModal } from "@/components/video-analyzer";
+import { WeaponPanel } from "@/components/sensor";
+import { useWeaponMetrics } from "@/hooks/useWeaponMetrics";
 
 interface SessionData {
   id: string;
@@ -241,6 +243,9 @@ export default function PlayerGhostLab() {
             verticalBatAngle={avgVBA}
             approachAngle={null}
           />
+
+          {/* Weapon Panel - DK Metrics */}
+          <WeaponPanelWrapper playerId={player?.id ?? null} />
         </div>
 
         {/* Right Column */}
@@ -302,5 +307,19 @@ export default function PlayerGhostLab() {
         />
       )}
     </div>
+  );
+}
+
+// Wrapper component to use hook conditionally
+function WeaponPanelWrapper({ playerId }: { playerId: string | null }) {
+  const { metrics, isLoading, swingCount } = useWeaponMetrics({ playerId });
+  
+  const hasData = swingCount > 0;
+  
+  return (
+    <WeaponPanel 
+      metrics={metrics} 
+      isConnected={hasData || !isLoading}
+    />
   );
 }
