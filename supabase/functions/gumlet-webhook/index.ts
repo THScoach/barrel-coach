@@ -71,13 +71,23 @@ serve(async (req) => {
     if (event === 'video.ready' && status === 'ready' && output) {
       console.log('Video ready, updating with Gumlet URLs:', video.id)
       
+      // Extract thumbnail URL from various possible field names in Gumlet response
+      const thumbnailUrl = output.thumbnail_url 
+        || output.poster_url 
+        || output.thumbnail 
+        || output.poster
+        || (output.thumbnails && output.thumbnails[0])
+        || null
+      
+      console.log('Thumbnail URL extracted:', thumbnailUrl)
+      
       const { error: updateError } = await supabase
         .from('drill_videos')
         .update({
           gumlet_playback_url: output.playback_url || null,
           gumlet_hls_url: output.hls_url || output.output_hls_url || null,
           gumlet_dash_url: output.dash_url || output.output_dash_url || null,
-          thumbnail_url: output.thumbnail_url || output.poster_url || null,
+          thumbnail_url: thumbnailUrl,
           duration_seconds: output.duration ? Math.round(output.duration) : null,
           // Don't change status here - let transcription/tagging pipeline handle it
         })
@@ -88,7 +98,7 @@ serve(async (req) => {
         throw updateError
       }
 
-      console.log('Video updated successfully:', video.id)
+      console.log('Video updated successfully with thumbnail:', video.id, thumbnailUrl)
     } else if (event === 'video.failed' || status === 'failed') {
       console.error('Gumlet processing failed for video:', video.id)
       

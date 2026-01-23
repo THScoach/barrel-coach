@@ -1,6 +1,7 @@
 /**
  * Academy Video Uploader - Internal hosting with deduplication
- * Uploads videos to academy_videos bucket with hash-based duplicate detection
+ * Uploads videos to videos bucket with hash-based duplicate detection
+ * Includes client-side thumbnail extraction for immediate preview
  */
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +30,48 @@ async function hashFile(file: File): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+}
+
+// Extract a thumbnail frame from video at 1 second mark
+async function extractVideoThumbnail(file: File): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    
+    video.onloadedmetadata = () => {
+      // Seek to 1 second or 10% of video, whichever is smaller
+      video.currentTime = Math.min(1, video.duration * 0.1);
+    };
+    
+    video.onseeked = () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(video.src);
+        resolve(blob);
+      }, 'image/jpeg', 0.85);
+    };
+    
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src);
+      resolve(null);
+    };
+    
+    // Set timeout in case video doesn't load
+    setTimeout(() => {
+      URL.revokeObjectURL(video.src);
+      resolve(null);
+    }, 10000);
+    
+    video.src = URL.createObjectURL(file);
+  });
 }
 
 type UploadStatus = 'idle' | 'hashing' | 'checking' | 'uploading' | 'processing' | 'complete' | 'duplicate' | 'error';
@@ -95,10 +138,36 @@ export function AcademyUploader({ onUploadComplete, autoPublish = false }: Acade
         return;
       }
 
-      // Step 3: Upload to storage (videos bucket for Gumlet pipeline)
+      // Step 3: Extract thumbnail client-side for immediate preview
       setStatus('uploading');
-      setProgress(40);
+      setProgress(35);
+      
+      let thumbnailUrl: string | null = null;
+      try {
+        const thumbnailBlob = await extractVideoThumbnail(file);
+        if (thumbnailBlob) {
+          const thumbnailPath = `thumbnails/${Date.now()}-${file.name.replace(/\.[^/.]+$/, '')}.jpg`;
+          const { error: thumbError } = await supabase.storage
+            .from('videos')
+            .upload(thumbnailPath, thumbnailBlob, {
+              cacheControl: '31536000',
+              contentType: 'image/jpeg'
+            });
+          
+          if (!thumbError) {
+            const { data: thumbUrlData } = await supabase.storage
+              .from('videos')
+              .createSignedUrl(thumbnailPath, 60 * 60 * 24 * 365);
+            thumbnailUrl = thumbUrlData?.signedUrl || null;
+          }
+        }
+      } catch (thumbErr) {
+        console.warn('Thumbnail extraction failed, will rely on Gumlet:', thumbErr);
+      }
 
+      setProgress(45);
+
+      // Step 4: Upload video to storage (videos bucket for Gumlet pipeline)
       const storagePath = `drills/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       
       const { error: uploadError } = await supabase.storage
@@ -112,7 +181,7 @@ export function AcademyUploader({ onUploadComplete, autoPublish = false }: Acade
 
       setProgress(70);
 
-      // Step 4: Trigger Gumlet processing pipeline
+      // Step 5: Trigger Gumlet processing pipeline
       // This creates the drill_videos record, generates HLS/DASH streams,
       // thumbnails, and triggers transcription automatically
       setStatus('processing');
@@ -123,7 +192,8 @@ export function AcademyUploader({ onUploadComplete, autoPublish = false }: Acade
           storage_path: storagePath,
           original_title: file.name.replace(/\.[^/.]+$/, ''),
           auto_publish: autoPublish,
-          file_hash: fileHash
+          file_hash: fileHash,
+          preview_thumbnail_url: thumbnailUrl
         }
       });
 
