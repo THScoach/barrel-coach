@@ -191,12 +191,66 @@ serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
+      // Fetch weapon metrics from sensor_swings (last 20 swings for reliable averages)
+      const { data: sensorSwings } = await supabase
+        .from("sensor_swings")
+        .select("bat_speed_mph, hand_speed_mph, attack_angle_deg, swing_plane_tilt_deg, impact_location_x, impact_location_y, applied_power, time_to_contact_ms")
+        .eq("player_id", player_id)
+        .order("captured_at", { ascending: false })
+        .limit(20);
+
+      // Calculate weapon metrics if we have sensor data
+      let weaponContext = "";
+      if (sensorSwings && sensorSwings.length >= 5) {
+        // Calculate WIP Index (bat speed / hand speed ratio)
+        const validWipSwings = sensorSwings.filter(s => s.bat_speed_mph && s.hand_speed_mph);
+        if (validWipSwings.length >= 3) {
+          const avgBatSpeed = validWipSwings.reduce((sum, s) => sum + (s.bat_speed_mph || 0), 0) / validWipSwings.length;
+          const avgHandSpeed = validWipSwings.reduce((sum, s) => sum + (s.hand_speed_mph || 0), 0) / validWipSwings.length;
+          const wipRatio = avgHandSpeed > 0 ? avgBatSpeed / avgHandSpeed : 0;
+          // Convert to 20-80 scale (typical ratio 2.5-3.5)
+          const wipScore = Math.round(Math.min(80, Math.max(20, 50 + (wipRatio - 3.0) * 30)));
+          weaponContext += `\nWeapon Metrics (20-80 scale):\n`;
+          weaponContext += `- WIP Index: ${wipScore} (bat whip efficiency - ${wipScore >= 55 ? 'good transfer' : 'leaking power early'})\n`;
+        }
+
+        // Calculate Plane Integrity (attack angle consistency)
+        const validPlaneSwings = sensorSwings.filter(s => s.attack_angle_deg !== null);
+        if (validPlaneSwings.length >= 3) {
+          const angles = validPlaneSwings.map(s => s.attack_angle_deg as number);
+          const mean = angles.reduce((a, b) => a + b, 0) / angles.length;
+          const stdDev = Math.sqrt(angles.reduce((sum, a) => sum + Math.pow(a - mean, 2), 0) / angles.length);
+          // Lower std dev = better plane integrity (target <3 deg)
+          const planeScore = Math.round(Math.min(80, Math.max(20, 80 - stdDev * 6)));
+          weaponContext += `- Plane Integrity: ${planeScore} (swing path consistency - ${planeScore >= 55 ? 'repeatable path' : 'path variance detected'})\n`;
+        }
+
+        // Calculate Square-Up (impact location consistency)
+        const validImpactSwings = sensorSwings.filter(s => s.impact_location_x !== null && s.impact_location_y !== null);
+        if (validImpactSwings.length >= 3) {
+          const xVals = validImpactSwings.map(s => s.impact_location_x as number);
+          const yVals = validImpactSwings.map(s => s.impact_location_y as number);
+          const xMean = xVals.reduce((a, b) => a + b, 0) / xVals.length;
+          const yMean = yVals.reduce((a, b) => a + b, 0) / yVals.length;
+          const xStd = Math.sqrt(xVals.reduce((sum, x) => sum + Math.pow(x - xMean, 2), 0) / xVals.length);
+          const yStd = Math.sqrt(yVals.reduce((sum, y) => sum + Math.pow(y - yMean, 2), 0) / yVals.length);
+          const combinedStd = Math.sqrt(xStd * xStd + yStd * yStd);
+          const squareUpScore = Math.round(Math.min(80, Math.max(20, 80 - combinedStd * 4)));
+          weaponContext += `- Square-Up: ${squareUpScore} (barrel contact repeatability - ${squareUpScore >= 55 ? 'finding the barrel' : 'contact point wandering'})\n`;
+        }
+      }
+
       // Build context
       let context = `Player: ${firstName}\n`;
       if (player.level) context += `Level: ${player.level}\n`;
       if (player.motor_profile_sensor) context += `Motor Profile: ${player.motor_profile_sensor}\n`;
       
       context += `\n4B Scores: Brain ${player.latest_brain_score || 0}, Body ${player.latest_body_score || 0}, Bat ${player.latest_bat_score || 0}, Ball ${player.latest_ball_score || 0}\n`;
+      
+      // Add weapon metrics context
+      if (weaponContext) {
+        context += weaponContext;
+      }
       
       if (latestUpload) {
         context += `\nLatest Session:\n`;
@@ -207,6 +261,7 @@ serve(async (req) => {
 
       if (type === "analysis_complete") {
         context += `\nMessage type: Just completed analysis - share key insight\n`;
+        if (weaponContext) context += `If weapon metrics show a weakness, mention it briefly.\n`;
       } else if (type === "leak_detection") {
         context += `\nMessage type: Detected leak in their swing\n`;
         if (video_title) context += `Prescribed drill: "${video_title}"\n`;
