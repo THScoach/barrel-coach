@@ -303,3 +303,6 @@ export class CatchingBarrelsService {
     };
   }
 }
+
+// Export singleton instance for backward compatibility
+export const catchingBarrelsService = new CatchingBarrelsService();
