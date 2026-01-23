@@ -140,3 +140,6 @@ verify_jwt = false
 
 [functions.dk-fetch-sessions]
 verify_jwt = false
+
+[functions.process-content]
+verify_jwt = false

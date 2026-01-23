@@ -498,6 +498,152 @@ export type Database = {
           },
         ]
       }
+      content_items: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          created_by: string | null
+          extracted_insights: Json | null
+          id: string
+          media_duration_seconds: number | null
+          media_url: string | null
+          processed_at: string | null
+          raw_content: string | null
+          source_metadata: Json | null
+          source_type: string
+          status: string
+          topics: string[] | null
+          transcript: string | null
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          extracted_insights?: Json | null
+          id?: string
+          media_duration_seconds?: number | null
+          media_url?: string | null
+          processed_at?: string | null
+          raw_content?: string | null
+          source_metadata?: Json | null
+          source_type: string
+          status?: string
+          topics?: string[] | null
+          transcript?: string | null
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          extracted_insights?: Json | null
+          id?: string
+          media_duration_seconds?: number | null
+          media_url?: string | null
+          processed_at?: string | null
+          raw_content?: string | null
+          source_metadata?: Json | null
+          source_type?: string
+          status?: string
+          topics?: string[] | null
+          transcript?: string | null
+        }
+        Relationships: []
+      }
+      content_outputs: {
+        Row: {
+          content_item_id: string
+          created_at: string
+          cta: string | null
+          formatted_content: string
+          hashtags: string[] | null
+          hook: string | null
+          id: string
+          media_urls: string[] | null
+          performance_metrics: Json | null
+          platform: string
+          post_url: string | null
+          posted_at: string | null
+          scheduled_for: string | null
+          status: string
+          thumbnail_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          content_item_id: string
+          created_at?: string
+          cta?: string | null
+          formatted_content: string
+          hashtags?: string[] | null
+          hook?: string | null
+          id?: string
+          media_urls?: string[] | null
+          performance_metrics?: Json | null
+          platform: string
+          post_url?: string | null
+          posted_at?: string | null
+          scheduled_for?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content_item_id?: string
+          created_at?: string
+          cta?: string | null
+          formatted_content?: string
+          hashtags?: string[] | null
+          hook?: string | null
+          id?: string
+          media_urls?: string[] | null
+          performance_metrics?: Json | null
+          platform?: string
+          post_url?: string | null
+          posted_at?: string | null
+          scheduled_for?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_outputs_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_topics: {
+        Row: {
+          content_count: number | null
+          created_at: string
+          description: string | null
+          display_name: string
+          id: string
+          last_posted_at: string | null
+          name: string
+        }
+        Insert: {
+          content_count?: number | null
+          created_at?: string
+          description?: string | null
+          display_name: string
+          id?: string
+          last_posted_at?: string | null
+          name: string
+        }
+        Update: {
+          content_count?: number | null
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          id?: string
+          last_posted_at?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
       dk_accounts: {
         Row: {
           access_token: string
