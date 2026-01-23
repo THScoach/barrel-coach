@@ -147,6 +147,7 @@ export function ContentQueue() {
                   contentType={item.content_type}
                   status={item.status}
                   createdAt={item.created_at}
+                  thumbnailUrl={item.thumbnail_url}
                   outputs={item.content_outputs}
                   onApprove={(id) => approveMutation.mutate(id)}
                   onReject={(id) => archiveMutation.mutate(id)}

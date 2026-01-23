@@ -55,13 +55,32 @@ export default function AdminContentEngine() {
 
   // Upload video memo
   const videoMutation = useMutation({
-    mutationFn: async ({ blob, duration }: { blob: Blob; duration: number }) => {
-      const fileName = `video-memo-${Date.now()}.webm`;
+    mutationFn: async ({ blob, duration, thumbnail }: { blob: Blob; duration: number; thumbnail?: Blob }) => {
+      const timestamp = Date.now();
+      const fileName = `video-memo-${timestamp}.webm`;
+      
+      // Upload video
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('content-engine')
         .upload(fileName, blob, { contentType: 'video/webm' });
       
       if (uploadError) throw uploadError;
+
+      // Upload thumbnail if available
+      let thumbnailUrl: string | null = null;
+      if (thumbnail) {
+        const thumbFileName = `thumbnails/video-memo-${timestamp}.jpg`;
+        const { data: thumbData, error: thumbError } = await supabase.storage
+          .from('content-engine')
+          .upload(thumbFileName, thumbnail, { contentType: 'image/jpeg' });
+        
+        if (!thumbError && thumbData) {
+          const { data: publicUrl } = supabase.storage
+            .from('content-engine')
+            .getPublicUrl(thumbData.path);
+          thumbnailUrl = publicUrl.publicUrl;
+        }
+      }
 
       const { data, error } = await supabase
         .from('content_items')
@@ -70,6 +89,7 @@ export default function AdminContentEngine() {
           status: 'processing',
           media_url: uploadData.path,
           media_duration_seconds: duration,
+          thumbnail_url: thumbnailUrl,
         })
         .select()
         .single();
@@ -130,8 +150,8 @@ export default function AdminContentEngine() {
     voiceMutation.mutate({ blob, duration });
   }, [voiceMutation]);
 
-  const handleVideoRecorded = useCallback((blob: Blob, duration: number) => {
-    videoMutation.mutate({ blob, duration });
+  const handleVideoRecorded = useCallback((blob: Blob, duration: number, thumbnail?: Blob) => {
+    videoMutation.mutate({ blob, duration, thumbnail });
   }, [videoMutation]);
 
   const handleConversationImport = useCallback(async (content: string, source: 'claude' | 'chatgpt' | 'other') => {
