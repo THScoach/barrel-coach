@@ -2,11 +2,11 @@ import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminHeader } from "@/components/AdminHeader";
-import { VoiceMemoRecorder, VideoMemoRecorder, ConversationImport, ContentQueue } from "@/components/content-engine";
+import { VoiceMemoRecorder, VideoMemoRecorder, ConversationImport, ContentQueue, ContentCalendar } from "@/components/content-engine";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Mic, MessageSquare, Video, Upload, Sparkles, BarChart3 } from "lucide-react";
+import { Mic, MessageSquare, Video, Upload, Sparkles, BarChart3, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminContentEngine() {
@@ -171,7 +171,7 @@ export default function AdminContentEngine() {
         </div>
 
         <Tabs defaultValue="capture" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className="grid w-full max-w-lg grid-cols-4">
             <TabsTrigger value="capture" className="gap-2">
               <Upload className="h-4 w-4" />
               Capture
@@ -179,6 +179,10 @@ export default function AdminContentEngine() {
             <TabsTrigger value="queue" className="gap-2">
               <Sparkles className="h-4 w-4" />
               Queue
+            </TabsTrigger>
+            <TabsTrigger value="calendar" className="gap-2">
+              <Calendar className="h-4 w-4" />
+              Calendar
             </TabsTrigger>
             <TabsTrigger value="analytics" className="gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -274,6 +278,11 @@ export default function AdminContentEngine() {
           {/* Queue Tab */}
           <TabsContent value="queue">
             <ContentQueue />
+          </TabsContent>
+
+          {/* Calendar Tab */}
+          <TabsContent value="calendar">
+            <ContentCalendar />
           </TabsContent>
 
           {/* Analytics Tab */}
