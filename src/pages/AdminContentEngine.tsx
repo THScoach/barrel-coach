@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminHeader } from "@/components/AdminHeader";
-import { VoiceMemoRecorder, VideoMemoRecorder, ConversationImport, ContentQueue, ContentCalendar } from "@/components/content-engine";
+import { VoiceMemoRecorder, VideoMemoRecorder, ConversationImport, ContentQueue, ContentCalendar, ContentAnalytics } from "@/components/content-engine";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -287,19 +287,7 @@ export default function AdminContentEngine() {
 
           {/* Analytics Tab */}
           <TabsContent value="analytics">
-            <Card>
-              <CardHeader>
-                <CardTitle>Content Analytics</CardTitle>
-                <CardDescription>
-                  Track performance and identify top-performing content.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Analytics coming soon</p>
-                <p className="text-sm">Connect social accounts to track performance</p>
-              </CardContent>
-            </Card>
+            <ContentAnalytics />
           </TabsContent>
         </Tabs>
       </main>

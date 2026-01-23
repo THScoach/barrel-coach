@@ -4,3 +4,4 @@ export { ConversationImport } from './ConversationImport';
 export { ContentCard } from './ContentCard';
 export { ContentQueue } from './ContentQueue';
 export { ContentCalendar } from './ContentCalendar';
+export { ContentAnalytics } from './ContentAnalytics';
