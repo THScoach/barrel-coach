@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.send-sms]
 verify_jwt = false
+
+[functions.dk-fetch-sessions]
+verify_jwt = false
