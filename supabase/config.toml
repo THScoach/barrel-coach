@@ -143,3 +143,12 @@ verify_jwt = false
 
 [functions.process-content]
 verify_jwt = false
+
+[functions.score-voice-consistency]
+verify_jwt = false
+
+[functions.extract-video-clips]
+verify_jwt = false
+
+[functions.post-to-social]
+verify_jwt = false

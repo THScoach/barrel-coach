@@ -2,15 +2,15 @@ import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminHeader } from "@/components/AdminHeader";
-import { VoiceMemoRecorder, VideoMemoRecorder, ConversationImport, ContentQueue, ContentCalendar, ContentAnalytics } from "@/components/content-engine";
+import { VoiceMemoRecorder, VideoMemoRecorder, ConversationImport, ContentQueue, ContentCalendar, ContentAnalytics, InterviewMode } from "@/components/content-engine";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Mic, MessageSquare, Video, Upload, Sparkles, BarChart3, Calendar } from "lucide-react";
+import { Mic, MessageSquare, Video, Upload, Sparkles, BarChart3, Calendar, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminContentEngine() {
-  const [captureMode, setCaptureMode] = useState<'voice' | 'conversation' | 'video' | null>(null);
+  const [captureMode, setCaptureMode] = useState<'voice' | 'conversation' | 'video' | 'interview' | null>(null);
   const queryClient = useQueryClient();
 
   // Upload voice memo
@@ -192,53 +192,86 @@ export default function AdminContentEngine() {
 
           {/* Capture Tab */}
           <TabsContent value="capture" className="space-y-6">
-            {!captureMode ? (
-              <div className="grid gap-4 md:grid-cols-3">
+            {captureMode === 'interview' ? (
+              <InterviewMode 
+                onComplete={() => setCaptureMode(null)}
+                onCancel={() => setCaptureMode(null)}
+              />
+            ) : !captureMode ? (
+              <>
+                {/* Interview Mode - Featured */}
                 <Card 
-                  className="cursor-pointer hover:border-primary transition-colors"
-                  onClick={() => setCaptureMode('voice')}
+                  className="cursor-pointer border-primary/50 bg-primary/5 hover:border-primary transition-colors"
+                  onClick={() => setCaptureMode('interview')}
                 >
                   <CardHeader>
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                      <Mic className="h-6 w-6 text-primary" />
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                        <HelpCircle className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          Interview Mode
+                          <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                            Recommended
+                          </span>
+                        </CardTitle>
+                        <CardDescription className="mt-1">
+                          AI asks you questions based on topics you haven't covered recently. 
+                          15 minutes → 10+ pieces of content.
+                        </CardDescription>
+                      </div>
                     </div>
-                    <CardTitle>Voice Memo</CardTitle>
-                    <CardDescription>
-                      Record a quick thought or insight. Great for after lessons or random ideas.
-                    </CardDescription>
                   </CardHeader>
                 </Card>
 
-                <Card 
-                  className="cursor-pointer hover:border-primary transition-colors"
-                  onClick={() => setCaptureMode('conversation')}
-                >
-                  <CardHeader>
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                      <MessageSquare className="h-6 w-6 text-primary" />
-                    </div>
-                    <CardTitle>Conversation</CardTitle>
-                    <CardDescription>
-                      Import AI chats from Claude, ChatGPT, or other sources to extract insights.
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card 
+                    className="cursor-pointer hover:border-primary transition-colors"
+                    onClick={() => setCaptureMode('voice')}
+                  >
+                    <CardHeader>
+                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
+                        <Mic className="h-6 w-6 text-primary" />
+                      </div>
+                      <CardTitle>Voice Memo</CardTitle>
+                      <CardDescription>
+                        Record a quick thought or insight. Great for after lessons or random ideas.
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
 
-                <Card 
-                  className="cursor-pointer hover:border-primary transition-colors"
-                  onClick={() => setCaptureMode('video')}
-                >
-                  <CardHeader>
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                      <Video className="h-6 w-6 text-primary" />
-                    </div>
-                    <CardTitle>Video Clip</CardTitle>
-                    <CardDescription>
-                      Record a quick video tip. Perfect for demonstrations and explanations.
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </div>
+                  <Card 
+                    className="cursor-pointer hover:border-primary transition-colors"
+                    onClick={() => setCaptureMode('conversation')}
+                  >
+                    <CardHeader>
+                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
+                        <MessageSquare className="h-6 w-6 text-primary" />
+                      </div>
+                      <CardTitle>Conversation</CardTitle>
+                      <CardDescription>
+                        Import AI chats from Claude, ChatGPT, or other sources to extract insights.
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+
+                  <Card 
+                    className="cursor-pointer hover:border-primary transition-colors"
+                    onClick={() => setCaptureMode('video')}
+                  >
+                    <CardHeader>
+                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
+                        <Video className="h-6 w-6 text-primary" />
+                      </div>
+                      <CardTitle>Video Clip</CardTitle>
+                      <CardDescription>
+                        Record a quick video tip. Perfect for demonstrations and explanations.
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                </div>
+              </>
             ) : (
               <Card>
                 <CardHeader>
