@@ -22,7 +22,7 @@ import {
   ScoutBriefGenerator 
 } from "@/components/ghostlab";
 import { VideoSwingUploadModal } from "@/components/video-analyzer";
-import { WeaponPanel, WeaponMetricsComparison } from "@/components/sensor";
+import { WeaponPanel, WeaponMetricsComparison, WeaponDrillPrescription } from "@/components/sensor";
 import { useWeaponMetrics } from "@/hooks/useWeaponMetrics";
 
 interface SessionData {
@@ -277,6 +277,9 @@ export default function PlayerGhostLab() {
             }
             avgVBA={avgVBA}
           />
+
+          {/* Weapon Drill Prescription */}
+          <WeaponDrillWrapper playerId={player?.id ?? null} />
         </div>
       </div>
 
@@ -363,5 +366,16 @@ function ScoutBriefWithWeapons({
       {...props}
       weaponMetrics={metrics}
     />
+  );
+}
+
+// Wrapper for WeaponDrillPrescription
+function WeaponDrillWrapper({ playerId }: { playerId: string | null }) {
+  const { metrics, swingCount } = useWeaponMetrics({ playerId });
+  
+  if (swingCount < 5) return null;
+  
+  return (
+    <WeaponDrillPrescription metrics={metrics} />
   );
 }
