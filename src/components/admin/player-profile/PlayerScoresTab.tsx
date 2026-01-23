@@ -27,8 +27,9 @@ import {
   ResponsiveContainer
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { WeaponPanel } from "@/components/sensor";
+import { WeaponPanel, WeaponPanelTrend } from "@/components/sensor";
 import { useWeaponMetrics } from "@/hooks/useWeaponMetrics";
+import { useWeaponMetricsTrend } from "@/hooks/useWeaponMetricsTrend";
 
 interface PlayerScoresTabProps {
   playerId: string;
@@ -340,15 +341,19 @@ export function PlayerScoresTab({ playerId, playerName }: PlayerScoresTabProps) 
 
   // Fetch weapon metrics for the player
   const { metrics: weaponMetrics, swingCount: dkSwingCount } = useWeaponMetrics({ playerId });
+  const { sessions: trendSessions } = useWeaponMetricsTrend({ playerId, sessionLimit: 10 });
   const hasDKData = dkSwingCount > 0;
 
   return (
     <div className="space-y-4">
       {/* Weapon Panel - DK Metrics */}
-      <WeaponPanel 
-        metrics={weaponMetrics} 
-        isConnected={hasDKData}
-      />
+      <div className="grid lg:grid-cols-2 gap-4">
+        <WeaponPanel 
+          metrics={weaponMetrics} 
+          isConnected={hasDKData}
+        />
+        <WeaponPanelTrend sessions={trendSessions} />
+      </div>
 
       {/* Season Snapshot - Box Score Style */}
       <div className="grid grid-cols-5 gap-3">
