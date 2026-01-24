@@ -25,6 +25,7 @@ export function AdminHeader() {
     { to: "/admin/invites", label: "Invites" },
     { to: "/admin/library", label: "Library" },
     { to: "/admin/vault", label: "Vault", icon: BookOpen },
+    { to: "/admin/knowledge-base", label: "KB", icon: BookOpen },
   ];
 
   const isActive = (path: string) => {

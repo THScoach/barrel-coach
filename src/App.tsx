@@ -63,6 +63,7 @@ import AdminVault from "./pages/AdminVault";
 import AdminCoachRickVault from "./pages/AdminCoachRickVault";
 import AdminBroadcast from "./pages/AdminBroadcast";
 import AdminContentEngine from "./pages/AdminContentEngine";
+import AdminKnowledgeBase from "./pages/AdminKnowledgeBase";
 
 // Player pages
 import PlayerDashboard4B from "./pages/player/PlayerDashboard4B";
@@ -243,6 +244,11 @@ const App = () => (
               <Route path="/admin/content-engine" element={
                 <ProtectedAdminRoute>
                   <AdminContentEngine />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/knowledge-base" element={
+                <ProtectedAdminRoute>
+                  <AdminKnowledgeBase />
                 </ProtectedAdminRoute>
               } />
 
