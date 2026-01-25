@@ -27,7 +27,7 @@ const ENCOURAGED_MIN_SWINGS = 5;
 const MAX_CONCURRENT_UPLOADS = 2;
 const MAX_RETRY_ATTEMPTS = 1;
 const ACCEPTED_TYPES = ["video/mp4", "video/quicktime"];
-const MAX_SIZE_BYTES = 250 * 1024 * 1024;
+const MAX_SIZE_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
 
 export function VideoUploader({
   swingsRequired,
@@ -89,7 +89,7 @@ export function VideoUploader({
       return { valid: false, error: "Upload a .mp4 or .mov." };
     }
     if (file.size > MAX_SIZE_BYTES) {
-      return { valid: false, error: "That file is too big. Keep it under 250MB." };
+      return { valid: false, error: "That file is too big. Keep it under 2GB." };
     }
     return { valid: true };
   }, []);
@@ -120,7 +120,7 @@ export function VideoUploader({
 
             // Optional but helpful
             xhr.responseType = "json";
-            xhr.timeout = 120000; // 2 minutes
+            xhr.timeout = 1800000; // 30 minutes for large uploads
 
             const formData = new FormData();
             formData.append("file", file);
