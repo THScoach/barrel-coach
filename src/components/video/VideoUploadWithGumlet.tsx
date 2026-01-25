@@ -38,7 +38,7 @@ interface UploadState {
 export function VideoUploadWithGumlet({
   onUploadComplete,
   onError,
-  maxSizeMB = 500,
+  maxSizeMB = 2048, // 2GB default
   allowedFormats = ['video/mp4', 'video/quicktime', 'video/webm'],
   autoPublish = false,
   className,
