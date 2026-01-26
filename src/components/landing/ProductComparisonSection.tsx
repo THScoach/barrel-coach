@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Video, Target, ClipboardList, Dna, Play, TrendingUp, Building2, Microscope, GraduationCap, Zap, Star, Clock, Flame } from 'lucide-react';
+import { Video, Target, ClipboardList, Dna, Play, TrendingUp, Building2, Microscope, GraduationCap, Zap, Star, Clock, Flame, Gift } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ProductCardProps {
@@ -100,43 +100,58 @@ function ProductCard({
 }
 
 export function ProductComparisonSection() {
-  // New 3-tier pricing structure
+  // Updated 3-tier pricing structure
   const products: ProductCardProps[] = [
+    {
+      title: "Starter",
+      price: "$49",
+      priceLabel: "/month",
+      features: [
+        { icon: <Play className="w-4 h-4" />, text: "Full Drill Library access" },
+        { icon: <Target className="w-4 h-4" />, text: "Bring Your Own Sensor (BYOS)" },
+      ],
+      timing: "Self-guided training",
+      cta: "GET STARTED →",
+      ctaLink: "/pricing",
+      bottomLabel: "Perfect for players with their own sensor.",
+      bottomLabelColor: "#6B7280",
+      variant: 'default'
+    },
     {
       title: "The Academy",
       price: "$99",
       priceLabel: "/month",
       features: [
-        { icon: <TrendingUp className="w-4 h-4" />, text: "Ongoing data uploads" },
-        { icon: <Target className="w-4 h-4" />, text: "Weekly AI-guided check-ins" },
-        { icon: <ClipboardList className="w-4 h-4" />, text: "Trend tracking & benchmarks" },
-        { icon: <Dna className="w-4 h-4" />, text: "Progress accountability" },
+        { icon: <Gift className="w-4 h-4" />, text: "FREE Smart Sensor Kit included" },
+        { icon: <Building2 className="w-4 h-4" />, text: "Monday Group Coaching Calls" },
+        { icon: <Microscope className="w-4 h-4" />, text: "Coach Rick AI access" },
+        { icon: <TrendingUp className="w-4 h-4" />, text: "Daily Kinetic DNA Tracking" },
+        { icon: <ClipboardList className="w-4 h-4" />, text: "Automated Drill Prescription" },
       ],
-      timing: "Ongoing structure",
+      timing: "Full coaching experience",
       cta: "JOIN THE ACADEMY →",
       ctaLink: "/pricing",
       bottomLabel: "Where clarity becomes consistency.",
       bottomLabelColor: "#6B7280",
-      variant: 'default'
+      isPopular: true,
+      variant: 'popular'
     },
     {
-      title: "Private Coaching",
+      title: "Elite",
       price: "$199",
       priceLabel: "/month",
       features: [
-        { icon: <Building2 className="w-4 h-4" />, text: "Direct access to Coach Rick" },
-        { icon: <Microscope className="w-4 h-4" />, text: "1-on-1 video feedback" },
-        { icon: <GraduationCap className="w-4 h-4" />, text: "Priority support" },
-        { icon: <Play className="w-4 h-4" />, text: "Personalized training plans" },
-        { icon: <Zap className="w-4 h-4" />, text: "VIP access" },
+        { icon: <Zap className="w-4 h-4" />, text: "Everything in Academy" },
+        { icon: <Video className="w-4 h-4" />, text: "TWO 1:1 Zoom calls per month" },
+        { icon: <GraduationCap className="w-4 h-4" />, text: "Priority Video Analysis" },
+        { icon: <Dna className="w-4 h-4" />, text: "Direct Text Access to Coach" },
       ],
       timing: "Limited to 20 players",
       cta: "GET VIP ACCESS →",
       ctaLink: "/pricing",
       bottomLabel: "Work directly with Rick.",
       bottomLabelColor: "#DC2626",
-      isPopular: true,
-      variant: 'popular'
+      variant: 'premium'
     }
   ];
 

@@ -18,28 +18,32 @@ const faqs = [
     answer: "Yes. 100% free. No credit card. Upload your swing, get your Motor Profile and PDF report delivered via email. No drills. No guessing.",
   },
   {
-    question: "Is the sensor really free?",
+    question: "What's the difference between Starter and Academy?",
+    answer: "Starter ($49/mo) is for players who already have their own sensor — you get full drill library access. Academy ($99/mo) includes a FREE Smart Sensor Kit, Monday group coaching calls, Coach Rick AI, daily tracking, and automated drill prescriptions.",
+  },
+  {
+    question: "Is the sensor really free with Academy?",
     answer: "Yes. When you join The Academy, we ship you a Diamond Kinetics smart sensor (retail $150) at no extra cost. It's yours to keep, even if you cancel.",
   },
   {
     question: "What if I already have a sensor?",
-    answer: "Perfect! Connect it to your account and start tracking immediately. We support Diamond Kinetics, Blast Motion, and can import data from other systems.",
+    answer: "Perfect! The Starter plan is made for you. Or join Academy for the full coaching experience — we support Diamond Kinetics, Blast Motion, and can import data from other systems.",
   },
   {
-    question: "What is Monday Night Film Room?",
-    answer: "Every Monday at 8pm ET, Coach Rick hosts a live group session where he reviews member swings, answers questions, and breaks down what he's seeing. It's like having a private coach for the price of a batting cage session.",
+    question: "What is Monday Group Coaching?",
+    answer: "Every Monday, Coach Rick hosts a live group session where he reviews member swings, answers questions, and breaks down what he's seeing. It's like having a private coach for the price of a batting cage session.",
   },
   {
-    question: "How is Inner Circle different from The Academy?",
-    answer: "Inner Circle includes everything in The Academy plus 2x monthly private video lessons with Coach Rick, direct chat access, custom training plans, and priority analysis. Limited to 20 players.",
+    question: "How is Elite different from The Academy?",
+    answer: "Elite includes everything in The Academy plus TWO 1:1 Zoom calls per month with Coach Rick, priority video analysis, and direct text access. Limited to 20 players.",
   },
   {
     question: "Can I cancel anytime?",
     answer: "Absolutely. No contracts, no commitments. Cancel with one click. But most players stay because they see real results.",
   },
   {
-    question: "Can I upgrade from Academy to Inner Circle later?",
-    answer: "Yes, if spots are available. Inner Circle is capped at 20 players to ensure quality 1-on-1 time with Coach Rick.",
+    question: "Can I upgrade from Academy to Elite later?",
+    answer: "Yes, if spots are available. Elite is capped at 20 players to ensure quality 1-on-1 time with Coach Rick.",
   },
   {
     question: "Is this for youth / college / pro?",
@@ -50,7 +54,7 @@ const faqs = [
 export default function Pricing() {
   const navigate = useNavigate();
 
-  const handleCheckout = async (tier: 'academy' | 'inner-circle') => {
+  const handleCheckout = async (tier: 'starter' | 'academy' | 'elite') => {
     try {
       const { data, error } = await supabase.functions.invoke('create-subscription-checkout', {
         body: { tier }
@@ -92,7 +96,7 @@ export default function Pricing() {
             <p className="text-slate-400 text-lg">No complicated tiers. Just results.</p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-6 items-start">
+          <div className="grid md:grid-cols-4 gap-6 items-start">
             
             {/* 1. Kinetic DNA Diagnostic — FREE */}
             <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-6 flex flex-col">
@@ -120,7 +124,42 @@ export default function Pricing() {
               </Button>
             </div>
 
-            {/* 2. THE ACADEMY — $99/month (MOST POPULAR) */}
+            {/* 2. STARTER — $49/month (NEW) */}
+            <div className="bg-slate-900/80 border border-teal-500/50 rounded-2xl p-6 flex flex-col relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-teal-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
+                New
+              </div>
+              
+              <div className="mb-6 pt-4">
+                <h3 className="text-2xl font-bold text-white mb-2">Starter</h3>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-5xl font-black text-white">$49</span>
+                  <span className="text-xl text-slate-400">/month</span>
+                </div>
+              </div>
+
+              <ul className="space-y-4 mb-6 flex-grow">
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <span>🔓 Full Drill Library Access</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <span>📱 Bring Your Own Sensor (BYOS)</span>
+                </li>
+              </ul>
+
+              <p className="text-xs text-slate-400 text-center mb-4">Perfect for players with their own sensor</p>
+
+              <Button 
+                onClick={() => handleCheckout('starter')}
+                className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-6 text-lg"
+              >
+                Get Started
+              </Button>
+            </div>
+
+            {/* 3. THE ACADEMY — $99/month (MOST POPULAR) */}
             <div className="bg-slate-900 border-2 border-teal-500 rounded-2xl p-8 flex flex-col relative ring-4 ring-teal-500/30 scale-105 shadow-2xl shadow-teal-500/20 md:-mt-4 md:mb-4">
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-6 py-2 bg-teal-500 rounded-full text-sm font-bold text-white uppercase tracking-wider">
                 Most Popular
@@ -146,23 +185,19 @@ export default function Pricing() {
                 
                 <li className="flex items-start gap-3 text-slate-200">
                   <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <span>📅 Monday Group Coaching Calls</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <span>🤖 Coach Rick AI access</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200">
+                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
                   <span>📊 Daily Kinetic DNA Tracking</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-200">
                   <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>🎥 Auto-Video Analysis (Sensor triggers camera)</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>⚾ Monday Night Film Room (Live Group Coaching)</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>🔓 Full Drill Library Access</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>👥 Community & Challenges</span>
+                  <span>⚾ Automated Drill Prescription</span>
                 </li>
               </ul>
 
@@ -174,15 +209,15 @@ export default function Pricing() {
               </Button>
             </div>
 
-            {/* 3. INNER CIRCLE — $199/month (LIMITED) */}
+            {/* 4. ELITE — $199/month (LIMITED) */}
             <div className="bg-gradient-to-b from-slate-900 to-red-950/30 border-2 border-red-500/50 rounded-2xl p-6 flex flex-col relative">
-              {/* LIMITED Badge */}
+              {/* VIP Badge */}
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
                 VIP ACCESS
               </div>
               
               <div className="mb-6 pt-4">
-                <h3 className="text-2xl font-bold text-white mb-2">Private Coaching</h3>
+                <h3 className="text-2xl font-bold text-white mb-2">Elite</h3>
                 <div className="flex items-baseline gap-2">
                   <span className="text-5xl font-black text-white">$199</span>
                   <span className="text-xl text-slate-400">/month</span>
@@ -193,28 +228,20 @@ export default function Pricing() {
                 {/* Everything in Academy */}
                 <li className="flex items-start gap-3 text-slate-200">
                   <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span className="font-semibold">✅ Everything in The Academy</span>
+                  <span className="font-semibold">✅ Everything in Academy</span>
                 </li>
                 
                 <li className="flex items-start gap-3 text-slate-200">
                   <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span>📞 2x Monthly Private Video Lessons (Zoom)</span>
+                  <span>📞 TWO 1:1 Zoom calls per month</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-200">
                   <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span>💬 Direct Chat Access (Skip the line)</span>
+                  <span>🎥 Priority Video Analysis</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-200">
                   <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span>📉 Custom Training Plan adjustments</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span>📅 Priority Session Booking</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span>⚠️ Limited to 20 players</span>
+                  <span>💬 Direct Text Access to Coach</span>
                 </li>
               </ul>
 
@@ -225,10 +252,10 @@ export default function Pricing() {
               </div>
 
               <Button 
-                onClick={() => handleCheckout('inner-circle')}
+                onClick={() => handleCheckout('elite')}
                 className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-6 text-lg"
               >
-                Apply for Private Coaching
+                Get VIP Access
               </Button>
             </div>
 

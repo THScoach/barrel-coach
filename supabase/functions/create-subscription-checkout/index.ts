@@ -9,10 +9,14 @@ const corsHeaders = {
 
 /**
  * Subscription Price IDs
+ * NOTE: You'll need to create these prices in Stripe and update the IDs
  */
 const SUBSCRIPTION_PRICES = {
+  starter: "price_starter_49", // $49/mo - Starter (BYOS) - UPDATE THIS with actual Stripe price ID
   academy: "price_1Sou5UA7XlInXgw8BnazjWmP", // $99/mo - The Academy
-  "inner-circle": "price_1SqbzkA7XlInXgw8apXlotOs", // $199/mo - Private Coaching (using existing price, update if different)
+  elite: "price_1SqbzkA7XlInXgw8apXlotOs", // $199/mo - Elite (was inner-circle)
+  // Legacy alias for backwards compatibility
+  "inner-circle": "price_1SqbzkA7XlInXgw8apXlotOs",
 };
 
 const logStep = (step: string, details?: any) => {
