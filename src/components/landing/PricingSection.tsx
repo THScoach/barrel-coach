@@ -4,31 +4,32 @@ import { Button } from '@/components/ui/button';
 
 const plans = [
   {
-    name: 'Kinetic DNA Diagnostic',
-    price: 0,
-    period: 'Free',
-    description: 'Identify your #1 swing leak',
+    name: 'Starter',
+    price: 49,
+    period: 'per month',
+    description: 'For players with their own sensor',
     featured: false,
+    badge: 'New',
     icon: Sparkles,
-    iconColor: 'text-slate-400',
-    borderColor: 'border-slate-700',
-    checkColor: 'text-green-400',
+    iconColor: 'text-teal-400',
+    borderColor: 'border-teal-500/30',
+    checkColor: 'text-teal-400',
     features: [
-      { text: 'Discover your Motor Profile', included: true },
-      { text: 'Spinner, Slingshotter, or Whipper?', included: true },
-      { text: 'Know your natural swing DNA', included: true },
+      { text: 'Full Drill Library access', included: true },
+      { text: 'Bring Your Own Sensor (BYOS)', included: true },
       { text: 'Smart Sensor Kit', included: false },
-      { text: 'Weekly coaching calls', included: false },
+      { text: 'Group coaching calls', included: false },
+      { text: 'Coach Rick AI', included: false },
     ],
-    cta: 'Get Free Diagnostic',
-    ctaLink: '/diagnostic',
-    ctaStyle: 'bg-slate-700 hover:bg-slate-600',
+    cta: 'Get Started',
+    ctaLink: '/pricing',
+    ctaStyle: 'bg-teal-600 hover:bg-teal-700',
   },
   {
     name: 'The Academy',
     price: 99,
     period: 'per month',
-    description: 'Weekly coaching. Smart Sensor Kit included.',
+    description: 'Full coaching with FREE Smart Sensor Kit',
     featured: true,
     badge: 'Most Popular',
     icon: Users,
@@ -36,21 +37,21 @@ const plans = [
     borderColor: 'border-red-500/50',
     checkColor: 'text-red-400',
     features: [
-      { text: 'Free Smart Sensor Kit included', included: true },
-      { text: 'Weekly group coaching calls', included: true },
-      { text: 'My Swing Lab access', included: true },
-      { text: 'Rick AI for instant answers', included: true },
-      { text: 'Clear direction — not drill overload', included: true },
+      { text: 'FREE Smart Sensor Kit included', included: true },
+      { text: 'Monday Group Coaching Calls', included: true },
+      { text: 'Coach Rick AI access', included: true },
+      { text: 'Daily Kinetic DNA Tracking', included: true },
+      { text: 'Automated Drill Prescription', included: true },
     ],
     cta: 'Join The Academy',
     ctaLink: '/pricing',
     ctaStyle: 'bg-red-600 hover:bg-red-700',
   },
   {
-    name: 'Private Coaching',
+    name: 'Elite',
     price: 199,
     period: 'per month',
-    description: '1-on-1 with Rick. Limited to 20 players.',
+    description: 'VIP access to Coach Rick. Limited to 20 players.',
     featured: false,
     badge: 'VIP Access',
     icon: Crown,
@@ -58,13 +59,12 @@ const plans = [
     borderColor: 'border-yellow-500/30',
     checkColor: 'text-yellow-400',
     features: [
-      { text: 'Everything in The Academy', included: true },
-      { text: '1-on-1 monthly video call with Rick', included: true },
-      { text: 'Priority swing reviews', included: true },
-      { text: 'Direct text access to Rick', included: true },
-      { text: 'Custom training plan', included: true },
+      { text: 'Everything in Academy', included: true },
+      { text: 'TWO 1:1 Zoom calls per month', included: true },
+      { text: 'Priority Video Analysis', included: true },
+      { text: 'Direct Text Access to Coach', included: true },
     ],
-    cta: 'Apply Now',
+    cta: 'Get VIP Access',
     ctaLink: '/pricing',
     ctaStyle: 'bg-yellow-600 hover:bg-yellow-700',
     note: 'Limited to 20 players',
@@ -245,16 +245,16 @@ export function PricingSection() {
         <div className="mt-12 max-w-4xl mx-auto">
           <div className="grid grid-cols-3 gap-4 text-center">
             <div className="p-4">
-              <div className="text-slate-400 text-sm mb-2">"What's wrong?"</div>
-              <div className="text-white font-bold">Free Diagnostic</div>
+              <div className="text-slate-400 text-sm mb-2">"I have my own sensor"</div>
+              <div className="text-white font-bold">$49/mo Starter</div>
             </div>
             <div className="p-4">
-              <div className="text-slate-400 text-sm mb-2">"I want real coaching"</div>
+              <div className="text-slate-400 text-sm mb-2">"I want full coaching"</div>
               <div className="text-white font-bold">$99/mo Academy</div>
             </div>
             <div className="p-4">
               <div className="text-slate-400 text-sm mb-2">"I want Rick 1-on-1"</div>
-              <div className="text-white font-bold">$199/mo Private</div>
+              <div className="text-white font-bold">$199/mo Elite</div>
             </div>
           </div>
         </div>
