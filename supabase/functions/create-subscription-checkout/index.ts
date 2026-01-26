@@ -12,7 +12,7 @@ const corsHeaders = {
  * NOTE: You'll need to create these prices in Stripe and update the IDs
  */
 const SUBSCRIPTION_PRICES = {
-  starter: "price_starter_49", // $49/mo - Starter (BYOS) - UPDATE THIS with actual Stripe price ID
+  starter: "price_1StsYTA7XlInXgw8xwWisrcT", // $49/mo - Starter (BYOS)
   academy: "price_1Sou5UA7XlInXgw8BnazjWmP", // $99/mo - The Academy
   elite: "price_1SqbzkA7XlInXgw8apXlotOs", // $199/mo - Elite (was inner-circle)
   // Legacy alias for backwards compatibility
