@@ -8,15 +8,13 @@ const corsHeaders = {
 };
 
 /**
- * Subscription Price IDs
- * NOTE: You'll need to create these prices in Stripe and update the IDs
+ * Subscription Price IDs (swingrehabcoach Stripe account)
  */
 const SUBSCRIPTION_PRICES = {
   starter: "price_1StsYTA7XlInXgw8xwWisrcT", // $49/mo - Starter (BYOS)
   academy: "price_1Sou5UA7XlInXgw8BnazjWmP", // $99/mo - The Academy
-  elite: "price_1SqbzkA7XlInXgw8apXlotOs", // $199/mo - Elite (was inner-circle)
-  // Legacy alias for backwards compatibility
-  "inner-circle": "price_1SqbzkA7XlInXgw8apXlotOs",
+  elite: "price_1SqbzkA7XlInXgw8apXlotOs", // $199/mo - Elite
+  "inner-circle": "price_1SqbzkA7XlInXgw8apXlotOs", // Alias for backwards compatibility
 };
 
 const logStep = (step: string, details?: any) => {

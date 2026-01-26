@@ -54,10 +54,10 @@ const faqs = [
 export default function Pricing() {
   const navigate = useNavigate();
 
-  const handleCheckout = async (tier: 'starter' | 'academy' | 'elite') => {
+  const handleCheckout = async (priceType: 'starter' | 'academy' | 'elite') => {
     try {
       const { data, error } = await supabase.functions.invoke('create-subscription-checkout', {
-        body: { tier }
+        body: { priceType }
       });
       
       if (error) throw error;
