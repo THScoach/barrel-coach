@@ -164,3 +164,6 @@ verify_jwt = false
 
 [functions.coach-player-update]
 verify_jwt = false
+
+[functions.coach-daily-report]
+verify_jwt = false
