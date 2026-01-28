@@ -158,3 +158,6 @@ verify_jwt = false
 
 [functions.generate-content-suggestion]
 verify_jwt = false
+
+[functions.coach-player-lookup]
+verify_jwt = false
