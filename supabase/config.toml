@@ -167,3 +167,6 @@ verify_jwt = false
 
 [functions.coach-daily-report]
 verify_jwt = false
+
+[functions.coach-analyze-external]
+verify_jwt = false
