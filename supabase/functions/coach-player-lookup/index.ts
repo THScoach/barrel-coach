@@ -108,6 +108,35 @@ serve(async (req) => {
       );
     }
 
+    // Initialize Supabase client
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Check kill switch
+    const { data: killSwitchSetting } = await supabase
+      .from("system_settings")
+      .select("setting_value")
+      .eq("setting_name", "coach_api_enabled")
+      .single();
+
+    if (killSwitchSetting && killSwitchSetting.setting_value === false) {
+      console.log("[CoachLookup] Kill switch active - blocking request");
+      
+      // Log the blocked request
+      await supabase.from("coach_api_audit_log").insert({
+        action: "kill_switch_blocked",
+        ip_address: clientIP,
+        response_status: 503,
+      });
+
+      return new Response(
+        JSON.stringify({ error: "Coach API temporarily disabled", code: "KILL_SWITCH_ACTIVE" }),
+        { status: 503, headers: { ...corsHeaders, ...rateLimitHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Get phone from query params
     const url = new URL(req.url);
     const phone = url.searchParams.get("phone");
@@ -126,11 +155,7 @@ serve(async (req) => {
     
     console.log(`[CoachLookup] Looking up player: ${last10.slice(-4)}****`);
 
-    // Initialize Supabase client
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    // Use existing supabase client from above
 
     // Find player by phone (try multiple formats)
     const { data: player, error: playerError } = await supabase

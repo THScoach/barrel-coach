@@ -139,6 +139,29 @@ serve(async (req) => {
       );
     }
 
+    // Check kill switch
+    const { data: killSwitchSetting } = await supabase
+      .from("system_settings")
+      .select("setting_value")
+      .eq("setting_name", "coach_api_enabled")
+      .single();
+
+    if (killSwitchSetting && killSwitchSetting.setting_value === false) {
+      console.log("[CoachUpdate] Kill switch active - blocking request");
+      
+      // Log the blocked request
+      await supabase.from("coach_api_audit_log").insert({
+        action: "kill_switch_blocked",
+        ip_address: clientIP,
+        response_status: 503,
+      });
+
+      return new Response(
+        JSON.stringify({ error: "Coach API temporarily disabled", code: "KILL_SWITCH_ACTIVE" }),
+        { status: 503, headers: { ...corsHeaders, ...rateLimitHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Parse request body
     requestBody = await req.json() as UpdateRequest;
 
