@@ -160,7 +160,7 @@ serve(async (req) => {
     // Find player by phone (try multiple formats)
     const { data: player, error: playerError } = await supabase
       .from("players")
-      .select("id, name, motor_profile_sensor, membership_tier, subscription_status")
+      .select("id, name, motor_profile_sensor, membership_tier, account_status")
       .or(`phone.eq.${normalizedPhone},phone.eq.${last10},phone.eq.+1${last10}`)
       .limit(1)
       .maybeSingle();
@@ -207,7 +207,7 @@ serve(async (req) => {
       first_name: firstName,
       motor_profile: player.motor_profile_sensor || null,
       membership_tier: player.membership_tier || "Free",
-      subscription_status: player.subscription_status || "none",
+      account_status: player.account_status || "active",
       last_swing_date: lastSession?.created_at || null,
       current_krs_score: latestScore?.composite_score || null,
     };
