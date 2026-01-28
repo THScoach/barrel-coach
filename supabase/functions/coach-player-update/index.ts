@@ -183,7 +183,7 @@ serve(async (req) => {
     // Find player
     const { data: player, error: playerError } = await supabase
       .from("players")
-      .select("id, name, motor_profile, notes, tags, last_contact_date")
+      .select("id, name, motor_profile_sensor, notes, tags, last_contact_date")
       .or(`phone.eq.${normalizedPhone},phone.eq.${last10},phone.eq.+1${last10}`)
       .limit(1)
       .maybeSingle();
@@ -253,7 +253,7 @@ serve(async (req) => {
       const updateFields: Record<string, any> = {};
 
       if (requestBody.motor_profile !== undefined) {
-        updateFields.motor_profile = requestBody.motor_profile;
+        updateFields.motor_profile_sensor = requestBody.motor_profile;
       }
       if (requestBody.notes !== undefined) {
         updateFields.notes = requestBody.notes;
@@ -281,7 +281,7 @@ serve(async (req) => {
         .from("players")
         .update(updateFields)
         .eq("id", player.id)
-        .select("id, name, motor_profile, notes, tags, last_contact_date, updated_at")
+        .select("id, name, motor_profile_sensor, notes, tags, last_contact_date, updated_at")
         .single();
 
       if (updateError) {
@@ -298,7 +298,7 @@ serve(async (req) => {
         player: {
           id: updatedPlayer.id,
           first_name: updatedPlayer.name?.split(" ")[0] || null,
-          motor_profile: updatedPlayer.motor_profile,
+          motor_profile: updatedPlayer.motor_profile_sensor,
           tags: updatedPlayer.tags,
           last_contact_date: updatedPlayer.last_contact_date,
           updated_at: updatedPlayer.updated_at,
