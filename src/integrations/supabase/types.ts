@@ -443,6 +443,87 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_api_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          phone: string | null
+          player_id: string | null
+          request_body: Json | null
+          response_status: number | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          phone?: string | null
+          player_id?: string | null
+          request_body?: Json | null
+          response_status?: number | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          phone?: string | null
+          player_id?: string | null
+          request_body?: Json | null
+          response_status?: number | null
+        }
+        Relationships: []
+      }
+      coach_conversations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          message_content: string
+          message_type: string
+          metadata: Json | null
+          phone: string
+          player_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          message_content: string
+          message_type: string
+          metadata?: Json | null
+          phone: string
+          player_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          message_content?: string
+          message_type?: string
+          metadata?: Json | null
+          phone?: string
+          player_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_conversations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_conversations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communication_logs: {
         Row: {
           created_at: string | null
@@ -2498,6 +2579,7 @@ export type Database = {
           is_validation_study: boolean | null
           kinetic_fingerprint_json: Json | null
           kinetic_fingerprint_url: string | null
+          last_contact_date: string | null
           last_sensor_session_date: string | null
           latest_ball_score: number | null
           latest_bat_score: number | null
@@ -2523,6 +2605,7 @@ export type Database = {
           sessions_this_week: number | null
           sms_opt_in: boolean | null
           stripe_customer_id: string | null
+          tags: string[] | null
           team: string | null
           total_xp: number | null
           unread_locker_messages: number | null
@@ -2555,6 +2638,7 @@ export type Database = {
           is_validation_study?: boolean | null
           kinetic_fingerprint_json?: Json | null
           kinetic_fingerprint_url?: string | null
+          last_contact_date?: string | null
           last_sensor_session_date?: string | null
           latest_ball_score?: number | null
           latest_bat_score?: number | null
@@ -2580,6 +2664,7 @@ export type Database = {
           sessions_this_week?: number | null
           sms_opt_in?: boolean | null
           stripe_customer_id?: string | null
+          tags?: string[] | null
           team?: string | null
           total_xp?: number | null
           unread_locker_messages?: number | null
@@ -2612,6 +2697,7 @@ export type Database = {
           is_validation_study?: boolean | null
           kinetic_fingerprint_json?: Json | null
           kinetic_fingerprint_url?: string | null
+          last_contact_date?: string | null
           last_sensor_session_date?: string | null
           latest_ball_score?: number | null
           latest_bat_score?: number | null
@@ -2637,6 +2723,7 @@ export type Database = {
           sessions_this_week?: number | null
           sms_opt_in?: boolean | null
           stripe_customer_id?: string | null
+          tags?: string[] | null
           team?: string | null
           total_xp?: number | null
           unread_locker_messages?: number | null
