@@ -161,3 +161,6 @@ verify_jwt = false
 
 [functions.coach-player-lookup]
 verify_jwt = false
+
+[functions.coach-player-update]
+verify_jwt = false
