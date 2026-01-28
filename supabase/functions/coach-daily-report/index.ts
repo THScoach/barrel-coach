@@ -136,67 +136,89 @@ serve(async (req) => {
     // Format date for report header
     const now = new Date();
     const reportDate = now.toLocaleDateString("en-US", {
-      weekday: "short",
       month: "short",
       day: "numeric",
+      year: "numeric",
     });
 
-    // Build WhatsApp-friendly message
-    let message = `📊 *Coach API Report*\n`;
-    message += `${reportDate} (Last 24h)\n\n`;
+    // Kill switch blocks
+    const killSwitchBlocks = auditLogs.filter(l => l.action === "kill_switch_blocked").length;
 
-    message += `📈 *Activity Summary*\n`;
-    message += `• Total calls: ${totalCalls}\n`;
-    message += `• Reads: ${reads} | Writes: ${writes}\n`;
-    message += `• Unique players: ${uniquePlayers}\n`;
+    // Build WhatsApp-friendly plain text message (no markdown)
+    let lines: string[] = [];
+    
+    lines.push("🔐 COACH RICK DAILY REPORT");
+    lines.push(`📅 ${reportDate}`);
+    lines.push("");
+    lines.push("📊 API Activity (24h)");
+    lines.push(`Total calls: ${totalCalls}`);
+    lines.push(`Reads: ${reads} | Writes: ${writes}`);
+    lines.push(`Unique players: ${uniquePlayers}`);
+    
     if (errors > 0) {
-      message += `• Errors: ${errors}\n`;
+      lines.push(`Errors: ${errors}`);
     }
 
-    // Security section
-    if (failedAuth > 0 || rateLimitHits > 0) {
-      message += `\n🔐 *Security Events*\n`;
-      if (failedAuth > 0) {
-        message += `• ⚠️ Failed auth attempts: ${failedAuth}\n`;
-      }
-      if (rateLimitHits > 0) {
-        message += `• ⚠️ Rate limit hits: ${rateLimitHits}\n`;
-      }
+    lines.push("");
+    lines.push("⚠️ Security");
+    lines.push(`Failed auths: ${failedAuth}`);
+    lines.push(`Rate limits hit: ${rateLimitHits}`);
+    if (killSwitchBlocks > 0) {
+      lines.push(`Kill switch blocks: ${killSwitchBlocks}`);
     }
 
     // Top IPs
     if (topIPs.length > 0) {
-      message += `\n🌐 *Top IPs*\n`;
+      lines.push("");
+      lines.push("🌐 Top IPs");
       topIPs.forEach(([ip, count], idx) => {
-        // Mask middle of IP for privacy
-        const maskedIP = ip.includes(".")
-          ? ip.split(".").map((p, i) => (i === 1 || i === 2) ? "***" : p).join(".")
-          : ip;
-        message += `${idx + 1}. ${maskedIP}: ${count} calls\n`;
+        lines.push(`${idx + 1}. ${ip} (${count} calls)`);
       });
     }
 
-    // Unusual patterns
+    // Anomalies section
+    const anomalies: string[] = [];
+    
+    if (failedAuth >= 5) {
+      anomalies.push(`🚨 ${failedAuth} failed auth attempts detected`);
+    }
+    
     if (frequentlyAccessed.length > 0) {
-      message += `\n🔍 *High Activity Players*\n`;
-      frequentlyAccessed.slice(0, 5).forEach(([playerId, data]) => {
-        const phoneHint = data.phone ? `****${data.phone.slice(-4)}` : "N/A";
-        message += `• ${phoneHint}: ${data.count} accesses\n`;
+      frequentlyAccessed.slice(0, 3).forEach(([_, data]) => {
+        const phoneHint = data.phone ? `****${data.phone.slice(-4)}` : "unknown";
+        anomalies.push(`🔍 Player ${phoneHint} accessed ${data.count}x`);
       });
     }
 
-    // All clear message if nothing unusual
-    if (totalCalls === 0) {
-      message = `📊 *Coach API Report*\n${reportDate}\n\n😴 No API activity in the last 24 hours.`;
-    } else if (failedAuth === 0 && rateLimitHits === 0 && frequentlyAccessed.length === 0) {
-      message += `\n✅ All systems normal`;
+    if (rateLimitHits >= 5) {
+      anomalies.push(`🚨 ${rateLimitHits} rate limit hits - possible abuse`);
     }
+
+    lines.push("");
+    if (anomalies.length > 0) {
+      lines.push("🚨 Anomalies Detected");
+      anomalies.forEach(a => lines.push(a));
+    } else {
+      lines.push("✅ No anomalies detected");
+    }
+
+    // Handle no activity case
+    if (totalCalls === 0) {
+      lines = [
+        "🔐 COACH RICK DAILY REPORT",
+        `📅 ${reportDate}`,
+        "",
+        "😴 No API activity in the last 24 hours."
+      ];
+    }
+
+    const report = lines.join("\n");
 
     console.log(`[DailyReport] Generated report: ${totalCalls} calls, ${uniquePlayers} players`);
 
     return new Response(
       JSON.stringify({
-        report: message,
+        report,
         metrics: {
           total_calls: totalCalls,
           reads,
@@ -205,6 +227,7 @@ serve(async (req) => {
           unique_players: uniquePlayers,
           failed_auth: failedAuth,
           rate_limit_hits: rateLimitHits,
+          kill_switch_blocks: killSwitchBlocks,
           top_ips: topIPs.map(([ip, count]) => ({ ip, count })),
           high_activity_players: frequentlyAccessed.length,
         },
