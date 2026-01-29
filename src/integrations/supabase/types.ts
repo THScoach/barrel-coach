@@ -201,6 +201,27 @@ export type Database = {
           },
         ]
       }
+      blocked_numbers: {
+        Row: {
+          blocked_at: string | null
+          blocked_by: string | null
+          phone: string
+          reason: string | null
+        }
+        Insert: {
+          blocked_at?: string | null
+          blocked_by?: string | null
+          phone: string
+          reason?: string | null
+        }
+        Update: {
+          blocked_at?: string | null
+          blocked_by?: string | null
+          phone?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       capture_sessions: {
         Row: {
           created_at: string
@@ -523,6 +544,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      coach_rick_rules: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          rule_text: string
+          rule_type: string
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          rule_text: string
+          rule_type: string
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          rule_text?: string
+          rule_type?: string
+        }
+        Relationships: []
       }
       communication_logs: {
         Row: {
@@ -2563,6 +2611,7 @@ export type Database = {
           beta_expires_at: string | null
           beta_notes: string | null
           can_login: boolean | null
+          coaching_notes: Json | null
           created_at: string | null
           current_bat_speed: number | null
           current_streak: number | null
@@ -2627,6 +2676,7 @@ export type Database = {
           beta_expires_at?: string | null
           beta_notes?: string | null
           can_login?: boolean | null
+          coaching_notes?: Json | null
           created_at?: string | null
           current_bat_speed?: number | null
           current_streak?: number | null
@@ -2691,6 +2741,7 @@ export type Database = {
           beta_expires_at?: string | null
           beta_notes?: string | null
           can_login?: boolean | null
+          coaching_notes?: Json | null
           created_at?: string | null
           current_bat_speed?: number | null
           current_streak?: number | null
