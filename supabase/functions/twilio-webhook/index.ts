@@ -58,7 +58,7 @@ function maskPhone(phone: string): string {
 // ============================================================
 
 interface AdminCommand {
-  type: "remember" | "motor_profile" | "lookup" | "last_messages" | "global_rule" | "status" | "block" | "unblock" | "none";
+  type: "remember" | "motor_profile" | "lookup" | "last_messages" | "global_rule" | "status" | "block" | "unblock" | "fetch_sessions" | "video_analysis" | "none";
   playerName?: string;
   note?: string;
   motorProfile?: string;
@@ -67,10 +67,35 @@ interface AdminCommand {
   ruleType?: "always" | "never" | "global";
   ruleText?: string;
   phone?: string;
+  videoUrl?: string;
+  videoContentType?: string;
 }
 
-function parseAdminCommand(message: string): AdminCommand {
+function parseAdminCommand(message: string, mediaUrl?: string, mediaContentType?: string): AdminCommand {
   const lower = message.toLowerCase().trim();
+  
+  // Check for MMS video attachment first
+  if (mediaUrl && mediaContentType?.startsWith("video/")) {
+    return { type: "video_analysis", videoUrl: mediaUrl, videoContentType: mediaContentType };
+  }
+  
+  // Fetch sessions for [player name]
+  const fetchMatch = message.match(/^(?:fetch|get|download)\s+(?:sessions?\s+for|reboot\s+(?:data|sessions?)\s+for)\s+(.+)$/i);
+  if (fetchMatch) {
+    return { type: "fetch_sessions", playerName: fetchMatch[1].trim() };
+  }
+  
+  // Get [player name] Reboot data
+  const rebootMatch = message.match(/^get\s+(.+?)\s+reboot\s+(?:data|sessions?)$/i);
+  if (rebootMatch) {
+    return { type: "fetch_sessions", playerName: rebootMatch[1].trim() };
+  }
+  
+  // Download [player name] sessions
+  const downloadMatch = message.match(/^download\s+(.+?)\s+sessions?$/i);
+  if (downloadMatch) {
+    return { type: "fetch_sessions", playerName: downloadMatch[1].trim() };
+  }
   
   // Remember: [player name] [info]
   const rememberMatch = message.match(/^remember:\s*(\w+(?:\s+\w+)?)\s+(.+)$/i);
@@ -382,6 +407,366 @@ function getGrade(composite: number | null): string {
 }
 
 // ============================================================
+// REBOOT SESSION FETCH HANDLER
+// ============================================================
+
+interface RebootSession {
+  id: string;
+  session_date: string;
+  name?: string;
+  movement_count: number;
+}
+
+interface RebootTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+let cachedRebootToken: { token: string; expiresAt: number } | null = null;
+
+async function getRebootAccessToken(): Promise<string> {
+  if (cachedRebootToken && Date.now() < cachedRebootToken.expiresAt) {
+    return cachedRebootToken.token;
+  }
+
+  const REBOOT_USERNAME = Deno.env.get("REBOOT_USERNAME");
+  const REBOOT_PASSWORD = Deno.env.get("REBOOT_PASSWORD");
+  
+  if (!REBOOT_USERNAME || !REBOOT_PASSWORD) {
+    throw new Error("Reboot credentials not configured");
+  }
+
+  console.log("[Fetch Sessions] Getting Reboot access token");
+  
+  const response = await fetch("https://api.rebootmotion.com/oauth/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: REBOOT_USERNAME,
+      password: REBOOT_PASSWORD,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Reboot OAuth error: ${response.status}`);
+  }
+
+  const data: RebootTokenResponse = await response.json();
+  
+  cachedRebootToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in - 3600) * 1000,
+  };
+
+  return data.access_token;
+}
+
+async function checkSessionHasPlayerData(
+  sessionId: string,
+  orgPlayerId: string,
+  accessToken: string
+): Promise<boolean> {
+  try {
+    const response = await fetch("https://api.rebootmotion.com/data_export", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        org_player_id: orgPlayerId,
+        data_type: "momentum-energy",
+        movement_type_id: 1,
+      }),
+    });
+
+    if (!response.ok) return false;
+
+    const data = await response.json();
+    return data.download_urls && data.download_urls.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchRebootSessionsForPlayer(
+  supabase: any,
+  playerId: string,
+  orgPlayerId: string
+): Promise<{ sessions: RebootSession[]; processed: number; latestKrs: number | null; error?: string }> {
+  console.log(`[Fetch Sessions] Fetching for org_player_id=${orgPlayerId}`);
+  
+  const REBOOT_API_KEY = Deno.env.get("REBOOT_API_KEY");
+  if (!REBOOT_API_KEY) {
+    return { sessions: [], processed: 0, latestKrs: null, error: "REBOOT_API_KEY not configured" };
+  }
+
+  try {
+    // Fetch sessions from Reboot API
+    const sinceDate = "2024-10-01";
+    const url = new URL("https://api.rebootmotion.com/sessions");
+    url.searchParams.set("page", "1");
+    url.searchParams.set("page_size", "100");
+    url.searchParams.set("org_player_id", orgPlayerId);
+
+    const sessionsResponse = await fetch(url.toString(), {
+      headers: {
+        "X-Api-Key": REBOOT_API_KEY,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!sessionsResponse.ok) {
+      const error = await sessionsResponse.text();
+      return { sessions: [], processed: 0, latestKrs: null, error: `Reboot API error: ${sessionsResponse.status}` };
+    }
+
+    const raw = await sessionsResponse.json();
+    const allSessions = Array.isArray(raw) ? raw : (raw.sessions || raw.data || []);
+    
+    // Filter to processed sessions
+    const processedSessions = allSessions.filter((s: any) => 
+      s?.status === "processed" && (s?.completed_movements ?? 0) > 0
+    );
+
+    console.log(`[Fetch Sessions] Found ${processedSessions.length} processed sessions`);
+
+    // Get OAuth token for data export checks
+    const accessToken = await getRebootAccessToken();
+
+    // Check first 10 sessions for player data
+    const sessionsWithData: RebootSession[] = [];
+    for (const session of processedSessions.slice(0, 10)) {
+      if (!session?.id) continue;
+      
+      const hasData = await checkSessionHasPlayerData(session.id, orgPlayerId, accessToken);
+      if (hasData) {
+        sessionsWithData.push({
+          id: session.id,
+          session_date: session.session_date,
+          name: session.session_name || `Session ${session.session_num || ""}`.trim(),
+          movement_count: session.completed_movements || 0,
+        });
+      }
+    }
+
+    console.log(`[Fetch Sessions] ${sessionsWithData.length} sessions have data for player`);
+
+    // Check which sessions are already imported
+    const sessionIds = sessionsWithData.map(s => s.id);
+    const { data: existingSessions } = await supabase
+      .from("reboot_uploads")
+      .select("reboot_session_id")
+      .eq("player_id", playerId)
+      .in("reboot_session_id", sessionIds);
+    
+    const existingIds = new Set((existingSessions || []).map((e: any) => e.reboot_session_id));
+    const newSessions = sessionsWithData.filter(s => !existingIds.has(s.id));
+
+    console.log(`[Fetch Sessions] ${newSessions.length} new sessions to process`);
+
+    // Process new sessions via edge function
+    let processedCount = 0;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    for (const session of newSessions.slice(0, 3)) { // Limit to 3 per request
+      try {
+        const processResponse = await fetch(`${supabaseUrl}/functions/v1/process-reboot-session`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${supabaseServiceKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            session_id: session.id,
+            org_player_id: orgPlayerId,
+            player_id: playerId,
+          }),
+        });
+
+        if (processResponse.ok) {
+          processedCount++;
+          console.log(`[Fetch Sessions] Processed session ${session.id}`);
+        }
+      } catch (err) {
+        console.error(`[Fetch Sessions] Error processing session ${session.id}:`, err);
+      }
+    }
+
+    // Get latest KRS score
+    const { data: latestUpload } = await supabase
+      .from("reboot_uploads")
+      .select("composite_score")
+      .eq("player_id", playerId)
+      .order("session_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return {
+      sessions: sessionsWithData,
+      processed: processedCount,
+      latestKrs: latestUpload?.composite_score || null,
+    };
+  } catch (error) {
+    console.error("[Fetch Sessions] Error:", error);
+    return { sessions: [], processed: 0, latestKrs: null, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+// ============================================================
+// VIDEO ANALYSIS HANDLER (MMS)
+// ============================================================
+
+async function downloadTwilioMedia(mediaUrl: string): Promise<Uint8Array> {
+  const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
+  
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+    throw new Error("Twilio credentials not configured");
+  }
+
+  const credentials = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
+  
+  const response = await fetch(mediaUrl, {
+    headers: {
+      "Authorization": `Basic ${credentials}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to download media: ${response.status}`);
+  }
+
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function analyzeSwingVideo(
+  supabase: any,
+  videoUrl: string,
+  apiKey: string
+): Promise<string> {
+  console.log("[Video Analysis] Analyzing swing video with Gemini");
+
+  const analysisPrompt = `You are Coach Rick, an expert baseball swing analyst. Analyze this swing video and provide:
+
+1. IMMEDIATE OBSERVATIONS (what you see in the swing mechanics)
+2. KEY STRENGTHS (1-2 things they're doing well)
+3. PRIMARY ISSUE (the biggest thing limiting power/consistency)
+4. ONE DRILL RECOMMENDATION (specific drill to address the issue)
+
+Keep your analysis SHORT and ACTIONABLE - this will be sent via SMS.
+Focus on observable mechanics: timing, hip rotation, hand path, bat lag, weight transfer.
+Use baseball terminology naturally but explain concepts briefly.
+Be encouraging but direct about what needs work.
+
+Format your response in 2-3 short paragraphs, under 300 characters total if possible.`;
+
+  try {
+    const response = await fetch(LOVABLE_AI_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: analysisPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Analyze this baseball swing video:" },
+              { type: "image_url", image_url: { url: videoUrl } }
+            ]
+          }
+        ],
+        max_tokens: 400,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[Video Analysis] Gemini error:", response.status, errorText);
+      
+      if (response.status === 429) {
+        return "⚠️ Video analysis rate limited. Try again in a minute.";
+      }
+      if (response.status === 402) {
+        return "⚠️ Video analysis unavailable (payment required).";
+      }
+      
+      throw new Error("AI analysis failed");
+    }
+
+    const data = await response.json();
+    const analysis = data.choices?.[0]?.message?.content?.trim();
+    
+    if (!analysis) {
+      return "Couldn't analyze the video. Please try a clearer clip.";
+    }
+
+    return analysis;
+  } catch (error) {
+    console.error("[Video Analysis] Error:", error);
+    return "❌ Video analysis failed. Please try again with a shorter clip.";
+  }
+}
+
+async function handleVideoAnalysis(
+  supabase: any,
+  videoUrl: string,
+  contentType: string,
+  apiKey: string
+): Promise<string> {
+  console.log("[Video Analysis] Processing MMS video:", videoUrl);
+
+  try {
+    // 1. Download video from Twilio
+    const videoData = await downloadTwilioMedia(videoUrl);
+    console.log(`[Video Analysis] Downloaded ${videoData.length} bytes`);
+
+    // 2. Upload to Supabase storage
+    const timestamp = Date.now();
+    const extension = contentType.includes("mp4") ? "mp4" : contentType.includes("mov") ? "mov" : "mp4";
+    const storagePath = `admin-uploads/${timestamp}_swing.${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("swing-videos")
+      .upload(storagePath, videoData, {
+        contentType: contentType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("[Video Analysis] Storage upload error:", uploadError);
+      return "❌ Failed to save video. Please try again.";
+    }
+
+    // 3. Get public URL
+    const { data: urlData } = supabase.storage
+      .from("swing-videos")
+      .getPublicUrl(storagePath);
+
+    const publicUrl = urlData?.publicUrl;
+    console.log("[Video Analysis] Video saved to:", publicUrl);
+
+    // 4. Analyze with Gemini
+    const analysis = await analyzeSwingVideo(supabase, publicUrl, apiKey);
+
+    return `🎥 Swing Analysis:\n\n${analysis}`;
+  } catch (error) {
+    console.error("[Video Analysis] Error:", error);
+    return `❌ Video processing failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+  }
+}
+
+// ============================================================
 // AI RESPONSE GENERATION WITH FULL CONTEXT
 // ============================================================
 
@@ -549,13 +934,21 @@ serve(async (req) => {
     }
     
     const from = formData.get("From") as string;
-    const body = formData.get("Body") as string;
+    const body = formData.get("Body") as string || "";
+    
+    // Extract MMS media attachments
+    const mediaUrl0 = formData.get("MediaUrl0") as string | null;
+    const mediaContentType0 = formData.get("MediaContentType0") as string | null;
+    const numMedia = parseInt(formData.get("NumMedia") as string || "0", 10);
 
-    console.log("[Twilio Webhook] Received SMS from:", from, "Body:", body?.slice(0, 50));
+    console.log("[Twilio Webhook] Received SMS from:", from, "Body:", body?.slice(0, 50), "Media:", numMedia);
 
-    if (!from || !body) {
+    if (!from) {
       throw new Error("Missing required fields");
     }
+    
+    // For MMS without body text, set a default
+    const messageBody = body || (numMedia > 0 ? "[Media attachment]" : "");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -596,7 +989,7 @@ serve(async (req) => {
     // ============================================================
     
     if (adminMode) {
-      const command = parseAdminCommand(body);
+      const command = parseAdminCommand(messageBody, mediaUrl0 || undefined, mediaContentType0 || undefined);
       console.log("[Twilio Webhook] Admin command:", command.type);
       
       if (command.type !== "none") {
@@ -684,6 +1077,57 @@ serve(async (req) => {
               : `❌ Failed to unblock ${maskPhone(command.phone!)}`;
             break;
           }
+          
+          case "fetch_sessions": {
+            const player = await findPlayerByName(supabase, command.playerName!);
+            if (player) {
+              if (!player.reboot_athlete_id) {
+                responseText = `❌ ${player.name} has no Reboot athlete ID linked.`;
+              } else {
+                responseText = `⏳ Fetching Reboot sessions for ${player.name}...`;
+                // Send initial response
+                await sendSMS(from, responseText);
+                
+                const result = await fetchRebootSessionsForPlayer(
+                  supabase,
+                  player.id,
+                  player.reboot_athlete_id
+                );
+                
+                if (result.error) {
+                  responseText = `❌ Error: ${result.error}`;
+                } else {
+                  const krsText = result.latestKrs ? ` Latest KRS: ${result.latestKrs}` : "";
+                  responseText = `✅ ${player.name}: Found ${result.sessions.length} sessions.`;
+                  if (result.processed > 0) {
+                    responseText += ` Processed ${result.processed} new.`;
+                  }
+                  responseText += krsText;
+                }
+              }
+            } else {
+              responseText = `❌ No player found matching "${command.playerName}"`;
+            }
+            break;
+          }
+          
+          case "video_analysis": {
+            const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+            if (!LOVABLE_API_KEY) {
+              responseText = "❌ Video analysis not configured.";
+            } else {
+              responseText = `⏳ Analyzing swing video...`;
+              await sendSMS(from, responseText);
+              
+              responseText = await handleVideoAnalysis(
+                supabase,
+                command.videoUrl!,
+                command.videoContentType || "video/mp4",
+                LOVABLE_API_KEY
+              );
+            }
+            break;
+          }
         }
         
         // Send admin response via Twilio (not TwiML)
@@ -712,7 +1156,7 @@ serve(async (req) => {
     // ============================================================
     
     // Check for opt-out
-    if (isOptOut(body)) {
+    if (isOptOut(messageBody)) {
       console.log("[Twilio Webhook] Player opted out:", from);
       
       if (playerId) {
@@ -727,7 +1171,7 @@ serve(async (req) => {
         session_id: session?.id || null,
         phone_number: from,
         direction: "inbound",
-        body: body,
+        body: messageBody,
         twilio_sid: messageSid,
         status: "received",
         trigger_type: "opt_out",
@@ -741,7 +1185,7 @@ serve(async (req) => {
     }
 
     // Check for opt-in
-    if (body.toLowerCase().trim() === "start") {
+    if (messageBody.toLowerCase().trim() === "start") {
       console.log("[Twilio Webhook] Player opted in:", from);
       
       if (playerId) {
@@ -756,7 +1200,7 @@ serve(async (req) => {
         session_id: session?.id || null,
         phone_number: from,
         direction: "inbound",
-        body: body,
+        body: messageBody,
         twilio_sid: messageSid,
         status: "received",
         trigger_type: "opt_in",
@@ -775,7 +1219,7 @@ serve(async (req) => {
       session_id: session?.id || null,
       phone_number: from,
       direction: "inbound",
-      body: body,
+      body: messageBody,
       twilio_sid: messageSid,
       status: "received",
       trigger_type: "reply",
@@ -848,7 +1292,7 @@ serve(async (req) => {
       const aiReply = await generateAIResponse(
         supabase,
         player,
-        body,
+        messageBody,
         conversationHistory,
         LOVABLE_API_KEY
       );
