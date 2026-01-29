@@ -885,11 +885,29 @@ Remember: You're their coach via text. Keep it short, personal, and actionable.`
 // SEND MESSAGE VIA TWILIO (SMS or WhatsApp)
 // ============================================================
 
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function twimlMessage(message: string): string {
+  // Keep it minimal and safe for XML.
+  return `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeXml(message)}</Message></Response>`;
+}
+
 /**
  * Send a message via Twilio (SMS or WhatsApp)
  * Automatically detects channel based on the original "from" address
  */
-async function sendMessage(to: string, message: string, isWhatsApp: boolean = false): Promise<{ success: boolean; sid?: string }> {
+async function sendMessage(
+  to: string,
+  message: string,
+  isWhatsApp: boolean = false,
+): Promise<{ success: boolean; sid?: string; error?: { code?: number; message?: string; status?: number } }> {
   const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
   const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
   const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER");
@@ -929,7 +947,14 @@ async function sendMessage(to: string, message: string, isWhatsApp: boolean = fa
     return { success: true, sid: data.sid };
   } else {
     console.error("[Twilio Webhook] Failed to send message:", data);
-    return { success: false };
+    return {
+      success: false,
+      error: {
+        code: typeof data?.code === "number" ? data.code : undefined,
+        message: typeof data?.message === "string" ? data.message : undefined,
+        status: typeof data?.status === "number" ? data.status : undefined,
+      },
+    };
   }
 }
 
@@ -1177,9 +1202,30 @@ serve(async (req) => {
             break;
           }
         }
-        
-        // Send admin response via Twilio (not TwiML) - use correct channel
-        const result = await sendMessage(from, responseText, isWhatsApp);
+
+        // For WhatsApp sandbox reliability: prefer responding via TwiML for quick, single-message admin replies.
+        // (Keep REST send for multi-step commands that intentionally send progress + final messages.)
+        const isMultiStepAdminCommand = command.type === "fetch_sessions" || command.type === "video_analysis";
+
+        let result: { success: boolean; sid?: string; error?: { code?: number; message?: string; status?: number } } = { success: true };
+
+        if (isWhatsApp && !isMultiStepAdminCommand) {
+          // No REST API call needed; Twilio will deliver this response on the same channel.
+          await supabase.from("coach_api_audit_log").insert({
+            action: `admin_${command.type}`,
+            phone: normalizedFrom,
+            request_body: { command, response: responseText, delivery: "twiml" },
+            response_status: 200,
+          });
+
+          return new Response(twimlMessage(responseText), {
+            headers: { ...corsHeaders, "Content-Type": "text/xml" },
+            status: 200,
+          });
+        }
+
+        // Otherwise send admin response via REST (existing behavior)
+        result = await sendMessage(from, responseText, isWhatsApp);
         
         // Log admin command
         await supabase.from("coach_api_audit_log").insert({
@@ -1188,7 +1234,15 @@ serve(async (req) => {
           request_body: { command, response: responseText },
           response_status: result.success ? 200 : 500,
         });
-        
+
+        // If WhatsApp REST send fails, fall back to TwiML so the user still gets a reply in sandbox.
+        if (isWhatsApp && !result.success) {
+          return new Response(twimlMessage(responseText), {
+            headers: { ...corsHeaders, "Content-Type": "text/xml" },
+            status: 200,
+          });
+        }
+
         return new Response(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`, {
           headers: { ...corsHeaders, "Content-Type": "text/xml" },
           status: 200,
@@ -1372,6 +1426,13 @@ serve(async (req) => {
           message_sent: aiReply,
           twilio_sid: result.sid,
           status: "sent",
+        });
+      } else if (isWhatsApp) {
+        // WhatsApp sandbox may fail REST sends (e.g., 63007) depending on Twilio account/channel config.
+        // Return TwiML as a fallback so Twilio replies on the same WhatsApp thread.
+        return new Response(twimlMessage(aiReply), {
+          headers: { ...corsHeaders, "Content-Type": "text/xml" },
+          status: 200,
         });
       }
     } else {
