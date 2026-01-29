@@ -170,3 +170,12 @@ verify_jwt = false
 
 [functions.coach-analyze-external]
 verify_jwt = false
+
+[functions.coach-set-dk-email]
+verify_jwt = false
+
+[functions.coach-get-pending-sensors]
+verify_jwt = false
+
+[functions.coach-mark-sensor-connected]
+verify_jwt = false

@@ -2566,11 +2566,13 @@ export type Database = {
           created_at: string | null
           current_bat_speed: number | null
           current_streak: number | null
+          dk_email: string | null
           email: string | null
           email_opt_in: boolean | null
           fangraphs_id: string | null
           handedness: string | null
           has_ghost_session: boolean | null
+          has_sensor: boolean | null
           height_inches: number | null
           id: string
           is_beta_tester: boolean | null
@@ -2602,6 +2604,9 @@ export type Database = {
           sensor_baseline_complete: boolean | null
           sensor_baseline_date: string | null
           sensor_baseline_session_id: string | null
+          sensor_connected: boolean | null
+          sensor_connected_at: string | null
+          sensor_reminder_sent_at: string | null
           sessions_this_week: number | null
           sms_opt_in: boolean | null
           stripe_customer_id: string | null
@@ -2625,11 +2630,13 @@ export type Database = {
           created_at?: string | null
           current_bat_speed?: number | null
           current_streak?: number | null
+          dk_email?: string | null
           email?: string | null
           email_opt_in?: boolean | null
           fangraphs_id?: string | null
           handedness?: string | null
           has_ghost_session?: boolean | null
+          has_sensor?: boolean | null
           height_inches?: number | null
           id?: string
           is_beta_tester?: boolean | null
@@ -2661,6 +2668,9 @@ export type Database = {
           sensor_baseline_complete?: boolean | null
           sensor_baseline_date?: string | null
           sensor_baseline_session_id?: string | null
+          sensor_connected?: boolean | null
+          sensor_connected_at?: string | null
+          sensor_reminder_sent_at?: string | null
           sessions_this_week?: number | null
           sms_opt_in?: boolean | null
           stripe_customer_id?: string | null
@@ -2684,11 +2694,13 @@ export type Database = {
           created_at?: string | null
           current_bat_speed?: number | null
           current_streak?: number | null
+          dk_email?: string | null
           email?: string | null
           email_opt_in?: boolean | null
           fangraphs_id?: string | null
           handedness?: string | null
           has_ghost_session?: boolean | null
+          has_sensor?: boolean | null
           height_inches?: number | null
           id?: string
           is_beta_tester?: boolean | null
@@ -2720,6 +2732,9 @@ export type Database = {
           sensor_baseline_complete?: boolean | null
           sensor_baseline_date?: string | null
           sensor_baseline_session_id?: string | null
+          sensor_connected?: boolean | null
+          sensor_connected_at?: string | null
+          sensor_reminder_sent_at?: string | null
           sessions_this_week?: number | null
           sms_opt_in?: boolean | null
           stripe_customer_id?: string | null
