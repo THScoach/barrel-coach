@@ -1,11 +1,13 @@
 /**
  * Twilio Webhook Handler - Admin Mode Enabled
  * 
- * Receives inbound SMS from players and admins:
+ * Receives inbound SMS and WhatsApp messages from players and admins:
  * 1. Handles opt-out/opt-in keywords (STOP/START)
  * 2. Detects admin commands for memory management
  * 3. Logs messages to database
  * 4. Triggers AI-powered Coach Rick responses with full context
+ * 
+ * WhatsApp messages use format: whatsapp:+1234567890
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -25,8 +27,33 @@ const ADMIN_PHONES = ["+13148338250", "+13143868232"];
 // UTILITY FUNCTIONS
 // ============================================================
 
+/**
+ * Check if the number is a WhatsApp number (prefixed with "whatsapp:")
+ */
+function isWhatsAppNumber(phone: string): boolean {
+  return phone.toLowerCase().startsWith("whatsapp:");
+}
+
+/**
+ * Extract the raw phone number from WhatsApp format
+ * "whatsapp:+1234567890" -> "+1234567890"
+ */
+function extractPhoneFromWhatsApp(phone: string): string {
+  if (isWhatsAppNumber(phone)) {
+    return phone.substring(9); // Remove "whatsapp:" prefix
+  }
+  return phone;
+}
+
+/**
+ * Normalize phone number to E.164 format
+ * Handles both SMS and WhatsApp formats
+ */
 function normalizePhone(phone: string): string {
-  let normalized = phone.replace(/\D/g, "");
+  // First extract phone from WhatsApp format if needed
+  const rawPhone = extractPhoneFromWhatsApp(phone);
+  
+  let normalized = rawPhone.replace(/\D/g, "");
   if (normalized.length === 10) {
     normalized = "+1" + normalized;
   } else if (!normalized.startsWith("+")) {
@@ -46,7 +73,8 @@ function isOptOut(message: string): boolean {
 }
 
 function maskPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
+  const rawPhone = extractPhoneFromWhatsApp(phone);
+  const digits = rawPhone.replace(/\D/g, "");
   if (digits.length >= 10) {
     return `***-***-${digits.slice(-4)}`;
   }
@@ -854,13 +882,18 @@ Remember: You're their coach via text. Keep it short, personal, and actionable.`
 }
 
 // ============================================================
-// SEND SMS VIA TWILIO
+// SEND MESSAGE VIA TWILIO (SMS or WhatsApp)
 // ============================================================
 
-async function sendSMS(to: string, message: string): Promise<{ success: boolean; sid?: string }> {
+/**
+ * Send a message via Twilio (SMS or WhatsApp)
+ * Automatically detects channel based on the original "from" address
+ */
+async function sendMessage(to: string, message: string, isWhatsApp: boolean = false): Promise<{ success: boolean; sid?: string }> {
   const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
   const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
   const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER");
+  const TWILIO_WHATSAPP_NUMBER = Deno.env.get("TWILIO_WHATSAPP_NUMBER") || TWILIO_PHONE_NUMBER;
   
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
     console.error("[Twilio Webhook] Missing Twilio credentials");
@@ -871,6 +904,12 @@ async function sendSMS(to: string, message: string): Promise<{ success: boolean;
   const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
   const credentials = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
   
+  // Format To and From based on channel
+  const toAddress = isWhatsApp ? `whatsapp:${formattedPhone}` : formattedPhone;
+  const fromAddress = isWhatsApp ? `whatsapp:${TWILIO_WHATSAPP_NUMBER}` : TWILIO_PHONE_NUMBER;
+  
+  console.log(`[Twilio Webhook] Sending ${isWhatsApp ? "WhatsApp" : "SMS"} to ${toAddress} from ${fromAddress}`);
+  
   const response = await fetch(twilioUrl, {
     method: "POST",
     headers: {
@@ -878,8 +917,8 @@ async function sendSMS(to: string, message: string): Promise<{ success: boolean;
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: new URLSearchParams({
-      To: formattedPhone,
-      From: TWILIO_PHONE_NUMBER,
+      To: toAddress,
+      From: fromAddress,
       Body: message,
     }),
   });
@@ -889,9 +928,14 @@ async function sendSMS(to: string, message: string): Promise<{ success: boolean;
   if (response.ok) {
     return { success: true, sid: data.sid };
   } else {
-    console.error("[Twilio Webhook] Failed to send SMS:", data);
+    console.error("[Twilio Webhook] Failed to send message:", data);
     return { success: false };
   }
+}
+
+// Backward compatibility alias
+async function sendSMS(to: string, message: string): Promise<{ success: boolean; sid?: string }> {
+  return sendMessage(to, message, false);
 }
 
 // ============================================================
@@ -936,18 +980,22 @@ serve(async (req) => {
     const from = formData.get("From") as string;
     const body = formData.get("Body") as string || "";
     
+    // Detect if this is a WhatsApp message
+    const isWhatsApp = isWhatsAppNumber(from);
+    const channelType = isWhatsApp ? "whatsapp" : "sms";
+    
     // Extract MMS media attachments
     const mediaUrl0 = formData.get("MediaUrl0") as string | null;
     const mediaContentType0 = formData.get("MediaContentType0") as string | null;
     const numMedia = parseInt(formData.get("NumMedia") as string || "0", 10);
 
-    console.log("[Twilio Webhook] Received SMS from:", from, "Body:", body?.slice(0, 50), "Media:", numMedia);
+    console.log(`[Twilio Webhook] Received ${channelType.toUpperCase()} from:`, from, "Body:", body?.slice(0, 50), "Media:", numMedia);
 
     if (!from) {
       throw new Error("Missing required fields");
     }
     
-    // For MMS without body text, set a default
+    // For MMS/media without body text, set a default
     const messageBody = body || (numMedia > 0 ? "[Media attachment]" : "");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -1085,8 +1133,8 @@ serve(async (req) => {
                 responseText = `❌ ${player.name} has no Reboot athlete ID linked.`;
               } else {
                 responseText = `⏳ Fetching Reboot sessions for ${player.name}...`;
-                // Send initial response
-                await sendSMS(from, responseText);
+                // Send initial response (use correct channel)
+                await sendMessage(from, responseText, isWhatsApp);
                 
                 const result = await fetchRebootSessionsForPlayer(
                   supabase,
@@ -1117,7 +1165,7 @@ serve(async (req) => {
               responseText = "❌ Video analysis not configured.";
             } else {
               responseText = `⏳ Analyzing swing video...`;
-              await sendSMS(from, responseText);
+              await sendMessage(from, responseText, isWhatsApp);
               
               responseText = await handleVideoAnalysis(
                 supabase,
@@ -1130,8 +1178,8 @@ serve(async (req) => {
           }
         }
         
-        // Send admin response via Twilio (not TwiML)
-        const result = await sendSMS(from, responseText);
+        // Send admin response via Twilio (not TwiML) - use correct channel
+        const result = await sendMessage(from, responseText, isWhatsApp);
         
         // Log admin command
         await supabase.from("coach_api_audit_log").insert({
@@ -1299,8 +1347,8 @@ serve(async (req) => {
 
       console.log("[Twilio Webhook] AI reply:", aiReply.slice(0, 50) + "...");
 
-      // Send via Twilio
-      const result = await sendSMS(from, aiReply);
+      // Send via Twilio (use correct channel based on original message)
+      const result = await sendMessage(from, aiReply, isWhatsApp);
 
       if (result.success) {
         console.log("[Twilio Webhook] AI reply sent:", result.sid);
