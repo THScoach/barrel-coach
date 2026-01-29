@@ -212,6 +212,33 @@ serve(async (req) => {
       ];
     }
 
+    // Query pending sensor connections for follow-up section
+    const { data: pendingSensors } = await supabase
+      .from("players")
+      .select("phone, name, membership_tier, created_at, sensor_reminder_sent_at")
+      .eq("has_sensor", true)
+      .or("sensor_connected.is.null,sensor_connected.eq.false")
+      .order("created_at", { ascending: true })
+      .limit(10);
+
+    if (pendingSensors && pendingSensors.length > 0) {
+      lines.push("");
+      lines.push("🔔 Sensor Connection Follow-ups");
+      lines.push(`${pendingSensors.length} player(s) need DK setup:`);
+      
+      pendingSensors.slice(0, 5).forEach((p, idx) => {
+        const createdAt = new Date(p.created_at);
+        const daysWaiting = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+        const phoneHint = p.phone ? `****${p.phone.replace(/\D/g, "").slice(-4)}` : "no phone";
+        const firstName = p.name?.split(" ")[0] || "Unknown";
+        lines.push(`${idx + 1}. ${firstName} (${phoneHint}) - ${daysWaiting}d waiting`);
+      });
+      
+      if (pendingSensors.length > 5) {
+        lines.push(`... and ${pendingSensors.length - 5} more`);
+      }
+    }
+
     const report = lines.join("\n");
 
     console.log(`[DailyReport] Generated report: ${totalCalls} calls, ${uniquePlayers} players`);

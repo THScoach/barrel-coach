@@ -70,6 +70,9 @@ interface UpdateRequest {
   notes?: string;
   last_contact_date?: string;
   tags?: string[];
+  // Sensor onboarding fields
+  has_sensor?: boolean;
+  membership_tier?: string;
   // Conversation logging
   message_type?: "inbound" | "outbound";
   message_content?: string;
@@ -263,6 +266,12 @@ serve(async (req) => {
       }
       if (requestBody.tags !== undefined) {
         updateFields.tags = requestBody.tags;
+      }
+      if (requestBody.has_sensor !== undefined) {
+        updateFields.has_sensor = requestBody.has_sensor;
+      }
+      if (requestBody.membership_tier !== undefined) {
+        updateFields.membership_tier = requestBody.membership_tier;
       }
 
       if (Object.keys(updateFields).length === 0) {
