@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface ProtectedAdminRouteProps {
@@ -7,6 +7,7 @@ interface ProtectedAdminRouteProps {
 
 export function ProtectedAdminRoute({ children }: ProtectedAdminRouteProps) {
   const { user, isAdmin, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -19,9 +20,10 @@ export function ProtectedAdminRoute({ children }: ProtectedAdminRouteProps) {
     );
   }
 
-  // Not authenticated - redirect to login
+  // Not authenticated - redirect to login with return URL
   if (!user) {
-    return <Navigate to="/login" replace />;
+    const returnTo = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
   }
 
   // Authenticated but not admin - show access denied
