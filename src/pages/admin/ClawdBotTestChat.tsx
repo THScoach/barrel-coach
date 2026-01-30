@@ -14,8 +14,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { 
   FlaskConical, ArrowLeft, Bot, User, Send, Trash2, ThumbsUp, ThumbsDown, 
-  Pencil, ChevronDown, ChevronRight, Loader2 
+  Pencil, ChevronDown, ChevronRight, Loader2, Video, Upload 
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
@@ -52,6 +53,11 @@ export default function ClawdBotTestChat() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [correctedResponse, setCorrectedResponse] = useState("");
   const [coachNotes, setCoachNotes] = useState("");
+  
+  // Video upload state
+  const [isProcessingVideo, setIsProcessingVideo] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   // Custom context
   const [customContext, setCustomContext] = useState<PlayerContext>({
@@ -211,6 +217,83 @@ export default function ClawdBotTestChat() {
   const clearChat = () => {
     setMessages([]);
     setLastDebugInfo(null);
+  };
+
+  const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ['video/mp4', 'video/quicktime', 'video/webm'];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Invalid file type. Please upload MP4, MOV, or WebM files.");
+      return;
+    }
+
+    if (file.size > 500 * 1024 * 1024) {
+      toast.error("File too large. Maximum size is 500MB.");
+      return;
+    }
+
+    setIsProcessingVideo(true);
+    setVideoProgress(10);
+
+    try {
+      // Upload to storage
+      const storagePath = `clawdbot-learning/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      setVideoProgress(30);
+      
+      const { error: uploadError } = await supabase.storage
+        .from('videos')
+        .upload(storagePath, file, { cacheControl: '3600', upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      setVideoProgress(50);
+
+      // Get public URL
+      const { data: urlData } = await supabase.storage
+        .from('videos')
+        .createSignedUrl(storagePath, 60 * 60 * 24);
+
+      if (!urlData?.signedUrl) throw new Error("Failed to get video URL");
+
+      setVideoProgress(70);
+
+      // Process video
+      const { data, error } = await supabase.functions.invoke("process-clawdbot-video", {
+        body: {
+          videoUrl: urlData.signedUrl,
+          title: file.name.replace(/\.[^/.]+$/, ''),
+          contentType: "both",
+        },
+      });
+
+      setVideoProgress(100);
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Processing failed");
+
+      toast.success(
+        `Added ${data.results.knowledge_added} knowledge, ${data.results.scenarios_added} scenarios, ${data.results.cues_added} cues`
+      );
+
+      // Add system message to chat
+      const systemMsg: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `📚 Video "${file.name}" processed! Added ${data.results.knowledge_added} knowledge entries, ${data.results.scenarios_added} Q&A scenarios, and ${data.results.cues_added} coaching cues to my training.`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, systemMsg]);
+
+    } catch (err) {
+      console.error("Video upload error:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to process video");
+    } finally {
+      setIsProcessingVideo(false);
+      setVideoProgress(0);
+      if (event.target) event.target.value = '';
+    }
   };
 
   return (
@@ -440,16 +523,42 @@ export default function ClawdBotTestChat() {
 
               {/* Input */}
               <div className="p-4 border-t border-slate-700">
+                {isProcessingVideo && (
+                  <div className="mb-3 space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-purple-400">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Processing video for learning...
+                    </div>
+                    <Progress value={videoProgress} className="h-2" />
+                  </div>
+                )}
                 <div className="flex gap-2">
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm"
+                    onChange={handleVideoUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => videoInputRef.current?.click()}
+                    disabled={isLoading || isProcessingVideo}
+                    className="border-purple-500/50 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
+                    title="Upload video to learn from"
+                  >
+                    <Video className="h-4 w-4" />
+                  </Button>
                   <Input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
                     placeholder="Type a message..."
                     className="bg-slate-800 border-slate-700 text-white"
-                    disabled={isLoading}
+                    disabled={isLoading || isProcessingVideo}
                   />
-                  <Button onClick={sendMessage} disabled={!input.trim() || isLoading} className="bg-accent hover:bg-accent/90">
+                  <Button onClick={sendMessage} disabled={!input.trim() || isLoading || isProcessingVideo} className="bg-accent hover:bg-accent/90">
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>

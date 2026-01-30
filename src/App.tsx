@@ -69,6 +69,7 @@ import KnowledgeBaseEditor from "./pages/admin/KnowledgeBaseEditor";
 import ScenarioTrainer from "./pages/admin/ScenarioTrainer";
 import CueBankManager from "./pages/admin/CueBankManager";
 import ClawdBotTestChat from "./pages/admin/ClawdBotTestChat";
+import ClawdBotVideos from "./pages/admin/ClawdBotVideos";
 
 // Player pages
 import PlayerDashboard4B from "./pages/player/PlayerDashboard4B";
@@ -281,6 +282,11 @@ const App = () => (
               <Route path="/admin/clawdbot/test" element={
                 <ProtectedAdminRoute>
                   <ClawdBotTestChat />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/clawdbot/videos" element={
+                <ProtectedAdminRoute>
+                  <ClawdBotVideos />
                 </ProtectedAdminRoute>
               } />
 
