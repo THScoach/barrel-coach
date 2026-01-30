@@ -44,10 +44,12 @@ interface Player {
 
 interface RebootSession {
   id: string;
-  org_player_id: string;
+  org_player_id?: string;
   created_at: string;
-  movement_type: string;
+  movement_type?: string;
   status: string;
+  percent_complete?: number;
+  session_date?: string;
 }
 
 interface RebootDataExport {
@@ -122,12 +124,13 @@ class RebootClient {
   }
 
   /**
-   * List sessions for a specific player using X-Api-Key
+   * List ALL sessions from the org - sessions don't have player IDs at this level
+   * Players are associated at the movement level, so we return all completed sessions
+   * and let the export step validate if the player has data in that session
    */
-  async listPlayerSessions(rebootPlayerId: string, limit = 50): Promise<RebootSession[]> {
+  async listAllCompletedSessions(limit = 50): Promise<RebootSession[]> {
     try {
       const url = new URL(`${REBOOT_API_BASE}/sessions`);
-      url.searchParams.set('org_player_id', rebootPlayerId);
       url.searchParams.set('limit', limit.toString());
 
       const response = await fetch(url.toString(), {
@@ -143,13 +146,23 @@ class RebootClient {
       }
 
       const raw = await response.json();
-      // Handle different response formats
-      if (Array.isArray(raw)) return raw;
-      if (raw.sessions) return raw.sessions;
-      if (raw.data) return raw.data;
-      return [];
+      
+      // Parse response
+      let allSessions: RebootSession[] = [];
+      if (Array.isArray(raw)) allSessions = raw;
+      else if (raw.sessions) allSessions = raw.sessions;
+      else if (raw.data) allSessions = raw.data;
+      
+      // Filter for completed sessions only (filter client-side since API doesn't support status enum)
+      const completedSessions = allSessions.filter(s => 
+        s.status === 'completed' || s.status === 'complete' || s.percent_complete === 100
+      );
+      
+      console.log(`[RebootClient] Found ${allSessions.length} total sessions, ${completedSessions.length} completed`);
+      
+      return completedSessions;
     } catch (error) {
-      console.log(`Could not list sessions for player ${rebootPlayerId}: ${error}`);
+      console.log(`Could not list sessions: ${error}`);
       return [];
     }
   }
@@ -622,16 +635,19 @@ async function syncPlayerSessions(
   };
 
   try {
-    // 1. Get sessions from Reboot API (use reboot_athlete_id, fallback to reboot_player_id)
+    // 1. Get ALL completed sessions from Reboot API
+    // Sessions don't have player IDs - players are associated at movement level
+    // We'll attempt export for each session and handle 404s gracefully
     const rebootId = player.reboot_athlete_id || player.reboot_player_id;
     if (!rebootId) {
       result.errors.push('No Reboot ID found for player');
       return result;
     }
-    const rebootSessions = await reboot.listPlayerSessions(rebootId);
-    result.sessions_found = rebootSessions.length;
+    
+    const allSessions = await reboot.listAllCompletedSessions();
+    result.sessions_found = allSessions.length;
 
-    if (rebootSessions.length === 0) {
+    if (allSessions.length === 0) {
       return result;
     }
 
@@ -644,22 +660,18 @@ async function syncPlayerSessions(
 
     const existingIds = new Set(existingSessions?.map(s => s.reboot_session_id) || []);
 
-    // 3. Find new sessions
-    const newSessions = rebootSessions.filter(s => !existingIds.has(s.id));
+    // 3. Find sessions we haven't processed yet for this player
+    const newSessions = allSessions.filter((s: RebootSession) => !existingIds.has(s.id));
     result.sessions_new = newSessions.length;
 
     if (newSessions.length === 0) {
       return result;
     }
 
-    // 4. Process each new session
+    // 4. Process each new session - attempt export and handle gracefully if player not in session
     for (const session of newSessions) {
       try {
-        // Get the reboot ID for this player (needed for data export)
-        const rebootId = player.reboot_athlete_id || player.reboot_player_id;
-        if (!rebootId) continue;
-        
-        // Request momentum-energy CSV export
+        // Request momentum-energy CSV export - this will 404 if player not in this session
         const exportData = await reboot.requestDataExport(session.id, rebootId, 'momentum-energy');
         
         if (!exportData?.download_url) {
