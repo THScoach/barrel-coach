@@ -182,3 +182,6 @@ verify_jwt = false
 
 [functions.clawdbot-chat]
 verify_jwt = false
+
+[functions.analyze-video-script]
+verify_jwt = false
