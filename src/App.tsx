@@ -64,6 +64,11 @@ import AdminCoachRickVault from "./pages/AdminCoachRickVault";
 import AdminBroadcast from "./pages/AdminBroadcast";
 import AdminContentEngine from "./pages/AdminContentEngine";
 import AdminKnowledgeBase from "./pages/AdminKnowledgeBase";
+import ClawdBotAdmin from "./pages/admin/ClawdBotAdmin";
+import KnowledgeBaseEditor from "./pages/admin/KnowledgeBaseEditor";
+import ScenarioTrainer from "./pages/admin/ScenarioTrainer";
+import CueBankManager from "./pages/admin/CueBankManager";
+import ClawdBotTestChat from "./pages/admin/ClawdBotTestChat";
 
 // Player pages
 import PlayerDashboard4B from "./pages/player/PlayerDashboard4B";
@@ -251,6 +256,31 @@ const App = () => (
               <Route path="/admin/knowledge-base" element={
                 <ProtectedAdminRoute>
                   <AdminKnowledgeBase />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/clawdbot" element={
+                <ProtectedAdminRoute>
+                  <ClawdBotAdmin />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/clawdbot/knowledge" element={
+                <ProtectedAdminRoute>
+                  <KnowledgeBaseEditor />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/clawdbot/scenarios" element={
+                <ProtectedAdminRoute>
+                  <ScenarioTrainer />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/clawdbot/cues" element={
+                <ProtectedAdminRoute>
+                  <CueBankManager />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/clawdbot/test" element={
+                <ProtectedAdminRoute>
+                  <ClawdBotTestChat />
                 </ProtectedAdminRoute>
               } />
 
