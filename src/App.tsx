@@ -38,6 +38,7 @@ import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Session from "./pages/Session";
 import ConnectDK from "./pages/ConnectDK";
+import Rick from "./pages/Rick";
 
 // Admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -123,6 +124,8 @@ const App = () => (
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/session" element={<Session />} />
               <Route path="/connect-dk" element={<ConnectDK />} />
+              <Route path="/rick" element={<Rick />} />
+
 
               {/* Player Portal Routes - 4B First Dashboard */}
               <Route path="/player" element={<PlayerLayout />}>

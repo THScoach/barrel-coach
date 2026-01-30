@@ -185,3 +185,9 @@ verify_jwt = false
 
 [functions.analyze-video-script]
 verify_jwt = false
+
+[functions.rickbot-command]
+verify_jwt = false
+
+[functions.rickbot-transcribe]
+verify_jwt = false
