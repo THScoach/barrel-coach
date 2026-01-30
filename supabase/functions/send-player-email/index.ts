@@ -129,7 +129,7 @@ ${message}
 
     // Send email via Resend
     const emailResponse = await resend.emails.send({
-      from: "Catching Barrels <onboarding@resend.dev>",
+      from: "Catching Barrels <barrels@catchingbarrels.io>",
       to: [player.email],
       subject: emailSubject,
       html: emailHtml,
