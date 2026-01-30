@@ -197,3 +197,6 @@ verify_jwt = false
 
 [functions.fangraphs-lookup]
 verify_jwt = false
+
+[functions.queue-deep-analysis]
+verify_jwt = false
