@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bot, BookOpen, MessageSquare, Target, FlaskConical, ThumbsUp, ThumbsDown, Video } from "lucide-react";
 
-export default function ClawdBotAdmin() {
+export default function CoachRickAIAdmin() {
   // Knowledge count
   const { data: knowledgeCount = 0 } = useQuery({
-    queryKey: ["clawdbot-knowledge-count"],
+    queryKey: ["coach-rick-knowledge-count"],
     queryFn: async () => {
       const { count } = await supabase
         .from("clawdbot_knowledge")
@@ -20,7 +20,7 @@ export default function ClawdBotAdmin() {
 
   // Scenarios count
   const { data: scenariosCount = 0 } = useQuery({
-    queryKey: ["clawdbot-scenarios-count"],
+    queryKey: ["coach-rick-scenarios-count"],
     queryFn: async () => {
       const { count } = await supabase
         .from("clawdbot_scenarios")
@@ -31,7 +31,7 @@ export default function ClawdBotAdmin() {
 
   // Cues count
   const { data: cuesCount = 0 } = useQuery({
-    queryKey: ["clawdbot-cues-count"],
+    queryKey: ["coach-rick-cues-count"],
     queryFn: async () => {
       const { count } = await supabase
         .from("clawdbot_cues")
@@ -42,7 +42,7 @@ export default function ClawdBotAdmin() {
 
   // Ratings stats
   const { data: ratingsStats } = useQuery({
-    queryKey: ["clawdbot-ratings-stats"],
+    queryKey: ["coach-rick-ratings-stats"],
     queryFn: async () => {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data } = await supabase
@@ -58,17 +58,17 @@ export default function ClawdBotAdmin() {
   });
 
   const stats = [
-    { label: "Knowledge Entries", value: knowledgeCount, icon: BookOpen, href: "/admin/clawdbot/knowledge" },
-    { label: "Scenarios", value: scenariosCount, icon: MessageSquare, href: "/admin/clawdbot/scenarios" },
-    { label: "Cues", value: cuesCount, icon: Target, href: "/admin/clawdbot/cues" },
+    { label: "Knowledge Entries", value: knowledgeCount, icon: BookOpen, href: "/admin/coach-rick-ai/knowledge" },
+    { label: "Scenarios", value: scenariosCount, icon: MessageSquare, href: "/admin/coach-rick-ai/scenarios" },
+    { label: "Cues", value: cuesCount, icon: Target, href: "/admin/coach-rick-ai/cues" },
   ];
 
   const quickLinks = [
-    { label: "Knowledge Base", icon: BookOpen, href: "/admin/clawdbot/knowledge" },
-    { label: "Scenarios", icon: MessageSquare, href: "/admin/clawdbot/scenarios" },
-    { label: "Cues", icon: Target, href: "/admin/clawdbot/cues" },
-    { label: "Video Learning", icon: Video, href: "/admin/clawdbot/videos" },
-    { label: "Test Chat", icon: FlaskConical, href: "/admin/clawdbot/test" },
+    { label: "Knowledge Base", icon: BookOpen, href: "/admin/coach-rick-ai/knowledge" },
+    { label: "Scenarios", icon: MessageSquare, href: "/admin/coach-rick-ai/scenarios" },
+    { label: "Cues", icon: Target, href: "/admin/coach-rick-ai/cues" },
+    { label: "Video Learning", icon: Video, href: "/admin/coach-rick-ai/videos" },
+    { label: "Test Chat", icon: FlaskConical, href: "/admin/coach-rick-ai/test" },
   ];
 
   return (
@@ -82,8 +82,8 @@ export default function ClawdBotAdmin() {
             <Bot className="h-6 w-6 text-accent" />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-white">ClawdBot Admin</h1>
-            <p className="text-slate-400 text-sm">Manage Coach Rick AI knowledge and training</p>
+            <h1 className="text-xl md:text-2xl font-bold text-white">Coach Rick AI</h1>
+            <p className="text-slate-400 text-sm">Manage AI knowledge and training</p>
           </div>
         </div>
 

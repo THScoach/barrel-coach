@@ -25,7 +25,7 @@ export function AdminHeader() {
     { to: "/admin/invites", label: "Invites" },
     { to: "/admin/library", label: "Library" },
     { to: "/admin/vault", label: "Vault", icon: BookOpen },
-    { to: "/admin/clawdbot", label: "ClawdBot", icon: Bot },
+    { to: "/admin/coach-rick-ai", label: "Coach Rick AI", icon: Bot },
     { to: "/admin/knowledge-base", label: "KB", icon: BookOpen },
   ];
 

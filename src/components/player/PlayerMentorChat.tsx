@@ -83,7 +83,7 @@ export function PlayerMentorChat({
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('coach-rick-chat', {
+      const { data, error } = await supabase.functions.invoke('coach-rick-ai-chat', {
         body: {
           message: messageText,
           history: messages.map(m => ({ role: m.role, content: m.content })),

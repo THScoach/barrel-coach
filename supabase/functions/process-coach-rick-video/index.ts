@@ -30,7 +30,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { videoUrl, videoId, title, contentType } = await req.json() as ProcessVideoRequest;
 
-    console.log("Processing video for ClawdBot learning:", { videoUrl, contentType });
+    console.log("Processing video for Coach Rick AI learning:", { videoUrl, contentType });
 
     // Step 1: Get transcript from drill_videos if available, or transcribe
     let transcript = "";

@@ -75,7 +75,7 @@ export default function KnowledgeBaseEditor() {
   });
 
   const { data: entries = [], isLoading } = useQuery({
-    queryKey: ["clawdbot-knowledge"],
+    queryKey: ["coach-rick-knowledge"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clawdbot_knowledge")
@@ -113,7 +113,7 @@ export default function KnowledgeBaseEditor() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clawdbot-knowledge"] });
+      queryClient.invalidateQueries({ queryKey: ["coach-rick-knowledge"] });
       setIsDialogOpen(false);
       setEditingEntry(null);
       resetForm();
@@ -130,7 +130,7 @@ export default function KnowledgeBaseEditor() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clawdbot-knowledge"] });
+      queryClient.invalidateQueries({ queryKey: ["coach-rick-knowledge"] });
       setDeleteConfirmId(null);
       toast.success("Entry deleted");
     },
@@ -217,7 +217,7 @@ export default function KnowledgeBaseEditor() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Link to="/admin/clawdbot">
+            <Link to="/admin/coach-rick-ai">
               <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white">
                 <ArrowLeft className="h-5 w-5" />
               </Button>

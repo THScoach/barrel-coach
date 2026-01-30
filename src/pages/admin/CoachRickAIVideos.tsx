@@ -27,7 +27,7 @@ interface ProcessedVideo {
   cues_count: number;
 }
 
-export default function ClawdBotVideos() {
+export default function CoachRickAIVideos() {
   const queryClient = useQueryClient();
   const [videoUrl, setVideoUrl] = useState("");
   const [videoTitle, setVideoTitle] = useState("");
@@ -52,7 +52,7 @@ export default function ClawdBotVideos() {
 
   // Get knowledge/scenario counts for stats
   const { data: stats } = useQuery({
-    queryKey: ["clawdbot-stats"],
+    queryKey: ["coach-rick-stats"],
     queryFn: async () => {
       const [knowledge, scenarios, cues] = await Promise.all([
         supabase.from("clawdbot_knowledge").select("id", { count: "exact", head: true }),
@@ -75,7 +75,7 @@ export default function ClawdBotVideos() {
     try {
       setProgress(30);
       
-      const { data, error } = await supabase.functions.invoke("process-clawdbot-video", {
+      const { data, error } = await supabase.functions.invoke("process-coach-rick-video", {
         body: {
           videoUrl: url,
           videoId,
@@ -96,7 +96,7 @@ export default function ClawdBotVideos() {
         `Added ${data.results.knowledge_added} knowledge entries, ${data.results.scenarios_added} scenarios, ${data.results.cues_added} cues`
       );
       
-      queryClient.invalidateQueries({ queryKey: ["clawdbot-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["coach-rick-stats"] });
     } catch (err) {
       console.error("Process error:", err);
       toast.error(err instanceof Error ? err.message : "Failed to process video");
@@ -124,7 +124,7 @@ export default function ClawdBotVideos() {
       <main className="container py-6 md:py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <Link to="/admin/clawdbot">
+          <Link to="/admin/coach-rick-ai">
             <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white">
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -134,7 +134,7 @@ export default function ClawdBotVideos() {
           </div>
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-white">Video Learning</h1>
-            <p className="text-slate-400 text-sm">Train ClawdBot from coaching videos</p>
+            <p className="text-slate-400 text-sm">Train Coach Rick AI from coaching videos</p>
           </div>
         </div>
 

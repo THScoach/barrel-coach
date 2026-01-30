@@ -49,7 +49,7 @@ export default function CueBankManager() {
   });
 
   const { data: cues = [], isLoading } = useQuery({
-    queryKey: ["clawdbot-cues"],
+    queryKey: ["coach-rick-cues"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clawdbot_cues")
@@ -79,7 +79,7 @@ export default function CueBankManager() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clawdbot-cues"] });
+      queryClient.invalidateQueries({ queryKey: ["coach-rick-cues"] });
       setIsDialogOpen(false);
       setEditingCue(null);
       resetForm();
@@ -96,7 +96,7 @@ export default function CueBankManager() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clawdbot-cues"] });
+      queryClient.invalidateQueries({ queryKey: ["coach-rick-cues"] });
       setDeleteConfirmId(null);
       toast.success("Cue deleted");
     },
@@ -161,7 +161,7 @@ export default function CueBankManager() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Link to="/admin/clawdbot">
+            <Link to="/admin/coach-rick-ai">
               <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white">
                 <ArrowLeft className="h-5 w-5" />
               </Button>

@@ -37,7 +37,7 @@ export function CoachRickChat({ scores, weakestCategory }: CoachRickChatProps) {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('coach-rick-chat', {
+      const { data, error } = await supabase.functions.invoke('coach-rick-ai-chat', {
         body: {
           message: messageText,
           scores,
