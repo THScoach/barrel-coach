@@ -2221,6 +2221,84 @@ export type Database = {
           },
         ]
       }
+      player_blast_data: {
+        Row: {
+          attack_angle: number | null
+          bat_speed_avg: number | null
+          bat_speed_max: number | null
+          coaching_notes: string | null
+          created_at: string | null
+          hand_speed_avg: number | null
+          id: string
+          on_plane_efficiency: number | null
+          player_id: string | null
+          power_avg: number | null
+          recorded_at: string | null
+          rotation_score: number | null
+          session_data: Json | null
+          session_date: string | null
+          swings_count: number | null
+          time_to_contact: number | null
+          updated_at: string | null
+          vertical_angle: number | null
+        }
+        Insert: {
+          attack_angle?: number | null
+          bat_speed_avg?: number | null
+          bat_speed_max?: number | null
+          coaching_notes?: string | null
+          created_at?: string | null
+          hand_speed_avg?: number | null
+          id?: string
+          on_plane_efficiency?: number | null
+          player_id?: string | null
+          power_avg?: number | null
+          recorded_at?: string | null
+          rotation_score?: number | null
+          session_data?: Json | null
+          session_date?: string | null
+          swings_count?: number | null
+          time_to_contact?: number | null
+          updated_at?: string | null
+          vertical_angle?: number | null
+        }
+        Update: {
+          attack_angle?: number | null
+          bat_speed_avg?: number | null
+          bat_speed_max?: number | null
+          coaching_notes?: string | null
+          created_at?: string | null
+          hand_speed_avg?: number | null
+          id?: string
+          on_plane_efficiency?: number | null
+          player_id?: string | null
+          power_avg?: number | null
+          recorded_at?: string | null
+          rotation_score?: number | null
+          session_data?: Json | null
+          session_date?: string | null
+          swings_count?: number | null
+          time_to_contact?: number | null
+          updated_at?: string | null
+          vertical_angle?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_blast_data_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_blast_data_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_drill_assignments: {
         Row: {
           assigned_at: string | null
