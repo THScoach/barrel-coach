@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, MessageCircle, X, Loader2, Play } from 'lucide-react';
+import { Send, X, Loader2, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
+import coachRickAvatar from '@/assets/coach-rick-avatar.png';
 
 interface DrillVideo {
   id: string;
@@ -201,7 +202,7 @@ export function CoachRickWidget() {
           data-coach-rick-trigger
           className="fixed bottom-4 right-4 z-50 flex items-center gap-2 bg-accent text-accent-foreground px-4 py-3 rounded-full shadow-lg hover:bg-accent/90 transition-all hover:scale-105"
         >
-          <MessageCircle className="w-5 h-5" />
+          <img src={coachRickAvatar} alt="Coach Rick" className="w-6 h-6 rounded-full" />
           <span className="font-semibold text-sm">Ask Rick</span>
         </button>
       )}
@@ -212,8 +213,8 @@ export function CoachRickWidget() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
-                <MessageCircle className="w-4 h-4 text-accent" />
+              <div className="w-8 h-8 rounded-full overflow-hidden">
+                <img src={coachRickAvatar} alt="Coach Rick" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h3 className="font-bold text-sm">Coach Rick AI</h3>
