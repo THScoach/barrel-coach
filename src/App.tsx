@@ -75,6 +75,7 @@ import PlayerNewSession from "./pages/player/PlayerNewSession";
 import PlayerWeeklyCheckin from "./pages/player/PlayerWeeklyCheckin";
 import PlayerGhostLab from "./pages/player/PlayerGhostLab";
 import PlayerGhostRecovery from "./pages/player/PlayerGhostRecovery";
+import CoachChat from "./pages/player/CoachChat";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -128,6 +129,7 @@ const App = () => (
                 <Route path="diagnostic/:sessionId?" element={<FreeDiagnosticReport />} />
                 <Route path="ghost-lab" element={<PlayerGhostLab />} />
                 <Route path="ghost-recovery" element={<PlayerGhostRecovery />} />
+                <Route path="coach-chat" element={<CoachChat />} />
               </Route>
 
               {/* Admin Routes */}
