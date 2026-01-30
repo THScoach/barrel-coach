@@ -39,6 +39,7 @@ import Privacy from "./pages/Privacy";
 import Session from "./pages/Session";
 import ConnectDK from "./pages/ConnectDK";
 import Rick from "./pages/Rick";
+import Diagrams from "./pages/Diagrams";
 
 // Admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -123,6 +124,7 @@ const App = () => (
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/session" element={<Session />} />
+              <Route path="/diagrams" element={<Diagrams />} />
               <Route path="/connect-dk" element={<ConnectDK />} />
               <Route path="/rick" element={
                 <ProtectedAdminRoute>
