@@ -212,8 +212,8 @@ export function useCoachChat(): UseCoachChatReturn {
         })
         .eq('id', conversationId);
 
-      // Call AI endpoint (using existing coach-rick-chat for now)
-      const { data: aiResponse, error: aiError } = await supabase.functions.invoke('coach-rick-chat', {
+      // Call AI endpoint
+      const { data: aiResponse, error: aiError } = await supabase.functions.invoke('coach-rick-ai-chat', {
         body: {
           message: content,
           history: messages.map(m => ({ role: m.role === 'player' ? 'user' : 'assistant', content: m.content })),

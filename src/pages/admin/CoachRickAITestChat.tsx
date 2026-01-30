@@ -37,7 +37,7 @@ interface PlayerContext {
   ballScore: number | null;
 }
 
-export default function ClawdBotTestChat() {
+export default function CoachRickAITestChat() {
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -126,7 +126,7 @@ export default function ClawdBotTestChat() {
         ? `Testing as: ${context.name}. Motor Profile: ${context.motorProfile || "Unknown"}. Scores - Brain: ${context.brainScore || "N/A"}, Body: ${context.bodyScore || "N/A"}, Bat: ${context.batScore || "N/A"}, Ball: ${context.ballScore || "N/A"}`
         : "Guest user with no profile data.";
 
-      const { data, error } = await supabase.functions.invoke("coach-rick-chat", {
+      const { data, error } = await supabase.functions.invoke("coach-rick-ai-chat", {
         body: {
           message: userMessage.content,
           history: messages.map((m) => ({ role: m.role === "player" ? "user" : "assistant", content: m.content })),
@@ -239,7 +239,7 @@ export default function ClawdBotTestChat() {
 
     try {
       // Upload to storage
-      const storagePath = `clawdbot-learning/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const storagePath = `coach-rick-learning/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       setVideoProgress(30);
       
       const { error: uploadError } = await supabase.storage
@@ -260,7 +260,7 @@ export default function ClawdBotTestChat() {
       setVideoProgress(70);
 
       // Process video
-      const { data, error } = await supabase.functions.invoke("process-clawdbot-video", {
+      const { data, error } = await supabase.functions.invoke("process-coach-rick-video", {
         body: {
           videoUrl: urlData.signedUrl,
           title: file.name.replace(/\.[^/.]+$/, ''),
@@ -304,7 +304,7 @@ export default function ClawdBotTestChat() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Link to="/admin/clawdbot">
+            <Link to="/admin/coach-rick-ai">
               <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
@@ -313,7 +313,7 @@ export default function ClawdBotTestChat() {
               <FlaskConical className="h-6 w-6 text-accent" />
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-bold text-white">Test ClawdBot</h1>
+              <h1 className="text-xl md:text-2xl font-bold text-white">Test Coach Rick AI</h1>
               <p className="text-slate-400 text-sm">Test responses with different contexts</p>
             </div>
           </div>

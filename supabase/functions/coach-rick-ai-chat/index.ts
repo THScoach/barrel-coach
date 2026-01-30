@@ -53,7 +53,7 @@ serve(async (req) => {
 
     const { message, conversationId, playerId, testContext, isTestMode } = await req.json() as ChatRequest;
 
-    console.log("ClawdBot chat request:", { message: message.substring(0, 50), playerId, isTestMode });
+    console.log("Coach Rick AI chat request:", { message: message.substring(0, 50), playerId, isTestMode });
 
     // 1. Get player context
     let playerContext: PlayerContext;
@@ -281,7 +281,7 @@ serve(async (req) => {
     const assistantMessage = aiData.content?.[0]?.text || "Sorry, I couldn't process that. Try again!";
 
     const responseTime = Date.now() - startTime;
-    console.log("ClawdBot response generated in", responseTime, "ms");
+    console.log("Coach Rick AI response generated in", responseTime, "ms");
 
     // 9. Return response with metadata for test mode
     const metadata = {
@@ -305,7 +305,7 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error("ClawdBot error:", error);
+    console.error("Coach Rick AI error:", error);
     const errorMessage = error instanceof Error ? error.message : "An error occurred";
     return new Response(
       JSON.stringify({ error: errorMessage }),

@@ -54,7 +54,7 @@ export default function ScenarioTrainer() {
   });
 
   const { data: scenarios = [], isLoading } = useQuery({
-    queryKey: ["clawdbot-scenarios"],
+    queryKey: ["coach-rick-scenarios"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clawdbot_scenarios")
@@ -88,7 +88,7 @@ export default function ScenarioTrainer() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clawdbot-scenarios"] });
+      queryClient.invalidateQueries({ queryKey: ["coach-rick-scenarios"] });
       setIsDialogOpen(false);
       setEditingScenario(null);
       resetForm();
@@ -105,7 +105,7 @@ export default function ScenarioTrainer() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clawdbot-scenarios"] });
+      queryClient.invalidateQueries({ queryKey: ["coach-rick-scenarios"] });
       setDeleteConfirmId(null);
       toast.success("Scenario deleted");
     },
@@ -179,7 +179,7 @@ export default function ScenarioTrainer() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Link to="/admin/clawdbot">
+            <Link to="/admin/coach-rick-ai">
               <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
@@ -247,13 +247,13 @@ export default function ScenarioTrainer() {
                   
                   <div className="border-t border-slate-700" />
                   
-                  {/* ClawdBot response */}
+                  {/* Coach Rick AI response */}
                   <div className="flex gap-3">
                     <div className="p-2 rounded-lg bg-accent/10 shrink-0">
                       <Bot className="h-4 w-4 text-accent" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm text-slate-300 font-medium">ClawdBot:</p>
+                      <p className="text-sm text-slate-300 font-medium">Coach Rick:</p>
                       <p className="text-white whitespace-pre-wrap">{scenario.ideal_response}</p>
                     </div>
                   </div>
@@ -321,7 +321,7 @@ export default function ScenarioTrainer() {
               />
             </div>
             <div className="space-y-2">
-              <Label>ClawdBot Should Say *</Label>
+              <Label>Coach Rick Should Say *</Label>
               <Textarea
                 value={formData.ideal_response}
                 onChange={(e) => setFormData({ ...formData, ideal_response: e.target.value })}
