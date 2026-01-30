@@ -647,7 +647,7 @@ async function fetchRebootSessionsForPlayer(
 }
 
 // ============================================================
-// VIDEO ANALYSIS HANDLER (MMS)
+// VIDEO ANALYSIS HANDLER (MMS) - Level 1 & Level 2 System
 // ============================================================
 
 async function downloadTwilioMedia(mediaUrl: string): Promise<Uint8Array> {
@@ -673,26 +673,34 @@ async function downloadTwilioMedia(mediaUrl: string): Promise<Uint8Array> {
   return new Uint8Array(await response.arrayBuffer());
 }
 
-async function analyzeSwingVideo(
-  supabase: any,
+/**
+ * Level 1: Instant AI-powered swing feedback using Gemini vision
+ * Returns quick coaching feedback within seconds
+ */
+async function analyzeSwingVideoLevel1(
   videoUrl: string,
-  apiKey: string
+  apiKey: string,
+  playerContext?: { name?: string; motorProfile?: string }
 ): Promise<string> {
-  console.log("[Video Analysis] Analyzing swing video with Gemini");
+  console.log("[Video L1] Analyzing swing with Gemini vision");
 
-  const analysisPrompt = `You are Coach Rick, an expert baseball swing analyst. Analyze this swing video and provide:
+  const firstName = playerContext?.name?.split(" ")[0] || "there";
+  const profile = playerContext?.motorProfile || "Unknown";
 
-1. IMMEDIATE OBSERVATIONS (what you see in the swing mechanics)
-2. KEY STRENGTHS (1-2 things they're doing well)
-3. PRIMARY ISSUE (the biggest thing limiting power/consistency)
-4. ONE DRILL RECOMMENDATION (specific drill to address the issue)
+  const analysisPrompt = `You are Coach Rick, an expert baseball swing analyst. Analyze this swing video and provide QUICK coaching feedback.
 
-Keep your analysis SHORT and ACTIONABLE - this will be sent via SMS.
-Focus on observable mechanics: timing, hip rotation, hand path, bat lag, weight transfer.
-Use baseball terminology naturally but explain concepts briefly.
-Be encouraging but direct about what needs work.
+Player: ${firstName}
+Motor Profile: ${profile}
 
-Format your response in 2-3 short paragraphs, under 300 characters total if possible.`;
+Provide:
+1. ONE thing they're doing well (be specific - what body part, what timing)
+2. ONE thing to focus on improving (the biggest limiting factor)
+3. ONE simple cue or drill to try
+
+Keep it SHORT and ACTIONABLE - this is for SMS (under 250 characters if possible).
+Use baseball terminology naturally but don't overwhelm.
+Be encouraging but real about what needs work.
+Sound like a cool older brother who played college ball.`;
 
   try {
     const response = await fetch(LOVABLE_AI_URL, {
@@ -720,13 +728,13 @@ Format your response in 2-3 short paragraphs, under 300 characters total if poss
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[Video Analysis] Gemini error:", response.status, errorText);
+      console.error("[Video L1] Gemini error:", response.status, errorText);
       
       if (response.status === 429) {
-        return "⚠️ Video analysis rate limited. Try again in a minute.";
+        return "⚠️ I'm analyzing a lot of swings right now. Try again in a minute!";
       }
       if (response.status === 402) {
-        return "⚠️ Video analysis unavailable (payment required).";
+        return "⚠️ Video analysis temporarily unavailable.";
       }
       
       throw new Error("AI analysis failed");
@@ -736,30 +744,183 @@ Format your response in 2-3 short paragraphs, under 300 characters total if poss
     const analysis = data.choices?.[0]?.message?.content?.trim();
     
     if (!analysis) {
-      return "Couldn't analyze the video. Please try a clearer clip.";
+      return "Couldn't analyze the video clearly. Try a side-angle clip with good lighting!";
     }
 
     return analysis;
   } catch (error) {
-    console.error("[Video Analysis] Error:", error);
-    return "❌ Video analysis failed. Please try again with a shorter clip.";
+    console.error("[Video L1] Error:", error);
+    return "❌ Video analysis failed. Try a shorter clip with better lighting.";
   }
 }
 
+/**
+ * Queue Level 2 deep analysis via RickBot/Reboot Motion
+ * Returns immediately, sends full Lab Report later
+ */
+async function queueLevel2Analysis(
+  supabase: any,
+  playerId: string,
+  videoUrl: string,
+  storagePath: string,
+  phone: string,
+  isWhatsApp: boolean
+): Promise<void> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  console.log("[Video L2] Queueing deep analysis for player:", playerId);
+
+  try {
+    // Fire and forget - the edge function will handle delivery
+    fetch(`${supabaseUrl}/functions/v1/queue-deep-analysis`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${supabaseServiceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        player_id: playerId,
+        video_url: videoUrl,
+        video_storage_path: storagePath,
+        phone,
+        is_whatsapp: isWhatsApp,
+      }),
+    }).catch(err => {
+      console.error("[Video L2] Queue error:", err);
+    });
+
+    console.log("[Video L2] Deep analysis queued");
+  } catch (error) {
+    console.error("[Video L2] Failed to queue:", error);
+  }
+}
+
+/**
+ * Full video handling: Level 1 instant + optional Level 2 deep
+ */
+async function handlePlayerVideoSubmission(
+  supabase: any,
+  videoUrl: string,
+  contentType: string,
+  apiKey: string,
+  playerId: string | null,
+  phone: string,
+  isWhatsApp: boolean
+): Promise<string> {
+  console.log("[Video] Processing player video submission:", videoUrl);
+
+  try {
+    // 1. Download video from Twilio
+    const videoData = await downloadTwilioMedia(videoUrl);
+    console.log(`[Video] Downloaded ${videoData.length} bytes`);
+
+    // 2. Upload to Supabase storage
+    const timestamp = Date.now();
+    const extension = contentType.includes("mp4") ? "mp4" : contentType.includes("mov") ? "mov" : "mp4";
+    const storagePath = playerId 
+      ? `player-uploads/${playerId}/${timestamp}_swing.${extension}`
+      : `anonymous-uploads/${timestamp}_swing.${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("swing-videos")
+      .upload(storagePath, videoData, {
+        contentType: contentType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("[Video] Storage upload error:", uploadError);
+      return "❌ Failed to save video. Please try again.";
+    }
+
+    // 3. Get public URL
+    const { data: urlData } = supabase.storage
+      .from("swing-videos")
+      .getPublicUrl(storagePath);
+
+    const publicUrl = urlData?.publicUrl;
+    console.log("[Video] Video saved to:", publicUrl);
+
+    // 4. Get player context for personalized feedback
+    let playerContext: { name?: string; motorProfile?: string } = {};
+    if (playerId) {
+      const { data: player } = await supabase
+        .from("players")
+        .select("name, motor_profile_sensor, reboot_player_id, reboot_athlete_id")
+        .eq("id", playerId)
+        .single();
+      
+      if (player) {
+        playerContext = {
+          name: player.name,
+          motorProfile: player.motor_profile_sensor,
+        };
+
+        // Check if player is set up for Level 2 (Reboot Motion)
+        const hasReboot = player.reboot_player_id || player.reboot_athlete_id;
+        
+        if (hasReboot) {
+          // Queue Level 2 deep analysis (async, will send results later)
+          queueLevel2Analysis(supabase, playerId, publicUrl, storagePath, phone, isWhatsApp);
+        }
+      }
+    }
+
+    // 5. Run Level 1 instant analysis with Gemini
+    const instantFeedback = await analyzeSwingVideoLevel1(publicUrl, apiKey, playerContext);
+
+    // 6. Log the video submission
+    await supabase.from("activity_log").insert({
+      action: "video_submitted",
+      description: `Swing video submitted via ${isWhatsApp ? "WhatsApp" : "MMS"}`,
+      player_id: playerId,
+      metadata: {
+        storage_path: storagePath,
+        content_type: contentType,
+        size_bytes: videoData.length,
+        channel: isWhatsApp ? "whatsapp" : "sms",
+      },
+    });
+
+    // Build response
+    let response = `🎥 Quick Take:\n\n${instantFeedback}`;
+    
+    // If Level 2 is queued, mention it
+    if (playerId) {
+      const { data: player } = await supabase
+        .from("players")
+        .select("reboot_player_id, reboot_athlete_id")
+        .eq("id", playerId)
+        .single();
+      
+      if (player?.reboot_player_id || player?.reboot_athlete_id) {
+        response += "\n\n🔬 Full 3D analysis coming in a few minutes...";
+      }
+    }
+
+    return response;
+  } catch (error) {
+    console.error("[Video] Error:", error);
+    return `❌ Video processing failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+  }
+}
+
+/**
+ * Admin-only video analysis (existing flow)
+ */
 async function handleVideoAnalysis(
   supabase: any,
   videoUrl: string,
   contentType: string,
   apiKey: string
 ): Promise<string> {
-  console.log("[Video Analysis] Processing MMS video:", videoUrl);
+  console.log("[Video Analysis] Processing admin MMS video:", videoUrl);
 
   try {
-    // 1. Download video from Twilio
     const videoData = await downloadTwilioMedia(videoUrl);
     console.log(`[Video Analysis] Downloaded ${videoData.length} bytes`);
 
-    // 2. Upload to Supabase storage
     const timestamp = Date.now();
     const extension = contentType.includes("mp4") ? "mp4" : contentType.includes("mov") ? "mov" : "mp4";
     const storagePath = `admin-uploads/${timestamp}_swing.${extension}`;
@@ -776,7 +937,6 @@ async function handleVideoAnalysis(
       return "❌ Failed to save video. Please try again.";
     }
 
-    // 3. Get public URL
     const { data: urlData } = supabase.storage
       .from("swing-videos")
       .getPublicUrl(storagePath);
@@ -784,8 +944,7 @@ async function handleVideoAnalysis(
     const publicUrl = urlData?.publicUrl;
     console.log("[Video Analysis] Video saved to:", publicUrl);
 
-    // 4. Analyze with Gemini
-    const analysis = await analyzeSwingVideo(supabase, publicUrl, apiKey);
+    const analysis = await analyzeSwingVideoLevel1(publicUrl, apiKey);
 
     return `🎥 Swing Analysis:\n\n${analysis}`;
   } catch (error) {
@@ -1433,6 +1592,81 @@ serve(async (req) => {
 
       const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>Welcome back! You're now subscribed to Coach Rick messages. 💪</Message></Response>`;
       return new Response(twiml, {
+        headers: { ...corsHeaders, "Content-Type": "text/xml" },
+        status: 200,
+      });
+    }
+
+    // ============================================================
+    // PLAYER VIDEO SUBMISSION (Level 1 + Level 2 Analysis)
+    // ============================================================
+    
+    // Check if player sent a video - handle before regular message flow
+    if (numMedia > 0 && mediaUrl0 && mediaContentType0?.startsWith("video/")) {
+      console.log("[Twilio Webhook] Player video submission detected");
+      
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      
+      if (!LOVABLE_API_KEY) {
+        console.error("[Twilio Webhook] Missing LOVABLE_API_KEY for video analysis");
+        const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>Thanks for the video! Our analysis system is being updated. Try again soon! 🎥</Message></Response>`;
+        return new Response(twiml, {
+          headers: { ...corsHeaders, "Content-Type": "text/xml" },
+          status: 200,
+        });
+      }
+
+      // Send immediate acknowledgment
+      const ackMessage = "🎥 Got your swing video! Analyzing now...";
+      await sendMessage(from, ackMessage, isWhatsApp);
+
+      // Log the video submission
+      await supabase.from("messages").insert({
+        player_id: playerId,
+        session_id: session?.id || null,
+        phone_number: from,
+        direction: "inbound",
+        body: messageBody || "[Swing video]",
+        twilio_sid: messageSid,
+        status: "received",
+        trigger_type: "video_submission",
+      });
+
+      // Process video with Level 1 instant + Level 2 deep (if available)
+      const videoResponse = await handlePlayerVideoSubmission(
+        supabase,
+        mediaUrl0,
+        mediaContentType0,
+        LOVABLE_API_KEY,
+        playerId,
+        from,
+        isWhatsApp
+      );
+
+      // Send the analysis
+      const result = await sendMessage(from, videoResponse, isWhatsApp);
+
+      if (result.success) {
+        await supabase.from("messages").insert({
+          player_id: playerId,
+          session_id: session?.id || null,
+          phone_number: normalizedFrom,
+          direction: "outbound",
+          body: videoResponse,
+          twilio_sid: result.sid,
+          status: "sent",
+          trigger_type: "video_analysis",
+          ai_generated: true,
+        });
+      } else if (isWhatsApp) {
+        // Fallback to TwiML
+        return new Response(twimlMessage(videoResponse), {
+          headers: { ...corsHeaders, "Content-Type": "text/xml" },
+          status: 200,
+        });
+      }
+
+      return new Response(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`, {
         headers: { ...corsHeaders, "Content-Type": "text/xml" },
         status: 200,
       });
