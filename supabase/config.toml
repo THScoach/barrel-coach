@@ -179,3 +179,6 @@ verify_jwt = false
 
 [functions.coach-mark-sensor-connected]
 verify_jwt = false
+
+[functions.clawdbot-chat]
+verify_jwt = false
