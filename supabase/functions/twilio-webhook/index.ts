@@ -755,9 +755,9 @@ Sound like a cool older brother who played college ball.`;
 }
 
 /**
- * Queue Level 2 deep analysis via Browserbase + Reboot Motion
- * Uploads video to Reboot, waits for processing, downloads data, runs 4B
- * Returns immediately, sends full Lab Report later
+ * Queue Level 2 deep analysis via Reboot Motion API
+ * Uploads video to Reboot, polls for processing, downloads data, runs 4B
+ * Returns immediately, sends full Lab Report later via SMS/WhatsApp
  */
 async function queueLevel2Analysis(
   supabase: any,
@@ -770,31 +770,65 @@ async function queueLevel2Analysis(
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  console.log("[Video L2] Queueing Browserbase automation for player:", playerId);
+  console.log("[Video L2] Queueing Reboot Motion upload for player:", playerId);
 
   try {
-    // Fire and forget - browserbase-reboot will handle the full pipeline
-    fetch(`${supabaseUrl}/functions/v1/browserbase-reboot`, {
+    // Step 1: Ensure player has Reboot account
+    const { data: player } = await supabase
+      .from("players")
+      .select("reboot_player_id, reboot_athlete_id, name")
+      .eq("id", playerId)
+      .single();
+
+    let rebootPlayerId = player?.reboot_player_id || player?.reboot_athlete_id;
+
+    // Create Reboot player if needed
+    if (!rebootPlayerId) {
+      console.log("[Video L2] Creating Reboot player account...");
+      const createResponse = await fetch(`${supabaseUrl}/functions/v1/reboot-create-player`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${supabaseServiceKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          player_id: playerId,
+          player_name: player?.name || "Unknown Player",
+        }),
+      });
+
+      if (createResponse.ok) {
+        const createResult = await createResponse.json();
+        rebootPlayerId = createResult.reboot_player_id;
+        console.log("[Video L2] Reboot player created:", rebootPlayerId);
+      } else {
+        console.error("[Video L2] Failed to create Reboot player:", await createResponse.text());
+        return;
+      }
+    }
+
+    // Step 2: Upload video to Reboot Motion (this triggers polling automatically)
+    const filename = storagePath.split("/").pop() || `swing_${Date.now()}.mp4`;
+    
+    fetch(`${supabaseUrl}/functions/v1/reboot-upload-video`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${supabaseServiceKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        action: "full_pipeline",
         player_id: playerId,
         video_url: videoUrl,
-        video_storage_path: storagePath,
-        callback_phone: phone,
-        is_whatsapp: isWhatsApp,
+        video_filename: filename,
+        frame_rate: 240,
       }),
     }).catch(err => {
-      console.error("[Video L2] Browserbase queue error:", err);
+      console.error("[Video L2] Reboot upload error:", err);
     });
 
-    console.log("[Video L2] Browserbase automation queued");
+    console.log("[Video L2] Reboot Motion upload queued - polling will begin automatically");
   } catch (error) {
-    console.error("[Video L2] Failed to queue Browserbase:", error);
+    console.error("[Video L2] Failed to queue Reboot upload:", error);
   }
 }
 

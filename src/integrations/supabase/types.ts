@@ -3359,54 +3359,117 @@ export type Database = {
         }
         Relationships: []
       }
-      reboot_sessions: {
+      reboot_exports: {
         Row: {
           created_at: string | null
+          csv_data: Json | null
+          data_types: string[] | null
+          id: string
+          player_id: string
+          raw_response: Json | null
+          session_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          csv_data?: Json | null
+          data_types?: string[] | null
+          id?: string
+          player_id: string
+          raw_response?: Json | null
+          session_id: string
+        }
+        Update: {
+          created_at?: string | null
+          csv_data?: Json | null
+          data_types?: string[] | null
+          id?: string
+          player_id?: string
+          raw_response?: Json | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reboot_exports_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reboot_exports_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reboot_sessions: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
           error_message: string | null
+          exported_at: string | null
           id: string
           ik_file_path: string | null
+          last_polled_at: string | null
           location: string | null
           me_file_path: string | null
+          movement_type: string | null
           notes: string | null
           player_id: string | null
           processed_at: string | null
+          reboot_player_id: string | null
           reboot_session_id: string | null
           session_date: string | null
           session_number: number | null
           status: string | null
           updated_at: string | null
+          video_url: string | null
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string | null
           error_message?: string | null
+          exported_at?: string | null
           id?: string
           ik_file_path?: string | null
+          last_polled_at?: string | null
           location?: string | null
           me_file_path?: string | null
+          movement_type?: string | null
           notes?: string | null
           player_id?: string | null
           processed_at?: string | null
+          reboot_player_id?: string | null
           reboot_session_id?: string | null
           session_date?: string | null
           session_number?: number | null
           status?: string | null
           updated_at?: string | null
+          video_url?: string | null
         }
         Update: {
+          completed_at?: string | null
           created_at?: string | null
           error_message?: string | null
+          exported_at?: string | null
           id?: string
           ik_file_path?: string | null
+          last_polled_at?: string | null
           location?: string | null
           me_file_path?: string | null
+          movement_type?: string | null
           notes?: string | null
           player_id?: string | null
           processed_at?: string | null
+          reboot_player_id?: string | null
           reboot_session_id?: string | null
           session_date?: string | null
           session_number?: number | null
           status?: string | null
           updated_at?: string | null
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -4511,6 +4574,13 @@ export type Database = {
             columns: ["prescribed_drill_id"]
             isOneToOne: false
             referencedRelation: "drills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swing_4b_scores_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "processing_sessions"
             referencedColumns: ["id"]
           },
           {
@@ -6187,6 +6257,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      processing_sessions: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          last_polled_at: string | null
+          minutes_since_upload: number | null
+          player_name: string | null
+          reboot_session_id: string | null
+          status: string | null
+        }
+        Relationships: []
       }
       unified_sessions: {
         Row: {
