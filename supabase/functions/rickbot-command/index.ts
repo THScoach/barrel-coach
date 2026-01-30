@@ -357,62 +357,75 @@ serve(async (req) => {
     let response = "";
     let playerData: PlayerData | null = null;
 
-    // ========== WEB SEARCH / NEWS COMMANDS ==========
-    const webSearchMatch = commandLower.match(/(?:search|google|find articles|news on|latest on|what's the latest on|read about)\s+(.+)/i)
-      || (isWebResearchQuery(command) && commandLower.match(/(?:on|about|for)\s+(.+)/i));
+    // ========== INTENT DETECTION ==========
+    // Determine if this is a player lookup vs a business/strategy question
     
-    if (webSearchMatch && !commandLower.includes("data") && !commandLower.includes("scores") && !commandLower.includes("statcast")) {
-      const searchQuery = webSearchMatch[1]?.trim();
+    // Explicit player lookup patterns - VERY SPECIFIC
+    const isExplicitPlayerLookup = 
+      // "Pull Marcus's data", "Get Connor's scores", "Show Jake's stats"
+      /(?:pull|get|show|fetch)\s+\w+(?:'s|s')?\s+(?:data|scores|stats|profile|numbers)/i.test(commandLower) ||
+      // "Look up Marcus", "Research Gunnar Henderson"
+      /(?:look up|lookup)\s+\w+/i.test(commandLower) ||
+      // "Pull data for Marcus", "Get stats for Connor"
+      /(?:pull|get|show|fetch)\s+(?:data|scores|stats|profile)\s+(?:for|on)\s+\w+/i.test(commandLower) ||
+      // "Who is Marcus?", "Tell me about Connor's swing"
+      /(?:who is|who's)\s+\w+/i.test(commandLower) ||
+      // Direct MLB player name mentions with data intent
+      (isExternalPlayerQuery(command) && /(?:statcast|savant|fangraphs|stats|data|scores)/i.test(commandLower));
+
+    // Dashboard/metrics patterns
+    const isDashboardQuery = 
+      /(?:how are we|dashboard|business stats|player count|session count|how many players)/i.test(commandLower);
+
+    // Attention/flags patterns
+    const isAttentionQuery = 
+      /(?:who needs attention|flagged players|declining|needs work)/i.test(commandLower);
+
+    // Compare patterns
+    const isCompareQuery = 
+      /(?:compare\s+\w+\s+(?:to|vs|versus|with)|vs\.?\s+\w+)/i.test(commandLower);
+
+    // Web search patterns
+    const isWebSearch = 
+      /(?:search the web|google|find articles|news on|latest news|what's the latest)/i.test(commandLower);
+
+    console.log("Intent detection:", { 
+      isExplicitPlayerLookup, 
+      isDashboardQuery, 
+      isAttentionQuery, 
+      isCompareQuery, 
+      isWebSearch,
+      command: command.substring(0, 50) 
+    });
+
+    // ========== WEB SEARCH / NEWS COMMANDS ==========
+    if (isWebSearch) {
+      const webSearchMatch = commandLower.match(/(?:search|google|find articles|news on|latest on|what's the latest on|read about)\s+(.+)/i);
+      const searchQuery = webSearchMatch?.[1]?.trim();
       
       if (searchQuery) {
         console.log("Web research requested:", searchQuery);
-        
-        // Add baseball context to search
         const enrichedQuery = searchQuery.includes("baseball") ? searchQuery : `${searchQuery} baseball MLB`;
-        
         const searchResult = await webSearch(enrichedQuery);
         
         if (searchResult.success && searchResult.results) {
           response = formatWebResults(searchResult.results, searchQuery);
-          
-          // If searching for a player, also try to get their stats
-          if (!commandLower.includes("news") && !commandLower.includes("article")) {
-            const playerName = searchQuery.replace(/latest|news|on|about|the/gi, "").trim();
-            if (playerName.length > 2) {
-              const [savantResult, fgResult] = await Promise.all([
-                lookupBaseballSavant(playerName, supabaseUrl, supabaseKey),
-                lookupFanGraphs(playerName, supabaseUrl, supabaseKey),
-              ]);
-              
-              if (savantResult?.success || fgResult?.success) {
-                const formatted = formatExternalPlayerData(savantResult, fgResult, playerName);
-                response = formatted.response + "\n\n---\n\n" + response;
-                playerData = formatted.playerData;
-              }
-            }
-          }
         } else {
           response = `Couldn't search for "${searchQuery}". ${searchResult.error || "Try again later."}`;
         }
       } else {
-        response = "What would you like me to search for? Try: \"Search latest on Gunnar Henderson\" or \"News on Orioles trades\"";
+        response = "What would you like me to search for? Try: \"Search latest on Gunnar Henderson\"";
       }
     }
-    // ========== PLAYER DATA COMMANDS ==========
-    else {
-    const pullDataMatch = commandLower.match(/(?:pull|get|show|fetch|look up|find|research|analyze)\s+(?:(.+?)(?:'s|s')?\s+)?(?:data|scores|profile|info|stats|statcast|numbers)/i) 
-      || commandLower.match(/(?:pull|get|show|research|analyze)\s+(.+)/i)
-      || commandLower.match(/(?:who is|tell me about|what about)\s+(.+)/i);
-    
-    if (pullDataMatch || commandLower.includes("data") || commandLower.includes("scores") || commandLower.includes("stats")) {
-      // Extract player name from command
-      let playerName = pullDataMatch?.[1]?.trim();
+    // ========== PLAYER DATA COMMANDS (EXPLICIT ONLY) ==========
+    else if (isExplicitPlayerLookup) {
+      // Extract player name from command - be specific about patterns
+      const pullDataMatch = commandLower.match(/(?:pull|get|show|fetch)\s+(\w+)(?:'s|s')?\s+(?:data|scores|stats|profile|numbers)/i)
+        || commandLower.match(/(?:look up|lookup)\s+(\w+(?:\s+\w+)?)/i)
+        || commandLower.match(/(?:pull|get|show|fetch)\s+(?:data|scores|stats|profile)\s+(?:for|on)\s+(\w+(?:\s+\w+)?)/i)
+        || commandLower.match(/(?:who is|who's)\s+(\w+(?:\s+\w+)?)/i);
       
-      if (!playerName) {
-        // Try to extract any name-like pattern
-        const nameMatch = command.match(/(?:for|about|on)\s+(\w+(?:\s+\w+)?)/i);
-        playerName = nameMatch?.[1];
-      }
+      let playerName = pullDataMatch?.[1]?.trim();
 
       // Clean up player name
       if (playerName) {
@@ -560,7 +573,7 @@ serve(async (req) => {
       }
     }
     // ========== ATTENTION/FLAGS COMMANDS ==========
-    else if (commandLower.includes("attention") || commandLower.includes("flag") || commandLower.includes("who needs")) {
+    else if (isAttentionQuery) {
       // Find players with declining scores or no recent activity
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -605,7 +618,7 @@ serve(async (req) => {
       }
     }
     // ========== COMPARE PLAYERS ==========
-    else if (commandLower.includes("compare") || commandLower.includes("vs") || commandLower.includes("versus")) {
+    else if (isCompareQuery) {
       // Extract two player names
       const compareMatch = commandLower.match(/compare\s+(.+?)\s+(?:to|vs|versus|and|with)\s+(.+)/i)
         || commandLower.match(/(.+?)\s+vs\.?\s+(.+)/i);
@@ -656,8 +669,8 @@ serve(async (req) => {
         response = "To compare players, try: \"Compare Soto to Judge\" or \"Gunnar vs Witt\"";
       }
     }
-    // ========== STATS/BUSINESS COMMANDS ==========
-    else if (commandLower.includes("how are we") || commandLower.includes("stats") || commandLower.includes("dashboard")) {
+    // ========== STATS/BUSINESS DASHBOARD COMMANDS ==========
+    else if (isDashboardQuery) {
       // Get counts
       const { count: playerCount } = await supabase
         .from("players")
@@ -852,7 +865,6 @@ If something feels like it should be a conversation, have the conversation. If s
         }
       }
     }
-    } // Close the else block for web search vs player data commands
 
     console.log("RickBot response generated, playerData:", playerData ? "yes" : "no");
 
