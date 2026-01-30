@@ -24,8 +24,11 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 // CONFIGURATION
 // =============================================================================
 
-const REBOOT_API_BASE = 'https://api.rebootmotion.com/v1';
+const REBOOT_API_BASE = 'https://api.rebootmotion.com';
 const BATCH_SIZE = 10; // Process players in batches to avoid timeouts
+
+// OAuth token cache
+let cachedToken: { token: string; expiresAt: number } | null = null;
 
 // =============================================================================
 // TYPES
@@ -33,7 +36,8 @@ const BATCH_SIZE = 10; // Process players in batches to avoid timeouts
 
 interface Player {
   id: string;
-  reboot_player_id: string;
+  reboot_athlete_id: string;
+  reboot_player_id?: string | null;
   name: string;
   motor_profile_sensor: string | null;
 }
@@ -75,44 +79,75 @@ interface SyncResult {
 // REBOOT API CLIENT
 // =============================================================================
 
-class RebootClient {
-  private apiKey: string;
-  private orgId: string;
+// Get OAuth access token for data export endpoints
+async function getRebootAccessToken(): Promise<string> {
+  const REBOOT_USERNAME = Deno.env.get('REBOOT_USERNAME') ?? '';
+  const REBOOT_PASSWORD = Deno.env.get('REBOOT_PASSWORD') ?? '';
 
-  constructor(apiKey: string, orgId: string) {
-    this.apiKey = apiKey;
-    this.orgId = orgId;
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    return cachedToken.token;
   }
 
-  private async request(endpoint: string, options: RequestInit = {}): Promise<any> {
-    const url = `${REBOOT_API_BASE}${endpoint}`;
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-        'X-Organization-ID': this.orgId,
-        ...options.headers,
-      },
-    });
+  console.log('[reboot-motion-polling] Fetching new Reboot access token');
+  
+  const response = await fetch(`${REBOOT_API_BASE}/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: REBOOT_USERNAME,
+      password: REBOOT_PASSWORD,
+    }),
+  });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Reboot API error: ${response.status} - ${error}`);
-    }
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Reboot OAuth error (${response.status}): ${error}`);
+  }
 
-    return response.json();
+  const data = await response.json();
+  
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in - 300) * 1000,
+  };
+
+  return data.access_token;
+}
+
+class RebootClient {
+  private apiKey: string;
+
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
   }
 
   /**
-   * List sessions for a specific player
+   * List sessions for a specific player using X-Api-Key
    */
   async listPlayerSessions(rebootPlayerId: string, limit = 50): Promise<RebootSession[]> {
     try {
-      const data = await this.request(
-        `/sessions?org_player_id=${rebootPlayerId}&limit=${limit}&status=completed`
-      );
-      return Array.isArray(data) ? data : (data.sessions || data.data || []);
+      const url = new URL(`${REBOOT_API_BASE}/sessions`);
+      url.searchParams.set('org_player_id', rebootPlayerId);
+      url.searchParams.set('limit', limit.toString());
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          'X-Api-Key': this.apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Reboot API error: ${response.status} - ${error}`);
+      }
+
+      const raw = await response.json();
+      // Handle different response formats
+      if (Array.isArray(raw)) return raw;
+      if (raw.sessions) return raw.sessions;
+      if (raw.data) return raw.data;
+      return [];
     } catch (error) {
       console.log(`Could not list sessions for player ${rebootPlayerId}: ${error}`);
       return [];
@@ -120,11 +155,23 @@ class RebootClient {
   }
 
   /**
-   * Get a specific session by ID
+   * Get a specific session by ID using X-Api-Key
    */
   async getSession(sessionId: string): Promise<RebootSession | null> {
     try {
-      return await this.request(`/sessions/${sessionId}`);
+      const response = await fetch(`${REBOOT_API_BASE}/sessions/${sessionId}`, {
+        headers: {
+          'X-Api-Key': this.apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Reboot API error: ${response.status} - ${error}`);
+      }
+
+      return response.json();
     } catch (error) {
       console.log(`Could not get session ${sessionId}: ${error}`);
       return null;
@@ -132,18 +179,40 @@ class RebootClient {
   }
 
   /**
-   * Request data export (CSV download URL)
+   * Request data export (CSV download URL) using OAuth Bearer token
    */
-  async requestDataExport(sessionId: string, fileType: 'momentum-energy' | 'inverse-kinematics'): Promise<RebootDataExport | null> {
+  async requestDataExport(sessionId: string, orgPlayerId: string, fileType: 'momentum-energy' | 'inverse-kinematics'): Promise<RebootDataExport | null> {
     try {
-      const data = await this.request('/data_export', {
+      const accessToken = await getRebootAccessToken();
+      
+      const response = await fetch(`${REBOOT_API_BASE}/data_export`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           session_id: sessionId,
-          file_type: fileType,
+          org_player_id: orgPlayerId,
+          data_type: fileType,
+          movement_type_id: 1, // Baseball Hitting
         }),
       });
-      return data;
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Reboot data export error: ${response.status} - ${error}`);
+      }
+
+      const data = await response.json();
+      // Handle different response formats for download URL
+      const downloadUrl = data.download_url || data.download_urls?.[0] || data.url;
+      if (!downloadUrl) {
+        console.log(`No download URL in response for session ${sessionId}`);
+        return null;
+      }
+      
+      return { download_url: downloadUrl, file_type: fileType, expires_at: '' };
     } catch (error) {
       console.log(`Could not export ${fileType} for session ${sessionId}: ${error}`);
       return null;
@@ -553,8 +622,13 @@ async function syncPlayerSessions(
   };
 
   try {
-    // 1. Get sessions from Reboot API
-    const rebootSessions = await reboot.listPlayerSessions(player.reboot_player_id);
+    // 1. Get sessions from Reboot API (use reboot_athlete_id, fallback to reboot_player_id)
+    const rebootId = player.reboot_athlete_id || player.reboot_player_id;
+    if (!rebootId) {
+      result.errors.push('No Reboot ID found for player');
+      return result;
+    }
+    const rebootSessions = await reboot.listPlayerSessions(rebootId);
     result.sessions_found = rebootSessions.length;
 
     if (rebootSessions.length === 0) {
@@ -581,8 +655,12 @@ async function syncPlayerSessions(
     // 4. Process each new session
     for (const session of newSessions) {
       try {
+        // Get the reboot ID for this player (needed for data export)
+        const rebootId = player.reboot_athlete_id || player.reboot_player_id;
+        if (!rebootId) continue;
+        
         // Request momentum-energy CSV export
-        const exportData = await reboot.requestDataExport(session.id, 'momentum-energy');
+        const exportData = await reboot.requestDataExport(session.id, rebootId, 'momentum-energy');
         
         if (!exportData?.download_url) {
           result.errors.push(`No export URL for session ${session.id}`);
@@ -699,6 +777,18 @@ serve(async (req) => {
   let totalErrors = 0;
 
   try {
+    // Parse request body for optional player_ids filter
+    let targetPlayerIds: string[] | null = null;
+    try {
+      const body = await req.json();
+      if (body.player_ids && Array.isArray(body.player_ids)) {
+        targetPlayerIds = body.player_ids;
+        console.log(`[reboot-motion-polling] Targeting specific players: ${targetPlayerIds!.join(', ')}`);
+      }
+    } catch {
+      // No body or invalid JSON, process all players
+    }
+
     // Initialize clients
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -706,16 +796,23 @@ serve(async (req) => {
     );
 
     const reboot = new RebootClient(
-      Deno.env.get('REBOOT_API_KEY') ?? '',
-      Deno.env.get('REBOOT_ORG_ID') ?? ''
+      Deno.env.get('REBOOT_API_KEY') ?? ''
     );
 
-    // Get all players with reboot_player_id
-    const { data: players, error: playersError } = await supabase
+    // Build query for players
+    let query = supabase
       .from('players')
-      .select('id, reboot_player_id, name, motor_profile_sensor')
-      .not('reboot_player_id', 'is', null)
-      .neq('reboot_player_id', '');
+      .select('id, reboot_athlete_id, reboot_player_id, name, motor_profile_sensor');
+
+    if (targetPlayerIds && targetPlayerIds.length > 0) {
+      // Filter to specific players
+      query = query.in('id', targetPlayerIds);
+    } else {
+      // Get all players with reboot IDs
+      query = query.or('reboot_athlete_id.not.is.null,reboot_player_id.not.is.null');
+    }
+
+    const { data: players, error: playersError } = await query;
 
     if (playersError) {
       throw new Error(`Failed to fetch players: ${playersError.message}`);
