@@ -40,12 +40,15 @@ interface StackData {
   totalSwings: number | null;
   batSpeedStart: number | null;
   batSpeedCurrent: number | null;
+  distancePotential: number | null;
   gritScoreAvg: number | null;
+  healthEnergyAvg: number | null;
   responderType: string | null;
   personalBests: Record<string, number> | null;
   sessionData: {
     bat_espeed?: number[];
     grit?: number[];
+    distance_potential?: number[];
   } | null;
   coachingNotes: string | null;
 }
@@ -165,7 +168,9 @@ serve(async (req) => {
           totalSwings: stackDataRaw.total_swings,
           batSpeedStart: stackDataRaw.bat_speed_start,
           batSpeedCurrent: stackDataRaw.bat_speed_current,
+          distancePotential: stackDataRaw.distance_potential,
           gritScoreAvg: stackDataRaw.grit_score_avg,
+          healthEnergyAvg: stackDataRaw.health_energy_avg,
           responderType: stackDataRaw.responder_type,
           personalBests: stackDataRaw.personal_bests,
           sessionData: stackDataRaw.session_data,
@@ -418,10 +423,13 @@ ${cues.map(c => `- "${c.cue_text}" ${c.context_hint ? `(${c.context_hint})` : ""
     stackSection = `\n## Stack Training Data (${sd.programName || 'Unknown'} Program):
 - Sessions: ${sd.sessionsCompleted || 0} completed, ${sd.totalSwings || 0} total swings
 - Bat Speed: ${sd.batSpeedStart || '?'} → ${sd.batSpeedCurrent || '?'} mph
+${sd.distancePotential ? `- Distance Potential: ${sd.distancePotential} ft` : ''}
 - Grit Score Average: ${sd.gritScoreAvg || '?'}%
+- Health & Energy Average: ${sd.healthEnergyAvg || '?'}%
 - Force-Velocity Profile: ${sd.responderType || 'Unknown'}
 ${sd.personalBests ? `- Personal Bests: ${Object.entries(sd.personalBests).map(([k, v]) => `${v} mph @ ${k}`).join(', ')}` : ''}
 ${sd.sessionData?.grit ? `- Grit Trend: ${sd.sessionData.grit.join(', ')}` : ''}
+${sd.sessionData?.bat_espeed ? `- Bat Speed Trend: ${sd.sessionData.bat_espeed.join(', ')}` : ''}
 ${sd.coachingNotes ? `\n### Coach Notes:\n${sd.coachingNotes}` : ''}`;
   }
 
