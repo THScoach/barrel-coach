@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { LogOut, User, Plus, BookOpen } from "lucide-react";
+import { LogOut, User, Plus, BookOpen, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlayerPickerModal } from "@/components/admin/PlayerPickerModal";
 
@@ -25,6 +25,7 @@ export function AdminHeader() {
     { to: "/admin/invites", label: "Invites" },
     { to: "/admin/library", label: "Library" },
     { to: "/admin/vault", label: "Vault", icon: BookOpen },
+    { to: "/admin/clawdbot", label: "ClawdBot", icon: Bot },
     { to: "/admin/knowledge-base", label: "KB", icon: BookOpen },
   ];
 
