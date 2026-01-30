@@ -257,7 +257,7 @@ async function addCoachingNote(supabase: any, playerId: string, note: string, ad
 async function updateMotorProfile(supabase: any, playerId: string, motorProfile: string): Promise<void> {
   await supabase
     .from("players")
-    .update({ motor_profile: motorProfile })
+    .update({ motor_profile_sensor: motorProfile })
     .eq("id", playerId);
 }
 
@@ -388,7 +388,7 @@ async function getGlobalRules(supabase: any): Promise<string> {
 
 function formatPlayerProfile(player: any): string {
   const firstName = player.name?.split(" ")[0] || "Unknown";
-  const profile = player.motor_profile || "Not assessed";
+  const profile = player.motor_profile_sensor || "Not assessed";
   
   const scores = {
     brain: player.latest_brain_score ?? "?",
@@ -822,7 +822,7 @@ Their current 4B scores (20-80 MLB Scout Scale):
 - BAT: ${player.latest_bat_score ?? "Not measured"} (bat speed, path)
 - BALL: ${player.latest_ball_score ?? "Not measured"} (exit velo, contact)
 - COMPOSITE: ${player.latest_composite_score ?? "Not measured"}
-- MOTOR PROFILE: ${player.motor_profile || "Not assessed"}
+- MOTOR PROFILE: ${player.motor_profile_sensor || "Not assessed"}
 
 Score Context:
 - 70+: Plus-Plus (elite)
@@ -1347,7 +1347,7 @@ serve(async (req) => {
       if (playerId) {
         const { data } = await supabase
           .from("players")
-          .select("id, name, phone, motor_profile, coaching_notes, latest_brain_score, latest_body_score, latest_bat_score, latest_ball_score, latest_composite_score, membership_tier, has_sensor, sensor_connected")
+          .select("id, name, phone, motor_profile_sensor, coaching_notes, latest_brain_score, latest_body_score, latest_bat_score, latest_ball_score, latest_composite_score, membership_tier, has_sensor, sensor_connected")
           .eq("id", playerId)
           .single();
         player = data;
@@ -1357,7 +1357,7 @@ serve(async (req) => {
         // Admin without player profile - minimal context
         player = {
           name: "Admin",
-          motor_profile: null,
+          motor_profile_sensor: null,
           coaching_notes: [],
           latest_brain_score: null,
           latest_body_score: null,
