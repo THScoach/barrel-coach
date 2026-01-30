@@ -209,3 +209,18 @@ verify_jwt = false
 
 [functions.send-analysis-complete]
 verify_jwt = false
+
+[functions.reboot-create-player]
+verify_jwt = false
+
+[functions.reboot-upload-video]
+verify_jwt = false
+
+[functions.reboot-export-data]
+verify_jwt = false
+
+[functions.reboot-poll-status]
+verify_jwt = false
+
+[functions.upload-to-reboot]
+verify_jwt = false
