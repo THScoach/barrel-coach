@@ -203,3 +203,9 @@ verify_jwt = false
 
 [functions.generate-napkin-diagram]
 verify_jwt = false
+
+[functions.browserbase-reboot]
+verify_jwt = false
+
+[functions.send-analysis-complete]
+verify_jwt = false

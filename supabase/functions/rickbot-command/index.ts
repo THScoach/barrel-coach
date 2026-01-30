@@ -400,6 +400,13 @@ serve(async (req) => {
       /(?:diagram|visual|flowchart)\s+(?:of|for|about)/i.test(commandLower) ||
       /napkin\s+(?:diagram|visual)/i.test(commandLower);
 
+    // Browserbase/Reboot automation patterns
+    const isBrowserbaseCommand = 
+      /(?:log\s*in\s*to\s+reboot|login\s+reboot|reboot\s+login|browserbase)/i.test(commandLower) ||
+      /(?:upload\s+.*\s+to\s+reboot|upload\s+video\s+for)/i.test(commandLower) ||
+      /(?:sync|import)\s+.*\s+(?:from|via)\s+reboot/i.test(commandLower) ||
+      /(?:create\s+.*\s+in\s+reboot|add\s+.*\s+to\s+reboot)/i.test(commandLower);
+
     console.log("Intent detection:", { 
       isExplicitPlayerLookup, 
       isDashboardQuery, 
@@ -408,6 +415,7 @@ serve(async (req) => {
       isWebSearch,
       isStackDataEntry,
       isDiagramRequest,
+      isBrowserbaseCommand,
       command: command.substring(0, 50) 
     });
 
@@ -464,6 +472,132 @@ serve(async (req) => {
         }
       } else {
         response = "What would you like me to create a diagram of? Try:\n• \"Create a diagram of the 4B Framework\"\n• \"Generate a visual of the swing sequence\"\n• \"Draw a flowchart for the player onboarding process\"";
+      }
+    }
+    // ========== BROWSERBASE / REBOOT AUTOMATION COMMANDS ==========
+    else if (isBrowserbaseCommand) {
+      // Parse the specific action
+      const uploadMatch = commandLower.match(/upload\s+(?:video\s+)?(?:for|to)\s+(\w+(?:\s+\w+)?)/i)
+        || commandLower.match(/upload\s+(\w+(?:'s|s')?)\s+video/i);
+      const loginMatch = /(?:log\s*in\s*to\s+reboot|login\s+reboot|reboot\s+login)/i.test(commandLower);
+      const createMatch = commandLower.match(/(?:create|add)\s+(\w+(?:\s+\w+)?)\s+(?:in|to)\s+reboot/i);
+      const syncMatch = commandLower.match(/(?:sync|import)\s+(?:data\s+)?(?:for\s+)?(\w+(?:\s+\w+)?)\s+(?:from|via)\s+reboot/i);
+      
+      if (loginMatch && !uploadMatch && !createMatch && !syncMatch) {
+        // Just login verification
+        response = `🌐 **Browserbase Reboot Integration**\n\n`;
+        response += `I can automate Reboot Motion dashboard operations:\n\n`;
+        response += `**Available Commands:**\n`;
+        response += `• "Upload video for [player name]" - Upload a swing video\n`;
+        response += `• "Create [player name] in Reboot" - Create new player account\n`;
+        response += `• "Sync [player name] from Reboot" - Import latest session data\n\n`;
+        response += `The full automation pipeline is active - when players send swing videos via WhatsApp, I automatically:\n`;
+        response += `1. Log into Reboot Motion as you\n`;
+        response += `2. Create player account if needed\n`;
+        response += `3. Upload the video\n`;
+        response += `4. Wait for 3D processing\n`;
+        response += `5. Download analysis data\n`;
+        response += `6. Run 4B/KRS calculations\n`;
+        response += `7. Send results back to the player via ClawdBot`;
+      } else if (uploadMatch || createMatch || syncMatch) {
+        const playerNameMatch = uploadMatch || createMatch || syncMatch;
+        let playerName = playerNameMatch?.[1]?.trim().replace(/[''`'s]/g, "");
+        
+        if (playerName) {
+          // Find player
+          const { data: players } = await supabase
+            .from("players")
+            .select("id, name, email, reboot_athlete_id, reboot_player_id")
+            .ilike("name", `%${playerName}%`)
+            .limit(1);
+          
+          const player = players?.[0];
+          
+          if (!player) {
+            response = `❌ Player "${playerName}" not found in our database. Create them first with their basic info.`;
+          } else if (syncMatch) {
+            // Trigger sync via existing polling function
+            console.log("Triggering Reboot sync for:", player.name);
+            
+            try {
+              const syncResponse = await fetch(`${supabaseUrl}/functions/v1/reboot-motion-polling`, {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${supabaseKey}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  player_ids: [player.id],
+                }),
+              });
+              
+              const syncResult = await syncResponse.json();
+              
+              response = `## 🔄 Reboot Sync: ${player.name}\n\n`;
+              if (syncResult.results?.[0]) {
+                const result = syncResult.results[0];
+                response += `**Sessions Found:** ${result.sessions_found || 0}\n`;
+                response += `**New Sessions:** ${result.sessions_new || 0}\n`;
+                response += `**Processed:** ${result.sessions_processed || 0}\n`;
+                
+                if (result.errors?.length > 0) {
+                  response += `\n⚠️ **Issues:** ${result.errors.join(", ")}\n`;
+                }
+                
+                if (result.sessions_processed > 0) {
+                  response += `\n✅ 4B scores updated!`;
+                }
+              } else {
+                response += syncResult.error || "Sync completed.";
+              }
+            } catch (error) {
+              response = `❌ Sync failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+            }
+          } else if (createMatch) {
+            // Create player in Reboot
+            if (player.reboot_athlete_id || player.reboot_player_id) {
+              response = `ℹ️ ${player.name} already has a Reboot account (ID: ${player.reboot_athlete_id || player.reboot_player_id})`;
+            } else {
+              // Trigger Browserbase to create player
+              response = `🚀 **Creating ${player.name} in Reboot Motion...**\n\n`;
+              response += `I'll use browser automation to:\n`;
+              response += `1. Log into Reboot dashboard\n`;
+              response += `2. Navigate to add player\n`;
+              response += `3. Fill in their details\n`;
+              response += `4. Save the new Reboot ID\n\n`;
+              response += `⏳ This may take 30-60 seconds. I'll update you when complete.`;
+              
+              // Fire and forget the automation
+              fetch(`${supabaseUrl}/functions/v1/browserbase-reboot`, {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${supabaseKey}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  action: "full_pipeline",
+                  player_id: player.id,
+                  player_name: player.name,
+                  player_email: player.email,
+                }),
+              }).catch(err => console.error("Browserbase error:", err));
+            }
+          } else {
+            // Upload flow - needs video URL
+            response = `📹 **Upload Video for ${player.name}**\n\n`;
+            response += `To upload a video, players can send it directly via WhatsApp and I'll handle the rest automatically.\n\n`;
+            response += `**Reboot Status:**\n`;
+            if (player.reboot_athlete_id || player.reboot_player_id) {
+              response += `✅ Connected (ID: ${player.reboot_athlete_id || player.reboot_player_id})\n`;
+            } else {
+              response += `❌ Not connected - say "Create ${player.name} in Reboot" first\n`;
+            }
+          }
+        } else {
+          response = "Which player? Try: \"Upload video for Marcus\" or \"Create Charlie in Reboot\"";
+        }
+      } else {
+        response = "What would you like me to do? Try:\n• \"Login to Reboot\" - Check automation status\n• \"Sync Marcus from Reboot\" - Import latest data\n• \"Create Charlie in Reboot\" - Add new player";
       }
     }
     // ========== WEB SEARCH / NEWS COMMANDS ==========

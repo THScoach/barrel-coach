@@ -755,7 +755,8 @@ Sound like a cool older brother who played college ball.`;
 }
 
 /**
- * Queue Level 2 deep analysis via RickBot/Reboot Motion
+ * Queue Level 2 deep analysis via Browserbase + Reboot Motion
+ * Uploads video to Reboot, waits for processing, downloads data, runs 4B
  * Returns immediately, sends full Lab Report later
  */
 async function queueLevel2Analysis(
@@ -769,30 +770,31 @@ async function queueLevel2Analysis(
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  console.log("[Video L2] Queueing deep analysis for player:", playerId);
+  console.log("[Video L2] Queueing Browserbase automation for player:", playerId);
 
   try {
-    // Fire and forget - the edge function will handle delivery
-    fetch(`${supabaseUrl}/functions/v1/queue-deep-analysis`, {
+    // Fire and forget - browserbase-reboot will handle the full pipeline
+    fetch(`${supabaseUrl}/functions/v1/browserbase-reboot`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${supabaseServiceKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        action: "full_pipeline",
         player_id: playerId,
         video_url: videoUrl,
         video_storage_path: storagePath,
-        phone,
+        callback_phone: phone,
         is_whatsapp: isWhatsApp,
       }),
     }).catch(err => {
-      console.error("[Video L2] Queue error:", err);
+      console.error("[Video L2] Browserbase queue error:", err);
     });
 
-    console.log("[Video L2] Deep analysis queued");
+    console.log("[Video L2] Browserbase automation queued");
   } catch (error) {
-    console.error("[Video L2] Failed to queue:", error);
+    console.error("[Video L2] Failed to queue Browserbase:", error);
   }
 }
 
