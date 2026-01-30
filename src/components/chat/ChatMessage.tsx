@@ -1,8 +1,9 @@
 import { format } from 'date-fns';
-import { ThumbsUp, ThumbsDown, Pencil, Bot, User } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Pencil, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ThinkingIndicator } from './ThinkingIndicator';
+import coachRickAvatar from '@/assets/coach-rick-avatar.png';
 
 interface ChatMessageProps {
   id: string;
@@ -30,8 +31,8 @@ export function ChatMessage({
   if (isLoading) {
     return (
       <div className="flex gap-3 animate-in fade-in-0 slide-in-from-bottom-2">
-        <div className="h-8 w-8 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
-          <Bot className="h-4 w-4 text-accent" />
+        <div className="h-8 w-8 rounded-full overflow-hidden shrink-0">
+          <img src={coachRickAvatar} alt="Coach Rick" className="h-full w-full object-cover" />
         </div>
         <div className="flex-1">
           <div className="p-3 rounded-lg bg-muted/50 inline-block max-w-[85%]">
@@ -52,12 +53,12 @@ export function ChatMessage({
       {/* Avatar */}
       <div
         className={cn(
-          "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
-          isAssistant ? "bg-accent/10" : "bg-primary/10"
+          "h-8 w-8 rounded-full shrink-0 overflow-hidden",
+          !isAssistant && "bg-primary/10 flex items-center justify-center"
         )}
       >
         {isAssistant ? (
-          <Bot className="h-4 w-4 text-accent" />
+          <img src={coachRickAvatar} alt="Coach Rick" className="h-full w-full object-cover" />
         ) : (
           <User className="h-4 w-4 text-primary" />
         )}

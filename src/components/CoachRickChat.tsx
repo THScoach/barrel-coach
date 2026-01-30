@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Send, MessageCircle, Loader2 } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { FourBScores } from '@/types/analysis';
+import coachRickAvatar from '@/assets/coach-rick-avatar.png';
 
 interface CoachRickChatProps {
   scores: FourBScores;
@@ -76,8 +77,8 @@ export function CoachRickChat({ scores, weakestCategory }: CoachRickChatProps) {
   return (
     <Card className="p-6 mb-8">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
-          <MessageCircle className="w-5 h-5 text-accent" />
+        <div className="w-10 h-10 rounded-full overflow-hidden">
+          <img src={coachRickAvatar} alt="Coach Rick" className="w-full h-full object-cover" />
         </div>
         <div>
           <h2 className="text-lg font-bold">ASK COACH RICK</h2>
