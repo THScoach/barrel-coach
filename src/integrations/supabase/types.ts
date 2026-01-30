@@ -2691,6 +2691,87 @@ export type Database = {
           },
         ]
       }
+      player_stack_data: {
+        Row: {
+          bat_speed_current: number | null
+          bat_speed_start: number | null
+          best_heavy_speed: number | null
+          best_light_speed: number | null
+          coaching_notes: string | null
+          created_at: string | null
+          distance_potential: number | null
+          grit_score_avg: number | null
+          health_energy_avg: number | null
+          id: string
+          personal_bests: Json | null
+          player_id: string | null
+          program_name: string | null
+          recorded_at: string | null
+          responder_type: string | null
+          session_data: Json | null
+          sessions_completed: number | null
+          total_swings: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          bat_speed_current?: number | null
+          bat_speed_start?: number | null
+          best_heavy_speed?: number | null
+          best_light_speed?: number | null
+          coaching_notes?: string | null
+          created_at?: string | null
+          distance_potential?: number | null
+          grit_score_avg?: number | null
+          health_energy_avg?: number | null
+          id?: string
+          personal_bests?: Json | null
+          player_id?: string | null
+          program_name?: string | null
+          recorded_at?: string | null
+          responder_type?: string | null
+          session_data?: Json | null
+          sessions_completed?: number | null
+          total_swings?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          bat_speed_current?: number | null
+          bat_speed_start?: number | null
+          best_heavy_speed?: number | null
+          best_light_speed?: number | null
+          coaching_notes?: string | null
+          created_at?: string | null
+          distance_potential?: number | null
+          grit_score_avg?: number | null
+          health_energy_avg?: number | null
+          id?: string
+          personal_bests?: Json | null
+          player_id?: string | null
+          program_name?: string | null
+          recorded_at?: string | null
+          responder_type?: string | null
+          session_data?: Json | null
+          sessions_completed?: number | null
+          total_swings?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_stack_data_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_stack_data_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_video_prescriptions: {
         Row: {
           created_at: string | null
