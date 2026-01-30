@@ -83,6 +83,118 @@ function isExternalPlayerQuery(command: string): boolean {
   return false;
 }
 
+// Web research keywords
+const WEB_RESEARCH_KEYWORDS = [
+  "search", "find articles", "news", "latest on", "what's the latest",
+  "look up", "google", "research on", "articles about", "read about",
+  "recent news", "spring training", "trade", "injury", "contract"
+];
+
+function isWebResearchQuery(command: string): boolean {
+  const commandLower = command.toLowerCase();
+  return WEB_RESEARCH_KEYWORDS.some(kw => commandLower.includes(kw));
+}
+
+// Web search using Firecrawl
+async function webSearch(query: string): Promise<{ success: boolean; results?: any[]; error?: string }> {
+  const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+  
+  if (!FIRECRAWL_API_KEY) {
+    console.error("FIRECRAWL_API_KEY not configured");
+    return { success: false, error: "Web search not configured" };
+  }
+
+  try {
+    console.log("Web search query:", query);
+    
+    const response = await fetch("https://api.firecrawl.dev/v1/search", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        limit: 5,
+        scrapeOptions: {
+          formats: ["markdown"],
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Firecrawl search failed:", response.status);
+      return { success: false, error: `Search failed: ${response.status}` };
+    }
+
+    const data = await response.json();
+    console.log("Firecrawl search results:", data.data?.length || 0);
+    
+    return { success: true, results: data.data || [] };
+  } catch (error) {
+    console.error("Web search error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Search failed" };
+  }
+}
+
+// Scrape a specific URL
+async function scrapeUrl(url: string): Promise<{ success: boolean; content?: any; error?: string }> {
+  const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+  
+  if (!FIRECRAWL_API_KEY) {
+    return { success: false, error: "Web scraping not configured" };
+  }
+
+  try {
+    console.log("Scraping URL:", url);
+    
+    const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url,
+        formats: ["markdown"],
+        onlyMainContent: true,
+      }),
+    });
+
+    if (!response.ok) {
+      return { success: false, error: `Scrape failed: ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { success: true, content: data.data || data };
+  } catch (error) {
+    console.error("Scrape error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Scrape failed" };
+  }
+}
+
+// Format web search results
+function formatWebResults(results: any[], query: string): string {
+  if (!results || results.length === 0) {
+    return `No results found for "${query}".`;
+  }
+
+  let response = `## 🔍 Web Research: "${query}"\n\n`;
+  
+  results.slice(0, 5).forEach((result, i) => {
+    response += `### ${i + 1}. ${result.title || "Untitled"}\n`;
+    if (result.description) {
+      response += `${result.description}\n`;
+    }
+    if (result.url) {
+      response += `[Read more](${result.url})\n`;
+    }
+    response += `\n`;
+  });
+
+  return response;
+}
+
 // Call Baseball Savant lookup function
 async function lookupBaseballSavant(playerName: string, supabaseUrl: string, supabaseKey: string): Promise<any> {
   try {
@@ -245,7 +357,49 @@ serve(async (req) => {
     let response = "";
     let playerData: PlayerData | null = null;
 
+    // ========== WEB SEARCH / NEWS COMMANDS ==========
+    const webSearchMatch = commandLower.match(/(?:search|google|find articles|news on|latest on|what's the latest on|read about)\s+(.+)/i)
+      || (isWebResearchQuery(command) && commandLower.match(/(?:on|about|for)\s+(.+)/i));
+    
+    if (webSearchMatch && !commandLower.includes("data") && !commandLower.includes("scores") && !commandLower.includes("statcast")) {
+      const searchQuery = webSearchMatch[1]?.trim();
+      
+      if (searchQuery) {
+        console.log("Web research requested:", searchQuery);
+        
+        // Add baseball context to search
+        const enrichedQuery = searchQuery.includes("baseball") ? searchQuery : `${searchQuery} baseball MLB`;
+        
+        const searchResult = await webSearch(enrichedQuery);
+        
+        if (searchResult.success && searchResult.results) {
+          response = formatWebResults(searchResult.results, searchQuery);
+          
+          // If searching for a player, also try to get their stats
+          if (!commandLower.includes("news") && !commandLower.includes("article")) {
+            const playerName = searchQuery.replace(/latest|news|on|about|the/gi, "").trim();
+            if (playerName.length > 2) {
+              const [savantResult, fgResult] = await Promise.all([
+                lookupBaseballSavant(playerName, supabaseUrl, supabaseKey),
+                lookupFanGraphs(playerName, supabaseUrl, supabaseKey),
+              ]);
+              
+              if (savantResult?.success || fgResult?.success) {
+                const formatted = formatExternalPlayerData(savantResult, fgResult, playerName);
+                response = formatted.response + "\n\n---\n\n" + response;
+                playerData = formatted.playerData;
+              }
+            }
+          }
+        } else {
+          response = `Couldn't search for "${searchQuery}". ${searchResult.error || "Try again later."}`;
+        }
+      } else {
+        response = "What would you like me to search for? Try: \"Search latest on Gunnar Henderson\" or \"News on Orioles trades\"";
+      }
+    }
     // ========== PLAYER DATA COMMANDS ==========
+    else {
     const pullDataMatch = commandLower.match(/(?:pull|get|show|fetch|look up|find|research|analyze)\s+(?:(.+?)(?:'s|s')?\s+)?(?:data|scores|profile|info|stats|statcast|numbers)/i) 
       || commandLower.match(/(?:pull|get|show|research|analyze)\s+(.+)/i)
       || commandLower.match(/(?:who is|tell me about|what about)\s+(.+)/i);
@@ -586,6 +740,7 @@ You support Coach Rick's work with the Orioles, Marlins, and other professional 
         }
       }
     }
+    } // Close the else block for web search vs player data commands
 
     console.log("RickBot response generated, playerData:", playerData ? "yes" : "no");
 
