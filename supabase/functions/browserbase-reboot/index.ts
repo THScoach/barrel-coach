@@ -60,7 +60,7 @@ async function createBrowserSession(apiKey: string, projectId: string): Promise<
   const response = await fetch(`${BROWSERBASE_API}/sessions`, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
+      "X-BB-API-Key": apiKey,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -73,7 +73,7 @@ async function createBrowserSession(apiKey: string, projectId: string): Promise<
         },
       },
       keepAlive: true,
-      timeout: 300000, // 5 minutes max
+      timeout: 300, // 5 minutes in seconds
     }),
   });
 
@@ -105,7 +105,7 @@ async function executeScript(
   const response = await fetch(`${BROWSERBASE_API}/sessions/${sessionId}/execute`, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
+      "X-BB-API-Key": apiKey,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -433,7 +433,7 @@ async function closeSession(apiKey: string, sessionId: string): Promise<void> {
     await fetch(`${BROWSERBASE_API}/sessions/${sessionId}`, {
       method: "DELETE",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        "X-BB-API-Key": apiKey,
       },
     });
   } catch (error) {
