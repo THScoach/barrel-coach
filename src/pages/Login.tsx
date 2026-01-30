@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,10 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Get return URL from query params, default to /admin
+  const returnTo = searchParams.get("returnTo") || "/admin";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +32,8 @@ export default function Login() {
         setLoading(false);
         return;
       }
-      setTimeout(() => navigate("/admin"), 500);
+      // Redirect to the original destination after login
+      setTimeout(() => navigate(decodeURIComponent(returnTo)), 500);
     } catch (err) {
       setError("An unexpected error occurred");
       setLoading(false);
