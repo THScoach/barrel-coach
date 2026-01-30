@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AdminHeader } from "@/components/AdminHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bot, BookOpen, MessageSquare, Target, FlaskConical, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Bot, BookOpen, MessageSquare, Target, FlaskConical, ThumbsUp, ThumbsDown, Video } from "lucide-react";
 
 export default function ClawdBotAdmin() {
   // Knowledge count
@@ -67,6 +67,7 @@ export default function ClawdBotAdmin() {
     { label: "Knowledge Base", icon: BookOpen, href: "/admin/clawdbot/knowledge" },
     { label: "Scenarios", icon: MessageSquare, href: "/admin/clawdbot/scenarios" },
     { label: "Cues", icon: Target, href: "/admin/clawdbot/cues" },
+    { label: "Video Learning", icon: Video, href: "/admin/clawdbot/videos" },
     { label: "Test Chat", icon: FlaskConical, href: "/admin/clawdbot/test" },
   ];
 
@@ -151,7 +152,7 @@ export default function ClawdBotAdmin() {
         {/* Quick Links */}
         <div>
           <h2 className="text-lg font-semibold text-white mb-4">Quick Links</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {quickLinks.map((link) => (
               <Button
                 key={link.label}
