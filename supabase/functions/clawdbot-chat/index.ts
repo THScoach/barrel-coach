@@ -43,10 +43,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
 
-    if (!lovableApiKey) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    if (!anthropicApiKey) {
+      throw new Error("ANTHROPIC_API_KEY not configured");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -237,9 +237,8 @@ serve(async (req) => {
       cues || []
     );
 
-    // 7. Build messages array for the AI
-    const aiMessages = [
-      { role: "system" as const, content: systemPrompt },
+    // 7. Build messages array for Claude
+    const claudeMessages = [
       ...conversationHistory.map(m => ({
         role: (m.role === "player" ? "user" : "assistant") as "user" | "assistant",
         content: m.content,
@@ -247,25 +246,27 @@ serve(async (req) => {
       { role: "user" as const, content: message },
     ];
 
-    console.log("Calling Lovable AI with", aiMessages.length, "messages");
+    console.log("Calling Claude API with", claudeMessages.length, "messages");
 
-    // 8. Call Lovable AI Gateway
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // 8. Call Claude API
+    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${lovableApiKey}`,
+        "x-api-key": anthropicApiKey,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: aiMessages,
-        max_tokens: 400,
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 300,
+        system: systemPrompt,
+        messages: claudeMessages,
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("AI Gateway error:", aiResponse.status, errorText);
+      console.error("Claude API error:", aiResponse.status, errorText);
       
       if (aiResponse.status === 429) {
         return new Response(
@@ -273,17 +274,11 @@ serve(async (req) => {
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      throw new Error(`AI Gateway error: ${aiResponse.status}`);
+      throw new Error(`Claude API error: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
-    const assistantMessage = aiData.choices?.[0]?.message?.content || "Sorry, I couldn't process that. Try again!";
+    const assistantMessage = aiData.content?.[0]?.text || "Sorry, I couldn't process that. Try again!";
 
     const responseTime = Date.now() - startTime;
     console.log("ClawdBot response generated in", responseTime, "ms");
