@@ -31,7 +31,7 @@ interface BrowserbaseSession {
 }
 
 interface AutomationRequest {
-  action: "upload_video" | "create_player" | "download_data" | "full_pipeline";
+  action: "upload_video" | "create_player" | "download_data" | "full_pipeline" | "test_login" | "find_player" | "pull_reports";
   player_id?: string;
   player_name?: string;
   player_email?: string;
@@ -455,11 +455,11 @@ async function runFullPipeline(
   
   try {
     // Get Reboot credentials
-    const REBOOT_USERNAME = Deno.env.get("REBOOT_USERNAME");
+    const REBOOT_EMAIL = Deno.env.get("REBOOT_EMAIL");
     const REBOOT_PASSWORD = Deno.env.get("REBOOT_PASSWORD");
     
-    if (!REBOOT_USERNAME || !REBOOT_PASSWORD) {
-      return { success: false, message: "Reboot credentials not configured", errors: ["Missing REBOOT_USERNAME or REBOOT_PASSWORD"] };
+    if (!REBOOT_EMAIL || !REBOOT_PASSWORD) {
+      return { success: false, message: "Reboot credentials not configured", errors: ["Missing REBOOT_EMAIL or REBOOT_PASSWORD"] };
     }
     
     // Get player info
@@ -493,7 +493,7 @@ async function runFullPipeline(
     console.log(`[Pipeline] Browser session created: ${browserSession.id}`);
     
     // Login to Reboot
-    const loggedIn = await loginToReboot(apiKey, browserSession.id, REBOOT_USERNAME, REBOOT_PASSWORD);
+    const loggedIn = await loginToReboot(apiKey, browserSession.id, REBOOT_EMAIL, REBOOT_PASSWORD);
     if (!loggedIn) {
       errors.push("Failed to login to Reboot Motion");
       return { 
@@ -633,6 +633,236 @@ async function runFullPipeline(
   }
 }
 
+/**
+ * Test login only - for verifying credentials work
+ */
+async function testLoginOnly(
+  apiKey: string,
+  projectId: string
+): Promise<AutomationResult> {
+  let browserSession: BrowserbaseSession | null = null;
+  
+  try {
+    const REBOOT_EMAIL = Deno.env.get("REBOOT_EMAIL");
+    const REBOOT_PASSWORD = Deno.env.get("REBOOT_PASSWORD");
+    
+    if (!REBOOT_EMAIL || !REBOOT_PASSWORD) {
+      return { success: false, message: "Reboot credentials not configured", errors: ["Missing REBOOT_EMAIL or REBOOT_PASSWORD"] };
+    }
+    
+    console.log("[TestLogin] Creating browser session...");
+    browserSession = await createBrowserSession(apiKey, projectId);
+    console.log(`[TestLogin] Session created: ${browserSession.id}`);
+    
+    const loggedIn = await loginToReboot(apiKey, browserSession.id, REBOOT_EMAIL, REBOOT_PASSWORD);
+    
+    return {
+      success: loggedIn,
+      message: loggedIn ? "Successfully logged into Reboot Motion!" : "Login failed",
+      sessionId: browserSession.id,
+      replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
+    };
+  } catch (error) {
+    console.error("[TestLogin] Error:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+      sessionId: browserSession?.id,
+      replayUrl: browserSession?.id ? `https://browserbase.com/sessions/${browserSession.id}` : undefined,
+    };
+  } finally {
+    if (browserSession) {
+      await closeSession(apiKey, browserSession.id);
+    }
+  }
+}
+
+/**
+ * Find a player only - for testing player search
+ */
+async function findPlayerOnly(
+  apiKey: string,
+  projectId: string,
+  playerName: string
+): Promise<AutomationResult> {
+  let browserSession: BrowserbaseSession | null = null;
+  
+  try {
+    const REBOOT_EMAIL = Deno.env.get("REBOOT_EMAIL");
+    const REBOOT_PASSWORD = Deno.env.get("REBOOT_PASSWORD");
+    
+    if (!REBOOT_EMAIL || !REBOOT_PASSWORD) {
+      return { success: false, message: "Reboot credentials not configured" };
+    }
+    
+    if (!playerName) {
+      return { success: false, message: "Player name required" };
+    }
+    
+    console.log(`[FindPlayer] Creating browser session to find: ${playerName}`);
+    browserSession = await createBrowserSession(apiKey, projectId);
+    
+    // Login first
+    const loggedIn = await loginToReboot(apiKey, browserSession.id, REBOOT_EMAIL, REBOOT_PASSWORD);
+    if (!loggedIn) {
+      return { 
+        success: false, 
+        message: "Login failed",
+        sessionId: browserSession.id,
+        replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
+      };
+    }
+    
+    // Search for player
+    const playerSearch = await findPlayerInReboot(apiKey, browserSession.id, playerName);
+    
+    return {
+      success: playerSearch.exists,
+      message: playerSearch.exists 
+        ? `Found player: ${playerName} (Reboot ID: ${playerSearch.playerId})`
+        : `Player not found: ${playerName}`,
+      data: playerSearch,
+      sessionId: browserSession.id,
+      replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
+    };
+  } catch (error) {
+    console.error("[FindPlayer] Error:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+      sessionId: browserSession?.id,
+      replayUrl: browserSession?.id ? `https://browserbase.com/sessions/${browserSession.id}` : undefined,
+    };
+  } finally {
+    if (browserSession) {
+      await closeSession(apiKey, browserSession.id);
+    }
+  }
+}
+
+/**
+ * Pull player reports - find player and extract latest session data
+ */
+async function pullPlayerReports(
+  supabase: any,
+  apiKey: string,
+  projectId: string,
+  playerName: string
+): Promise<AutomationResult> {
+  let browserSession: BrowserbaseSession | null = null;
+  
+  try {
+    const REBOOT_EMAIL = Deno.env.get("REBOOT_EMAIL");
+    const REBOOT_PASSWORD = Deno.env.get("REBOOT_PASSWORD");
+    
+    if (!REBOOT_EMAIL || !REBOOT_PASSWORD) {
+      return { success: false, message: "Reboot credentials not configured" };
+    }
+    
+    if (!playerName) {
+      return { success: false, message: "Player name required" };
+    }
+    
+    console.log(`[PullReports] Creating browser session for: ${playerName}`);
+    browserSession = await createBrowserSession(apiKey, projectId);
+    
+    // Login first
+    const loggedIn = await loginToReboot(apiKey, browserSession.id, REBOOT_EMAIL, REBOOT_PASSWORD);
+    if (!loggedIn) {
+      return { 
+        success: false, 
+        message: "Login failed",
+        sessionId: browserSession.id,
+        replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
+      };
+    }
+    
+    // Search for player
+    const playerSearch = await findPlayerInReboot(apiKey, browserSession.id, playerName);
+    
+    if (!playerSearch.exists || !playerSearch.playerId) {
+      return {
+        success: false,
+        message: `Player not found: ${playerName}`,
+        sessionId: browserSession.id,
+        replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
+      };
+    }
+    
+    // Navigate to player's sessions and extract data
+    const extractScript = `
+      // Navigate to player's sessions
+      await page.goto("${REBOOT_DASHBOARD_URL}/athlete/${playerSearch.playerId}/sessions", { waitUntil: "networkidle2", timeout: 30000 });
+      
+      // Wait for sessions list
+      await page.waitForSelector('.sessions-list, table, [data-testid="sessions"]', { timeout: 10000 });
+      
+      // Get sessions data
+      const sessions = await page.$$eval('tr, .session-row', rows => {
+        return rows.slice(0, 5).map(row => {
+          const cells = row.querySelectorAll('td, .cell');
+          const link = row.querySelector('a');
+          return {
+            date: cells[0]?.textContent?.trim() || '',
+            swings: cells[1]?.textContent?.trim() || '',
+            avgSpeed: cells[2]?.textContent?.trim() || '',
+            maxSpeed: cells[3]?.textContent?.trim() || '',
+            sessionId: link?.href?.match(/session\\/([a-f0-9-]+)/)?.[1] || '',
+          };
+        }).filter(s => s.date);
+      });
+      
+      // Try to get most recent session details
+      let latestSessionData = null;
+      if (sessions.length > 0 && sessions[0].sessionId) {
+        await page.goto("${REBOOT_DASHBOARD_URL}/session/" + sessions[0].sessionId, { waitUntil: "networkidle2", timeout: 30000 });
+        
+        // Extract session metrics
+        latestSessionData = await page.evaluate(() => {
+          const metrics = {};
+          document.querySelectorAll('[data-metric], .metric-card, .stat-card').forEach(card => {
+            const label = card.querySelector('.label, .metric-label')?.textContent?.trim();
+            const value = card.querySelector('.value, .metric-value')?.textContent?.trim();
+            if (label && value) {
+              metrics[label.toLowerCase().replace(/\\s+/g, '_')] = value;
+            }
+          });
+          return metrics;
+        });
+      }
+      
+      return { sessions, latestSession: latestSessionData };
+    `;
+    
+    const reportData = await executeScript(apiKey, browserSession.id, extractScript);
+    
+    return {
+      success: true,
+      message: `Found ${reportData?.sessions?.length || 0} sessions for ${playerName}`,
+      data: {
+        playerId: playerSearch.playerId,
+        playerName,
+        sessions: reportData?.sessions || [],
+        latestSession: reportData?.latestSession || null,
+      },
+      sessionId: browserSession.id,
+      replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
+    };
+  } catch (error) {
+    console.error("[PullReports] Error:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+      sessionId: browserSession?.id,
+      replayUrl: browserSession?.id ? `https://browserbase.com/sessions/${browserSession.id}` : undefined,
+    };
+  } finally {
+    if (browserSession) {
+      await closeSession(apiKey, browserSession.id);
+    }
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -667,6 +897,18 @@ serve(async (req) => {
       case "upload_video":
         // Just upload, don't wait for full processing
         result = await runFullPipeline(supabase, BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID, request);
+        break;
+      
+      case "test_login":
+        result = await testLoginOnly(BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID);
+        break;
+      
+      case "find_player":
+        result = await findPlayerOnly(BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID, request.player_name || "");
+        break;
+      
+      case "pull_reports":
+        result = await pullPlayerReports(supabase, BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID, request.player_name || "");
         break;
         
       default:
