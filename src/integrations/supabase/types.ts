@@ -2221,6 +2221,77 @@ export type Database = {
           },
         ]
       }
+      parent_player_links: {
+        Row: {
+          consented_at: string | null
+          created_at: string | null
+          id: string
+          notify_milestone: boolean | null
+          notify_session_complete: boolean | null
+          notify_weekly_report: boolean | null
+          parent_id: string
+          player_consented: boolean
+          player_id: string
+          relationship: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          consented_at?: string | null
+          created_at?: string | null
+          id?: string
+          notify_milestone?: boolean | null
+          notify_session_complete?: boolean | null
+          notify_weekly_report?: boolean | null
+          parent_id: string
+          player_consented?: boolean
+          player_id: string
+          relationship?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          consented_at?: string | null
+          created_at?: string | null
+          id?: string
+          notify_milestone?: boolean | null
+          notify_session_complete?: boolean | null
+          notify_weekly_report?: boolean | null
+          parent_id?: string
+          player_consented?: boolean
+          player_id?: string
+          relationship?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parent_player_links_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parent_player_links_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parent_player_links_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parent_player_links_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_blast_data: {
         Row: {
           attack_angle: number | null
@@ -2926,6 +2997,7 @@ export type Database = {
           beta_notes: string | null
           can_login: boolean | null
           coaching_notes: Json | null
+          contact_type: string | null
           created_at: string | null
           current_bat_speed: number | null
           current_streak: number | null
@@ -2991,6 +3063,7 @@ export type Database = {
           beta_notes?: string | null
           can_login?: boolean | null
           coaching_notes?: Json | null
+          contact_type?: string | null
           created_at?: string | null
           current_bat_speed?: number | null
           current_streak?: number | null
@@ -3056,6 +3129,7 @@ export type Database = {
           beta_notes?: string | null
           can_login?: boolean | null
           coaching_notes?: Json | null
+          contact_type?: string | null
           created_at?: string | null
           current_bat_speed?: number | null
           current_streak?: number | null
