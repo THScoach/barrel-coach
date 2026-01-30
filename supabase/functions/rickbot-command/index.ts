@@ -30,6 +30,200 @@ interface PlayerData {
   lastSessionDate?: string;
   swingCount?: number;
   trend?: "up" | "down" | "stable";
+  source?: "internal" | "baseball_savant" | "fangraphs" | "combined";
+  // External data fields
+  statcast?: {
+    avg_exit_velocity?: number;
+    max_exit_velocity?: number;
+    barrel_pct?: number;
+    hard_hit_pct?: number;
+    xba?: number;
+    xslg?: number;
+    xwoba?: number;
+    k_pct?: number;
+    bb_pct?: number;
+    sprint_speed?: number;
+  };
+  fangraphs?: {
+    woba?: number;
+    wrc_plus?: number;
+    war?: number;
+    o_swing_pct?: number;
+    z_contact_pct?: number;
+    chase_rate?: number;
+    hard_pct?: number;
+    pull_pct?: number;
+    gb_pct?: number;
+    fb_pct?: number;
+  };
+}
+
+// Known MLB/MiLB player names for quick detection
+const MLB_KEYWORDS = ["mlb", "major league", "statcast", "savant", "fangraphs", "prospects", "minor league", "milb"];
+
+function isExternalPlayerQuery(command: string): boolean {
+  const commandLower = command.toLowerCase();
+  
+  // Check for MLB-related keywords
+  if (MLB_KEYWORDS.some(kw => commandLower.includes(kw))) {
+    return true;
+  }
+  
+  // Check for famous player names (common MLB players)
+  const famousPlayers = [
+    "ohtani", "trout", "soto", "judge", "tatis", "acuna", "betts", "freeman",
+    "devers", "turner", "lindor", "riley", "schwarber", "alvarez", "tucker",
+    "gunnar", "henderson", "carroll", "rutschman", "witt", "robert", "seager"
+  ];
+  
+  if (famousPlayers.some(name => commandLower.includes(name))) {
+    return true;
+  }
+  
+  return false;
+}
+
+// Call Baseball Savant lookup function
+async function lookupBaseballSavant(playerName: string, supabaseUrl: string, supabaseKey: string): Promise<any> {
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/baseball-savant-lookup`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${supabaseKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "full_lookup",
+        playerName,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Baseball Savant lookup failed:", response.status);
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Baseball Savant lookup error:", error);
+    return null;
+  }
+}
+
+// Call FanGraphs lookup function
+async function lookupFanGraphs(playerName: string, supabaseUrl: string, supabaseKey: string): Promise<any> {
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/fangraphs-lookup`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${supabaseKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "full_lookup",
+        playerName,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("FanGraphs lookup failed:", response.status);
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("FanGraphs lookup error:", error);
+    return null;
+  }
+}
+
+// Format external player data for display
+function formatExternalPlayerData(savantData: any, fgData: any, playerName: string): { response: string; playerData: PlayerData } {
+  const savantStats = savantData?.data?.stats;
+  const savantPlayer = savantData?.data?.player;
+  const fgStats = fgData?.data?.stats;
+  const fgPlayer = fgData?.data?.player;
+
+  const displayName = savantPlayer?.name || fgPlayer?.playerName || playerName;
+  const team = savantPlayer?.team || fgStats?.team || fgPlayer?.team;
+  const position = savantPlayer?.position || fgPlayer?.position;
+
+  let response = `# ${displayName}\n`;
+  if (team) response += `**${team}**`;
+  if (position) response += ` • ${position}`;
+  response += `\n\n`;
+
+  // Statcast section
+  if (savantStats) {
+    response += `## ⚡ Statcast\n`;
+    if (savantStats.avg_exit_velocity) response += `• **Exit Velo:** ${savantStats.avg_exit_velocity.toFixed(1)} mph`;
+    if (savantStats.max_exit_velocity) response += ` (max ${savantStats.max_exit_velocity.toFixed(1)})\n`;
+    else response += `\n`;
+    
+    if (savantStats.barrel_pct) response += `• **Barrel %:** ${(savantStats.barrel_pct * 100).toFixed(1)}%\n`;
+    if (savantStats.hard_hit_pct) response += `• **Hard Hit %:** ${(savantStats.hard_hit_pct * 100).toFixed(1)}%\n`;
+    if (savantStats.xba) response += `• **xBA:** ${savantStats.xba.toFixed(3)}\n`;
+    if (savantStats.xslg) response += `• **xSLG:** ${savantStats.xslg.toFixed(3)}\n`;
+    if (savantStats.xwoba) response += `• **xwOBA:** ${savantStats.xwoba.toFixed(3)}\n`;
+    response += `\n`;
+  }
+
+  // FanGraphs section
+  if (fgStats) {
+    response += `## 📊 FanGraphs\n`;
+    if (fgStats.wrc_plus) response += `• **wRC+:** ${fgStats.wrc_plus}\n`;
+    if (fgStats.war !== undefined) response += `• **WAR:** ${fgStats.war.toFixed(1)}\n`;
+    if (fgStats.woba) response += `• **wOBA:** ${fgStats.woba.toFixed(3)}\n`;
+    
+    response += `\n### Plate Discipline\n`;
+    if (fgStats.o_swing_pct) response += `• **O-Swing %:** ${(fgStats.o_swing_pct * 100).toFixed(1)}%\n`;
+    if (fgStats.z_contact_pct) response += `• **Z-Contact %:** ${(fgStats.z_contact_pct * 100).toFixed(1)}%\n`;
+    if (fgStats.swstr_pct) response += `• **SwStr %:** ${(fgStats.swstr_pct * 100).toFixed(1)}%\n`;
+    if (fgStats.k_pct) response += `• **K %:** ${(fgStats.k_pct * 100).toFixed(1)}%\n`;
+    if (fgStats.bb_pct) response += `• **BB %:** ${(fgStats.bb_pct * 100).toFixed(1)}%\n`;
+    
+    response += `\n### Batted Ball\n`;
+    if (fgStats.hard_pct) response += `• **Hard %:** ${(fgStats.hard_pct * 100).toFixed(1)}%\n`;
+    if (fgStats.gb_pct) response += `• **GB %:** ${(fgStats.gb_pct * 100).toFixed(1)}%\n`;
+    if (fgStats.fb_pct) response += `• **FB %:** ${(fgStats.fb_pct * 100).toFixed(1)}%\n`;
+    if (fgStats.pull_pct) response += `• **Pull %:** ${(fgStats.pull_pct * 100).toFixed(1)}%\n`;
+  }
+
+  // Build player data object
+  const playerData: PlayerData = {
+    id: savantPlayer?.id?.toString() || fgPlayer?.playerId?.toString() || "external",
+    name: displayName,
+    team,
+    source: "combined",
+    statcast: savantStats ? {
+      avg_exit_velocity: savantStats.avg_exit_velocity,
+      max_exit_velocity: savantStats.max_exit_velocity,
+      barrel_pct: savantStats.barrel_pct,
+      hard_hit_pct: savantStats.hard_hit_pct,
+      xba: savantStats.xba,
+      xslg: savantStats.xslg,
+      xwoba: savantStats.xwoba,
+      k_pct: savantStats.k_pct,
+      bb_pct: savantStats.bb_pct,
+    } : undefined,
+    fangraphs: fgStats ? {
+      woba: fgStats.woba,
+      wrc_plus: fgStats.wrc_plus,
+      war: fgStats.war,
+      o_swing_pct: fgStats.o_swing_pct,
+      z_contact_pct: fgStats.z_contact_pct,
+      hard_pct: fgStats.hard_pct,
+      pull_pct: fgStats.pull_pct,
+      gb_pct: fgStats.gb_pct,
+      fb_pct: fgStats.fb_pct,
+    } : undefined,
+  };
+
+  if (!savantStats && !fgStats) {
+    response = `Found **${displayName}** but couldn't retrieve detailed stats. The player may be in the minors or data may be limited.`;
+  }
+
+  return { response, playerData };
 }
 
 serve(async (req) => {
@@ -52,23 +246,32 @@ serve(async (req) => {
     let playerData: PlayerData | null = null;
 
     // ========== PLAYER DATA COMMANDS ==========
-    const pullDataMatch = commandLower.match(/(?:pull|get|show|fetch|look up|find)\s+(?:(.+?)(?:'s|s')?\s+)?(?:data|scores|profile|info|stats)/i) 
-      || commandLower.match(/(?:pull|get|show)\s+(.+)/i);
+    const pullDataMatch = commandLower.match(/(?:pull|get|show|fetch|look up|find|research|analyze)\s+(?:(.+?)(?:'s|s')?\s+)?(?:data|scores|profile|info|stats|statcast|numbers)/i) 
+      || commandLower.match(/(?:pull|get|show|research|analyze)\s+(.+)/i)
+      || commandLower.match(/(?:who is|tell me about|what about)\s+(.+)/i);
     
-    if (pullDataMatch || commandLower.includes("data") || commandLower.includes("scores")) {
+    if (pullDataMatch || commandLower.includes("data") || commandLower.includes("scores") || commandLower.includes("stats")) {
       // Extract player name from command
       let playerName = pullDataMatch?.[1]?.trim();
       
       if (!playerName) {
         // Try to extract any name-like pattern
-        const nameMatch = command.match(/(?:for|about|on)\s+(\w+)/i);
+        const nameMatch = command.match(/(?:for|about|on)\s+(\w+(?:\s+\w+)?)/i);
         playerName = nameMatch?.[1];
+      }
+
+      // Clean up player name
+      if (playerName) {
+        playerName = playerName.replace(/[''`]/g, "").replace(/\s+(data|scores|stats|profile|info|statcast)$/i, "").trim();
       }
 
       if (playerName) {
         console.log("Looking up player:", playerName);
         
-        // Search for player by name (fuzzy match), prioritize those with scores
+        // First, check if this looks like an MLB/external player query
+        const isExternalQuery = isExternalPlayerQuery(command) || isExternalPlayerQuery(playerName);
+        
+        // Search internal database first
         const { data: players, error: playerError } = await supabase
           .from("players")
           .select(`
@@ -78,12 +281,9 @@ serve(async (req) => {
           .ilike("name", `%${playerName}%`)
           .limit(10);
 
-        if (playerError) {
-          console.error("Player lookup error:", playerError);
-          response = `Error looking up player: ${playerError.message}`;
-        } else if (!players || players.length === 0) {
-          response = `Couldn't find a player matching "${playerName}". Try the full name or check spelling.`;
-        } else {
+        let foundInternalPlayer = false;
+        
+        if (!playerError && players && players.length > 0) {
           // Prioritize player with scores over one without
           const sortedPlayers = players.sort((a: any, b: any) => {
             const aHasScores = Array.isArray(a.swing_4b_scores) && a.swing_4b_scores.length > 0;
@@ -94,86 +294,115 @@ serve(async (req) => {
           });
           
           const player = sortedPlayers[0];
-          console.log("Found player:", player.name, "has scores:", Array.isArray(player.swing_4b_scores) && player.swing_4b_scores.length > 0);
+          const hasScores = Array.isArray(player.swing_4b_scores) && player.swing_4b_scores.length > 0;
+          
+          // Only use internal player if they have scores OR this isn't an external query
+          if (hasScores || !isExternalQuery) {
+            foundInternalPlayer = true;
+            console.log("Found internal player:", player.name);
 
-          // Get latest 4B scores
-          const { data: latestScore } = await supabase
-            .from("swing_4b_scores")
-            .select("brain_score, body_score, bat_score, ball_score, composite_score, weakest_link, created_at")
-            .eq("player_id", player.id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+            // Get latest 4B scores
+            const { data: latestScore } = await supabase
+              .from("swing_4b_scores")
+              .select("brain_score, body_score, bat_score, ball_score, composite_score, weakest_link, created_at")
+              .eq("player_id", player.id)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
 
-          // Get previous score for trend
-          const { data: previousScores } = await supabase
-            .from("swing_4b_scores")
-            .select("composite_score, created_at")
-            .eq("player_id", player.id)
-            .order("created_at", { ascending: false })
-            .limit(5);
+            // Get previous score for trend
+            const { data: previousScores } = await supabase
+              .from("swing_4b_scores")
+              .select("composite_score, created_at")
+              .eq("player_id", player.id)
+              .order("created_at", { ascending: false })
+              .limit(5);
 
-          // Get swing count from sensor_sessions
-          const { data: sessionStats } = await supabase
-            .from("sensor_sessions")
-            .select("swing_count")
-            .eq("player_id", player.id);
+            // Get swing count from sensor_sessions
+            const { data: sessionStats } = await supabase
+              .from("sensor_sessions")
+              .select("swing_count")
+              .eq("player_id", player.id);
 
-          const totalSwings = sessionStats?.reduce((sum, s) => sum + (s.swing_count || 0), 0) || 0;
+            const totalSwings = sessionStats?.reduce((sum, s) => sum + (s.swing_count || 0), 0) || 0;
 
-          // Calculate trend
-          let trend: "up" | "down" | "stable" = "stable";
-          if (previousScores && previousScores.length >= 2) {
-            const current = previousScores[0]?.composite_score || 0;
-            const previous = previousScores[1]?.composite_score || 0;
-            if (current > previous + 2) trend = "up";
-            else if (current < previous - 2) trend = "down";
-          }
-
-          // Build player data for the card
-          playerData = {
-            id: player.id,
-            name: player.name || "Unknown",
-            email: player.email,
-            phone: player.phone,
-            motorProfile: player.motor_profile_sensor,
-            level: player.level,
-            team: player.team,
-            scores: latestScore ? {
-              brain: latestScore.brain_score,
-              body: latestScore.body_score,
-              bat: latestScore.bat_score,
-              ball: latestScore.ball_score,
-              composite: latestScore.composite_score,
-            } : undefined,
-            weakestCategory: latestScore?.weakest_link,
-            lastSessionDate: latestScore?.created_at 
-              ? new Date(latestScore.created_at).toLocaleDateString() 
-              : undefined,
-            swingCount: totalSwings,
-            trend,
-          };
-
-          // Build response summary
-          const scores = playerData.scores;
-          if (scores?.composite) {
-            response = `**${player.name}** - ${player.motor_profile_sensor || "No profile yet"}\n\n`;
-            response += `**Composite: ${scores.composite.toFixed(0)}** (${trend === "up" ? "↑ improving" : trend === "down" ? "↓ declining" : "→ stable"})\n\n`;
-            response += `• Brain: ${scores.brain?.toFixed(0) || "--"}\n`;
-            response += `• Body: ${scores.body?.toFixed(0) || "--"}\n`;
-            response += `• Bat: ${scores.bat?.toFixed(0) || "--"}\n`;
-            response += `• Ball: ${scores.ball?.toFixed(0) || "--"}\n\n`;
-            
-            if (playerData.weakestCategory) {
-              response += `**Priority:** ${playerData.weakestCategory} needs attention.\n`;
+            // Calculate trend
+            let trend: "up" | "down" | "stable" = "stable";
+            if (previousScores && previousScores.length >= 2) {
+              const current = previousScores[0]?.composite_score || 0;
+              const previous = previousScores[1]?.composite_score || 0;
+              if (current > previous + 2) trend = "up";
+              else if (current < previous - 2) trend = "down";
             }
-            response += `\n${totalSwings.toLocaleString()} total swings analyzed.`;
-          } else {
-            response = `Found **${player.name}** but no 4B scores yet. They may need a session.`;
+
+            // Build player data for the card
+            playerData = {
+              id: player.id,
+              name: player.name || "Unknown",
+              email: player.email,
+              phone: player.phone,
+              motorProfile: player.motor_profile_sensor,
+              level: player.level,
+              team: player.team,
+              source: "internal",
+              scores: latestScore ? {
+                brain: latestScore.brain_score,
+                body: latestScore.body_score,
+                bat: latestScore.bat_score,
+                ball: latestScore.ball_score,
+                composite: latestScore.composite_score,
+              } : undefined,
+              weakestCategory: latestScore?.weakest_link,
+              lastSessionDate: latestScore?.created_at 
+                ? new Date(latestScore.created_at).toLocaleDateString() 
+                : undefined,
+              swingCount: totalSwings,
+              trend,
+            };
+
+            // Build response summary
+            const scores = playerData.scores;
+            if (scores?.composite) {
+              response = `**${player.name}** - ${player.motor_profile_sensor || "No profile yet"} _(Internal)_\n\n`;
+              response += `**Composite: ${scores.composite.toFixed(0)}** (${trend === "up" ? "↑ improving" : trend === "down" ? "↓ declining" : "→ stable"})\n\n`;
+              response += `• Brain: ${scores.brain?.toFixed(0) || "--"}\n`;
+              response += `• Body: ${scores.body?.toFixed(0) || "--"}\n`;
+              response += `• Bat: ${scores.bat?.toFixed(0) || "--"}\n`;
+              response += `• Ball: ${scores.ball?.toFixed(0) || "--"}\n\n`;
+              
+              if (playerData.weakestCategory) {
+                response += `**Priority:** ${playerData.weakestCategory} needs attention.\n`;
+              }
+              response += `\n${totalSwings.toLocaleString()} total swings analyzed.`;
+            } else {
+              response = `Found **${player.name}** in your system but no 4B scores yet. They may need a session.`;
+            }
+          }
+        }
+
+        // If not found internally OR this is an MLB player query, search external sources
+        if (!foundInternalPlayer || isExternalQuery) {
+          console.log("Searching external sources for:", playerName);
+          
+          // Search both sources in parallel
+          const [savantResult, fgResult] = await Promise.all([
+            lookupBaseballSavant(playerName, supabaseUrl, supabaseKey),
+            lookupFanGraphs(playerName, supabaseUrl, supabaseKey),
+          ]);
+
+          console.log("Savant result:", savantResult?.success, "FG result:", fgResult?.success);
+
+          if (savantResult?.success || fgResult?.success) {
+            const formatted = formatExternalPlayerData(savantResult, fgResult, playerName);
+            response = formatted.response;
+            playerData = formatted.playerData;
+          } else if (!foundInternalPlayer) {
+            // Neither internal nor external found
+            response = `Couldn't find **${playerName}** in Catching Barrels or MLB databases. Check the spelling or try a different name.`;
           }
         }
       } else {
-        response = "Who would you like me to look up? Say something like \"Pull Marcus's data\" or \"Get Connor's scores\".";
+        response = "Who would you like me to look up? I can search both your players and MLB/MiLB databases.\n\nTry: \"Pull Marcus's data\" or \"Research Gunnar Henderson\"";
       }
     }
     // ========== ATTENTION/FLAGS COMMANDS ==========
@@ -221,6 +450,58 @@ serve(async (req) => {
         response = "✅ No players flagged right now. Everyone's holding steady or improving.";
       }
     }
+    // ========== COMPARE PLAYERS ==========
+    else if (commandLower.includes("compare") || commandLower.includes("vs") || commandLower.includes("versus")) {
+      // Extract two player names
+      const compareMatch = commandLower.match(/compare\s+(.+?)\s+(?:to|vs|versus|and|with)\s+(.+)/i)
+        || commandLower.match(/(.+?)\s+vs\.?\s+(.+)/i);
+      
+      if (compareMatch) {
+        const player1Name = compareMatch[1].trim();
+        const player2Name = compareMatch[2].trim();
+        
+        // Fetch both players in parallel
+        const [savant1, savant2, fg1, fg2] = await Promise.all([
+          lookupBaseballSavant(player1Name, supabaseUrl, supabaseKey),
+          lookupBaseballSavant(player2Name, supabaseUrl, supabaseKey),
+          lookupFanGraphs(player1Name, supabaseUrl, supabaseKey),
+          lookupFanGraphs(player2Name, supabaseUrl, supabaseKey),
+        ]);
+
+        const p1Name = savant1?.data?.player?.name || fg1?.data?.player?.playerName || player1Name;
+        const p2Name = savant2?.data?.player?.name || fg2?.data?.player?.playerName || player2Name;
+        
+        response = `# ${p1Name} vs ${p2Name}\n\n`;
+        response += `| Metric | ${p1Name} | ${p2Name} |\n`;
+        response += `|--------|----------|----------|\n`;
+        
+        const s1 = savant1?.data?.stats;
+        const s2 = savant2?.data?.stats;
+        const f1 = fg1?.data?.stats;
+        const f2 = fg2?.data?.stats;
+        
+        if (s1?.avg_exit_velocity || s2?.avg_exit_velocity) {
+          response += `| Exit Velo | ${s1?.avg_exit_velocity?.toFixed(1) || "--"} | ${s2?.avg_exit_velocity?.toFixed(1) || "--"} |\n`;
+        }
+        if (s1?.barrel_pct || s2?.barrel_pct) {
+          response += `| Barrel % | ${s1?.barrel_pct ? (s1.barrel_pct * 100).toFixed(1) + "%" : "--"} | ${s2?.barrel_pct ? (s2.barrel_pct * 100).toFixed(1) + "%" : "--"} |\n`;
+        }
+        if (s1?.xwoba || s2?.xwoba) {
+          response += `| xwOBA | ${s1?.xwoba?.toFixed(3) || "--"} | ${s2?.xwoba?.toFixed(3) || "--"} |\n`;
+        }
+        if (f1?.wrc_plus || f2?.wrc_plus) {
+          response += `| wRC+ | ${f1?.wrc_plus || "--"} | ${f2?.wrc_plus || "--"} |\n`;
+        }
+        if (f1?.war !== undefined || f2?.war !== undefined) {
+          response += `| WAR | ${f1?.war?.toFixed(1) || "--"} | ${f2?.war?.toFixed(1) || "--"} |\n`;
+        }
+        if (f1?.o_swing_pct || f2?.o_swing_pct) {
+          response += `| O-Swing % | ${f1?.o_swing_pct ? (f1.o_swing_pct * 100).toFixed(1) + "%" : "--"} | ${f2?.o_swing_pct ? (f2.o_swing_pct * 100).toFixed(1) + "%" : "--"} |\n`;
+        }
+      } else {
+        response = "To compare players, try: \"Compare Soto to Judge\" or \"Gunnar vs Witt\"";
+      }
+    }
     // ========== STATS/BUSINESS COMMANDS ==========
     else if (commandLower.includes("how are we") || commandLower.includes("stats") || commandLower.includes("dashboard")) {
       // Get counts
@@ -258,7 +539,7 @@ serve(async (req) => {
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       
       if (!LOVABLE_API_KEY) {
-        response = "I can help with:\n• \"Pull [name]'s data\" - View player scores\n• \"Who needs attention?\" - Flag declining players\n• \"How are we doing?\" - Business dashboard\n\nWhat would you like to do?";
+        response = "I can help with:\n• \"Pull [name]'s data\" - View player scores (internal or MLB)\n• \"Research Gunnar Henderson\" - MLB/MiLB stats from Savant & FanGraphs\n• \"Compare Soto to Judge\" - Side-by-side comparison\n• \"Who needs attention?\" - Flag declining players\n• \"How are we doing?\" - Business dashboard\n\nWhat would you like to do?";
       } else {
         const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -271,22 +552,25 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are RickBot, Coach Rick Strickland's personal AI operator for Catching Barrels baseball hitting training.
+                content: `You are RickBot, Coach Rick Strickland's personal AI research assistant for professional baseball work.
 
-You help Coach Rick:
-- Pull player data and 4B scores
-- Generate reports
-- Manage content and newsletters
-- Track business metrics
+You help Coach Rick with:
+- Player research (MLB, MiLB, and his Catching Barrels clients)
+- Statcast data analysis from Baseball Savant
+- Advanced stats from FanGraphs (wRC+, plate discipline, batted ball data)
+- 4B scores and analysis for his own players
+- Comparing players across sources
+- Business metrics for Catching Barrels
+
+Available commands:
+- "Pull [name]'s data" - Get player data (checks internal DB first, then MLB)
+- "Research [MLB player]" - Get Statcast + FanGraphs data
+- "Compare [player1] to [player2]" - Side-by-side comparison
+- "Who needs attention?" - Flag players with declining scores
+- "How are we doing?" - Business dashboard
 
 Keep responses brief and actionable. Use markdown formatting.
-
-If you can't do something, suggest what commands are available:
-- "Pull [name]'s data" - View player 4B scores
-- "Who needs attention?" - Flag players with declining scores
-- "How are we doing?" - Business dashboard overview
-
-Be direct, professional, and helpful.`,
+You support Coach Rick's work with the Orioles, Marlins, and other professional organizations.`,
               },
               ...history.map(h => ({ role: h.role === "user" ? "user" : "assistant", content: h.content })),
               { role: "user", content: command },
@@ -298,7 +582,7 @@ Be direct, professional, and helpful.`,
           const aiData = await aiResponse.json();
           response = aiData.choices?.[0]?.message?.content || "I didn't catch that. Try a specific command.";
         } else {
-          response = "I can help with:\n• \"Pull [name]'s data\" - View player scores\n• \"Who needs attention?\" - Flag declining players\n• \"How are we doing?\" - Business dashboard\n\nWhat would you like to do?";
+          response = "I can help with:\n• \"Pull [name]'s data\" - View player scores (internal or MLB)\n• \"Research Gunnar Henderson\" - MLB/MiLB stats from Savant & FanGraphs\n• \"Compare Soto to Judge\" - Side-by-side comparison\n• \"Who needs attention?\" - Flag declining players\n• \"How are we doing?\" - Business dashboard\n\nWhat would you like to do?";
         }
       }
     }

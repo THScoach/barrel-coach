@@ -191,3 +191,9 @@ verify_jwt = false
 
 [functions.rickbot-transcribe]
 verify_jwt = false
+
+[functions.baseball-savant-lookup]
+verify_jwt = false
+
+[functions.fangraphs-lookup]
+verify_jwt = false
