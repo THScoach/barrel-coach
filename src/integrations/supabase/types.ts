@@ -4594,6 +4594,165 @@ export type Database = {
         }
         Relationships: []
       }
+      training_archive: {
+        Row: {
+          attack_angle: number | null
+          bat_speed_avg: number | null
+          bat_speed_max: number | null
+          contact_result: string | null
+          core_flow: number | null
+          created_at: string
+          data_quality: string | null
+          environment: string | null
+          exclude_from_training: boolean | null
+          exclusion_reason: string | null
+          four_b_ball: number | null
+          four_b_bat: number | null
+          four_b_body: number | null
+          four_b_brain: number | null
+          four_b_composite: number | null
+          four_b_grades: Json | null
+          ground_flow: number | null
+          hand_speed_max: number | null
+          id: string
+          is_labeled: boolean | null
+          kinematic_data: Json | null
+          labels: Json | null
+          leak_data: Json | null
+          leak_type: string | null
+          metadata: Json | null
+          motor_profile: string | null
+          motor_profile_confidence: number | null
+          pitch_speed: number | null
+          pitch_type: string | null
+          player_id: string | null
+          raw_analysis_output: Json | null
+          raw_sensor_payload: Json | null
+          raw_video_storage_path: string | null
+          raw_video_url: string | null
+          reboot_3d_skeleton: Json | null
+          rotational_acceleration: number | null
+          session_id: string | null
+          skeleton_fps: number | null
+          skeleton_frame_count: number | null
+          source_system: string | null
+          swing_id: string | null
+          time_to_contact_ms: number | null
+          upper_flow: number | null
+          video_duration_seconds: number | null
+          video_resolution: string | null
+        }
+        Insert: {
+          attack_angle?: number | null
+          bat_speed_avg?: number | null
+          bat_speed_max?: number | null
+          contact_result?: string | null
+          core_flow?: number | null
+          created_at?: string
+          data_quality?: string | null
+          environment?: string | null
+          exclude_from_training?: boolean | null
+          exclusion_reason?: string | null
+          four_b_ball?: number | null
+          four_b_bat?: number | null
+          four_b_body?: number | null
+          four_b_brain?: number | null
+          four_b_composite?: number | null
+          four_b_grades?: Json | null
+          ground_flow?: number | null
+          hand_speed_max?: number | null
+          id?: string
+          is_labeled?: boolean | null
+          kinematic_data?: Json | null
+          labels?: Json | null
+          leak_data?: Json | null
+          leak_type?: string | null
+          metadata?: Json | null
+          motor_profile?: string | null
+          motor_profile_confidence?: number | null
+          pitch_speed?: number | null
+          pitch_type?: string | null
+          player_id?: string | null
+          raw_analysis_output?: Json | null
+          raw_sensor_payload?: Json | null
+          raw_video_storage_path?: string | null
+          raw_video_url?: string | null
+          reboot_3d_skeleton?: Json | null
+          rotational_acceleration?: number | null
+          session_id?: string | null
+          skeleton_fps?: number | null
+          skeleton_frame_count?: number | null
+          source_system?: string | null
+          swing_id?: string | null
+          time_to_contact_ms?: number | null
+          upper_flow?: number | null
+          video_duration_seconds?: number | null
+          video_resolution?: string | null
+        }
+        Update: {
+          attack_angle?: number | null
+          bat_speed_avg?: number | null
+          bat_speed_max?: number | null
+          contact_result?: string | null
+          core_flow?: number | null
+          created_at?: string
+          data_quality?: string | null
+          environment?: string | null
+          exclude_from_training?: boolean | null
+          exclusion_reason?: string | null
+          four_b_ball?: number | null
+          four_b_bat?: number | null
+          four_b_body?: number | null
+          four_b_brain?: number | null
+          four_b_composite?: number | null
+          four_b_grades?: Json | null
+          ground_flow?: number | null
+          hand_speed_max?: number | null
+          id?: string
+          is_labeled?: boolean | null
+          kinematic_data?: Json | null
+          labels?: Json | null
+          leak_data?: Json | null
+          leak_type?: string | null
+          metadata?: Json | null
+          motor_profile?: string | null
+          motor_profile_confidence?: number | null
+          pitch_speed?: number | null
+          pitch_type?: string | null
+          player_id?: string | null
+          raw_analysis_output?: Json | null
+          raw_sensor_payload?: Json | null
+          raw_video_storage_path?: string | null
+          raw_video_url?: string | null
+          reboot_3d_skeleton?: Json | null
+          rotational_acceleration?: number | null
+          session_id?: string | null
+          skeleton_fps?: number | null
+          skeleton_frame_count?: number | null
+          source_system?: string | null
+          swing_id?: string | null
+          time_to_contact_ms?: number | null
+          upper_flow?: number | null
+          video_duration_seconds?: number | null
+          video_resolution?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_archive_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_archive_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
