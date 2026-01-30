@@ -30,6 +30,35 @@ interface PlayerContext {
   ballScore: number | null;
   lowestPillar: string | null;
   recentDrills: string[];
+  stackData: StackData | null;
+  blastData: BlastData | null;
+}
+
+interface StackData {
+  programName: string | null;
+  sessionsCompleted: number | null;
+  totalSwings: number | null;
+  batSpeedStart: number | null;
+  batSpeedCurrent: number | null;
+  gritScoreAvg: number | null;
+  responderType: string | null;
+  personalBests: Record<string, number> | null;
+  sessionData: {
+    bat_espeed?: number[];
+    grit?: number[];
+  } | null;
+  coachingNotes: string | null;
+}
+
+interface BlastData {
+  sessionDate: string | null;
+  swingsCount: number | null;
+  batSpeedAvg: number | null;
+  batSpeedMax: number | null;
+  handSpeedAvg: number | null;
+  attackAngle: number | null;
+  onPlaneEfficiency: number | null;
+  coachingNotes: string | null;
 }
 
 serve(async (req) => {
@@ -69,6 +98,8 @@ serve(async (req) => {
         ballScore: testContext.ballScore ?? null,
         lowestPillar: null,
         recentDrills: [],
+        stackData: null,
+        blastData: null,
       };
 
       // Calculate lowest pillar
@@ -101,6 +132,24 @@ serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
+      // Get Stack training data
+      const { data: stackDataRaw } = await supabase
+        .from("player_stack_data")
+        .select("*")
+        .eq("player_id", playerId)
+        .order("recorded_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Get Blast sensor data
+      const { data: blastDataRaw } = await supabase
+        .from("player_blast_data")
+        .select("*")
+        .eq("player_id", playerId)
+        .order("recorded_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
       playerContext = {
         name: player?.name || "Player",
         motorProfile: player?.motor_profile_sensor || null,
@@ -110,6 +159,28 @@ serve(async (req) => {
         ballScore: latestScores?.ball_score ?? null,
         lowestPillar: null,
         recentDrills: [],
+        stackData: stackDataRaw ? {
+          programName: stackDataRaw.program_name,
+          sessionsCompleted: stackDataRaw.sessions_completed,
+          totalSwings: stackDataRaw.total_swings,
+          batSpeedStart: stackDataRaw.bat_speed_start,
+          batSpeedCurrent: stackDataRaw.bat_speed_current,
+          gritScoreAvg: stackDataRaw.grit_score_avg,
+          responderType: stackDataRaw.responder_type,
+          personalBests: stackDataRaw.personal_bests,
+          sessionData: stackDataRaw.session_data,
+          coachingNotes: stackDataRaw.coaching_notes,
+        } : null,
+        blastData: blastDataRaw ? {
+          sessionDate: blastDataRaw.session_date,
+          swingsCount: blastDataRaw.swings_count,
+          batSpeedAvg: blastDataRaw.bat_speed_avg,
+          batSpeedMax: blastDataRaw.bat_speed_max,
+          handSpeedAvg: blastDataRaw.hand_speed_avg,
+          attackAngle: blastDataRaw.attack_angle,
+          onPlaneEfficiency: blastDataRaw.on_plane_efficiency,
+          coachingNotes: blastDataRaw.coaching_notes,
+        } : null,
       };
 
       // Calculate lowest pillar
@@ -146,6 +217,8 @@ serve(async (req) => {
         ballScore: null,
         lowestPillar: null,
         recentDrills: [],
+        stackData: null,
+        blastData: null,
       };
     }
 
@@ -338,12 +411,41 @@ ${scenarios.map(s => `Player: "${s.player_input}"\nYou said: "${s.ideal_response
 ${cues.map(c => `- "${c.cue_text}" ${c.context_hint ? `(${c.context_hint})` : ""}`).join("\n")}`
     : "";
 
+  // Build Stack data section if available
+  let stackSection = "";
+  if (player.stackData) {
+    const sd = player.stackData;
+    stackSection = `\n## Stack Training Data (${sd.programName || 'Unknown'} Program):
+- Sessions: ${sd.sessionsCompleted || 0} completed, ${sd.totalSwings || 0} total swings
+- Bat Speed: ${sd.batSpeedStart || '?'} → ${sd.batSpeedCurrent || '?'} mph
+- Grit Score Average: ${sd.gritScoreAvg || '?'}%
+- Force-Velocity Profile: ${sd.responderType || 'Unknown'}
+${sd.personalBests ? `- Personal Bests: ${Object.entries(sd.personalBests).map(([k, v]) => `${v} mph @ ${k}`).join(', ')}` : ''}
+${sd.sessionData?.grit ? `- Grit Trend: ${sd.sessionData.grit.join(', ')}` : ''}
+${sd.coachingNotes ? `\n### Coach Notes:\n${sd.coachingNotes}` : ''}`;
+  }
+
+  // Build Blast data section if available
+  let blastSection = "";
+  if (player.blastData) {
+    const bd = player.blastData;
+    blastSection = `\n## Blast Sensor Data (${bd.sessionDate || 'Recent'}):
+- Swings: ${bd.swingsCount || '?'}
+- Bat Speed: Avg ${bd.batSpeedAvg || '?'} mph, Max ${bd.batSpeedMax || '?'} mph
+- Hand Speed: ${bd.handSpeedAvg || '?'} mph
+- Attack Angle: ${bd.attackAngle || '?'}°
+- On-Plane Efficiency: ${bd.onPlaneEfficiency || '?'}%
+${bd.coachingNotes ? `- Notes: ${bd.coachingNotes}` : ''}`;
+  }
+
   const playerSection = `## This Player:
 - Name: ${player.name}
 ${player.motorProfile ? `- Motor Profile: ${player.motorProfile}` : "- Motor Profile: Not assessed yet"}
 ${player.bodyScore !== null ? `- 4B Scores: Body ${player.bodyScore}, Brain ${player.brainScore}, Bat ${player.batScore}, Ball ${player.ballScore}` : "- 4B Scores: Not assessed yet"}
 ${player.lowestPillar ? `- Priority Area: ${player.lowestPillar} (lowest score)` : ""}
-${player.recentDrills.length > 0 ? `- Recent Drills: ${player.recentDrills.join(", ")}` : ""}`;
+${player.recentDrills.length > 0 ? `- Recent Drills: ${player.recentDrills.join(", ")}` : ""}
+${stackSection}
+${blastSection}`;
 
   return `You are Coach Rick, a professional baseball hitting coach known for your direct, results-focused approach. You specialize in biomechanics and data-driven training.
 
