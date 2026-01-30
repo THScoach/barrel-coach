@@ -41,6 +41,81 @@ interface RebootPlayerResponse {
   organization_id: string;
 }
 
+interface RebootPlayerListItem {
+  id: string;
+  org_player_id?: string;
+  name: string;
+}
+
+/**
+ * Search Reboot Motion API for existing players by name
+ * Returns the first matching player or null
+ */
+async function searchRebootPlayers(playerName: string): Promise<RebootPlayerListItem | null> {
+  try {
+    console.log("[reboot-create-player] Searching Reboot for:", playerName);
+    
+    // Get list of all players in our org
+    const response = await rebootFetch("/players", {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      console.error("[reboot-create-player] Failed to list Reboot players:", response.status);
+      return null;
+    }
+
+    const players: RebootPlayerListItem[] = await response.json();
+    
+    // Normalize names for comparison
+    const searchName = playerName.toLowerCase().trim();
+    const searchParts = searchName.split(/\s+/);
+    
+    // Look for exact match first
+    const exactMatch = players.find(p => 
+      p.name?.toLowerCase().trim() === searchName
+    );
+    
+    if (exactMatch) {
+      console.log("[reboot-create-player] Found exact match:", exactMatch.id);
+      return exactMatch;
+    }
+    
+    // Look for partial match (first name + last name anywhere in name)
+    if (searchParts.length >= 2) {
+      const firstName = searchParts[0];
+      const lastName = searchParts[searchParts.length - 1];
+      
+      const partialMatch = players.find(p => {
+        const name = p.name?.toLowerCase() || "";
+        return name.includes(firstName) && name.includes(lastName);
+      });
+      
+      if (partialMatch) {
+        console.log("[reboot-create-player] Found partial match:", partialMatch.id);
+        return partialMatch;
+      }
+    }
+    
+    // Look for first name only match (less strict)
+    const firstNameMatch = players.find(p => {
+      const nameParts = p.name?.toLowerCase().split(/\s+/) || [];
+      return nameParts[0] === searchParts[0];
+    });
+    
+    if (firstNameMatch && searchParts.length === 1) {
+      console.log("[reboot-create-player] Found first name match:", firstNameMatch.id);
+      return firstNameMatch;
+    }
+    
+    console.log("[reboot-create-player] No match found among", players.length, "players");
+    return null;
+  } catch (error) {
+    console.error("[reboot-create-player] Search error:", error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
@@ -63,7 +138,9 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if player already has a reboot_player_id
+    // ============================================================
+    // STEP 1: Check if player already has a reboot_player_id in our DB
+    // ============================================================
     const { data: existingPlayer, error: fetchError } = await supabase
       .from("players")
       .select("reboot_player_id, reboot_athlete_id")
@@ -74,18 +151,64 @@ serve(async (req) => {
       throw new Error(`Failed to fetch player: ${fetchError.message}`);
     }
 
-    // Check existing IDs
     const existingId = existingPlayer?.reboot_player_id || existingPlayer?.reboot_athlete_id;
     if (existingId) {
       return jsonResponse({
         success: true,
         reboot_player_id: existingId,
         message: "Player already exists in Reboot Motion",
-        already_existed: true
+        already_existed: true,
+        source: "database"
       });
     }
 
-    // Build Reboot player payload
+    // ============================================================
+    // STEP 2: Search Reboot API for existing player with same name
+    // ============================================================
+    const existingRebootPlayer = await searchRebootPlayers(body.player_name);
+    
+    if (existingRebootPlayer) {
+      const rebootPlayerId = existingRebootPlayer.org_player_id || existingRebootPlayer.id;
+      
+      // Link the existing Reboot player to our DB record
+      const { error: updateError } = await supabase
+        .from("players")
+        .update({
+          reboot_player_id: rebootPlayerId,
+          reboot_athlete_id: rebootPlayerId,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", body.player_id);
+
+      if (updateError) {
+        console.error("[reboot-create-player] Failed to link existing player:", updateError);
+      }
+
+      // Log activity
+      await supabase.from("activity_log").insert({
+        action: "reboot_player_linked",
+        description: `Linked existing Reboot account for ${body.player_name}`,
+        player_id: body.player_id,
+        metadata: { 
+          reboot_player_id: rebootPlayerId,
+          matched_name: existingRebootPlayer.name
+        },
+      });
+
+      return jsonResponse({
+        success: true,
+        reboot_player_id: rebootPlayerId,
+        player_id: body.player_id,
+        player_name: body.player_name,
+        message: "Linked to existing Reboot Motion player",
+        already_existed: true,
+        source: "reboot_api_search"
+      });
+    }
+
+    // ============================================================
+    // STEP 3: Create new player in Reboot Motion
+    // ============================================================
     const rebootPayload: Record<string, unknown> = {
       name: body.player_name,
     };
@@ -106,8 +229,7 @@ serve(async (req) => {
       rebootPayload.throws = body.throws;
     }
 
-    // Create player in Reboot Motion
-    console.log("[reboot-create-player] Creating player:", rebootPayload);
+    console.log("[reboot-create-player] Creating new player:", rebootPayload);
 
     const response = await rebootFetch("/players", {
       method: "POST",
@@ -150,7 +272,9 @@ serve(async (req) => {
       reboot_player_id: rebootPlayerId,
       player_id: body.player_id,
       player_name: body.player_name,
-      message: "Player created in Reboot Motion"
+      message: "Player created in Reboot Motion",
+      already_existed: false,
+      source: "created_new"
     });
 
   } catch (error) {
