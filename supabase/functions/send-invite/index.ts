@@ -93,7 +93,7 @@ async function sendEmail(email: string, subject: string, html: string): Promise<
     const resend = new Resend(resendApiKey);
 
     const result = await resend.emails.send({
-      from: "Catching Barrels Lab <lab@catchingbarrels.com>",
+      from: "Catching Barrels <barrels@catchingbarrels.io>",
       to: [email],
       subject,
       html,

@@ -369,7 +369,7 @@ serve(async (req) => {
 
     // Send email
     const { data: emailResult, error: emailError } = await resend.emails.send({
-      from: "Catching Barrels Lab <lab@catchingbarrels.com>",
+      from: "Catching Barrels <barrels@catchingbarrels.io>",
       to: [player.email],
       subject: `🔬 Your Weekly Lab Report - Score: ${latestUpload.composite_score ? Math.round(Number(latestUpload.composite_score)) : "--"}/80`,
       html,

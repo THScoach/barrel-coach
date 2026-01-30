@@ -127,7 +127,7 @@ ${message}
         `;
 
         await resend.emails.send({
-          from: "Catching Barrels <onboarding@resend.dev>",
+          from: "Catching Barrels <barrels@catchingbarrels.io>",
           to: [player.email!],
           subject: subject,
           html: emailHtml,
