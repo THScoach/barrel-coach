@@ -70,6 +70,7 @@ import ScenarioTrainer from "./pages/admin/ScenarioTrainer";
 import CueBankManager from "./pages/admin/CueBankManager";
 import CoachRickAITestChat from "./pages/admin/CoachRickAITestChat";
 import CoachRickAIVideos from "./pages/admin/CoachRickAIVideos";
+import VideoScriptAnalyzer from "./pages/admin/VideoScriptAnalyzer";
 
 // Player pages
 import PlayerDashboard4B from "./pages/player/PlayerDashboard4B";
@@ -287,6 +288,11 @@ const App = () => (
               <Route path="/admin/coach-rick-ai/videos" element={
                 <ProtectedAdminRoute>
                   <CoachRickAIVideos />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/script-analyzer" element={
+                <ProtectedAdminRoute>
+                  <VideoScriptAnalyzer />
                 </ProtectedAdminRoute>
               } />
 
