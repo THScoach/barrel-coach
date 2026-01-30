@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
-import { Home, MessageSquare, Dumbbell, User, LogOut, Database } from "lucide-react";
+import { Home, MessageSquare, Dumbbell, User, LogOut, Database, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
@@ -35,18 +35,20 @@ export function PlayerLayout() {
     navigate('/login');
   };
 
-  // 4B-first navigation: Dashboard (4B), Data, Messages, Drills, Profile
+  // 4B-first navigation: Dashboard (4B), Data, Messages, Drills, Coach Chat, Profile
   // Dashboard now contains all 4B performance data
   const navItems = [
     { to: '/player', icon: Home, label: 'Dashboard', end: true },
     { to: '/player/data', icon: Database, label: 'My Data', end: false },
+    { to: '/player/coach-chat', icon: Bot, label: 'Ask Rick', end: false },
     { to: '/player/messages', icon: MessageSquare, label: 'Coach', end: false },
     { to: '/player/drills', icon: Dumbbell, label: 'Drills', end: false },
     { to: '/player/profile', icon: User, label: 'Profile', end: false },
   ];
 
-  // Check if we're on the main dashboard (which has its own bottom nav)
+  // Check if we're on the main dashboard or coach chat (which have their own layouts)
   const isMainDashboard = location.pathname === '/player';
+  const isCoachChat = location.pathname === '/player/coach-chat';
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -74,8 +76,8 @@ export function PlayerLayout() {
         <Outlet />
       </main>
 
-      {/* Bottom Navigation (Mobile-First) - Hidden on main dashboard since it has its own */}
-      {!isMainDashboard && (
+      {/* Bottom Navigation (Mobile-First) - Hidden on main dashboard and coach chat */}
+      {!isMainDashboard && !isCoachChat && (
         <nav className="fixed bottom-0 left-0 right-0 bg-background border-t md:hidden z-50">
           <div className="flex items-center justify-around py-2">
             {navItems.map(item => (

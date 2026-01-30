@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 
 interface DrillVideo {
   id: string;
@@ -43,6 +43,12 @@ export function CoachRickWidget() {
   const [chatLogId, setChatLogId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Check if we're in the player portal - redirect to full chat page
+  const isPlayerPortal = location.pathname.startsWith('/player');
+  // Hide widget on the coach chat page to avoid duplicate
+  const isCoachChatPage = location.pathname === '/player/coach-chat';
 
   // Load state from localStorage
   useEffect(() => {
@@ -172,12 +178,26 @@ export function CoachRickWidget() {
     }
   }, [isOpen]);
 
+  // Hide widget on coach chat page
+  if (isCoachChatPage) {
+    return null;
+  }
+
+  // Handle click - redirect to chat page if in player portal
+  const handleOpenClick = () => {
+    if (isPlayerPortal) {
+      navigate('/player/coach-chat');
+    } else {
+      setIsOpen(true);
+    }
+  };
+
   return (
     <>
       {/* Floating Button */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={handleOpenClick}
           data-coach-rick-trigger
           className="fixed bottom-4 right-4 z-50 flex items-center gap-2 bg-accent text-accent-foreground px-4 py-3 rounded-full shadow-lg hover:bg-accent/90 transition-all hover:scale-105"
         >
