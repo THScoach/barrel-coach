@@ -394,6 +394,12 @@ serve(async (req) => {
       /(?:stack data|stack session|stack training|log stack|record stack|add stack)/i.test(commandLower) ||
       /(?:bat speed|grit|overspeed|overload|responder|foundation)/i.test(commandLower) && /(?:for|data|session|complete)/i.test(commandLower);
 
+    // Diagram generation patterns
+    const isDiagramRequest = 
+      /(?:create|generate|make|draw)\s+(?:a\s+)?(?:diagram|visual|flowchart|infographic|chart)/i.test(commandLower) ||
+      /(?:diagram|visual|flowchart)\s+(?:of|for|about)/i.test(commandLower) ||
+      /napkin\s+(?:diagram|visual)/i.test(commandLower);
+
     console.log("Intent detection:", { 
       isExplicitPlayerLookup, 
       isDashboardQuery, 
@@ -401,11 +407,67 @@ serve(async (req) => {
       isCompareQuery, 
       isWebSearch,
       isStackDataEntry,
+      isDiagramRequest,
       command: command.substring(0, 50) 
     });
 
+    // ========== DIAGRAM GENERATION COMMANDS ==========
+    if (isDiagramRequest) {
+      // Extract the diagram content from the command
+      const diagramMatch = commandLower.match(/(?:create|generate|make|draw)\s+(?:a\s+)?(?:diagram|visual|flowchart|infographic|chart)\s+(?:of|for|about|:)?\s*(.+)/i)
+        || commandLower.match(/(?:diagram|visual|flowchart)\s+(?:of|for|about)\s+(.+)/i);
+      
+      let diagramContent = diagramMatch?.[1]?.trim() || command;
+      
+      // Clean up common endings
+      diagramContent = diagramContent.replace(/\s+please$/i, "").replace(/\s+for me$/i, "").trim();
+      
+      if (diagramContent) {
+        console.log("Generating diagram:", diagramContent.substring(0, 100));
+        
+        try {
+          const diagramResponse = await fetch(`${supabaseUrl}/functions/v1/generate-napkin-diagram`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${supabaseKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              content: diagramContent,
+              style: "corporate",
+              format: "png",
+              width: 1200,
+              saveToStorage: true,
+            }),
+          });
+          
+          if (diagramResponse.ok) {
+            const diagramData = await diagramResponse.json();
+            if (diagramData.success) {
+              response = `## ✅ Diagram Generated\n\n`;
+              response += `**Content:** "${diagramContent.substring(0, 80)}${diagramContent.length > 80 ? "..." : ""}"\n\n`;
+              response += `![Generated Diagram](${diagramData.imageUrl})\n\n`;
+              if (diagramData.storageUrl) {
+                response += `📁 **Saved to media library:** ${diagramData.storageUrl}\n\n`;
+              }
+              response += `⏰ *Note: External URL expires in 30 minutes. Use the storage URL for permanent access.*`;
+            } else {
+              response = `❌ Diagram generation failed: ${diagramData.error || "Unknown error"}`;
+            }
+          } else {
+            const errorText = await diagramResponse.text();
+            response = `❌ Diagram generation failed: ${errorText}`;
+          }
+        } catch (error) {
+          console.error("Diagram generation error:", error);
+          response = `❌ Diagram generation failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+        }
+      } else {
+        response = "What would you like me to create a diagram of? Try:\n• \"Create a diagram of the 4B Framework\"\n• \"Generate a visual of the swing sequence\"\n• \"Draw a flowchart for the player onboarding process\"";
+      }
+    }
     // ========== WEB SEARCH / NEWS COMMANDS ==========
-    if (isWebSearch) {
+    else if (isWebSearch) {
       const webSearchMatch = commandLower.match(/(?:search|google|find articles|news on|latest on|what's the latest on|read about)\s+(.+)/i);
       const searchQuery = webSearchMatch?.[1]?.trim();
       
@@ -944,6 +1006,7 @@ If Rick's request is unclear, summarize what you understood and ask a clarifying
 - Draft website copy for catchingbarrels.io
 - Create content calendars and posting schedules
 - Remind Rick of tasks and deadlines
+- **Generate diagrams and visuals** via Napkin AI (say "create a diagram of X")
 
 **What You CANNOT Do (And Should NOT Try):**
 - Access Stripe directly (suggest changes, Rick implements)
@@ -1036,7 +1099,7 @@ If something feels like it should be a conversation, have the conversation. If s
           const aiData = await aiResponse.json();
           response = aiData.choices?.[0]?.message?.content || "I didn't catch that. Try a specific command.";
         } else {
-          response = "I can help with:\n• \"Pull [name]'s data\" - View player scores (internal or MLB)\n• \"Research Gunnar Henderson\" - MLB/MiLB stats from Savant & FanGraphs\n• \"Compare Soto to Judge\" - Side-by-side comparison\n• \"Who needs attention?\" - Flag declining players\n• \"How are we doing?\" - Business dashboard\n\nWhat would you like to do?";
+          response = "I can help with:\n• \"Pull [name]'s data\" - View player scores (internal or MLB)\n• \"Research Gunnar Henderson\" - MLB/MiLB stats from Savant & FanGraphs\n• \"Compare Soto to Judge\" - Side-by-side comparison\n• \"Who needs attention?\" - Flag declining players\n• \"How are we doing?\" - Business dashboard\n• \"Create a diagram of X\" - Generate visual diagrams via Napkin AI\n\nWhat would you like to do?";
         }
       }
     }
