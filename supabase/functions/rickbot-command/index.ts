@@ -389,12 +389,18 @@ serve(async (req) => {
     const isWebSearch = 
       /(?:search the web|google|find articles|news on|latest news|what's the latest)/i.test(commandLower);
 
+    // Stack data entry patterns
+    const isStackDataEntry = 
+      /(?:stack data|stack session|stack training|log stack|record stack|add stack)/i.test(commandLower) ||
+      /(?:bat speed|grit|overspeed|overload|responder|foundation)/i.test(commandLower) && /(?:for|data|session|complete)/i.test(commandLower);
+
     console.log("Intent detection:", { 
       isExplicitPlayerLookup, 
       isDashboardQuery, 
       isAttentionQuery, 
       isCompareQuery, 
       isWebSearch,
+      isStackDataEntry,
       command: command.substring(0, 50) 
     });
 
@@ -667,6 +673,175 @@ serve(async (req) => {
         }
       } else {
         response = "To compare players, try: \"Compare Soto to Judge\" or \"Gunnar vs Witt\"";
+      }
+    }
+    // ========== STACK DATA ENTRY ==========
+    else if (isStackDataEntry) {
+      // Parse Stack training data from voice/text input
+      // Example: "Stack data for Charlie Summers: Foundation complete, 68 to 67 mph, Grit 63%, overspeed responder"
+      
+      // Extract player name
+      const playerNameMatch = command.match(/(?:stack (?:data|session|training)|log stack|record stack|add stack)\s+(?:for\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i)
+        || command.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*:/);
+      
+      const stackPlayerName = playerNameMatch?.[1]?.trim();
+      
+      if (!stackPlayerName) {
+        response = `📊 **Stack Data Entry**\n\nI can store Stack training data. Just tell me:\n\n> "Stack data for [Player Name]: Foundation complete, 68 to 67 mph, Grit 63%, overspeed responder"\n\nI'll parse:\n• Program status (Foundation, Advanced, etc.)\n• Bat speed (start → current)\n• Grit score & variance\n• Force-velocity profile\n• Coach notes\n\nWhat's the move, Coach?`;
+      } else {
+        // Find the player in the database
+        const { data: foundPlayers } = await supabase
+          .from("players")
+          .select("id, name")
+          .ilike("name", `%${stackPlayerName}%`)
+          .limit(1);
+        
+        const foundPlayer = foundPlayers?.[0];
+        
+        if (!foundPlayer) {
+          response = `Couldn't find **${stackPlayerName}** in the database. Want me to create a new player record first?`;
+        } else {
+          // Parse the Stack data from the command
+          const parseStackData = (input: string) => {
+            const data: Record<string, any> = {};
+            
+            // Program status
+            if (/foundation complete/i.test(input)) {
+              data.program_name = "Foundation";
+              data.program_status = "complete";
+            } else if (/foundation/i.test(input)) {
+              data.program_name = "Foundation";
+              data.program_status = "in_progress";
+            } else if (/advanced/i.test(input)) {
+              data.program_name = "Advanced";
+            }
+            
+            // Bat speed: "68 to 67 mph" or "68-67 mph" or "68 → 67"
+            const batSpeedMatch = input.match(/(\d+(?:\.\d+)?)\s*(?:to|→|->|-)\s*(\d+(?:\.\d+)?)\s*(?:mph)?/i);
+            if (batSpeedMatch) {
+              data.bat_speed_start = parseFloat(batSpeedMatch[1]);
+              data.bat_speed_current = parseFloat(batSpeedMatch[2]);
+            }
+            
+            // Single bat speed value
+            const singleBatSpeed = input.match(/(\d+(?:\.\d+)?)\s*mph(?!\s*(?:to|→|->|-))/i);
+            if (singleBatSpeed && !data.bat_speed_current) {
+              data.bat_speed_current = parseFloat(singleBatSpeed[1]);
+            }
+            
+            // Grit score: "Grit 63%" or "grit: 63" or "63% grit"
+            const gritMatch = input.match(/grit[:\s]+(\d+(?:\.\d+)?)\s*%?/i) 
+              || input.match(/(\d+(?:\.\d+)?)\s*%?\s*grit/i);
+            if (gritMatch) {
+              data.grit_score_avg = parseFloat(gritMatch[1]);
+            }
+            
+            // Force-velocity profile
+            if (/overspeed\s*responder/i.test(input)) {
+              data.fv_profile = "overspeed_responder";
+            } else if (/overload\s*responder/i.test(input)) {
+              data.fv_profile = "overload_responder";
+            } else if (/balanced/i.test(input)) {
+              data.fv_profile = "balanced";
+            }
+            
+            // Check for BRAIN issues (grit crashed, focus, mental)
+            const brainIssues: string[] = [];
+            if (/grit\s*(?:crashed|dropped|fell|tanked)/i.test(input)) {
+              brainIssues.push("Grit instability - crashed mid-program");
+            }
+            if (/brain\s*(?:issue|problem)/i.test(input)) {
+              brainIssues.push("Identified as BRAIN issue");
+            }
+            if (/focus|mental|concentration/i.test(input)) {
+              brainIssues.push("Focus/mental component flagged");
+            }
+            if (brainIssues.length > 0) {
+              data.grit_notes = brainIssues.join("; ");
+              data.four_b_insights = { brain_flag: true, notes: brainIssues };
+            }
+            
+            // Extract any personal bests (e.g., "94 mph at 0g")
+            const pbMatch = input.match(/(\d+(?:\.\d+)?)\s*mph\s*(?:at|@)\s*(\d+(?:\.\d+)?)\s*(?:g|oz)/gi);
+            if (pbMatch) {
+              data.personal_bests = {};
+              pbMatch.forEach(pb => {
+                const pbParts = pb.match(/(\d+(?:\.\d+)?)\s*mph\s*(?:at|@)\s*(\d+(?:\.\d+)?)/i);
+                if (pbParts) {
+                  const weight = pbParts[2] + "oz";
+                  data.personal_bests[weight] = parseFloat(pbParts[1]);
+                }
+              });
+            }
+            
+            // Coach insight/notes - everything after a dash or colon at the end
+            const insightMatch = input.match(/(?:insight|note|fix|recommendation)[:\s]+(.+)/i)
+              || input.match(/[-–—]\s*(.{20,})$/);
+            if (insightMatch) {
+              data.insight_summary = insightMatch[1].trim();
+            }
+            
+            return data;
+          };
+          
+          const parsedData = parseStackData(command);
+          
+          // Insert into stack_sessions
+          const { data: insertedSession, error: insertError } = await supabase
+            .from("stack_sessions")
+            .insert({
+              player_id: foundPlayer.id,
+              ...parsedData,
+              coach_notes: command, // Store original input as notes
+            })
+            .select()
+            .single();
+          
+          if (insertError) {
+            console.error("Stack session insert error:", insertError);
+            response = `Got it - Stack data for **${foundPlayer.name}**, but had trouble saving it. Error: ${insertError.message}`;
+          } else {
+            // Build confirmation response
+            response = `✅ **Stack Data Logged for ${foundPlayer.name}**\n\n`;
+            
+            if (parsedData.program_name) {
+              response += `📋 **Program:** ${parsedData.program_name} (${parsedData.program_status || "in progress"})\n`;
+            }
+            if (parsedData.bat_speed_start && parsedData.bat_speed_current) {
+              const change = parsedData.bat_speed_current - parsedData.bat_speed_start;
+              const changeStr = change > 0 ? `+${change.toFixed(1)}` : change.toFixed(1);
+              response += `⚡ **Bat Speed:** ${parsedData.bat_speed_start} → ${parsedData.bat_speed_current} mph (${changeStr})\n`;
+            } else if (parsedData.bat_speed_current) {
+              response += `⚡ **Bat Speed:** ${parsedData.bat_speed_current} mph\n`;
+            }
+            if (parsedData.grit_score_avg) {
+              response += `🧠 **Grit Score:** ${parsedData.grit_score_avg}%\n`;
+            }
+            if (parsedData.fv_profile) {
+              const profileNames: Record<string, string> = {
+                overspeed_responder: "Overspeed Responder",
+                overload_responder: "Overload Responder",
+                balanced: "Balanced",
+              };
+              response += `🎯 **F-V Profile:** ${profileNames[parsedData.fv_profile] || parsedData.fv_profile}\n`;
+            }
+            if (parsedData.grit_notes) {
+              response += `\n⚠️ **4B Insight:** ${parsedData.grit_notes}\n`;
+            }
+            if (parsedData.personal_bests && Object.keys(parsedData.personal_bests).length > 0) {
+              response += `\n🏆 **Personal Bests:** `;
+              response += Object.entries(parsedData.personal_bests)
+                .map(([weight, speed]) => `${speed} mph @ ${weight}`)
+                .join(", ");
+              response += `\n`;
+            }
+            if (parsedData.insight_summary) {
+              response += `\n💡 **Coach Insight:** ${parsedData.insight_summary}\n`;
+            }
+            
+            response += `\n_Session ID: ${insertedSession.id.slice(0, 8)}_`;
+          }
+        }
       }
     }
     // ========== STATS/BUSINESS DASHBOARD COMMANDS ==========

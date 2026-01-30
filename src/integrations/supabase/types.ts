@@ -4026,6 +4026,108 @@ export type Database = {
         }
         Relationships: []
       }
+      stack_sessions: {
+        Row: {
+          bat_speed_current: number | null
+          bat_speed_history: Json | null
+          bat_speed_peak: number | null
+          bat_speed_start: number | null
+          coach_notes: string | null
+          created_at: string
+          distance_potential_avg: number | null
+          distance_potential_history: Json | null
+          four_b_insights: Json | null
+          fv_notes: string | null
+          fv_profile: string | null
+          grit_history: Json | null
+          grit_notes: string | null
+          grit_score_avg: number | null
+          grit_score_variance: number | null
+          id: string
+          insight_summary: string | null
+          personal_bests: Json | null
+          player_id: string | null
+          program_name: string | null
+          program_status: string | null
+          readiness_avg: number | null
+          readiness_history: Json | null
+          total_sessions: number | null
+          total_swings: number | null
+          updated_at: string
+        }
+        Insert: {
+          bat_speed_current?: number | null
+          bat_speed_history?: Json | null
+          bat_speed_peak?: number | null
+          bat_speed_start?: number | null
+          coach_notes?: string | null
+          created_at?: string
+          distance_potential_avg?: number | null
+          distance_potential_history?: Json | null
+          four_b_insights?: Json | null
+          fv_notes?: string | null
+          fv_profile?: string | null
+          grit_history?: Json | null
+          grit_notes?: string | null
+          grit_score_avg?: number | null
+          grit_score_variance?: number | null
+          id?: string
+          insight_summary?: string | null
+          personal_bests?: Json | null
+          player_id?: string | null
+          program_name?: string | null
+          program_status?: string | null
+          readiness_avg?: number | null
+          readiness_history?: Json | null
+          total_sessions?: number | null
+          total_swings?: number | null
+          updated_at?: string
+        }
+        Update: {
+          bat_speed_current?: number | null
+          bat_speed_history?: Json | null
+          bat_speed_peak?: number | null
+          bat_speed_start?: number | null
+          coach_notes?: string | null
+          created_at?: string
+          distance_potential_avg?: number | null
+          distance_potential_history?: Json | null
+          four_b_insights?: Json | null
+          fv_notes?: string | null
+          fv_profile?: string | null
+          grit_history?: Json | null
+          grit_notes?: string | null
+          grit_score_avg?: number | null
+          grit_score_variance?: number | null
+          id?: string
+          insight_summary?: string | null
+          personal_bests?: Json | null
+          player_id?: string | null
+          program_name?: string | null
+          program_status?: string | null
+          readiness_avg?: number | null
+          readiness_history?: Json | null
+          total_sessions?: number | null
+          total_swings?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stack_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stack_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       swing_4b_scores: {
         Row: {
           b1_score: number | null
