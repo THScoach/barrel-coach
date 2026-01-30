@@ -990,6 +990,137 @@ async function handleVideoAnalysis(
 }
 
 // ============================================================
+// ONBOARDING & NAME EXTRACTION FOR NEW PLAYERS
+// ============================================================
+
+/**
+ * Generate a friendly onboarding response for new players
+ */
+async function generateOnboardingResponse(
+  incomingMessage: string,
+  apiKey: string
+): Promise<string> {
+  try {
+    const response = await fetch(LOVABLE_AI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-5-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are Coach Rick, the AI hitting coach for Barrel Coach (formerly Catching Barrels).
+
+A new person has texted you for the first time. You need to:
+1. Greet them warmly and introduce yourself
+2. Ask for their name so you can create their profile
+3. Let them know they can send swing videos for analysis
+
+Keep it SHORT (2-3 sentences max) and friendly. This is SMS/WhatsApp.
+
+Example response:
+"Hey! 👋 I'm Coach Rick, your AI hitting coach. What's your name? Once I know who you are, you can send me swing videos and I'll break 'em down for you!"
+
+If they already said their name in the message, acknowledge it and welcome them.`
+          },
+          {
+            role: "user",
+            content: incomingMessage || "Hi"
+          }
+        ],
+        max_tokens: 200,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("[Onboarding] AI error:", response.status);
+      return "Hey! 👋 I'm Coach Rick, your AI hitting coach. What's your name? Send me a swing video anytime and I'll break it down for you!";
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || "Hey! 👋 I'm Coach Rick. What's your name?";
+  } catch (error) {
+    console.error("[Onboarding] Error:", error);
+    return "Hey! 👋 I'm Coach Rick, your AI hitting coach. What's your name?";
+  }
+}
+
+/**
+ * Try to extract a player name from their message using AI
+ */
+async function extractPlayerNameFromMessage(
+  message: string,
+  apiKey: string
+): Promise<string | null> {
+  if (!message || message.length < 2) return null;
+  
+  try {
+    const response = await fetch(LOVABLE_AI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-5-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are a name extraction assistant. Extract the person's name from their message if they provided one.
+
+Rules:
+- Return ONLY the name (first name, or first + last if given)
+- Return "null" (exactly) if no clear name is present
+- Common patterns: "I'm [name]", "My name is [name]", "This is [name]", "Hey it's [name]", or just "[name]" by itself
+- Do NOT extract random words as names
+- Do NOT extract nicknames like "hey" or greetings
+
+Examples:
+"Hi I'm John Smith" → John Smith
+"My name is Sarah" → Sarah
+"This is Marcus" → Marcus
+"yo" → null
+"send me a video" → null
+"Alex here" → Alex`
+          },
+          {
+            role: "user",
+            content: message
+          }
+        ],
+        max_tokens: 50,
+        temperature: 0,
+      }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    const result = data.choices?.[0]?.message?.content?.trim();
+    
+    if (!result || result.toLowerCase() === "null" || result.length < 2 || result.length > 50) {
+      return null;
+    }
+    
+    // Basic validation - should look like a name
+    if (!/^[A-Za-z][A-Za-z\s\-'\.]+$/.test(result)) {
+      return null;
+    }
+    
+    return result;
+  } catch (error) {
+    console.error("[NameExtract] Error:", error);
+    return null;
+  }
+}
+
+// ============================================================
 // AI RESPONSE GENERATION WITH FULL CONTEXT
 // ============================================================
 
@@ -1829,7 +1960,81 @@ serve(async (req) => {
         });
       }
     } else {
-      console.log("[Twilio Webhook] No player found for phone:", from);
+      // ============================================================
+      // NEW PLAYER ONBOARDING - Ask ClawdBot for their name
+      // ============================================================
+      console.log("[Twilio Webhook] New phone number detected:", from);
+      
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      
+      if (LOVABLE_API_KEY) {
+        // Use ClawdBot to greet and ask for their name
+        const onboardingReply = await generateOnboardingResponse(
+          messageBody,
+          LOVABLE_API_KEY
+        );
+        
+        const result = await sendMessage(from, onboardingReply, isWhatsApp);
+        
+        if (result.success) {
+          // Store the message temporarily to track onboarding state
+          await supabase.from("messages").insert({
+            player_id: null,
+            phone_number: normalizedFrom,
+            direction: "outbound",
+            body: onboardingReply,
+            twilio_sid: result.sid,
+            status: "sent",
+            trigger_type: "onboarding",
+            ai_generated: true,
+          });
+        } else if (isWhatsApp) {
+          return new Response(twimlMessage(onboardingReply), {
+            headers: { ...corsHeaders, "Content-Type": "text/xml" },
+            status: 200,
+          });
+        }
+        
+        // Check if we can extract a name from their message
+        const extractedName = await extractPlayerNameFromMessage(messageBody, LOVABLE_API_KEY);
+        
+        if (extractedName) {
+          console.log("[Twilio Webhook] Extracted name from message:", extractedName);
+          
+          // Create new player record
+          const { data: newPlayer, error: createError } = await supabase
+            .from("players")
+            .insert({
+              name: extractedName,
+              phone: normalizedFrom,
+              account_status: "active",
+              can_login: false,
+              is_public: false,
+              sms_opt_in: true,
+              notes: `Auto-created from ${isWhatsApp ? "WhatsApp" : "SMS"} onboarding`,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .select("id, name")
+            .single();
+          
+          if (!createError && newPlayer) {
+            console.log("[Twilio Webhook] Created new player:", newPlayer.id);
+            
+            // Log activity
+            await supabase.from("activity_log").insert({
+              action: "player_created_from_sms",
+              description: `New player ${extractedName} created from ${isWhatsApp ? "WhatsApp" : "SMS"}`,
+              player_id: newPlayer.id,
+              metadata: { phone: normalizedFrom, extracted_name: extractedName },
+            });
+            
+            // Send welcome message
+            const welcomeMsg = `Welcome to Barrel Coach, ${extractedName.split(" ")[0]}! 💪 I'm Coach Rick - your AI hitting coach. Send me a swing video anytime and I'll break it down for you!`;
+            await sendMessage(from, welcomeMsg, isWhatsApp);
+          }
+        }
+      }
     }
 
     return new Response(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`, {
