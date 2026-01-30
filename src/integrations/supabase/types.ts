@@ -464,6 +464,161 @@ export type Database = {
         }
         Relationships: []
       }
+      clawdbot_cues: {
+        Row: {
+          context_hint: string | null
+          created_at: string | null
+          cue_text: string
+          cue_type: string
+          id: string
+          is_active: boolean | null
+          use_count: number | null
+        }
+        Insert: {
+          context_hint?: string | null
+          created_at?: string | null
+          cue_text: string
+          cue_type: string
+          id?: string
+          is_active?: boolean | null
+          use_count?: number | null
+        }
+        Update: {
+          context_hint?: string | null
+          created_at?: string | null
+          cue_text?: string
+          cue_type?: string
+          id?: string
+          is_active?: boolean | null
+          use_count?: number | null
+        }
+        Relationships: []
+      }
+      clawdbot_knowledge: {
+        Row: {
+          category: string
+          content: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          priority: number | null
+          subcategory: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          content: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          subcategory?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          subcategory?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      clawdbot_ratings: {
+        Row: {
+          coach_notes: string | null
+          corrected_response: string | null
+          created_at: string | null
+          id: string
+          knowledge_ids: string[] | null
+          message_id: string | null
+          original_response: string | null
+          rating: string
+          reviewed_by: string | null
+          scenario_ids: string[] | null
+        }
+        Insert: {
+          coach_notes?: string | null
+          corrected_response?: string | null
+          created_at?: string | null
+          id?: string
+          knowledge_ids?: string[] | null
+          message_id?: string | null
+          original_response?: string | null
+          rating: string
+          reviewed_by?: string | null
+          scenario_ids?: string[] | null
+        }
+        Update: {
+          coach_notes?: string | null
+          corrected_response?: string | null
+          created_at?: string | null
+          id?: string
+          knowledge_ids?: string[] | null
+          message_id?: string | null
+          original_response?: string | null
+          rating?: string
+          reviewed_by?: string | null
+          scenario_ids?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clawdbot_ratings_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "web_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clawdbot_scenarios: {
+        Row: {
+          category: string | null
+          context: Json | null
+          created_at: string | null
+          id: string
+          ideal_response: string
+          is_active: boolean | null
+          player_input: string
+          tags: string[] | null
+          updated_at: string | null
+          use_count: number | null
+        }
+        Insert: {
+          category?: string | null
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          ideal_response: string
+          is_active?: boolean | null
+          player_input: string
+          tags?: string[] | null
+          updated_at?: string | null
+          use_count?: number | null
+        }
+        Update: {
+          category?: string | null
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          ideal_response?: string
+          is_active?: boolean | null
+          player_input?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          use_count?: number | null
+        }
+        Relationships: []
+      }
       coach_api_audit_log: {
         Row: {
           action: string
@@ -5224,6 +5379,95 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      web_conversations: {
+        Row: {
+          id: string
+          is_active: boolean | null
+          is_test_mode: boolean | null
+          last_message_at: string | null
+          message_count: number | null
+          player_id: string | null
+          session_id: string | null
+          started_at: string | null
+          test_player_context: Json | null
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean | null
+          is_test_mode?: boolean | null
+          last_message_at?: string | null
+          message_count?: number | null
+          player_id?: string | null
+          session_id?: string | null
+          started_at?: string | null
+          test_player_context?: Json | null
+        }
+        Update: {
+          id?: string
+          is_active?: boolean | null
+          is_test_mode?: boolean | null
+          last_message_at?: string | null
+          message_count?: number | null
+          player_id?: string | null
+          session_id?: string | null
+          started_at?: string | null
+          test_player_context?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "web_conversations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "web_conversations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      web_messages: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          rating: string | null
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          rating?: string | null
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          rating?: string | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "web_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "web_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       weekly_challenges: {
         Row: {
