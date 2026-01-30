@@ -124,7 +124,11 @@ const App = () => (
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/session" element={<Session />} />
               <Route path="/connect-dk" element={<ConnectDK />} />
-              <Route path="/rick" element={<Rick />} />
+              <Route path="/rick" element={
+                <ProtectedAdminRoute>
+                  <Rick />
+                </ProtectedAdminRoute>
+              } />
 
 
               {/* Player Portal Routes - 4B First Dashboard */}
