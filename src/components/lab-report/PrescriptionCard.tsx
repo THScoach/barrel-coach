@@ -1,12 +1,15 @@
 /**
  * Coaching Prescription Card - What to Do and What NOT to Do
  * Shows prioritized drills and contraindications
+ * 
+ * Integrated with Drill Library v1.0
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, Play, XCircle, AlertTriangle, ExternalLink } from 'lucide-react';
+import { ClipboardList, Play, XCircle, AlertTriangle } from 'lucide-react';
 import { CoachingPrescription } from '@/lib/lab-report-types';
+import { Link } from 'react-router-dom';
 
 interface PrescriptionCardProps {
   prescription: CoachingPrescription;
@@ -63,17 +66,20 @@ export function PrescriptionCard({ prescription }: PrescriptionCardProps) {
                     <div className="flex items-center justify-center w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-sm font-bold">
                       {idx + 1}
                     </div>
-                    <span className="font-medium text-white">{drill.name}</span>
+                    <Link 
+                      to={`/drills/${drill.id}`}
+                      className="font-medium text-white hover:text-teal-400 transition-colors"
+                    >
+                      {drill.name}
+                    </Link>
                   </div>
                   {drill.video_url && (
-                    <a 
-                      href={drill.video_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <Link 
+                      to={`/drills/${drill.id}`}
                       className="text-teal-400 hover:text-teal-300"
                     >
                       <Play className="h-4 w-4" />
-                    </a>
+                    </Link>
                   )}
                 </div>
                 
