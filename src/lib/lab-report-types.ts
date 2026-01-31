@@ -295,6 +295,32 @@ export interface FourBScores {
 }
 
 // ============================================================================
+// KINETIC FINGERPRINT SCORE (for Lab Report v2.0)
+// ============================================================================
+
+export interface KFComponentScore {
+  score: number;
+  weight: number;
+  value: string;
+  rating: string;
+}
+
+export interface KineticFingerprintScore {
+  total: number;
+  rating: 'Elite' | 'Good' | 'Working' | 'Priority';
+  color: string;
+  flags: string[];
+  components: {
+    transfer_ratio: KFComponentScore;
+    timing_gap: KFComponentScore;
+    deceleration: KFComponentScore;
+    sequence_order: KFComponentScore;
+    energy_delivery: KFComponentScore;
+    x_factor: KFComponentScore;
+  };
+}
+
+// ============================================================================
 // MAIN LAB REPORT DATA STRUCTURE
 // ============================================================================
 
@@ -318,6 +344,9 @@ export interface LabReportData {
   // Core data
   session: LabReportSession;
   scores: FourBScores;
+  
+  // Kinetic Fingerprint Score (v2.0)
+  kinetic_fingerprint?: KineticFingerprintScore;
   
   // 8 Sections
   structure: PlayerStructure;
