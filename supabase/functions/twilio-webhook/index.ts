@@ -1297,35 +1297,51 @@ ${notesText}
 - ❌ Don't give medical advice for injuries
 ${globalRules}`;
 
+  // Use Claude for text coaching responses
+  const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+  
+  if (!ANTHROPIC_API_KEY) {
+    console.error("[Twilio Webhook] ANTHROPIC_API_KEY not configured, falling back to default response");
+    return "Got your message! 💪 Check your locker for your next drill.";
+  }
+
   try {
-    const response = await fetch(LOVABLE_AI_URL, {
+    // Build messages for Claude format (no system role in messages array)
+    const claudeMessages = [
+      ...conversationHistory.slice(-6).map(msg => ({
+        role: msg.role === "assistant" ? "assistant" : "user",
+        content: msg.content
+      })),
+      { role: "user", content: incomingMessage },
+    ];
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...conversationHistory.slice(-6),
-          { role: "user", content: incomingMessage },
-        ],
-        max_tokens: 150,
-        temperature: 0.8,
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 200,
+        system: systemPrompt,
+        messages: claudeMessages,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[Twilio Webhook] AI error:", errorText);
-      throw new Error("AI generation failed");
+      console.error("[Twilio Webhook] Claude API error:", response.status, errorText);
+      throw new Error("Claude API call failed");
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || "Got your message! 💪 Check your locker for your next drill.";
+    const content = data.content?.[0]?.text?.trim();
+    
+    return content || "Got your message! 💪 Check your locker for your next drill.";
   } catch (error) {
-    console.error("[Twilio Webhook] AI error:", error);
+    console.error("[Twilio Webhook] Claude error:", error);
     return "Thanks for the message! Let me think on that. Check your locker for your latest drills 🎯";
   }
 }
