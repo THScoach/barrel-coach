@@ -194,11 +194,94 @@ async function triggerProcessing(
     }
 
     const result = await response.json();
+    
+    // If CSV URLs are available, trigger biomechanics analysis
+    if (result.success && result.csv_urls?.momentum_energy && result.csv_urls?.inverse_kinematics) {
+      console.log(`[Poll] Triggering biomechanics analysis for session ${rebootSessionId}`);
+      
+      try {
+        const analysisUrl = `${SUPABASE_URL}/functions/v1/analyze-reboot-biomechanics`;
+        const analysisResponse = await fetch(analysisUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            player_id: playerId,
+            session_id: rebootSessionId,
+            upload_id: uploadId,
+            inverse_kinematics_url: result.csv_urls.inverse_kinematics,
+            momentum_energy_url: result.csv_urls.momentum_energy,
+          }),
+        });
+        
+        if (analysisResponse.ok) {
+          const analysisResult = await analysisResponse.json();
+          console.log(`[Poll] Biomechanics analysis complete: Body Score ${analysisResult.body_score}`);
+          
+          // Send report to player via WhatsApp if phone available
+          if (analysisResult.report && analysisResult.player_phone) {
+            await sendAnalysisReport(analysisResult.player_phone, analysisResult.report);
+          }
+        } else {
+          console.error(`[Poll] Biomechanics analysis failed: ${await analysisResponse.text()}`);
+        }
+      } catch (analysisError) {
+        console.error(`[Poll] Error triggering biomechanics analysis:`, analysisError);
+      }
+    }
+    
     return { success: result.success, error: result.error };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return { success: false, error: errorMessage };
+  }
+}
+
+// Send analysis report via WhatsApp
+async function sendAnalysisReport(phone: string, report: string): Promise<void> {
+  const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const TWILIO_WHATSAPP_NUMBER = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
+  
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_WHATSAPP_NUMBER) {
+    console.log(`[Poll] Twilio not configured, skipping WhatsApp notification`);
+    return;
+  }
+  
+  // Format phone for WhatsApp
+  let formattedPhone = phone.replace(/\D/g, "");
+  if (!formattedPhone.startsWith("1") && formattedPhone.length === 10) {
+    formattedPhone = "1" + formattedPhone;
+  }
+  
+  const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
+  const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
+  
+  const formData = new URLSearchParams();
+  formData.append("From", `whatsapp:${TWILIO_WHATSAPP_NUMBER}`);
+  formData.append("To", `whatsapp:+${formattedPhone}`);
+  formData.append("Body", report);
+  
+  try {
+    const response = await fetch(twilioUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${auth}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formData.toString(),
+    });
+    
+    if (response.ok) {
+      console.log(`[Poll] Analysis report sent to ${phone}`);
+    } else {
+      console.error(`[Poll] Failed to send WhatsApp: ${await response.text()}`);
+    }
+  } catch (error) {
+    console.error(`[Poll] Error sending WhatsApp:`, error);
   }
 }
 
