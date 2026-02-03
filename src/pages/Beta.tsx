@@ -1,204 +1,172 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { Loader2, Sparkles, Zap, Target, TrendingUp, CheckCircle } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Logo } from "@/components/Logo";
+import { Footer } from "@/components/Footer";
+import { Radio, Calendar, MapPin, Sparkles, ArrowRight, CheckCircle } from "lucide-react";
 
 export default function Beta() {
-  const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<"login" | "signup">("login");
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: window.location.origin,
-          },
-        });
-        if (error) throw error;
-        toast.success("Account created! Check your email to confirm.");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        toast.success("Welcome to the beta! 🔥");
-        navigate("/player");
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Something went wrong");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const features = [
-    { icon: Zap, label: "4B System Analysis", desc: "Brain, Body, Bat, Ball scoring" },
-    { icon: Target, label: "AI Video Analysis", desc: "Upload swings for instant feedback" },
-    { icon: TrendingUp, label: "Progress Tracking", desc: "Track your development over time" },
+    {
+      icon: Radio,
+      title: "Swing Sensor",
+      description: "Dynamic & magnetic sensors shipped directly to you. Track every swing with pro-level data.",
+    },
+    {
+      icon: Calendar,
+      title: "Monday Night Calls",
+      description: "Weekly group sessions breaking down your data live with Coach Rick.",
+    },
+    {
+      icon: MapPin,
+      title: "Offseason Training",
+      description: "Unlimited in-person sessions with Coach Rick during the offseason.",
+    },
+  ];
+
+  const benefits = [
+    "Kinetic DNA analysis for every swing",
+    "Personalized drill prescriptions",
+    "Direct access to Coach Rick",
+    "Priority video analysis",
+    "Founding member pricing locked for life",
   ];
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
       {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm">
+      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container flex items-center justify-between py-4">
           <Link to="/">
             <Logo />
           </Link>
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-yellow-500" />
-            <span className="text-yellow-500 font-semibold">Beta Access</span>
+            <Sparkles className="h-5 w-5 text-orange-500" />
+            <span className="text-orange-500 font-semibold">Beta Program</span>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left: Welcome Message */}
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30">
-                <Sparkles className="h-4 w-4 text-yellow-500" />
-                <span className="text-sm text-yellow-500 font-medium">Exclusive Beta Access</span>
-              </div>
-              <h1 className="text-4xl lg:text-5xl font-bold text-white leading-tight">
-                You're Invited to the{" "}
-                <span className="bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
-                  4B System
-                </span>
-              </h1>
-              <p className="text-lg text-slate-400">
-                Coach Rick personally invited you to test the most advanced swing analysis 
-                technology available. Get early access to features before anyone else.
-              </p>
+      {/* Hero Section */}
+      <section className="py-20 lg:py-28">
+        <div className="container">
+          <div className="max-w-4xl mx-auto text-center space-y-8">
+            {/* Beta Badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/30">
+              <Sparkles className="h-4 w-4 text-orange-500" />
+              <span className="text-sm text-orange-500 font-semibold uppercase tracking-wide">Founding Member Access</span>
             </div>
 
-            {/* Features */}
+            {/* Headline */}
+            <h1 className="text-5xl lg:text-7xl font-bold text-white leading-tight">
+              Catching Barrels{" "}
+              <span className="bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+                Beta
+              </span>
+            </h1>
+
+            {/* Subhead */}
+            <p className="text-xl lg:text-2xl text-slate-400 max-w-2xl mx-auto">
+              Founding member access to elite swing training
+            </p>
+
+            {/* Price Badge */}
+            <div className="inline-flex items-baseline gap-1 px-6 py-3 rounded-2xl bg-slate-900 border border-slate-700">
+              <span className="text-4xl lg:text-5xl font-bold text-white">$99</span>
+              <span className="text-xl text-slate-400">/month</span>
+            </div>
+
+            {/* CTA Button */}
+            <div className="pt-4">
+              <Button
+                asChild
+                size="lg"
+                className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold text-lg px-10 py-6 h-auto"
+              >
+                <a href="#paypal-link" target="_blank" rel="noopener noreferrer">
+                  Join the Beta
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </a>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* What's Included */}
+      <section className="py-16 bg-slate-900/50">
+        <div className="container">
+          <h2 className="text-3xl font-bold text-white text-center mb-12">What's Included</h2>
+          
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {features.map((feature, i) => (
+              <Card key={i} className="bg-slate-900 border-slate-800 hover:border-orange-500/50 transition-colors">
+                <CardContent className="p-6 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center mx-auto">
+                    <feature.icon className="h-7 w-7 text-orange-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white">{feature.title}</h3>
+                  <p className="text-slate-400 text-sm leading-relaxed">{feature.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Benefits List */}
+      <section className="py-16">
+        <div className="container">
+          <div className="max-w-2xl mx-auto">
+            <h2 className="text-2xl font-bold text-white text-center mb-8">Everything You Get</h2>
             <div className="space-y-4">
-              {features.map((feature, i) => (
-                <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-slate-900/50 border border-slate-800">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-red-600/20 to-orange-500/20">
-                    <feature.icon className="h-5 w-5 text-orange-400" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-white">{feature.label}</p>
-                    <p className="text-sm text-slate-400">{feature.desc}</p>
-                  </div>
+              {benefits.map((benefit, i) => (
+                <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                  <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                  <span className="text-slate-300">{benefit}</span>
                 </div>
               ))}
             </div>
-
-            {/* Beta Perks */}
-            <div className="p-4 rounded-xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20">
-              <div className="flex items-center gap-2 mb-3">
-                <CheckCircle className="h-5 w-5 text-yellow-500" />
-                <span className="font-semibold text-white">Beta Tester Perks</span>
-              </div>
-              <ul className="space-y-2 text-sm text-slate-300">
-                <li>• 30 days of full access to all features</li>
-                <li>• Direct line to Coach Rick for feedback</li>
-                <li>• Special pricing when we launch</li>
-                <li>• Shape the future of the product</li>
-              </ul>
-            </div>
           </div>
-
-          {/* Right: Auth Form */}
-          <Card className="bg-slate-900/80 border-slate-800">
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-2xl text-white">
-                {mode === "login" ? "Welcome Back" : "Create Your Account"}
-              </CardTitle>
-              <CardDescription className="text-slate-400">
-                {mode === "login" 
-                  ? "Sign in to access your beta account" 
-                  : "Get started with your 60-day beta access"
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-slate-300">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    required
-                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-slate-300">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    minLength={6}
-                    className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white font-semibold"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      {mode === "login" ? "Signing In..." : "Creating Account..."}
-                    </>
-                  ) : (
-                    mode === "login" ? "Sign In" : "Create Account"
-                  )}
-                </Button>
-              </form>
-
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setMode(mode === "login" ? "signup" : "login")}
-                  className="text-sm text-slate-400 hover:text-white transition-colors"
-                >
-                  {mode === "login" 
-                    ? "New here? Create an account" 
-                    : "Already have an account? Sign in"
-                  }
-                </button>
-              </div>
-            </CardContent>
-          </Card>
         </div>
-      </main>
+      </section>
+
+      {/* Limited Spots CTA */}
+      <section className="py-16 bg-gradient-to-r from-orange-500/10 via-red-500/10 to-orange-500/10 border-y border-orange-500/20">
+        <div className="container">
+          <div className="max-w-3xl mx-auto text-center space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/20 border border-orange-500/30">
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+              <span className="text-sm text-orange-400 font-medium">Limited Availability</span>
+            </div>
+            
+            <h2 className="text-3xl lg:text-4xl font-bold text-white">
+              Limited founding member spots.
+            </h2>
+            <p className="text-xl text-slate-300">
+              Lock in <span className="text-orange-500 font-bold">$99/month for life</span>.
+            </p>
+            
+            <Button
+              asChild
+              size="lg"
+              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold text-lg px-10 py-6 h-auto"
+            >
+              <a href="#paypal-link" target="_blank" rel="noopener noreferrer">
+                Join the Beta
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </a>
+            </Button>
+            
+            <p className="text-sm text-slate-500">
+              Cancel anytime. No contracts. No BS.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800 py-6">
-        <div className="container text-center text-sm text-slate-500">
-          <p>Questions? Text Coach Rick directly or reply to your invite SMS.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
