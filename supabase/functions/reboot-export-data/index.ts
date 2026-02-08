@@ -77,10 +77,13 @@ serve(async (req) => {
     // ========================================================================
     // Step 2: Export each data type for each movement individually
     // ========================================================================
+    // Track URLs with their associated movement IDs
     const exportUrls: Record<string, string[]> = {};
+    const exportUrlMovementMap: Record<string, { url: string; movement_id: string }[]> = {};
 
     for (const dataType of dataTypes) {
       const urls: string[] = [];
+      const urlEntries: { url: string; movement_id: string }[] = [];
 
       for (const movementId of movementIds) {
         try {
@@ -104,7 +107,10 @@ serve(async (req) => {
             const d = await res.json();
             const dlUrls = d.download_urls || [];
             console.log(`[export] ✅ ${dataType}/${movementId}: ${dlUrls.length} URL(s)`);
-            urls.push(...dlUrls);
+            for (const dlUrl of dlUrls) {
+              urls.push(dlUrl);
+              urlEntries.push({ url: dlUrl, movement_id: movementId });
+            }
           } else {
             const errText = await res.text();
             console.warn(`[export] ⚠️ ${dataType}/${movementId} failed (${res.status}): ${errText.substring(0, 300)}`);
@@ -116,6 +122,7 @@ serve(async (req) => {
 
       if (urls.length > 0) {
         exportUrls[dataType] = urls;
+        exportUrlMovementMap[dataType] = urlEntries;
         console.log(`[export] ${dataType}: ${urls.length} total URL(s) across ${movementIds.length} movement(s)`);
       }
     }
@@ -185,6 +192,7 @@ serve(async (req) => {
             player_id: body.player_id,
             session_id: body.session_id,
             download_urls: exportUrls,
+            movement_url_map: exportUrlMovementMap,
           }),
         });
 
