@@ -130,6 +130,7 @@ export default function AthleteDetail() {
         body: {
           action: "pull_reports",
           player_name: player.name,
+          reboot_player_id: player.reboot_athlete_id,
         },
       });
       if (error) throw error;
