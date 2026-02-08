@@ -297,7 +297,7 @@ async function discoverMovementIds(
 
   console.log(`[export] Metadata CSV URL: ${urls[0].substring(0, 100)}...`);
 
-  // Download and parse the metadata CSV
+  // Download and parse the metadata CSV (Reboot returns gzipped files)
   try {
     const csvResponse = await fetch(urls[0]);
     if (!csvResponse.ok) {
@@ -305,7 +305,33 @@ async function discoverMovementIds(
       return [];
     }
 
-    const csvText = await csvResponse.text();
+    const contentType = csvResponse.headers.get("content-type") || "";
+    const contentEncoding = csvResponse.headers.get("content-encoding") || "";
+    console.log(`[export] Metadata response content-type: ${contentType}, content-encoding: ${contentEncoding}`);
+
+    let csvText: string;
+
+    // Try to decompress if the response is gzipped
+    const arrayBuffer = await csvResponse.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    console.log(`[export] Metadata raw bytes: ${bytes.length}, first 4: [${bytes[0]}, ${bytes[1]}, ${bytes[2]}, ${bytes[3]}]`);
+
+    // Check for gzip magic bytes (0x1f, 0x8b)
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      console.log(`[export] Detected gzip compressed file, decompressing...`);
+      const ds = new DecompressionStream("gzip");
+      const decompressedStream = new Blob([bytes]).stream().pipeThrough(ds);
+      const decompressedBlob = await new Response(decompressedStream).blob();
+      csvText = await decompressedBlob.text();
+    } else if (bytes[0] === 0x50 && bytes[1] === 0x4b) {
+      // ZIP file (PK header) — not directly supported, log and bail
+      console.error(`[export] Metadata file is a ZIP archive — not yet supported`);
+      return [];
+    } else {
+      // Assume plain text
+      csvText = new TextDecoder().decode(bytes);
+    }
+
     console.log(`[export] Metadata CSV length: ${csvText.length} chars`);
     console.log(`[export] Metadata CSV first 500 chars: ${csvText.substring(0, 500)}`);
 
@@ -314,7 +340,7 @@ async function discoverMovementIds(
     console.log(`[export] Metadata CSV: ${lines.length} non-empty line(s)`);
 
     if (lines.length < 2) {
-      console.error("[export] Metadata CSV has no data rows");
+      console.error("[export] Metadata CSV has no data rows after decompression");
       return [];
     }
 
