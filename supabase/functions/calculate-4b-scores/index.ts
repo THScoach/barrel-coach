@@ -1050,27 +1050,40 @@ Deno.serve(async (req) => {
       let meRows: MERow[] = [];
       let ikRows: IKRow[] | null = null;
 
-      // Stream momentum-energy CSV (PRIMARY)
-      if (body.download_urls["momentum-energy"]?.length) {
-        const url = body.download_urls["momentum-energy"][0];
-        console.log(`[4B-Engine] Streaming momentum-energy CSV (capped at 2MB)...`);
-        const csvText = await streamCsvFromUrl(url);
-        console.log(`[4B-Engine] Got ${csvText.length} chars of ME data`);
-        meRows = parseCsvToRows(csvText, 'momentum-energy') as MERow[];
-        console.log(`[4B-Engine] Parsed ${meRows.length} ME rows`);
+      // Stream momentum-energy CSV(s) (PRIMARY)
+      // When we have multiple URLs (per-movement exports), concatenate all CSVs
+      const meUrls = body.download_urls["momentum-energy"] || [];
+      if (meUrls.length > 0) {
+        console.log(`[4B-Engine] Streaming ${meUrls.length} momentum-energy CSV(s) (capped at 2MB each)...`);
+        for (let urlIdx = 0; urlIdx < meUrls.length; urlIdx++) {
+          const csvText = await streamCsvFromUrl(meUrls[urlIdx]);
+          console.log(`[4B-Engine] ME URL ${urlIdx + 1}/${meUrls.length}: ${csvText.length} chars`);
+          const rows = parseCsvToRows(csvText, `momentum-energy-${urlIdx + 1}`) as MERow[];
+          console.log(`[4B-Engine] ME URL ${urlIdx + 1}: parsed ${rows.length} rows`);
+          meRows.push(...rows);
+        }
+        console.log(`[4B-Engine] Total ME rows after concatenation: ${meRows.length}`);
       }
 
-      // Stream inverse-kinematics CSV (OPTIONAL)
-      if (body.download_urls["inverse-kinematics"]?.length) {
-        const url = body.download_urls["inverse-kinematics"][0];
-        console.log(`[4B-Engine] Streaming inverse-kinematics CSV (capped at 2MB)...`);
-        try {
-          const ikCsv = await streamCsvFromUrl(url);
-          console.log(`[4B-Engine] Got ${ikCsv.length} chars of IK data`);
-          ikRows = parseCsvToRows(ikCsv, 'inverse-kinematics') as IKRow[];
-          console.log(`[4B-Engine] Parsed ${ikRows?.length || 0} IK rows`);
-        } catch (err) {
-          console.warn("[4B-Engine] IK streaming failed, continuing without:", err);
+      // Stream inverse-kinematics CSV(s) (OPTIONAL)
+      const ikUrls = body.download_urls["inverse-kinematics"] || [];
+      if (ikUrls.length > 0) {
+        console.log(`[4B-Engine] Streaming ${ikUrls.length} inverse-kinematics CSV(s) (capped at 2MB each)...`);
+        const allIkRows: IKRow[] = [];
+        for (let urlIdx = 0; urlIdx < ikUrls.length; urlIdx++) {
+          try {
+            const ikCsv = await streamCsvFromUrl(ikUrls[urlIdx]);
+            console.log(`[4B-Engine] IK URL ${urlIdx + 1}/${ikUrls.length}: ${ikCsv.length} chars`);
+            const rows = parseCsvToRows(ikCsv, `inverse-kinematics-${urlIdx + 1}`) as IKRow[];
+            console.log(`[4B-Engine] IK URL ${urlIdx + 1}: parsed ${rows.length} rows`);
+            allIkRows.push(...rows);
+          } catch (err) {
+            console.warn(`[4B-Engine] IK URL ${urlIdx + 1} streaming failed, skipping:`, err);
+          }
+        }
+        if (allIkRows.length > 0) {
+          ikRows = allIkRows;
+          console.log(`[4B-Engine] Total IK rows after concatenation: ${ikRows.length}`);
         }
       }
 
