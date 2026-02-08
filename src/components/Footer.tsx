@@ -1,141 +1,57 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Logo } from './Logo';
-import { Mail, Twitter, ArrowRight, Instagram } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Mail, Twitter, Instagram } from 'lucide-react';
 
 export function Footer() {
-  const navigate = useNavigate();
-
-  const goToFreeDiagnostic = () => {
-    // Ensure this still "works" even if the user is already on /diagnostic
-    navigate(`/diagnostic?r=${Date.now()}`);
-  };
-
   return (
     <footer className="bg-slate-950 border-t border-slate-800/50">
-      {/* CTA Bar — Persistent Footer CTA */}
-      <div className="bg-slate-900/50 border-b border-slate-800/50">
-        <div className="container py-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div>
-              <p className="text-white font-semibold">Ready to stop guessing?</p>
-              <p className="text-slate-400 text-sm">Start with the Free Diagnostic.</p>
-            </div>
-            <Button onClick={goToFreeDiagnostic} className="bg-red-600 hover:bg-red-700 text-white font-bold">
-              Start with the Free Diagnostic
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="container py-16">
-        <div className="grid gap-12 md:grid-cols-4">
+      <div className="container py-12">
+        <div className="flex flex-col md:flex-row justify-between items-start gap-8">
           {/* Logo & Tagline */}
-          <div className="md:col-span-1">
+          <div>
             <Logo size="sm" linkTo="/" />
-            <p className="text-slate-400 mt-4 text-sm">Stop guessing. Start catching barrels.</p>
-            <div className="flex gap-3 mt-6">
-              <a 
-                href="https://twitter.com/swingrehab" 
-                target="_blank" 
+            <p className="text-slate-400 mt-3 text-sm">Stop guessing. Start catching barrels.</p>
+            <div className="flex gap-3 mt-4">
+              <a
+                href="https://twitter.com/swingrehab"
+                target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-700 transition-all"
+                className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-700 transition-all"
               >
-                <Twitter className="w-5 h-5" />
+                <Twitter className="w-4 h-4" />
               </a>
-              <a 
-                href="https://instagram.com/theswingrehabcoach" 
-                target="_blank" 
+              <a
+                href="https://instagram.com/theswingrehabcoach"
+                target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-700 transition-all"
+                className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-700 transition-all"
               >
-                <Instagram className="w-5 h-5" />
+                <Instagram className="w-4 h-4" />
               </a>
-              <a 
-                href="mailto:swingrehabcoach@gmail.com" 
-                className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-700 transition-all"
+              <a
+                href="mailto:swingrehabcoach@gmail.com"
+                className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-700 transition-all"
               >
-                <Mail className="w-5 h-5" />
+                <Mail className="w-4 h-4" />
               </a>
             </div>
-          </div>
-
-          {/* Products — 3 Tiers */}
-          <div>
-            <h4 className="font-semibold text-white mb-4">Products</h4>
-            <ul className="space-y-3">
-              <li>
-                <Link to="/diagnostic" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Free Diagnostic — $0</Link>
-              </li>
-              <li>
-                <Link to="/pricing" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Starter — $49/mo</Link>
-              </li>
-              <li>
-                <Link to="/pricing" className="text-slate-400 hover:text-red-500 transition-colors text-sm">The Academy — $99/mo</Link>
-              </li>
-              <li>
-                <Link to="/pricing" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Elite — $199/mo</Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Company */}
-          <div>
-            <h4 className="font-semibold text-white mb-4">Company</h4>
-            <ul className="space-y-3">
-              <li>
-                <Link to="/about" className="text-slate-400 hover:text-red-500 transition-colors text-sm">About Rick</Link>
-              </li>
-              <li>
-                <Link to="/pricing" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Pricing</Link>
-              </li>
-              <li>
-                <Link to="/library" className="text-slate-400 hover:text-red-500 transition-colors text-sm">Video Vault</Link>
-              </li>
-            </ul>
           </div>
 
           {/* Contact */}
           <div>
-            <h4 className="font-semibold text-white mb-4">Contact</h4>
-            <ul className="space-y-3">
-              <li>
-                <a href="mailto:swingrehabcoach@gmail.com" className="text-slate-400 hover:text-red-500 transition-colors text-sm flex items-center gap-2">
-                  <Mail className="w-4 h-4" /> swingrehabcoach@gmail.com
-                </a>
-              </li>
-              <li>
-                <a 
-                  href="https://twitter.com/swingrehab" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-slate-400 hover:text-red-500 transition-colors text-sm flex items-center gap-2"
-                >
-                  <Twitter className="w-4 h-4" /> @swingrehab
-                </a>
-              </li>
-              <li>
-                <a 
-                  href="https://instagram.com/theswingrehabcoach" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-slate-400 hover:text-red-500 transition-colors text-sm flex items-center gap-2"
-                >
-                  <Instagram className="w-4 h-4" /> @theswingrehabcoach
-                </a>
-              </li>
-            </ul>
+            <h4 className="font-semibold text-white mb-3 text-sm">Contact</h4>
+            <a href="mailto:swingrehabcoach@gmail.com" className="text-slate-400 hover:text-red-500 transition-colors text-sm">
+              swingrehabcoach@gmail.com
+            </a>
           </div>
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-12 pt-8 border-t border-slate-800/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-slate-500">© 2025 Catching Barrels. All rights reserved.</p>
+        <div className="mt-8 pt-6 border-t border-slate-800/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-slate-500">© {new Date().getFullYear()} Catching Barrels. All rights reserved.</p>
           <div className="flex gap-6 text-sm text-slate-500">
             <Link to="/terms" className="hover:text-red-500 transition-colors">Terms</Link>
             <Link to="/privacy" className="hover:text-red-500 transition-colors">Privacy</Link>
-            <Link to="/consent" className="hover:text-red-500 transition-colors">SMS Consent</Link>
           </div>
         </div>
       </div>
