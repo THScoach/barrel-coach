@@ -44,76 +44,107 @@ export default function AthleteDetail() {
     enabled: !!id,
   });
 
-  // Fetch sessions with aggregated upload data
+  // Fetch sessions from both reboot_sessions and player_sessions
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery({
     queryKey: ["athlete-sessions", id],
     queryFn: async () => {
-      // Get distinct sessions for this player
-      const { data: rawSessions, error: sessError } = await supabase
+      // Fetch from player_sessions (where 4B scores land from imports)
+      const { data: playerSessions, error: psError } = await supabase
+        .from("player_sessions")
+        .select("id, session_date, brain_score, body_score, bat_score, ball_score, overall_score, overall_grade, swing_count, data_quality, leak_type, created_at")
+        .eq("player_id", id!)
+        .order("session_date", { ascending: false });
+
+      if (psError) throw psError;
+
+      // Fetch from reboot_sessions (from video uploads)
+      const { data: rebootSessions, error: rsError } = await supabase
         .from("reboot_sessions")
         .select("id, reboot_session_id, session_date, status, movement_type, created_at")
         .eq("player_id", id!)
         .order("created_at", { ascending: false });
 
-      if (sessError) throw sessError;
+      if (rsError) throw rsError;
 
-      // Deduplicate by reboot_session_id
-      const seen = new Set<string>();
-      const uniqueSessions = (rawSessions || []).filter((s) => {
-        if (seen.has(s.reboot_session_id)) return false;
-        seen.add(s.reboot_session_id);
-        return true;
-      });
-
-      // Fetch uploads for each session to get swing counts, grades, scores
-      const { data: uploads, error: uplError } = await supabase
+      // Fetch uploads for reboot sessions
+      const { data: uploads } = await supabase
         .from("reboot_uploads")
         .select("reboot_session_id, composite_score, grade, processing_status")
         .eq("player_id", id!);
 
-      if (uplError) throw uplError;
-
-      // Group uploads by session
-      const uploadsBySession = new Map<
-        string,
-        { count: number; avgScore: number | null; grade: string | null; complete: number }
-      >();
-
+      const uploadsBySession = new Map<string, { count: number; avgScore: number | null; grade: string | null; complete: number }>();
       for (const u of uploads || []) {
         const sid = u.reboot_session_id;
         if (!sid) continue;
-        const existing = uploadsBySession.get(sid) || {
-          count: 0,
-          scores: [] as number[],
-          grade: null as string | null,
-          complete: 0,
-          avgScore: null as number | null,
-        };
+        const existing = uploadsBySession.get(sid) || { count: 0, avgScore: null, grade: null, complete: 0, _scores: [] as number[] };
         existing.count++;
         if (u.processing_status === "complete") existing.complete++;
         if (u.grade && !existing.grade) existing.grade = u.grade;
         if (u.composite_score != null) {
-          // accumulate for averaging
-          const prev = uploadsBySession.get(sid);
-          const scores = (prev as any)?._scores || [];
-          scores.push(u.composite_score);
-          (existing as any)._scores = scores;
-          existing.avgScore =
-            scores.reduce((a: number, b: number) => a + b, 0) / scores.length;
+          (existing as any)._scores.push(u.composite_score);
+          existing.avgScore = (existing as any)._scores.reduce((a: number, b: number) => a + b, 0) / (existing as any)._scores.length;
         }
         uploadsBySession.set(sid, existing);
       }
 
-      return uniqueSessions.map((s) => {
-        const uplData = uploadsBySession.get(s.reboot_session_id);
-        return {
-          ...s,
+      // Build unified session list
+      type SessionItem = {
+        id: string;
+        source: "player_sessions" | "reboot_sessions";
+        sessionDate: string;
+        status: string;
+        swingCount: number;
+        overallScore: number | null;
+        grade: string | null;
+        completedSwings: number;
+        rebootSessionId: string | null;
+        leakType: string | null;
+        dataQuality: string | null;
+      };
+
+      const results: SessionItem[] = [];
+
+      // Add player_sessions (from CSV imports / 4B calculations)
+      for (const ps of playerSessions || []) {
+        results.push({
+          id: ps.id,
+          source: "player_sessions",
+          sessionDate: ps.session_date,
+          status: "complete",
+          swingCount: ps.swing_count || 0,
+          overallScore: ps.overall_score,
+          grade: ps.overall_grade,
+          completedSwings: ps.swing_count || 0,
+          rebootSessionId: null,
+          leakType: ps.leak_type,
+          dataQuality: ps.data_quality,
+        });
+      }
+
+      // Add reboot_sessions (from video uploads), deduped
+      const seen = new Set<string>();
+      for (const rs of rebootSessions || []) {
+        if (seen.has(rs.reboot_session_id)) continue;
+        seen.add(rs.reboot_session_id);
+        const uplData = uploadsBySession.get(rs.reboot_session_id);
+        results.push({
+          id: rs.id,
+          source: "reboot_sessions",
+          sessionDate: rs.session_date || rs.created_at,
+          status: rs.status,
           swingCount: uplData?.count || 0,
-          compositeScore: uplData?.avgScore || null,
+          overallScore: uplData?.avgScore || null,
           grade: uplData?.grade || null,
           completedSwings: uplData?.complete || 0,
-        };
-      });
+          rebootSessionId: rs.reboot_session_id,
+          leakType: null,
+          dataQuality: null,
+        });
+      }
+
+      // Sort by date descending
+      results.sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime());
+      return results;
     },
     enabled: !!id,
   });
@@ -316,30 +347,40 @@ export default function AthleteDetail() {
           <div className="grid gap-2">
             {sessions.map((session) => (
               <Card
-                key={session.reboot_session_id}
+                key={session.id}
                 className="bg-slate-900/80 border-slate-800 hover:border-slate-600 transition-colors cursor-pointer group"
-                onClick={() => navigate(`/sessions/${session.reboot_session_id}`)}
+                onClick={() => {
+                  if (session.source === "reboot_sessions" && session.rebootSessionId) {
+                    navigate(`/sessions/${session.rebootSessionId}`);
+                  }
+                  // player_sessions don't have a detail view yet — could navigate to a score summary
+                }}
               >
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold text-white">
-                          {session.session_date
-                            ? format(
-                                new Date(session.session_date + "T00:00:00"),
-                                "MMM d, yyyy"
-                              )
-                            : format(new Date(session.created_at), "MMM d, yyyy")}
+                          {format(new Date(session.sessionDate), "MMM d, yyyy")}
                         </p>
                         {statusBadge(session.status, session.completedSwings, session.swingCount)}
+                        {session.dataQuality && (
+                          <Badge className="bg-slate-800 text-slate-400 border-slate-700 text-[10px]">
+                            {session.dataQuality}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
                         <span>
                           {session.swingCount} swing{session.swingCount !== 1 ? "s" : ""}
                         </span>
-                        {session.movement_type && (
-                          <span className="capitalize">{session.movement_type}</span>
+                        {session.leakType && session.leakType !== "unknown" && (
+                          <span className="text-orange-400 capitalize">
+                            {session.leakType.replace(/_/g, " ")}
+                          </span>
+                        )}
+                        {session.source === "player_sessions" && (
+                          <span className="text-blue-400">4B Import</span>
                         )}
                       </div>
                     </div>
@@ -354,9 +395,9 @@ export default function AthleteDetail() {
                         {session.grade}
                       </Badge>
                     )}
-                    {session.compositeScore != null && (
+                    {session.overallScore != null && (
                       <span className="text-xs bg-red-900/50 text-red-300 px-2 py-0.5 rounded-full font-mono">
-                        {session.compositeScore.toFixed(1)}
+                        {session.overallScore}
                       </span>
                     )}
                     <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
