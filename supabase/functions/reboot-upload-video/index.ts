@@ -35,6 +35,7 @@ interface UploadVideoRequest {
   video_filename?: string;
   movement_type?: string;
   frame_rate?: number;
+  existing_session_id?: string; // Reuse an existing Reboot session for multi-video uploads
 }
 
 interface MocapSessionResponse {
@@ -89,35 +90,43 @@ serve(async (req) => {
     const filename = body.video_filename || `swing_${Date.now()}.mp4`;
     const frameRate = body.frame_rate || 240;
 
-    console.log(`[reboot-upload-video] Creating mocap session for player ${rebootPlayerId}`);
+    // Step 1: Get or create session (reuse existing if provided)
+    let sessionId: string;
+    if (body.existing_session_id) {
+      console.log(`[reboot-upload-video] Reusing existing session: ${body.existing_session_id}`);
+      sessionId = body.existing_session_id;
+    } else {
+      console.log(`[reboot-upload-video] Creating mocap session for player ${rebootPlayerId}`);
 
-    // Step 1: Create mocap_session
-    const sessionResponse = await rebootFetch("/mocap_session", {
-      method: "POST",
-      body: JSON.stringify({
-        org_player_id: rebootPlayerId,
-        mocap_type_id: 67, // video upload type
-        session_date: new Date().toISOString().split("T")[0],
-        session_type_id: 1, // practice
-      }),
-    });
+      const sessionResponse = await rebootFetch("/mocap_session", {
+        method: "POST",
+        body: JSON.stringify({
+          org_player_id: rebootPlayerId,
+          mocap_type_id: 67, // video upload type
+          session_date: new Date().toISOString().split("T")[0],
+          session_type_id: 1, // practice
+        }),
+      });
 
-    if (!sessionResponse.ok) {
-      const errorText = await sessionResponse.text();
-      throw new Error(`Failed to create mocap session: ${errorText}`);
+      if (!sessionResponse.ok) {
+        const errorText = await sessionResponse.text();
+        throw new Error(`Failed to create mocap session: ${errorText}`);
+      }
+
+      const session: MocapSessionResponse = await sessionResponse.json();
+      sessionId = session.session_id || session.id;
+      console.log(`[reboot-upload-video] Mocap session created: ${sessionId}`);
     }
 
-    const session: MocapSessionResponse = await sessionResponse.json();
-    const sessionId = session.session_id || session.id;
-    console.log(`[reboot-upload-video] Mocap session created: ${sessionId}`);
-
-    // Step 2: Get pre-signed URL for upload
+    // Step 2: Get pre-signed URL for upload (use org_player_id)
     const fileResponse = await rebootFetch("/mocap_session_file", {
       method: "POST",
       body: JSON.stringify({
         session_id: sessionId,
+        org_player_id: rebootPlayerId,
         filenames: [filename],
         video_framerate: frameRate,
+        movement_type: movementType,
       }),
     });
 
