@@ -307,6 +307,54 @@ async function getUploadUrl(sessionId: string, orgPlayerId: string, filename: st
   return uploadUrl;
 }
 
+// Resolve OnForm URLs to direct download URLs
+async function resolveOnFormUrl(onformUrl: string): Promise<string> {
+  console.log(`[Upload] Resolving OnForm URL: ${onformUrl}`);
+
+  const urlObj = new URL(onformUrl);
+  let videoId: string | null = null;
+
+  if (urlObj.hostname === "link.getonform.com") {
+    videoId = urlObj.searchParams.get("id");
+  }
+
+  if (!videoId) {
+    throw new Error(`Could not extract video ID from OnForm URL: ${onformUrl}`);
+  }
+
+  const pageUrl = `https://link.getonform.com/view?id=${videoId}`;
+  const pageResponse = await fetch(pageUrl);
+
+  if (!pageResponse.ok) {
+    throw new Error(`Failed to fetch OnForm page: ${pageResponse.status}`);
+  }
+
+  const pageHtml = await pageResponse.text();
+
+  // Extract the Google Cloud Storage signed URL from the page
+  const downloadUrlMatch = pageHtml.match(
+    /https:\/\/storage\.googleapis\.com\/us-videos\/original\/[^"'\s]+/
+  );
+
+  if (!downloadUrlMatch) {
+    throw new Error(`Could not find video download URL in OnForm page for ID: ${videoId}`);
+  }
+
+  const directUrl = downloadUrlMatch[0].replace(/&amp;/g, "&");
+  console.log(`[Upload] Resolved OnForm ${videoId} to direct URL`);
+  return directUrl;
+}
+
+// Check if a URL is an OnForm link
+function isOnFormUrl(url: string): boolean {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname === "link.getonform.com";
+  } catch {
+    return false;
+  }
+}
+
 // Stream video from source URL to S3 pre-signed URL
 async function uploadVideoToS3(videoUrl: string, presignedUrl: string): Promise<void> {
   console.log(`[Upload] Fetching video from: ${videoUrl}`);
@@ -416,7 +464,14 @@ serve(async (req) => {
     console.log(`[Upload] Created upload record: ${uploadId}`);
 
     try {
-      const videoCheckResponse = await fetch(video_url, { method: 'HEAD' });
+      // Resolve OnForm URLs to direct download links
+      let resolvedVideoUrl = video_url;
+      if (isOnFormUrl(video_url)) {
+        console.log(`[Upload] Detected OnForm URL, resolving...`);
+        resolvedVideoUrl = await resolveOnFormUrl(video_url);
+      }
+
+      const videoCheckResponse = await fetch(resolvedVideoUrl, { method: 'HEAD' });
       if (!videoCheckResponse.ok) {
         throw new Error(`Video not accessible at URL: ${videoCheckResponse.status}`);
       }
@@ -440,7 +495,7 @@ serve(async (req) => {
 
       const presignedUrl = await getUploadUrl(rebootSessionId, rebootPlayerId, filename, frame_rate);
 
-      await uploadVideoToS3(video_url, presignedUrl);
+      await uploadVideoToS3(resolvedVideoUrl, presignedUrl);
 
       await supabase
         .from("reboot_uploads")

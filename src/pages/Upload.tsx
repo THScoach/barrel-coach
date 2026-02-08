@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -13,27 +13,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload as UploadIcon, Video, X, CheckCircle, Loader2 } from "lucide-react";
+import { Upload as UploadIcon, Loader2 } from "lucide-react";
+import { UploadFileList } from "@/components/upload/UploadFileList";
+import { OnFormLinksInput } from "@/components/upload/OnFormLinksInput";
+import { UploadSuccessState } from "@/components/upload/UploadSuccessState";
+import type { UploadFile } from "@/types/upload";
 
 interface Player {
   id: string;
   name: string;
 }
 
-interface UploadFile {
-  file: File;
-  id: string;
-  status: "pending" | "uploading" | "done" | "error";
-  progress: number;
-  error?: string;
-}
-
 export default function Upload() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const preselectedAthlete = searchParams.get("athlete") || "";
 
   const [selectedPlayer, setSelectedPlayer] = useState(preselectedAthlete);
@@ -62,13 +57,25 @@ export default function Upload() {
       id: crypto.randomUUID(),
       status: "pending",
       progress: 0,
+      source: "file",
+      name: file.name,
     }));
     setFiles((prev) => [...prev, ...newFiles]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleAddOnformFiles = (newFiles: UploadFile[]) => {
+    setFiles((prev) => [...prev, ...newFiles]);
+  };
+
   const removeFile = (id: string) => {
     setFiles((prev) => prev.filter((f) => f.id !== id));
+  };
+
+  const updateFileStatus = (id: string, updates: Partial<UploadFile>) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, ...updates } : f))
+    );
   };
 
   const handleUpload = async () => {
@@ -85,74 +92,83 @@ export default function Upload() {
     let rebootSessionId: string | undefined;
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        const uploadFile = files[i];
+      for (const uploadFile of files) {
+        updateFileStatus(uploadFile.id, { status: "uploading", progress: 10 });
 
-        // Update status to uploading
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.id === uploadFile.id ? { ...f, status: "uploading", progress: 10 } : f
-          )
-        );
+        let videoUrl: string;
+        let filename: string;
 
-        // Upload video to Supabase storage
-        const storagePath = `uploads/${selectedPlayer}/${Date.now()}_${uploadFile.file.name}`;
-        const { error: storageError } = await supabase.storage
-          .from("swing-videos")
-          .upload(storagePath, uploadFile.file);
+        if (uploadFile.source === "file" && uploadFile.file) {
+          // Upload file to Supabase storage
+          const storagePath = `uploads/${selectedPlayer}/${Date.now()}_${uploadFile.file.name}`;
+          const { error: storageError } = await supabase.storage
+            .from("swing-videos")
+            .upload(storagePath, uploadFile.file);
+          if (storageError) throw storageError;
 
-        if (storageError) throw storageError;
+          updateFileStatus(uploadFile.id, { progress: 40 });
 
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.id === uploadFile.id ? { ...f, progress: 40 } : f
-          )
-        );
+          const { data: urlData } = supabase.storage
+            .from("swing-videos")
+            .getPublicUrl(storagePath);
+          videoUrl = urlData.publicUrl;
+          filename = uploadFile.file.name;
+        } else if (uploadFile.source === "onform" && uploadFile.url) {
+          // OnForm link — pass directly; the edge function will resolve it
+          videoUrl = uploadFile.url;
+          filename = `onform_${uploadFile.onformId || "unknown"}.mp4`;
+          updateFileStatus(uploadFile.id, { progress: 30 });
+        } else {
+          updateFileStatus(uploadFile.id, {
+            status: "error",
+            error: "Invalid file source",
+          });
+          continue;
+        }
 
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from("swing-videos")
-          .getPublicUrl(storagePath);
+        updateFileStatus(uploadFile.id, { progress: 60 });
 
-        // Upload to Reboot (reuse session for videos 2+)
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.id === uploadFile.id ? { ...f, progress: 60 } : f
-          )
-        );
-
-        const { data, error } = await supabase.functions.invoke("upload-to-reboot", {
-          body: {
-            player_id: selectedPlayer,
-            video_url: urlData.publicUrl,
-            filename: uploadFile.file.name,
-            frame_rate: Number(frameRate),
-            existing_session_id: rebootSessionId,
-          },
+        console.log("[Upload] Sending to upload-to-reboot:", {
+          player_id: selectedPlayer,
+          video_url: videoUrl,
+          filename,
+          frame_rate: Number(frameRate),
+          existing_session_id: rebootSessionId,
         });
+
+        const { data, error } = await supabase.functions.invoke(
+          "upload-to-reboot",
+          {
+            body: {
+              player_id: selectedPlayer,
+              video_url: videoUrl,
+              filename,
+              frame_rate: Number(frameRate),
+              existing_session_id: rebootSessionId,
+            },
+          }
+        );
+
+        console.log("[Upload] Response:", data);
+        console.log("[Upload] Error:", error);
 
         if (error) throw error;
 
-        // Save session ID for subsequent uploads
+        // Capture session ID from first successful upload
         if (data?.reboot_session_id) {
           rebootSessionId = data.reboot_session_id;
           setSessionId(data.reboot_session_id);
+          console.log("[Upload] ✅ Captured session ID:", rebootSessionId);
         }
 
-        // Mark done
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.id === uploadFile.id ? { ...f, status: "done", progress: 100 } : f
-          )
-        );
+        updateFileStatus(uploadFile.id, { status: "done", progress: 100 });
       }
 
       toast.success(`${files.length} video(s) uploaded successfully!`);
     } catch (err: any) {
-      console.error("Upload error:", err);
+      console.error("[Upload] Error:", err);
       toast.error(err.message || "Upload failed");
 
-      // Mark remaining as error
       setFiles((prev) =>
         prev.map((f) =>
           f.status === "uploading"
@@ -167,21 +183,34 @@ export default function Upload() {
 
   const allDone = files.length > 0 && files.every((f) => f.status === "done");
 
+  const handleUploadMore = () => {
+    setFiles([]);
+    setSessionId(null);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
       <Header />
       <main className="flex-1 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-2xl mx-auto w-full">
-        <h1 className="text-2xl md:text-3xl font-black text-white mb-8">Upload Videos</h1>
+        <h1 className="text-2xl md:text-3xl font-black text-white mb-8">
+          Upload Videos
+        </h1>
 
         <Card className="bg-slate-900/80 border-slate-800">
           <CardHeader>
-            <CardTitle className="text-white text-lg">Send Swings to Reboot Motion</CardTitle>
+            <CardTitle className="text-white text-lg">
+              Send Swings to Reboot Motion
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Athlete selector */}
             <div>
               <Label className="text-slate-300">Athlete *</Label>
-              <Select value={selectedPlayer} onValueChange={setSelectedPlayer} disabled={uploading}>
+              <Select
+                value={selectedPlayer}
+                onValueChange={setSelectedPlayer}
+                disabled={uploading}
+              >
                 <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
                   <SelectValue placeholder="Select athlete" />
                 </SelectTrigger>
@@ -198,7 +227,11 @@ export default function Upload() {
             {/* Frame rate */}
             <div>
               <Label className="text-slate-300">Frame Rate</Label>
-              <Select value={frameRate} onValueChange={setFrameRate} disabled={uploading}>
+              <Select
+                value={frameRate}
+                onValueChange={setFrameRate}
+                disabled={uploading}
+              >
                 <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
                   <SelectValue />
                 </SelectTrigger>
@@ -211,76 +244,71 @@ export default function Upload() {
               </Select>
             </div>
 
-            {/* File drop zone */}
-            <div>
-              <Label className="text-slate-300">Videos</Label>
-              <div
-                onClick={() => !uploading && fileInputRef.current?.click()}
-                className="mt-2 border-2 border-dashed border-slate-700 rounded-xl p-8 text-center cursor-pointer hover:border-slate-500 transition-colors"
-              >
-                <UploadIcon className="w-8 h-8 text-slate-500 mx-auto mb-3" />
-                <p className="text-sm text-slate-400">Click to select videos</p>
-                <p className="text-xs text-slate-500 mt-1">MP4, MOV • Multiple files OK</p>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/*"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </div>
+            {/* Upload method tabs */}
+            <Tabs defaultValue="files">
+              <TabsList className="bg-slate-800 border-slate-700 w-full">
+                <TabsTrigger value="files" className="flex-1">
+                  File Upload
+                </TabsTrigger>
+                <TabsTrigger value="onform" className="flex-1">
+                  OnForm Links
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="files" className="mt-4">
+                <div>
+                  <Label className="text-slate-300">Videos</Label>
+                  <div
+                    onClick={() =>
+                      !uploading && fileInputRef.current?.click()
+                    }
+                    className="mt-2 border-2 border-dashed border-slate-700 rounded-xl p-8 text-center cursor-pointer hover:border-slate-500 transition-colors"
+                  >
+                    <UploadIcon className="w-8 h-8 text-slate-500 mx-auto mb-3" />
+                    <p className="text-sm text-slate-400">
+                      Click to select videos
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      MP4, MOV • Multiple files OK
+                    </p>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="video/*"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="onform" className="mt-4">
+                <OnFormLinksInput
+                  onAddFiles={handleAddOnformFiles}
+                  disabled={uploading}
+                />
+              </TabsContent>
+            </Tabs>
 
             {/* File list */}
-            {files.length > 0 && (
-              <div className="space-y-2">
-                {files.map((f) => (
-                  <div
-                    key={f.id}
-                    className="flex items-center gap-3 bg-slate-800/50 rounded-lg p-3"
-                  >
-                    <Video className="w-5 h-5 text-slate-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white truncate">{f.file.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {(f.file.size / (1024 * 1024)).toFixed(1)} MB
-                      </p>
-                      {f.status === "uploading" && (
-                        <Progress value={f.progress} className="mt-1 h-1" />
-                      )}
-                      {f.status === "error" && (
-                        <p className="text-xs text-red-400 mt-1">{f.error}</p>
-                      )}
-                    </div>
-                    {f.status === "done" ? (
-                      <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
-                    ) : f.status === "uploading" ? (
-                      <Loader2 className="w-5 h-5 text-slate-400 animate-spin shrink-0" />
-                    ) : (
-                      <button
-                        onClick={() => removeFile(f.id)}
-                        className="text-slate-500 hover:text-white"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            <UploadFileList
+              files={files}
+              onRemove={removeFile}
+              disabled={uploading}
+            />
 
             {/* Upload button */}
-            {!allDone && (
+            {!allDone && files.length > 0 && (
               <Button
                 onClick={handleUpload}
-                disabled={uploading || files.length === 0 || !selectedPlayer}
+                disabled={uploading || !selectedPlayer}
                 className="w-full bg-red-600 hover:bg-red-700 text-white font-bold h-12"
               >
                 {uploading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Uploading...
+                    Uploading…
                   </>
                 ) : (
                   <>
@@ -293,39 +321,10 @@ export default function Upload() {
 
             {/* Success state */}
             {allDone && sessionId && (
-              <div className="text-center space-y-4 py-4">
-                <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
-                <div>
-                  <p className="text-white font-semibold">Upload Complete!</p>
-                  <p className="text-sm text-slate-400 mt-1">
-                    Processing takes 5–15 minutes. Check the session for results.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Button
-                    asChild
-                    className="bg-red-600 hover:bg-red-700 text-white font-bold"
-                  >
-                    <a
-                      href={`https://dashboard.rebootmotion.com/sessions/${sessionId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View in Reboot Dashboard →
-                    </a>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="border-slate-700 text-slate-300 hover:text-white"
-                    onClick={() => {
-                      setFiles([]);
-                      setSessionId(null);
-                    }}
-                  >
-                    Upload More Videos
-                  </Button>
-                </div>
-              </div>
+              <UploadSuccessState
+                sessionId={sessionId}
+                onUploadMore={handleUploadMore}
+              />
             )}
           </CardContent>
         </Card>
