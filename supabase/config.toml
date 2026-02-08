@@ -233,3 +233,6 @@ verify_jwt = false
 
 [functions.fetch-reboot-session-data]
 verify_jwt = false
+
+[functions.sync-reboot-sessions]
+verify_jwt = false
