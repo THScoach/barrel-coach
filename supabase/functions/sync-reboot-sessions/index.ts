@@ -39,19 +39,29 @@ async function getRebootAccessToken(): Promise<string> {
 
 async function verifyAdmin(req: Request): Promise<string> {
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) throw new Error("Unauthorized");
+  if (!authHeader?.startsWith("Bearer ")) {
+    console.error("[sync-reboot-sessions] No Authorization header found");
+    throw new Error("Unauthorized");
+  }
+
+  console.log("[sync-reboot-sessions] Auth header present, verifying user...");
 
   const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: authHeader } },
   });
 
-  const token = authHeader.replace("Bearer ", "");
-  const { data: claimsData, error: claimsError } = await supabase.auth.getUser(token);
-  if (claimsError || !claimsData?.user) throw new Error("Unauthorized");
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    console.error("[sync-reboot-sessions] getUser failed:", userError?.message);
+    throw new Error("Unauthorized");
+  }
 
-  const { data: isAdmin } = await supabase.rpc("is_admin");
+  console.log("[sync-reboot-sessions] User verified:", userData.user.id);
+
+  const { data: isAdmin, error: adminError } = await supabase.rpc("is_admin");
+  console.log("[sync-reboot-sessions] is_admin result:", isAdmin, "error:", adminError?.message);
   if (!isAdmin) throw new Error("Admin access required");
-  return claimsData.user.id;
+  return userData.user.id;
 }
 
 /** Check if a session has data for a specific player using data_export endpoint */
