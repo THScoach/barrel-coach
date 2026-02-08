@@ -261,25 +261,33 @@ async function streamCsvFromUrl(url: string, maxChars: number = 2_000_000): Prom
     throw new Error(`CSV download failed: ${response.status}`);
   }
 
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("No response body to stream");
+  // Read enough bytes to check for gzip magic header
+  const arrayBuffer = await response.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
 
-  const decoder = new TextDecoder();
-  let text = "";
+  let text: string;
 
-  try {
-    while (text.length < maxChars) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      text += decoder.decode(value, { stream: true });
-    }
-  } finally {
-    reader.cancel();
+  // Check for gzip magic bytes (0x1f, 0x8b)
+  if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+    console.log(`[4B-Engine] Detected gzip-compressed CSV (${bytes.length} bytes), decompressing...`);
+    const ds = new DecompressionStream("gzip");
+    const decompressedStream = new Blob([bytes]).stream().pipeThrough(ds);
+    const decompressedBlob = await new Response(decompressedStream).blob();
+    text = await decompressedBlob.text();
+    console.log(`[4B-Engine] Decompressed to ${text.length} chars`);
+  } else {
+    text = new TextDecoder().decode(bytes);
   }
 
-  const lastNewline = text.lastIndexOf("\n");
-  if (lastNewline > 0 && text.length >= maxChars) {
-    text = text.substring(0, lastNewline);
+  // Cap at maxChars to prevent memory issues
+  if (text.length > maxChars) {
+    const lastNewline = text.lastIndexOf("\n", maxChars);
+    if (lastNewline > 0) {
+      text = text.substring(0, lastNewline);
+    } else {
+      text = text.substring(0, maxChars);
+    }
+    console.log(`[4B-Engine] Capped CSV at ${text.length} chars (max: ${maxChars})`);
   }
 
   return text;
