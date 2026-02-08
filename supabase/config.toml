@@ -227,3 +227,9 @@ verify_jwt = false
 
 [functions.upload-to-reboot]
 verify_jwt = false
+
+[functions.create-reboot-athlete]
+verify_jwt = false
+
+[functions.fetch-reboot-session-data]
+verify_jwt = false
