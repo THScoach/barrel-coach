@@ -22,7 +22,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, User, Search } from "lucide-react";
+import { Plus, User, Search, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Player {
@@ -48,6 +48,7 @@ export default function Athletes() {
     team: "",
   });
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const { data: players = [], isLoading, refetch } = useQuery({
     queryKey: ["athletes"],
@@ -92,6 +93,23 @@ export default function Athletes() {
     }
   };
 
+  const handleSyncFromReboot = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-reboot-players", {
+        body: { preview_only: false },
+      });
+      if (error) throw error;
+      toast.success(data?.message || "Players synced from Reboot");
+      refetch();
+    } catch (err: any) {
+      console.error("Sync error:", err);
+      toast.error(err.message || "Failed to sync from Reboot");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const formatHeight = (inches: number | null) => {
     if (!inches) return null;
     const ft = Math.floor(inches / 12);
@@ -106,13 +124,23 @@ export default function Athletes() {
         {/* Page header */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl md:text-3xl font-black text-white">Athletes</h1>
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-red-600 hover:bg-red-700 text-white font-bold">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Athlete
-              </Button>
-            </DialogTrigger>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleSyncFromReboot}
+              disabled={syncing}
+              variant="outline"
+              className="border-slate-700 text-slate-300 hover:text-white"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Syncing…" : "Refresh from Reboot"}
+            </Button>
+            <Dialog open={addOpen} onOpenChange={setAddOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-red-600 hover:bg-red-700 text-white font-bold">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Athlete
+                </Button>
+              </DialogTrigger>
             <DialogContent className="bg-slate-900 border-slate-700">
               <DialogHeader>
                 <DialogTitle className="text-white">Add New Athlete</DialogTitle>
@@ -203,7 +231,8 @@ export default function Athletes() {
                 </Button>
               </div>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
 
         {/* Search */}
