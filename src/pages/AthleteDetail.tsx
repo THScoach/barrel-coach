@@ -1,11 +1,13 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   Upload,
@@ -14,12 +16,15 @@ import {
   Activity,
   Loader2,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 
 export default function AthleteDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [syncing, setSyncing] = useState(false);
 
   // Fetch player info
   const { data: player, isLoading: playerLoading } = useQuery({
@@ -27,7 +32,7 @@ export default function AthleteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("players")
-        .select("id, name, handedness, height_inches, weight_lbs, level, team")
+        .select("id, name, handedness, height_inches, weight_lbs, level, team, reboot_athlete_id")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -117,6 +122,24 @@ export default function AthleteDetail() {
     return `${ft}'${rem}"`;
   };
 
+  const handleSyncSessions = async () => {
+    if (!id) return;
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-reboot-sessions", {
+        body: { player_id: id },
+      });
+      if (error) throw error;
+      toast.success(data?.message || "Sessions synced from Reboot");
+      queryClient.invalidateQueries({ queryKey: ["athlete-sessions", id] });
+    } catch (err: any) {
+      console.error("[Sync Sessions] Error:", err);
+      toast.error(err.message || "Failed to sync sessions");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const statusBadge = (status: string, completedSwings: number, swingCount: number) => {
     if (status === "completed" && completedSwings > 0) {
       return <Badge className="bg-green-900/50 text-green-400 border-green-800 text-[10px]">Complete</Badge>;
@@ -198,13 +221,28 @@ export default function AthleteDetail() {
                   </div>
                 </div>
               </div>
-              <Button
-                onClick={() => navigate(`/upload?athlete=${player.id}`)}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold shrink-0"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Videos
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  onClick={handleSyncSessions}
+                  disabled={syncing || !player.reboot_athlete_id}
+                  variant="outline"
+                  className="border-slate-700 text-slate-300 hover:text-white"
+                >
+                  {syncing ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                  )}
+                  {syncing ? "Syncing…" : "Sync from Reboot"}
+                </Button>
+                <Button
+                  onClick={() => navigate(`/upload?athlete=${player.id}`)}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Videos
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
