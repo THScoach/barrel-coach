@@ -2756,12 +2756,15 @@ export type Database = {
           data_quality: string | null
           ground_flow: number | null
           id: string
+          kinetic_potential: Json | null
           leak_caption: string | null
           leak_training: string | null
           leak_type: string | null
           overall_grade: string | null
           overall_score: number | null
           player_id: string
+          projections: Json | null
+          raw_metrics: Json | null
           reboot_session_id: string | null
           session_date: string
           session_source: string | null
@@ -2783,12 +2786,15 @@ export type Database = {
           data_quality?: string | null
           ground_flow?: number | null
           id?: string
+          kinetic_potential?: Json | null
           leak_caption?: string | null
           leak_training?: string | null
           leak_type?: string | null
           overall_grade?: string | null
           overall_score?: number | null
           player_id: string
+          projections?: Json | null
+          raw_metrics?: Json | null
           reboot_session_id?: string | null
           session_date?: string
           session_source?: string | null
@@ -2810,12 +2816,15 @@ export type Database = {
           data_quality?: string | null
           ground_flow?: number | null
           id?: string
+          kinetic_potential?: Json | null
           leak_caption?: string | null
           leak_training?: string | null
           leak_type?: string | null
           overall_grade?: string | null
           overall_score?: number | null
           player_id?: string
+          projections?: Json | null
+          raw_metrics?: Json | null
           reboot_session_id?: string | null
           session_date?: string
           session_source?: string | null
