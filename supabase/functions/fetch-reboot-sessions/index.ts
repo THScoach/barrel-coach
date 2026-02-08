@@ -161,7 +161,7 @@ async function fetchAllOrgSessions(sinceDate: string): Promise<any[]> {
 
 // ── Fetch sessions for a specific player via OAuth (multiple endpoints) ──
 
-async function fetchPlayerSessionsViaOAuth(orgPlayerId: string): Promise<any[]> {
+async function fetchPlayerSessionsViaOAuth(orgPlayerId: string, sinceDate: string): Promise<any[]> {
   const oauthToken = await getOAuthToken();
   const oauthHeaders = {
     "Authorization": `Bearer ${oauthToken}`,
@@ -171,51 +171,93 @@ async function fetchPlayerSessionsViaOAuth(orgPlayerId: string): Promise<any[]> 
 
   const sessions: any[] = [];
   const seenIds = new Set<string>();
+  const sinceMs = parseMs(sinceDate) ?? 0;
+  const pageSize = 200;
+  const maxPages = 20;
 
-  // Try multiple possible endpoints
-  const endpoints = [
-    `${REBOOT_API_BASE}/sessions?org_player_id=${orgPlayerId}&limit=100`,
-    `${REBOOT_API_BASE}/mocap-sessions?org_player_id=${orgPlayerId}&limit=100`,
-    `${REBOOT_API_BASE}/players/${orgPlayerId}/sessions`,
-    `${REBOOT_API_BASE}/players/${orgPlayerId}/mocap-sessions`,
-  ];
+  // The working endpoint is /sessions?org_player_id=... with pagination
+  for (let page = 1; page <= maxPages; page++) {
+    const url = new URL(`${REBOOT_API_BASE}/sessions`);
+    url.searchParams.set("org_player_id", orgPlayerId);
+    url.searchParams.set("page", page.toString());
+    url.searchParams.set("page_size", pageSize.toString());
+    url.searchParams.set("limit", pageSize.toString());
+    url.searchParams.set("offset", ((page - 1) * pageSize).toString());
 
-  for (const endpoint of endpoints) {
+    console.log(`[fetch-reboot-sessions] OAuth player page ${page}: ${url.toString()}`);
+
     try {
-      console.log(`[fetch-reboot-sessions] Trying OAuth endpoint: ${endpoint}`);
-      const resp = await fetch(endpoint, { headers: oauthHeaders });
+      const resp = await fetch(url.toString(), { headers: oauthHeaders });
 
       if (!resp.ok) {
         const body = await resp.text();
-        console.log(`[fetch-reboot-sessions] ${resp.status} from ${endpoint}: ${body.slice(0, 200)}`);
-        continue;
+        console.log(`[fetch-reboot-sessions] OAuth ${resp.status}: ${body.slice(0, 200)}`);
+        // If first page fails, try alternative endpoints
+        if (page === 1) {
+          console.log(`[fetch-reboot-sessions] Primary endpoint failed, trying alternatives...`);
+          for (const altEndpoint of [
+            `${REBOOT_API_BASE}/mocap-sessions?org_player_id=${orgPlayerId}&limit=${pageSize}`,
+            `${REBOOT_API_BASE}/players/${orgPlayerId}/sessions`,
+          ]) {
+            try {
+              console.log(`[fetch-reboot-sessions] Trying: ${altEndpoint}`);
+              const altResp = await fetch(altEndpoint, { headers: oauthHeaders });
+              if (altResp.ok) {
+                const altRaw = await altResp.json();
+                const altList = normalizeList(altRaw);
+                console.log(`[fetch-reboot-sessions] ✅ Alt endpoint returned ${altList.length} sessions`);
+                for (const s of altList) {
+                  const id = s?.id;
+                  if (id && !seenIds.has(id)) { seenIds.add(id); sessions.push(s); }
+                }
+                if (sessions.length > 0) break;
+              } else {
+                console.log(`[fetch-reboot-sessions] Alt ${altResp.status}: ${(await altResp.text()).slice(0, 100)}`);
+              }
+            } catch (e) { console.log(`[fetch-reboot-sessions] Alt error: ${e}`); }
+          }
+        }
+        break;
       }
 
       const raw = await resp.json();
-      const list = normalizeList(raw);
-      console.log(`[fetch-reboot-sessions] ✅ ${endpoint} returned ${list.length} sessions`);
+      const pageSessions = normalizeList(raw);
+      console.log(`[fetch-reboot-sessions] OAuth page ${page}: ${pageSessions.length} sessions`);
 
-      if (list.length > 0) {
-        // Log structure from this endpoint
-        console.log(`[fetch-reboot-sessions] OAuth endpoint keys: ${Object.keys(list[0]).sort().join(", ")}`);
-        console.log(`[fetch-reboot-sessions] OAuth sample: ${JSON.stringify(list[0]).slice(0, 1500)}`);
+      if (page === 1 && pageSessions.length > 0) {
+        console.log(`[fetch-reboot-sessions] OAuth keys: ${Object.keys(pageSessions[0]).sort().join(", ")}`);
       }
 
-      for (const s of list) {
+      for (const s of pageSessions) {
         const id = s?.id;
         if (!id || seenIds.has(id)) continue;
         seenIds.add(id);
         sessions.push(s);
       }
 
-      // If we got results, don't try other endpoints
-      if (sessions.length > 0) break;
+      if (pageSessions.length === 0) break;
+
+      // Stop if we've gone past the date cutoff
+      if (sinceMs) {
+        let oldestMs: number | null = null;
+        for (const s of pageSessions) {
+          const ms = parseMs(s?.session_date);
+          if (ms !== null) oldestMs = oldestMs === null ? ms : Math.min(oldestMs, ms);
+        }
+        if (oldestMs !== null && oldestMs < sinceMs) {
+          console.log(`[fetch-reboot-sessions] OAuth past cutoff ${sinceDate}; stopping`);
+          break;
+        }
+      }
+
+      if (pageSessions.length < pageSize) break;
     } catch (err) {
-      console.log(`[fetch-reboot-sessions] Error from ${endpoint}: ${err}`);
+      console.log(`[fetch-reboot-sessions] OAuth page ${page} error: ${err}`);
+      break;
     }
   }
 
-  console.log(`[fetch-reboot-sessions] OAuth player sessions found: ${sessions.length}`);
+  console.log(`[fetch-reboot-sessions] OAuth total sessions for player: ${sessions.length}`);
   return sessions;
 }
 
@@ -253,7 +295,7 @@ serve(async (req) => {
     // ── Strategy 1: If specific player requested, try OAuth player-specific endpoints first ──
     if (targetOrgPlayerId) {
       console.log(`[fetch-reboot-sessions] Trying player-specific OAuth endpoints for ${targetOrgPlayerId}`);
-      const oauthSessions = await fetchPlayerSessionsViaOAuth(targetOrgPlayerId);
+      const oauthSessions = await fetchPlayerSessionsViaOAuth(targetOrgPlayerId, sinceDate);
 
       if (oauthSessions.length > 0) {
         const sinceMs = parseMs(sinceDate);
