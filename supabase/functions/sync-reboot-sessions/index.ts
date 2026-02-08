@@ -80,31 +80,55 @@ async function sessionHasPlayerData(
   sessionId: string,
   orgPlayerId: string,
   accessToken: string,
+  debugFirst = false,
 ): Promise<boolean> {
-  try {
-    const resp = await fetch(`${REBOOT_API_BASE}/data_export`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        session_id: sessionId,
-        org_player_id: orgPlayerId,
-        data_type: "momentum-energy",
-        movement_type_id: 1,
-      }),
-    });
-    if (!resp.ok) return false;
-    const data = await resp.json();
-    // API may return download_urls (array) or download_url (string)
-    return !!(
-      (data.download_urls && data.download_urls.length > 0) ||
-      data.download_url
-    );
-  } catch {
-    return false;
+  // Try multiple movement types: 1=pitching, 2=hitting, etc.
+  // Also try both org_player_id and player_id fields
+  const movementTypes = [2, 1, 3, 4, 5];
+  const playerIdFields = ["org_player_id", "player_id"];
+  
+  for (const field of playerIdFields) {
+    for (const mtId of movementTypes) {
+      try {
+        const body: Record<string, unknown> = {
+          session_id: sessionId,
+          [field]: orgPlayerId,
+          data_type: "momentum-energy",
+          movement_type_id: mtId,
+        };
+        const resp = await fetch(`${REBOOT_API_BASE}/data_export`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+        const respText = await resp.text();
+        if (debugFirst) {
+          console.log(`[sync] DEBUG data_export ${field}=${orgPlayerId} mt=${mtId} → ${resp.status}: ${respText.substring(0, 200)}`);
+        }
+        if (!resp.ok) continue;
+        const data = JSON.parse(respText);
+        if (
+          (data.download_urls && data.download_urls.length > 0) ||
+          data.download_url
+        ) {
+          if (debugFirst) {
+            console.log(`[sync] DEBUG ✓ Found data with ${field} mt=${mtId}`);
+          }
+          return true;
+        }
+      } catch (e) {
+        if (debugFirst) {
+          console.error(`[sync] DEBUG error ${field} mt=${mtId}:`, e);
+        }
+      }
+    }
+    // Only debug the first field thoroughly on first session
+    if (debugFirst) debugFirst = false;
   }
+  return false;
 }
 
 // ── Fetch all org sessions (paginated) ───────────────────────────────────
@@ -161,7 +185,115 @@ serve(async (req) => {
     await verifyAdmin(req);
 
     const body = await req.json();
-    const { player_id, since_date, max_checks: maxChecksParam } = body;
+    const { player_id, since_date, max_checks: maxChecksParam, diagnostic } = body;
+
+    // ── Diagnostic mode: test data_export for a specific session + player ───
+    // ── Diagnostic mode ───
+    if (diagnostic) {
+      const accessToken = await getRebootAccessToken();
+      const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      
+      // Get the player
+      const { data: player } = await supabase
+        .from("players")
+        .select("id, name, reboot_athlete_id")
+        .eq("id", player_id)
+        .single();
+      
+      if (!player?.reboot_athlete_id) {
+        return new Response(JSON.stringify({ error: "Player has no reboot_athlete_id" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Search ALL Reboot players (paginated) for this player
+      const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
+      const allRebootPlayers: any[] = [];
+      for (let pg = 1; pg <= 10; pg++) {
+        const url = new URL(`${REBOOT_API_BASE}/players`);
+        url.searchParams.set("page", pg.toString());
+        url.searchParams.set("page_size", "100");
+        url.searchParams.set("limit", "100");
+        url.searchParams.set("offset", ((pg - 1) * 100).toString());
+        const resp = await fetch(url.toString(), { headers });
+        if (!resp.ok) break;
+        const data = await resp.json();
+        const list = Array.isArray(data) ? data : [];
+        allRebootPlayers.push(...list);
+        console.log(`[diag] Players page ${pg}: ${list.length} players`);
+        if (list.length < 100) break;
+      }
+      const playerList = allRebootPlayers;
+      console.log(`[diag] Total players fetched: ${playerList.length}`);
+      
+      // Find all matches for this name (partial, case insensitive)
+      const nameParts = player.name.toLowerCase().split(" ");
+      const nameMatches = playerList.filter((p: any) => {
+        const fullName = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase().trim();
+        // Match if any part of the name matches
+        return nameParts.some(part => part.length > 2 && fullName.includes(part));
+      });
+      
+      // Also find by stored reboot_athlete_id
+      const idMatch = playerList.find((p: any) => 
+        p.org_player_id === player.reboot_athlete_id || p.id === player.reboot_athlete_id
+      );
+
+      // Get sessions with most players and try data_export with EACH matching player ID
+      const allSessions = await fetchAllOrgSessions();
+      const processedWithPlayers = allSessions
+        .filter(s => s.status === "processed" && (s.num_players || 0) > 0)
+        .sort((a: any, b: any) => (b.num_players || 0) - (a.num_players || 0));
+      
+      const testSession = processedWithPlayers[0];
+      const exportResults: any[] = [];
+      
+      if (testSession && nameMatches.length > 0) {
+        for (const match of nameMatches) {
+          // Try both org_player_id and internal id
+          for (const idField of [match.org_player_id, match.id]) {
+            if (!idField) continue;
+            const body = {
+              session_id: testSession.id,
+              org_player_id: idField,
+              data_type: "momentum-energy",
+              movement_type_id: 1,
+            };
+            const resp = await fetch(`${REBOOT_API_BASE}/data_export`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify(body),
+            });
+            const text = await resp.text();
+            exportResults.push({
+              id_used: idField,
+              id_type: idField === match.org_player_id ? "org_player_id" : "internal_id",
+              status: resp.status,
+              response: text.substring(0, 200),
+            });
+          }
+        }
+      }
+
+      return new Response(JSON.stringify({
+        diagnostic: true,
+        player: { name: player.name, stored_reboot_id: player.reboot_athlete_id },
+        id_match: idMatch ? {
+          org_player_id: idMatch.org_player_id,
+          internal_id: idMatch.id,
+          name: `${idMatch.first_name} ${idMatch.last_name}`,
+          dob: idMatch.date_of_birth,
+        } : null,
+        reboot_name_matches: nameMatches.map((m: any) => ({
+          org_player_id: m.org_player_id,
+          internal_id: m.id,
+          name: `${m.first_name} ${m.last_name}`,
+          dob: m.date_of_birth,
+        })),
+        test_session: testSession ? { id: testSession.id, date: testSession.session_date, num_players: testSession.num_players } : null,
+        export_results: exportResults,
+        total_reboot_players: playerList.length,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // Default to last 6 months; override with since_date or "all"
     const defaultSince = new Date();
@@ -267,7 +399,8 @@ serve(async (req) => {
             if (!session?.id) continue;
             totalChecks++;
 
-            const hasData = await sessionHasPlayerData(session.id, orgPlayerId, accessToken);
+            const isFirstCheck = totalChecks === 1;
+            const hasData = await sessionHasPlayerData(session.id, orgPlayerId, accessToken, isFirstCheck);
             if (hasData) {
               matched.push(session);
               console.log(`[sync] ✓ ${player.name} matched session ${session.id} (${session.session_date || "no date"})`);
