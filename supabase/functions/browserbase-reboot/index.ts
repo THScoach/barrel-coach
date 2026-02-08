@@ -944,20 +944,28 @@ async function pullPlayerReports(
     // 2. Connect via CDP WebSocket
     cdp = await CdpBrowser.connect(browserSession.connectUrl);
 
-    // 3. Login to Reboot
+    // 3. Login to Reboot (Auth0 Universal Login — two-step flow)
     console.log("[PullReports] Navigating to login page...");
-    await cdp.navigate(`${REBOOT_DASHBOARD_URL}/login`, 3000);
+    await cdp.navigate(`${REBOOT_DASHBOARD_URL}/login`, 5000);
 
-    const hasEmailField = await cdp.waitFor('input[type="email"], input[name="email"], input[placeholder*="email"]', 10000);
-    if (!hasEmailField) {
-      const url = await cdp.getUrl();
-      console.log(`[PullReports] No email field found. Current URL: ${url}`);
-      if (url.includes("/login")) {
-        // Try broader selectors
-        const hasAnyInput = await cdp.waitFor("input", 5000);
-        console.log(`[PullReports] Any input found: ${hasAnyInput}`);
-        const pageHtml = await cdp.eval<string>("document.body.innerHTML.substring(0, 1000)");
-        console.log(`[PullReports] Page HTML preview: ${pageHtml}`);
+    const currentLoginUrl = await cdp.getUrl();
+    console.log(`[PullReports] Login URL: ${currentLoginUrl}`);
+
+    // Auth0 redirects to auth.rebootmotion.com — check if already logged in
+    if (!currentLoginUrl.includes("/login") && !currentLoginUrl.includes("auth.rebootmotion.com")) {
+      console.log("[PullReports] Already logged in, skipping login flow");
+    } else {
+      // Step 1: Enter email/username on the identifier page
+      // Auth0 uses input[name="username"] for the email field
+      const identifierSelectors = 'input[name="username"], input[id="username"], input[type="email"], input[name="email"]';
+      const hasIdentifier = await cdp.waitFor(identifierSelectors, 15000);
+
+      if (!hasIdentifier) {
+        // Fallback: look for any text input
+        const hasAnyInput = await cdp.waitFor('input[type="text"], input:not([type="hidden"])', 5000);
+        console.log(`[PullReports] No identifier field found. Any input: ${hasAnyInput}`);
+        const pageHtml = await cdp.eval<string>("document.body.innerHTML.substring(0, 1500)");
+        console.log(`[PullReports] Page HTML: ${pageHtml}`);
         return {
           success: false,
           message: "Login form not detected — check replay for details",
@@ -965,45 +973,94 @@ async function pullPlayerReports(
           replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
         };
       }
-      console.log("[PullReports] Not on login page, might be already logged in");
-    } else {
-      console.log("[PullReports] Filling login form...");
-      // Try multiple selectors for email input
-      try {
-        await cdp.fill('input[type="email"]', REBOOT_EMAIL);
-      } catch {
-        try { await cdp.fill('input[name="email"]', REBOOT_EMAIL); } catch {
-          await cdp.fill('input[placeholder*="email"]', REBOOT_EMAIL);
-        }
+
+      console.log("[PullReports] Step 1: Filling email/username...");
+      // Try Auth0 selectors in order
+      const emailSelectors = ['input[name="username"]', 'input[id="username"]', 'input[type="email"]', 'input[name="email"]'];
+      let emailFilled = false;
+      for (const sel of emailSelectors) {
+        try {
+          await cdp.fill(sel, REBOOT_EMAIL);
+          emailFilled = true;
+          console.log(`[PullReports] Filled email using: ${sel}`);
+          break;
+        } catch { /* try next */ }
       }
+
+      if (!emailFilled) {
+        return {
+          success: false,
+          message: "Could not fill email field",
+          sessionId: browserSession.id,
+          replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
+        };
+      }
+
       await cdp.sleep(500);
 
-      await cdp.fill('input[type="password"]', REBOOT_PASSWORD);
-      await cdp.sleep(500);
-
-      // Click submit
+      // Click the Continue/Submit button for step 1
       try {
         await cdp.click('button[type="submit"]');
+        console.log("[PullReports] Clicked submit for identifier step");
       } catch {
-        try { await cdp.click('button:last-of-type'); } catch {
-          console.warn("[PullReports] Could not find submit button, trying Enter key");
+        // Fallback: press Enter on the input
+        await cdp.eval(`
+          document.querySelector('${emailSelectors[0]}')?.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true })
+          )
+        `);
+        console.log("[PullReports] Pressed Enter on identifier input");
+      }
+
+      // Wait for password step to load
+      await cdp.sleep(4000);
+
+      // Step 2: Enter password
+      const hasPassword = await cdp.waitFor('input[type="password"]', 10000);
+      if (!hasPassword) {
+        // Check if we're already past login (some flows auto-redirect)
+        const urlAfterEmail = await cdp.getUrl();
+        console.log(`[PullReports] No password field found. URL: ${urlAfterEmail}`);
+        if (!urlAfterEmail.includes("/login") && !urlAfterEmail.includes("auth.rebootmotion.com")) {
+          console.log("[PullReports] Appears to be logged in after email step");
+        } else {
+          const pageHtml = await cdp.eval<string>("document.body.innerHTML.substring(0, 1500)");
+          console.log(`[PullReports] Password page HTML: ${pageHtml}`);
+          return {
+            success: false,
+            message: "Password field not found after email step — check replay",
+            sessionId: browserSession.id,
+            replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
+          };
+        }
+      } else {
+        console.log("[PullReports] Step 2: Filling password...");
+        await cdp.fill('input[type="password"]', REBOOT_PASSWORD);
+        await cdp.sleep(500);
+
+        // Click submit for password step
+        try {
+          await cdp.click('button[type="submit"]');
+          console.log("[PullReports] Clicked submit for password step");
+        } catch {
           await cdp.eval(`
             document.querySelector('input[type="password"]')?.dispatchEvent(
               new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true })
             )
           `);
+          console.log("[PullReports] Pressed Enter on password input");
         }
-      }
 
-      // Wait for navigation after login
-      await cdp.sleep(8000);
+        // Wait for post-login redirect
+        await cdp.sleep(10000);
+      }
 
       const postLoginUrl = await cdp.getUrl();
       console.log(`[PullReports] Post-login URL: ${postLoginUrl}`);
-      if (postLoginUrl.includes("/login")) {
+      if (postLoginUrl.includes("auth.rebootmotion.com") || postLoginUrl.includes("/login/identifier")) {
         return {
           success: false,
-          message: "Login failed — still on login page after submission",
+          message: "Login failed — still on Auth0 page after submission",
           sessionId: browserSession.id,
           replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
         };
