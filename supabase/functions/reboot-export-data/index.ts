@@ -85,6 +85,8 @@ serve(async (req) => {
       for (const movementId of movementIds) {
         try {
           const payload = {
+            session_id: body.session_id,
+            movement_type_id: movementTypeId,
             org_player_id: orgPlayerId,
             org_movement_id: movementId,
             data_type: dataType,
