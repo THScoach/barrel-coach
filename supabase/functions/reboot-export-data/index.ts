@@ -1,24 +1,10 @@
 /**
  * Reboot Export Data Edge Function
- * Exports session data (CSVs) from Reboot Motion and triggers 4B/KRS calculations
+ * Requests data exports from Reboot Motion and triggers 4B/KRS calculations
  *
- * POST /functions/v1/reboot-export-data
- * Body: {
- *   session_id: string,         // Reboot session UUID
- *   player_id: string,          // Our internal player ID (used to look up org_player_id)
- *   data_types?: string[],      // Types to export (default: inverse-kinematics, momentum-energy)
- *   trigger_analysis?: boolean  // Whether to trigger 4B/KRS calculations (default: true)
- * }
- *
- * Reboot API contract for POST /data_export:
- *   session_id: string (UUID)
- *   movement_type_id: integer (required)
- *   org_player_id: string (required)
- *   data_type: string (singular, required) — one of:
- *     hitting-processed-metrics, hitting-processed-series,
- *     hitting-lite-processed-metrics, hitting-lite-processed-series,
- *     inverse-kinematics, metadata, metrics, momentum-energy
- *   data_format: string (default: csv)
+ * Strategy: Don't download massive CSVs in this function.
+ * Instead, get the signed S3 URLs from Reboot, store them,
+ * and pass them to the analysis function which can stream/sample the data.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -44,19 +30,14 @@ serve(async (req) => {
   try {
     const body: ExportDataRequest = await req.json();
 
-    if (!body.session_id) {
-      return errorResponse("session_id is required", 400);
-    }
-    if (!body.player_id) {
-      return errorResponse("player_id is required", 400);
-    }
+    if (!body.session_id) return errorResponse("session_id is required", 400);
+    if (!body.player_id) return errorResponse("player_id is required", 400);
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Look up the player's org_player_id (reboot_player_id) from our database
+    // Look up org_player_id
     const { data: player, error: playerError } = await supabase
       .from("players")
       .select("reboot_player_id, reboot_athlete_id, name")
@@ -64,138 +45,163 @@ serve(async (req) => {
       .single();
 
     if (playerError || !player) {
-      console.error("[reboot-export-data] Player lookup failed:", playerError);
       return errorResponse(`Player not found: ${body.player_id}`, 404);
     }
 
     const orgPlayerId = player.reboot_player_id || player.reboot_athlete_id;
     if (!orgPlayerId) {
-      return errorResponse("Player has no Reboot org_player_id configured. Please link this athlete to Reboot first.", 400);
+      return errorResponse("Player has no Reboot org_player_id configured.", 400);
     }
 
     console.log(`[reboot-export-data] Player: ${player.name}, org_player_id: ${orgPlayerId}`);
 
-    // Look up the correct movement_type_id for baseball-hitting
-    // First try to fetch from Reboot's movement_types endpoint
-    let movementTypeId = 2; // default fallback
+    // Look up movement_type_id
+    let movementTypeId = 1; // baseball-hitting default
     try {
       const mtResponse = await rebootFetch("/movement_types");
       if (mtResponse.ok) {
         const movementTypes = await mtResponse.json();
-        console.log("[reboot-export-data] Available movement types:", JSON.stringify(movementTypes));
-        // Find baseball-hitting type
         const hittingType = movementTypes.find((mt: any) =>
           mt.name?.toLowerCase().includes("hitting") ||
           mt.slug?.toLowerCase().includes("hitting")
         );
         if (hittingType?.id) {
           movementTypeId = hittingType.id;
-          console.log(`[reboot-export-data] Using movement_type_id: ${movementTypeId} (${hittingType.name})`);
         }
       }
-    } catch (err) {
-      console.warn("[reboot-export-data] Could not fetch movement types, using default:", err);
+    } catch (_err) {
+      console.warn("[reboot-export-data] Could not fetch movement types, using default");
     }
 
     const dataTypes = body.data_types || ["inverse-kinematics", "momentum-energy"];
     const triggerAnalysis = body.trigger_analysis !== false;
 
-    console.log(`[reboot-export-data] Exporting ${dataTypes.length} data types for session ${body.session_id}`);
+    console.log(`[reboot-export-data] Exporting ${dataTypes.length} data types, movement_type_id: ${movementTypeId}`);
 
-    // Make one API call per data_type (Reboot requires singular data_type)
-    const csvData: Record<string, string> = {};
-    const allDownloadUrls: Record<string, string[]> = {};
+    // Request export URLs from Reboot (no downloading yet)
+    const exportUrls: Record<string, string[]> = {};
 
     for (const dataType of dataTypes) {
       try {
-        console.log(`[reboot-export-data] Requesting export for data_type: ${dataType}`);
-
-        const exportPayload = {
-          session_id: body.session_id,
-          movement_type_id: movementTypeId,
-          org_player_id: orgPlayerId,
-          data_type: dataType,
-          data_format: "csv",
-          aggregate: true,
-        };
-
-        console.log(`[reboot-export-data] Export payload:`, JSON.stringify(exportPayload));
-
         const exportResponse = await rebootFetch("/data_export", {
           method: "POST",
-          body: JSON.stringify(exportPayload),
+          body: JSON.stringify({
+            session_id: body.session_id,
+            movement_type_id: movementTypeId,
+            org_player_id: orgPlayerId,
+            data_type: dataType,
+            data_format: "csv",
+            aggregate: true,
+          }),
         });
 
         if (!exportResponse.ok) {
           const errorText = await exportResponse.text();
           console.error(`[reboot-export-data] Export failed for ${dataType} (${exportResponse.status}): ${errorText}`);
-          continue; // Skip this type but continue with others
+          continue;
         }
 
         const exportData = await exportResponse.json();
-        console.log(`[reboot-export-data] Export response for ${dataType}:`, JSON.stringify(exportData));
-
-        // download_urls is an array of strings
-        const downloadUrls: string[] = exportData.download_urls || [];
-        allDownloadUrls[dataType] = downloadUrls;
-
-        // Download each CSV URL
-        for (const url of downloadUrls) {
-          try {
-            console.log(`[reboot-export-data] Downloading CSV for ${dataType}...`);
-            const csvResponse = await fetch(url);
-            if (csvResponse.ok) {
-              const text = await csvResponse.text();
-              // Append if multiple files for same type
-              csvData[dataType] = (csvData[dataType] || "") + text;
-              console.log(`[reboot-export-data] Downloaded ${dataType}: ${text.length} chars`);
-            } else {
-              console.error(`[reboot-export-data] Failed to download ${dataType}: ${csvResponse.status}`);
-            }
-          } catch (dlErr) {
-            console.error(`[reboot-export-data] Error downloading ${dataType}:`, dlErr);
-          }
-        }
+        const urls: string[] = exportData.download_urls || [];
+        exportUrls[dataType] = urls;
+        console.log(`[reboot-export-data] Got ${urls.length} download URL(s) for ${dataType}`);
       } catch (err) {
-        console.error(`[reboot-export-data] Error exporting ${dataType}:`, err);
+        console.error(`[reboot-export-data] Error requesting ${dataType}:`, err);
       }
     }
 
-    if (Object.keys(csvData).length === 0) {
-      return errorResponse("No data types were successfully exported. Check that the session has processed data.", 400);
+    if (Object.keys(exportUrls).length === 0) {
+      return errorResponse("No data types were successfully exported.", 400);
     }
 
-    // Store raw CSV data in our database
+    // Store export URLs in our database (not the raw CSV data)
     const { error: insertError } = await supabase
       .from("reboot_exports")
       .insert({
         player_id: body.player_id,
         session_id: body.session_id,
-        data_types: Object.keys(csvData),
-        csv_data: csvData,
-        raw_response: allDownloadUrls,
+        data_types: Object.keys(exportUrls),
+        csv_data: {}, // Don't store 57MB of CSV inline
+        raw_response: exportUrls,
         created_at: new Date().toISOString(),
       });
 
     if (insertError) {
-      console.error("[reboot-export-data] Failed to save export data:", insertError);
+      console.error("[reboot-export-data] Failed to save export record:", insertError);
     }
 
-    // Update session status
-    await supabase
+    // Ensure a reboot_sessions record exists
+    const { data: existingSession } = await supabase
       .from("reboot_sessions")
-      .update({
+      .select("id")
+      .eq("reboot_session_id", body.session_id)
+      .eq("player_id", body.player_id)
+      .maybeSingle();
+
+    if (!existingSession) {
+      await supabase.from("reboot_sessions").insert({
+        reboot_session_id: body.session_id,
+        player_id: body.player_id,
         status: "exported",
-        exported_at: new Date().toISOString(),
-      })
-      .eq("reboot_session_id", body.session_id);
+        movement_type: "baseball-hitting",
+        session_date: new Date().toISOString().split("T")[0],
+      });
+    } else {
+      await supabase
+        .from("reboot_sessions")
+        .update({ status: "exported" })
+        .eq("reboot_session_id", body.session_id)
+        .eq("player_id", body.player_id);
+    }
 
-    // Trigger 4B/KRS analysis if requested
+    // Trigger analysis by streaming only what we need (sample rows)
     let analysisResult = null;
-    if (triggerAnalysis && csvData["momentum-energy"]) {
+    if (triggerAnalysis && exportUrls["momentum-energy"]?.length) {
       try {
-        console.log("[reboot-export-data] Triggering 4B/KRS analysis...");
+        console.log("[reboot-export-data] Downloading sampled CSV for analysis...");
 
+        // Download only the momentum-energy CSV, but cap at ~2MB to stay in memory
+        const meUrl = exportUrls["momentum-energy"][0];
+        const meResponse = await fetch(meUrl);
+        if (!meResponse.ok) throw new Error(`Download failed: ${meResponse.status}`);
+
+        // Read as text but cap size
+        const reader = meResponse.body?.getReader();
+        const decoder = new TextDecoder();
+        let csvText = "";
+        const MAX_CHARS = 2_000_000; // 2MB cap
+
+        if (reader) {
+          while (csvText.length < MAX_CHARS) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            csvText += decoder.decode(value, { stream: true });
+          }
+          reader.cancel(); // Stop reading if we hit cap
+        }
+
+        console.log(`[reboot-export-data] Downloaded ${csvText.length} chars of momentum-energy (capped at ${MAX_CHARS})`);
+
+        // Optionally download IK data (also capped)
+        let ikText = "";
+        if (exportUrls["inverse-kinematics"]?.length) {
+          const ikUrl = exportUrls["inverse-kinematics"][0];
+          const ikResponse = await fetch(ikUrl);
+          if (ikResponse.ok) {
+            const ikReader = ikResponse.body?.getReader();
+            if (ikReader) {
+              while (ikText.length < MAX_CHARS) {
+                const { done, value } = await ikReader.read();
+                if (done) break;
+                ikText += decoder.decode(value, { stream: true });
+              }
+              ikReader.cancel();
+            }
+          }
+          console.log(`[reboot-export-data] Downloaded ${ikText.length} chars of inverse-kinematics`);
+        }
+
+        // Call 4B scoring
         const analysisUrl = `${supabaseUrl}/functions/v1/calculate-4b-scores`;
         const analysisResponse = await fetch(analysisUrl, {
           method: "POST",
@@ -206,30 +212,31 @@ serve(async (req) => {
           body: JSON.stringify({
             player_id: body.player_id,
             session_id: body.session_id,
-            momentum_csv: csvData["momentum-energy"],
-            kinematics_csv: csvData["inverse-kinematics"],
+            momentum_csv: csvText,
+            kinematics_csv: ikText || undefined,
           }),
         });
 
         if (analysisResponse.ok) {
           analysisResult = await analysisResponse.json();
-          console.log("[reboot-export-data] 4B/KRS analysis complete");
+          console.log("[reboot-export-data] 4B analysis complete");
         } else {
-          console.error("[reboot-export-data] Analysis failed:", await analysisResponse.text());
+          const errText = await analysisResponse.text();
+          console.error("[reboot-export-data] Analysis failed:", errText);
         }
       } catch (err) {
-        console.error("[reboot-export-data] Error triggering analysis:", err);
+        console.error("[reboot-export-data] Error during analysis:", err);
       }
     }
 
     // Log activity
     await supabase.from("activity_log").insert({
       action: "reboot_data_exported",
-      description: `Exported ${Object.keys(csvData).length} data types from Reboot Motion`,
+      description: `Exported ${Object.keys(exportUrls).length} data types from Reboot Motion`,
       player_id: body.player_id,
       metadata: {
         session_id: body.session_id,
-        data_types: Object.keys(csvData),
+        data_types: Object.keys(exportUrls),
         analysis_triggered: triggerAnalysis,
       },
     });
@@ -238,10 +245,8 @@ serve(async (req) => {
       success: true,
       session_id: body.session_id,
       player_id: body.player_id,
-      data_types_exported: Object.keys(csvData),
-      csv_row_counts: Object.fromEntries(
-        Object.entries(csvData).map(([k, v]) => [k, v.split("\n").length - 1])
-      ),
+      data_types_exported: Object.keys(exportUrls),
+      download_urls: exportUrls,
       analysis_triggered: triggerAnalysis,
       analysis_result: analysisResult,
     });
