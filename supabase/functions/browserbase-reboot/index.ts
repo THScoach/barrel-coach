@@ -35,6 +35,7 @@ interface AutomationRequest {
   player_id?: string;
   player_name?: string;
   player_email?: string;
+  reboot_player_id?: string;
   video_url?: string;
   video_storage_path?: string;
   session_id?: string;
@@ -741,109 +742,347 @@ async function findPlayerOnly(
 }
 
 /**
- * Pull player reports - find player and extract latest session data
+ * Minimal CDP (Chrome DevTools Protocol) client over WebSocket.
+ * Browserbase returns a connectUrl that speaks CDP — this class wraps it.
+ */
+class CdpBrowser {
+  private ws: WebSocket;
+  private nextId = 1;
+  private callbacks = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void }>();
+  private targetSessionId?: string;
+
+  private constructor(ws: WebSocket) {
+    this.ws = ws;
+    ws.onmessage = (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(String(event.data));
+        if (msg.id !== undefined) {
+          const cb = this.callbacks.get(msg.id);
+          if (cb) {
+            this.callbacks.delete(msg.id);
+            if (msg.error) cb.reject(new Error(JSON.stringify(msg.error)));
+            else cb.resolve(msg.result);
+          }
+        }
+      } catch (e) {
+        console.error("[CDP] Parse error:", e);
+      }
+    };
+  }
+
+  static connect(connectUrl: string): Promise<CdpBrowser> {
+    console.log("[CDP] Connecting to browser via WebSocket...");
+    return new Promise((resolve, reject) => {
+      const ws = new WebSocket(connectUrl);
+      const cdp = new CdpBrowser(ws);
+
+      ws.onopen = async () => {
+        try {
+          await cdp.init();
+          console.log("[CDP] Connected and initialized");
+          resolve(cdp);
+        } catch (e) {
+          reject(e);
+        }
+      };
+
+      ws.onerror = (e) => {
+        console.error("[CDP] WebSocket error:", e);
+        reject(new Error("CDP WebSocket connection failed"));
+      };
+
+      setTimeout(() => reject(new Error("CDP connection timeout (20s)")), 20000);
+    });
+  }
+
+  private async init(): Promise<void> {
+    // Attach to the first available page target
+    const { targetInfos } = await this.send("Target.getTargets");
+    console.log("[CDP] Targets:", targetInfos?.map((t: any) => `${t.type}:${t.targetId}`).join(", "));
+    const page = targetInfos?.find((t: any) => t.type === "page");
+
+    if (page) {
+      const { sessionId } = await this.send("Target.attachToTarget", {
+        targetId: page.targetId,
+        flatten: true,
+      });
+      this.targetSessionId = sessionId;
+      console.log(`[CDP] Attached to page target (session: ${sessionId})`);
+    } else {
+      const { targetId } = await this.send("Target.createTarget", { url: "about:blank" });
+      const { sessionId } = await this.send("Target.attachToTarget", {
+        targetId,
+        flatten: true,
+      });
+      this.targetSessionId = sessionId;
+      console.log(`[CDP] Created and attached to new page target (session: ${sessionId})`);
+    }
+
+    await this.send("Page.enable");
+    await this.send("Runtime.enable");
+  }
+
+  private send(method: string, params: any = {}): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const id = this.nextId++;
+      this.callbacks.set(id, { resolve, reject });
+      const msg: any = { id, method, params };
+      if (this.targetSessionId) msg.sessionId = this.targetSessionId;
+      this.ws.send(JSON.stringify(msg));
+      setTimeout(() => {
+        if (this.callbacks.has(id)) {
+          this.callbacks.delete(id);
+          reject(new Error(`CDP timeout: ${method}`));
+        }
+      }, 30000);
+    });
+  }
+
+  async navigate(url: string, extraWaitMs = 5000): Promise<void> {
+    console.log(`[CDP] Navigate: ${url}`);
+    await this.send("Page.navigate", { url });
+    // Wait for load + SPA rendering
+    await this.sleep(8000 + extraWaitMs);
+  }
+
+  async eval<T = any>(expression: string): Promise<T> {
+    const r = await this.send("Runtime.evaluate", {
+      expression,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    if (r?.exceptionDetails) {
+      const errMsg = r.exceptionDetails.exception?.description || r.exceptionDetails.text || "Unknown eval error";
+      throw new Error(`Eval: ${errMsg}`);
+    }
+    return r?.result?.value as T;
+  }
+
+  async waitFor(selector: string, ms = 10000): Promise<boolean> {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      try {
+        if (await this.eval<boolean>(`!!document.querySelector('${selector}')`)) return true;
+      } catch { /* ignore */ }
+      await this.sleep(500);
+    }
+    return false;
+  }
+
+  async fill(selector: string, value: string): Promise<void> {
+    const escaped = value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    await this.eval(`
+      (() => {
+        const el = document.querySelector('${selector}');
+        if (!el) throw new Error('Element not found: ${selector}');
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(el, '${escaped}');
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      })()
+    `);
+  }
+
+  async click(selector: string): Promise<void> {
+    await this.eval(`document.querySelector('${selector}')?.click()`);
+  }
+
+  async getUrl(): Promise<string> {
+    return await this.eval<string>("window.location.href");
+  }
+
+  sleep(ms: number): Promise<void> {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  close(): void {
+    try { this.ws.close(); } catch { /* ignore */ }
+  }
+}
+
+/**
+ * Pull player reports using CDP-based browser automation.
+ * Logs into Reboot, navigates to the player's page, and extracts sessions.
  */
 async function pullPlayerReports(
   supabase: any,
   apiKey: string,
   projectId: string,
-  playerName: string
+  playerName: string,
+  rebootPlayerId?: string
 ): Promise<AutomationResult> {
   let browserSession: BrowserbaseSession | null = null;
-  
+  let cdp: CdpBrowser | null = null;
+
   try {
     const REBOOT_EMAIL = Deno.env.get("REBOOT_EMAIL");
     const REBOOT_PASSWORD = Deno.env.get("REBOOT_PASSWORD");
-    
+
     if (!REBOOT_EMAIL || !REBOOT_PASSWORD) {
       return { success: false, message: "Reboot credentials not configured" };
     }
-    
-    if (!playerName) {
-      return { success: false, message: "Player name required" };
+
+    if (!playerName && !rebootPlayerId) {
+      return { success: false, message: "Player name or Reboot player ID required" };
     }
-    
-    console.log(`[PullReports] Creating browser session for: ${playerName}`);
+
+    console.log(`[PullReports] Starting for: ${playerName} (reboot_id: ${rebootPlayerId || "none"})`);
+
+    // 1. Create Browserbase session
     browserSession = await createBrowserSession(apiKey, projectId);
-    
-    // Login first
-    const loggedIn = await loginToReboot(apiKey, browserSession.id, REBOOT_EMAIL, REBOOT_PASSWORD);
-    if (!loggedIn) {
-      return { 
-        success: false, 
-        message: "Login failed",
-        sessionId: browserSession.id,
-        replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
-      };
-    }
-    
-    // Search for player
-    const playerSearch = await findPlayerInReboot(apiKey, browserSession.id, playerName);
-    
-    if (!playerSearch.exists || !playerSearch.playerId) {
+    console.log(`[PullReports] Browser session: ${browserSession.id}, connectUrl: ${browserSession.connectUrl ? "yes" : "NO"}`);
+
+    if (!browserSession.connectUrl) {
       return {
         success: false,
-        message: `Player not found: ${playerName}`,
+        message: "No connectUrl returned from Browserbase — cannot establish CDP connection",
         sessionId: browserSession.id,
         replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
       };
     }
-    
-    // Navigate to player's sessions and extract data
-    const extractScript = `
-      // Navigate to player's sessions
-      await page.goto("${REBOOT_DASHBOARD_URL}/athlete/${playerSearch.playerId}/sessions", { waitUntil: "networkidle2", timeout: 30000 });
-      
-      // Wait for sessions list
-      await page.waitForSelector('.sessions-list, table, [data-testid="sessions"]', { timeout: 10000 });
-      
-      // Get sessions data
-      const sessions = await page.$$eval('tr, .session-row', rows => {
-        return rows.slice(0, 5).map(row => {
-          const cells = row.querySelectorAll('td, .cell');
-          const link = row.querySelector('a');
-          return {
-            date: cells[0]?.textContent?.trim() || '',
-            swings: cells[1]?.textContent?.trim() || '',
-            avgSpeed: cells[2]?.textContent?.trim() || '',
-            maxSpeed: cells[3]?.textContent?.trim() || '',
-            sessionId: link?.href?.match(/session\\/([a-f0-9-]+)/)?.[1] || '',
-          };
-        }).filter(s => s.date);
-      });
-      
-      // Try to get most recent session details
-      let latestSessionData = null;
-      if (sessions.length > 0 && sessions[0].sessionId) {
-        await page.goto("${REBOOT_DASHBOARD_URL}/session/" + sessions[0].sessionId, { waitUntil: "networkidle2", timeout: 30000 });
-        
-        // Extract session metrics
-        latestSessionData = await page.evaluate(() => {
-          const metrics = {};
-          document.querySelectorAll('[data-metric], .metric-card, .stat-card').forEach(card => {
-            const label = card.querySelector('.label, .metric-label')?.textContent?.trim();
-            const value = card.querySelector('.value, .metric-value')?.textContent?.trim();
-            if (label && value) {
-              metrics[label.toLowerCase().replace(/\\s+/g, '_')] = value;
-            }
-          });
-          return metrics;
-        });
+
+    // 2. Connect via CDP WebSocket
+    cdp = await CdpBrowser.connect(browserSession.connectUrl);
+
+    // 3. Login to Reboot
+    console.log("[PullReports] Navigating to login page...");
+    await cdp.navigate(`${REBOOT_DASHBOARD_URL}/login`, 3000);
+
+    const hasEmailField = await cdp.waitFor('input[type="email"], input[name="email"], input[placeholder*="email"]', 10000);
+    if (!hasEmailField) {
+      const url = await cdp.getUrl();
+      console.log(`[PullReports] No email field found. Current URL: ${url}`);
+      if (url.includes("/login")) {
+        // Try broader selectors
+        const hasAnyInput = await cdp.waitFor("input", 5000);
+        console.log(`[PullReports] Any input found: ${hasAnyInput}`);
+        const pageHtml = await cdp.eval<string>("document.body.innerHTML.substring(0, 1000)");
+        console.log(`[PullReports] Page HTML preview: ${pageHtml}`);
+        return {
+          success: false,
+          message: "Login form not detected — check replay for details",
+          sessionId: browserSession.id,
+          replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
+        };
       }
-      
-      return { sessions, latestSession: latestSessionData };
-    `;
-    
-    const reportData = await executeScript(apiKey, browserSession.id, extractScript);
-    
+      console.log("[PullReports] Not on login page, might be already logged in");
+    } else {
+      console.log("[PullReports] Filling login form...");
+      // Try multiple selectors for email input
+      try {
+        await cdp.fill('input[type="email"]', REBOOT_EMAIL);
+      } catch {
+        try { await cdp.fill('input[name="email"]', REBOOT_EMAIL); } catch {
+          await cdp.fill('input[placeholder*="email"]', REBOOT_EMAIL);
+        }
+      }
+      await cdp.sleep(500);
+
+      await cdp.fill('input[type="password"]', REBOOT_PASSWORD);
+      await cdp.sleep(500);
+
+      // Click submit
+      try {
+        await cdp.click('button[type="submit"]');
+      } catch {
+        try { await cdp.click('button:last-of-type'); } catch {
+          console.warn("[PullReports] Could not find submit button, trying Enter key");
+          await cdp.eval(`
+            document.querySelector('input[type="password"]')?.dispatchEvent(
+              new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true })
+            )
+          `);
+        }
+      }
+
+      // Wait for navigation after login
+      await cdp.sleep(8000);
+
+      const postLoginUrl = await cdp.getUrl();
+      console.log(`[PullReports] Post-login URL: ${postLoginUrl}`);
+      if (postLoginUrl.includes("/login")) {
+        return {
+          success: false,
+          message: "Login failed — still on login page after submission",
+          sessionId: browserSession.id,
+          replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
+        };
+      }
+    }
+
+    console.log("[PullReports] ✓ Logged in successfully");
+
+    // 4. Navigate to player page
+    const playerPageUrl = rebootPlayerId
+      ? `${REBOOT_DASHBOARD_URL}/player/${rebootPlayerId}`
+      : `${REBOOT_DASHBOARD_URL}/athletes`;
+
+    console.log(`[PullReports] Navigating to player: ${playerPageUrl}`);
+    await cdp.navigate(playerPageUrl, 5000);
+
+    // Extra wait for SPA data loading
+    await cdp.sleep(5000);
+
+    // 5. Log page state
+    const pageTitle = await cdp.eval<string>("document.title");
+    const currentUrl = await cdp.getUrl();
+    console.log(`[PullReports] Page: "${pageTitle}" (${currentUrl})`);
+
+    // 6. Extract session data
+    const pageData = await cdp.eval<any>(`
+      (() => {
+        const body = document.body?.innerText || '';
+        
+        // Collect all links that look like session links
+        const sessionLinks = Array.from(document.querySelectorAll('a[href*="/session/"]')).map(a => ({
+          href: a.getAttribute('href'),
+          text: a.textContent?.trim()?.substring(0, 100),
+        }));
+
+        // Try to find session rows in tables or list items
+        const rows = Array.from(document.querySelectorAll('tr, [class*="session"], [class*="Session"], li'));
+        const sessions = [];
+
+        for (const row of rows) {
+          const text = row.textContent || '';
+          // Match date patterns
+          const dateMatch = text.match(/(\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}|\\d{4}-\\d{2}-\\d{2}|[A-Z][a-z]{2,8} \\d{1,2},? \\d{4})/);
+          const link = row.querySelector('a[href*="/session/"]');
+          const sessionIdMatch = link?.getAttribute('href')?.match(/\\/session\\/([a-f0-9-]+)/);
+
+          if (dateMatch || sessionIdMatch) {
+            sessions.push({
+              date: dateMatch?.[1] || null,
+              sessionId: sessionIdMatch?.[1] || null,
+              text: text.substring(0, 200).trim(),
+              href: link?.getAttribute('href') || null,
+            });
+          }
+        }
+
+        return {
+          title: document.title,
+          url: window.location.href,
+          bodySnippet: body.substring(0, 800),
+          sessionLinks: sessionLinks.slice(0, 30),
+          extractedSessions: sessions.slice(0, 30),
+        };
+      })()
+    `);
+
+    console.log(`[PullReports] Extracted: ${pageData?.extractedSessions?.length || 0} sessions, ${pageData?.sessionLinks?.length || 0} links`);
+    console.log(`[PullReports] Body snippet: ${pageData?.bodySnippet?.substring(0, 300)}`);
+
     return {
       success: true,
-      message: `Found ${reportData?.sessions?.length || 0} sessions for ${playerName}`,
+      message: `Found ${pageData?.extractedSessions?.length || pageData?.sessionLinks?.length || 0} sessions for ${playerName}`,
       data: {
-        playerId: playerSearch.playerId,
+        playerId: rebootPlayerId,
         playerName,
-        sessions: reportData?.sessions || [],
-        latestSession: reportData?.latestSession || null,
+        sessions: pageData?.extractedSessions || [],
+        sessionLinks: pageData?.sessionLinks || [],
+        pageTitle: pageData?.title,
+        bodySnippet: pageData?.bodySnippet,
       },
       sessionId: browserSession.id,
       replayUrl: `https://browserbase.com/sessions/${browserSession.id}`,
@@ -854,12 +1093,13 @@ async function pullPlayerReports(
       success: false,
       message: error instanceof Error ? error.message : "Unknown error",
       sessionId: browserSession?.id,
-      replayUrl: browserSession?.id ? `https://browserbase.com/sessions/${browserSession.id}` : undefined,
+      replayUrl: browserSession?.id
+        ? `https://browserbase.com/sessions/${browserSession.id}`
+        : undefined,
     };
   } finally {
-    if (browserSession) {
-      await closeSession(apiKey, browserSession.id);
-    }
+    if (cdp) cdp.close();
+    if (browserSession) await closeSession(apiKey, browserSession.id);
   }
 }
 
@@ -908,7 +1148,7 @@ serve(async (req) => {
         break;
       
       case "pull_reports":
-        result = await pullPlayerReports(supabase, BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID, request.player_name || "");
+        result = await pullPlayerReports(supabase, BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID, request.player_name || "", request.reboot_player_id);
         break;
         
       default:
