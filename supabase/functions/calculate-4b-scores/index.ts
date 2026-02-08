@@ -293,8 +293,9 @@ function parseCsvToRows(csvText: string, fileLabel: string = 'CSV'): Record<stri
     return [];
   }
 
-  const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-  console.log(`[4B-Debug][${fileLabel}] Headers found (${headers.length}): ${headers.join(' | ')}`);
+  // Strip surrounding quotes from headers (Reboot CSVs use quoted headers)
+  const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''));
+  console.log(`[4B-Debug][${fileLabel}] Headers found (${headers.length}): ${headers.slice(0, 30).map(h => `"${h}"`).join(' | ')}${headers.length > 30 ? ' ...' : ''}`);
 
   const rows: Record<string, string>[] = [];
 
@@ -302,7 +303,8 @@ function parseCsvToRows(csvText: string, fileLabel: string = 'CSV'): Record<stri
     const values = lines[i].split(",");
     const row: Record<string, string> = {};
     headers.forEach((header, j) => {
-      row[header] = values[j]?.trim() || '';
+      // Strip surrounding quotes from values too
+      row[header] = (values[j]?.trim() || '').replace(/^"|"$/g, '');
     });
     rows.push(row);
   }
