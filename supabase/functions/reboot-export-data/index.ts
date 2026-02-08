@@ -3,9 +3,9 @@
  * Requests data exports from Reboot Motion and triggers 4B/KRS calculations
  *
  * Strategy:
- * 1. Call /data_export with session_id + org_player_id + aggregate:true
- *    This returns CSV data for ALL movements in the session
- * 2. Pass download URLs to the 4B engine for scoring
+ * 1. Call GET /session/{session_id} to get session details + movement IDs
+ * 2. For each movement: call /data_export with that specific org_movement_id
+ * 3. Pass all download URLs to the 4B engine which concatenates them
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -57,7 +57,7 @@ serve(async (req) => {
     console.log(`[reboot-export-data] Player: ${player.name}, org_player_id: ${orgPlayerId}`);
 
     // Look up movement_type_id
-    let movementTypeId = 1; // baseball-hitting default
+    let movementTypeId = 1;
     try {
       const mtResponse = await rebootFetch("/movement_types");
       if (mtResponse.ok) {
@@ -74,53 +74,143 @@ serve(async (req) => {
       console.warn("[reboot-export-data] Could not fetch movement types, using default");
     }
 
+    // ========================================================================
+    // Step 1: GET /session/{session_id} to discover movements
+    // ========================================================================
+    let sessionDetails: any = null;
+    let movementIds: string[] = [];
+
+    try {
+      console.log(`[reboot-export-data] Fetching session details: GET /session/${body.session_id}`);
+      const sessionResponse = await rebootFetch(`/session/${body.session_id}`);
+
+      if (sessionResponse.ok) {
+        sessionDetails = await sessionResponse.json();
+        // Log the full response so we can see the structure
+        console.log(`[reboot-export-data] Session details response: ${JSON.stringify(sessionDetails, null, 2)}`);
+
+        // Try to extract movement IDs from various possible structures
+        movementIds = extractMovementIds(sessionDetails);
+        console.log(`[reboot-export-data] Extracted ${movementIds.length} movement IDs: ${movementIds.join(', ')}`);
+      } else {
+        const errText = await sessionResponse.text();
+        console.error(`[reboot-export-data] GET /session/${body.session_id} failed (${sessionResponse.status}): ${errText}`);
+
+        // Try alternate endpoint formats
+        for (const altPath of [`/sessions/${body.session_id}`, `/mocap-sessions/${body.session_id}`]) {
+          try {
+            console.log(`[reboot-export-data] Trying alternate: GET ${altPath}`);
+            const altResponse = await rebootFetch(altPath);
+            if (altResponse.ok) {
+              sessionDetails = await altResponse.json();
+              console.log(`[reboot-export-data] Alt session response (${altPath}): ${JSON.stringify(sessionDetails, null, 2)}`);
+              movementIds = extractMovementIds(sessionDetails);
+              console.log(`[reboot-export-data] Extracted ${movementIds.length} movement IDs from ${altPath}`);
+              break;
+            } else {
+              const altErr = await altResponse.text();
+              console.warn(`[reboot-export-data] ${altPath} failed (${altResponse.status}): ${altErr}`);
+            }
+          } catch (altErr) {
+            console.warn(`[reboot-export-data] ${altPath} error:`, altErr);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[reboot-export-data] Error fetching session details:", err);
+    }
+
     const dataTypes = body.data_types || ["inverse-kinematics", "momentum-energy"];
     const triggerAnalysis = body.trigger_analysis !== false;
 
-    console.log(`[reboot-export-data] Exporting ${dataTypes.length} data types, movement_type_id: ${movementTypeId}`);
+    console.log(`[reboot-export-data] Exporting ${dataTypes.length} data types for ${movementIds.length} movements, movement_type_id: ${movementTypeId}`);
 
     // ========================================================================
-    // Export data: session_id + org_player_id + aggregate:true
-    // This returns CSV containing ALL movements in the session
+    // Step 2: Export data — per-movement if we have IDs, else session-level
     // ========================================================================
     const exportUrls: Record<string, string[]> = {};
 
-    for (const dataType of dataTypes) {
-      try {
-        const exportPayload = {
-          session_id: body.session_id,
-          movement_type_id: movementTypeId,
-          org_player_id: orgPlayerId,
-          data_type: dataType,
-          data_format: "csv",
-          aggregate: true,
-        };
+    if (movementIds.length > 0) {
+      // Per-movement export: call /data_export for each movement individually
+      for (const dataType of dataTypes) {
+        const urls: string[] = [];
 
-        console.log(`[reboot-export-data] Requesting ${dataType} export...`, JSON.stringify(exportPayload));
-        const exportResponse = await rebootFetch("/data_export", {
-          method: "POST",
-          body: JSON.stringify(exportPayload),
-        });
+        for (const movementId of movementIds) {
+          try {
+            const exportPayload = {
+              session_id: body.session_id,
+              movement_type_id: movementTypeId,
+              org_player_id: orgPlayerId,
+              org_movement_id: movementId,
+              data_type: dataType,
+              data_format: "csv",
+              aggregate: true,
+            };
 
-        if (!exportResponse.ok) {
-          const errorText = await exportResponse.text();
-          console.error(`[reboot-export-data] Export failed for ${dataType} (${exportResponse.status}): ${errorText}`);
-          continue;
+            console.log(`[reboot-export-data] Exporting ${dataType} for movement ${movementId}...`);
+            const exportResponse = await rebootFetch("/data_export", {
+              method: "POST",
+              body: JSON.stringify(exportPayload),
+            });
+
+            if (exportResponse.ok) {
+              const exportData = await exportResponse.json();
+              const dlUrls = exportData.download_urls || [];
+              if (dlUrls.length > 0) {
+                urls.push(...dlUrls);
+                console.log(`[reboot-export-data]   Movement ${movementId}: ${dlUrls.length} URL(s)`);
+              } else {
+                console.warn(`[reboot-export-data]   Movement ${movementId}: 0 URLs returned`);
+              }
+            } else {
+              const errText = await exportResponse.text();
+              console.error(`[reboot-export-data]   Movement ${movementId} export failed (${exportResponse.status}): ${errText}`);
+            }
+          } catch (err) {
+            console.error(`[reboot-export-data]   Movement ${movementId} error:`, err);
+          }
         }
-
-        const exportData = await exportResponse.json();
-        const urls: string[] = exportData.download_urls || [];
-        console.log(`[reboot-export-data] ${dataType}: ${urls.length} download URL(s)`);
 
         if (urls.length > 0) {
           exportUrls[dataType] = urls;
-
-          // Sample CSV to count unique movements for logging
-          const movementCount = await countMovementsInCsv(urls[0]);
-          console.log(`[reboot-export-data] ${dataType}: CSV contains ${movementCount} unique movement(s)`);
+          console.log(`[reboot-export-data] ${dataType}: ${urls.length} total URL(s) from ${movementIds.length} movements`);
         }
-      } catch (err) {
-        console.error(`[reboot-export-data] Error requesting ${dataType}:`, err);
+      }
+    } else {
+      // Fallback: session-level export (no movement IDs discovered)
+      console.log("[reboot-export-data] No movement IDs found, falling back to session-level export");
+
+      for (const dataType of dataTypes) {
+        try {
+          const exportPayload = {
+            session_id: body.session_id,
+            movement_type_id: movementTypeId,
+            org_player_id: orgPlayerId,
+            data_type: dataType,
+            data_format: "csv",
+            aggregate: true,
+          };
+
+          console.log(`[reboot-export-data] Session-level export for ${dataType}...`);
+          const exportResponse = await rebootFetch("/data_export", {
+            method: "POST",
+            body: JSON.stringify(exportPayload),
+          });
+
+          if (exportResponse.ok) {
+            const exportData = await exportResponse.json();
+            const urls: string[] = exportData.download_urls || [];
+            if (urls.length > 0) {
+              exportUrls[dataType] = urls;
+              console.log(`[reboot-export-data] ${dataType}: ${urls.length} URL(s) from session-level export`);
+            }
+          } else {
+            const errText = await exportResponse.text();
+            console.error(`[reboot-export-data] Session-level export failed for ${dataType} (${exportResponse.status}): ${errText}`);
+          }
+        } catch (err) {
+          console.error(`[reboot-export-data] Error requesting ${dataType}:`, err);
+        }
       }
     }
 
@@ -209,11 +299,13 @@ serve(async (req) => {
     // Log activity
     await supabase.from("activity_log").insert({
       action: "reboot_data_exported",
-      description: `Exported ${Object.keys(exportUrls).length} data types from Reboot Motion`,
+      description: `Exported ${Object.keys(exportUrls).length} data types (${movementIds.length} movements) from Reboot Motion`,
       player_id: body.player_id,
       metadata: {
         session_id: body.session_id,
         data_types: Object.keys(exportUrls),
+        movement_count: movementIds.length,
+        movement_ids: movementIds,
         url_counts: Object.fromEntries(Object.entries(exportUrls).map(([k, v]) => [k, v.length])),
         analysis_triggered: triggerAnalysis,
       },
@@ -223,6 +315,8 @@ serve(async (req) => {
       success: true,
       session_id: body.session_id,
       player_id: body.player_id,
+      movement_count: movementIds.length,
+      movement_ids: movementIds,
       data_types_exported: Object.keys(exportUrls),
       download_urls: exportUrls,
       url_counts: Object.fromEntries(Object.entries(exportUrls).map(([k, v]) => [k, v.length])),
@@ -241,35 +335,83 @@ serve(async (req) => {
 // ============================================================================
 
 /**
- * Sample the first ~20KB of a CSV to count unique org_movement_id values.
- * Used for logging/diagnostics only.
+ * Extract movement IDs from a Reboot session details response.
+ * Tries multiple possible response structures since we're discovering the API shape.
  */
-async function countMovementsInCsv(url: string): Promise<number> {
-  try {
-    const response = await fetch(url, {
-      headers: { "Range": "bytes=0-20000" },
-    });
+function extractMovementIds(sessionData: any): string[] {
+  const ids: string[] = [];
 
-    if (!response.ok && response.status !== 206) return 0;
+  if (!sessionData) return ids;
 
-    const text = await response.text();
-    const lines = text.split("\n");
-    if (lines.length < 2) return 0;
-
-    const headers = lines[0].toLowerCase().replace(/"/g, '').split(",");
-    const movIdIdx = headers.findIndex(h => h.includes("org_movement_id"));
-    if (movIdIdx < 0) return 0;
-
-    const movIds = new Set<string>();
-    for (let i = 1; i < Math.min(lines.length, 200); i++) {
-      const cols = lines[i].split(",");
-      const val = (cols[movIdIdx] || '').replace(/"/g, '').trim();
-      if (val) movIds.add(val);
+  // Try: sessionData.movements (array of movement objects)
+  if (Array.isArray(sessionData.movements)) {
+    for (const m of sessionData.movements) {
+      const id = m.org_movement_id || m.movement_id || m.id;
+      if (id) ids.push(String(id));
     }
-
-    return movIds.size;
-  } catch (err) {
-    console.warn("[reboot-export-data] Could not sample CSV:", err);
-    return 0;
+    if (ids.length > 0) {
+      console.log(`[reboot-export-data] Found movement IDs in .movements array`);
+      return ids;
+    }
   }
+
+  // Try: sessionData.players (array/object with movements nested)
+  if (sessionData.players) {
+    const players = Array.isArray(sessionData.players) ? sessionData.players : [sessionData.players];
+    for (const p of players) {
+      if (Array.isArray(p.movements)) {
+        for (const m of p.movements) {
+          const id = m.org_movement_id || m.movement_id || m.id;
+          if (id) ids.push(String(id));
+        }
+      }
+      // Also check for movement_ids as a flat array
+      if (Array.isArray(p.movement_ids)) {
+        ids.push(...p.movement_ids.map(String));
+      }
+    }
+    if (ids.length > 0) {
+      console.log(`[reboot-export-data] Found movement IDs in .players[].movements`);
+      return ids;
+    }
+  }
+
+  // Try: sessionData.movement_ids (flat array)
+  if (Array.isArray(sessionData.movement_ids)) {
+    ids.push(...sessionData.movement_ids.map(String));
+    if (ids.length > 0) {
+      console.log(`[reboot-export-data] Found movement IDs in .movement_ids array`);
+      return ids;
+    }
+  }
+
+  // Try: sessionData.org_movement_ids
+  if (Array.isArray(sessionData.org_movement_ids)) {
+    ids.push(...sessionData.org_movement_ids.map(String));
+    if (ids.length > 0) {
+      console.log(`[reboot-export-data] Found movement IDs in .org_movement_ids array`);
+      return ids;
+    }
+  }
+
+  // Try: recursively search for any key containing "movement" with array values
+  for (const [key, value] of Object.entries(sessionData)) {
+    if (key.toLowerCase().includes("movement") && Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === "string" || typeof item === "number") {
+          ids.push(String(item));
+        } else if (typeof item === "object" && item !== null) {
+          const id = (item as any).org_movement_id || (item as any).movement_id || (item as any).id;
+          if (id) ids.push(String(id));
+        }
+      }
+      if (ids.length > 0) {
+        console.log(`[reboot-export-data] Found movement IDs in .${key}`);
+        return ids;
+      }
+    }
+  }
+
+  console.warn("[reboot-export-data] Could not extract movement IDs from session response. Keys present:", Object.keys(sessionData).join(", "));
+  return ids;
 }
