@@ -123,13 +123,19 @@ export default function AthleteDetail() {
   };
 
   const handleSyncSessions = async () => {
-    if (!id) return;
+    if (!id || !player?.name) return;
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("sync-reboot-sessions", {
-        body: { player_id: id },
+      const { data, error } = await supabase.functions.invoke("browserbase-reboot", {
+        body: {
+          action: "pull_reports",
+          player_name: player.name,
+        },
       });
       if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.message || "Failed to pull reports from Reboot");
+      }
       toast.success(data?.message || "Sessions synced from Reboot");
       queryClient.invalidateQueries({ queryKey: ["athlete-sessions", id] });
     } catch (err: any) {
