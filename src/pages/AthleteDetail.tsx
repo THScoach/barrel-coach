@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
   Loader2,
   ChevronRight,
   RefreshCw,
+  Download,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -24,7 +26,8 @@ export default function AthleteDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [syncing, setSyncing] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [sessionIdInput, setSessionIdInput] = useState("");
 
   // Fetch player info
   const { data: player, isLoading: playerLoading } = useQuery({
@@ -122,28 +125,30 @@ export default function AthleteDetail() {
     return `${ft}'${rem}"`;
   };
 
-  const handleSyncSessions = async () => {
-    if (!id || !player?.name) return;
-    setSyncing(true);
+  const handleImportSession = async () => {
+    const trimmedId = sessionIdInput.trim();
+    if (!trimmedId || !id) return;
+    setImporting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("browserbase-reboot", {
+      const { data, error } = await supabase.functions.invoke("reboot-export-data", {
         body: {
-          action: "pull_reports",
-          player_name: player.name,
-          reboot_player_id: player.reboot_athlete_id,
+          session_id: trimmedId,
+          player_id: id,
+          trigger_analysis: true,
         },
       });
       if (error) throw error;
       if (!data?.success) {
-        throw new Error(data?.message || "Failed to pull reports from Reboot");
+        throw new Error(data?.error || "Import failed");
       }
-      toast.success(data?.message || "Sessions synced from Reboot");
+      toast.success(`Session imported — ${data.data_types_exported?.length || 0} data types exported`);
+      setSessionIdInput("");
       queryClient.invalidateQueries({ queryKey: ["athlete-sessions", id] });
     } catch (err: any) {
-      console.error("[Sync Sessions] Error:", err);
-      toast.error(err.message || "Failed to sync sessions");
+      console.error("[Import Session] Error:", err);
+      toast.error(err.message || "Failed to import session");
     } finally {
-      setSyncing(false);
+      setImporting(false);
     }
   };
 
@@ -230,19 +235,6 @@ export default function AthleteDetail() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Button
-                  onClick={handleSyncSessions}
-                  disabled={syncing || !player.reboot_athlete_id}
-                  variant="outline"
-                  className="border-slate-700 text-slate-300 hover:text-white"
-                >
-                  {syncing ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                  )}
-                  {syncing ? "Syncing…" : "Sync from Reboot"}
-                </Button>
-                <Button
                   onClick={() => navigate(`/upload?athlete=${player.id}`)}
                   className="bg-red-600 hover:bg-red-700 text-white font-bold"
                 >
@@ -251,6 +243,38 @@ export default function AthleteDetail() {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Import Session by ID */}
+        <Card className="bg-slate-900/80 border-slate-800 mb-8">
+          <CardContent className="p-4">
+            <label className="text-sm font-medium text-slate-300 mb-2 block">
+              Reboot Session ID
+            </label>
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Paste session ID from Reboot dashboard…"
+                value={sessionIdInput}
+                onChange={(e) => setSessionIdInput(e.target.value)}
+                className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 flex-1"
+              />
+              <Button
+                onClick={handleImportSession}
+                disabled={importing || !sessionIdInput.trim()}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold shrink-0"
+              >
+                {importing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                {importing ? "Importing…" : "Import Session"}
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Copy a session ID from the Reboot Motion dashboard and paste it here to import CSV data and calculate 4B scores.
+            </p>
           </CardContent>
         </Card>
 
