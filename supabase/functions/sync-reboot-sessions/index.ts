@@ -121,18 +121,19 @@ serve(async (req) => {
     // Get player's reboot IDs
     const { data: player, error: playerError } = await supabase
       .from("players")
-      .select("id, name, reboot_athlete_id, reboot_org_player_id")
+      .select("id, name, reboot_athlete_id, reboot_player_id")
       .eq("id", player_id)
       .single();
 
     if (playerError || !player) {
+      console.error("[sync-reboot-sessions] Player lookup failed:", playerError?.message);
       return new Response(
         JSON.stringify({ error: "Player not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const orgPlayerId = player.reboot_org_player_id || player.reboot_athlete_id;
+    const orgPlayerId = player.reboot_player_id || player.reboot_athlete_id;
     if (!orgPlayerId) {
       return new Response(
         JSON.stringify({ error: `${player.name} is not linked to Reboot Motion` }),
