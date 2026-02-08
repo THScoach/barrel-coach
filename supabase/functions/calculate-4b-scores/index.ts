@@ -285,11 +285,17 @@ async function streamCsvFromUrl(url: string, maxChars: number = 2_000_000): Prom
   return text;
 }
 
-function parseCsvToRows(csvText: string): Record<string, string>[] {
+function parseCsvToRows(csvText: string, fileLabel: string = 'CSV'): Record<string, string>[] {
   const lines = csvText.split("\n").filter(l => l.trim());
-  if (lines.length < 2) return [];
+  console.log(`[4B-Debug][${fileLabel}] Total non-empty lines: ${lines.length}`);
+  if (lines.length < 2) {
+    console.log(`[4B-Debug][${fileLabel}] Less than 2 lines — nothing to parse`);
+    return [];
+  }
 
   const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+  console.log(`[4B-Debug][${fileLabel}] Headers found (${headers.length}): ${headers.join(' | ')}`);
+
   const rows: Record<string, string>[] = [];
 
   for (let i = 1; i < lines.length; i++) {
@@ -299,6 +305,21 @@ function parseCsvToRows(csvText: string): Record<string, string>[] {
       row[header] = values[j]?.trim() || '';
     });
     rows.push(row);
+  }
+
+  // Log first 5 rows as sample
+  const sample = rows.slice(0, 5);
+  console.log(`[4B-Debug][${fileLabel}] Parsed ${rows.length} data rows. First 5 sample:`);
+  for (let i = 0; i < sample.length; i++) {
+    const key_fields = {
+      org_movement_id: sample[i].org_movement_id ?? '(missing)',
+      time: sample[i].time ?? '(missing)',
+      total_kinetic_energy: sample[i].total_kinetic_energy ?? '(missing)',
+      legs_kinetic_energy: sample[i].legs_kinetic_energy ?? '(missing)',
+      bat_kinetic_energy: sample[i].bat_kinetic_energy ?? '(missing)',
+      time_from_max_hand: sample[i].time_from_max_hand ?? '(missing)',
+    };
+    console.log(`[4B-Debug][${fileLabel}] Row ${i}: ${JSON.stringify(key_fields)}`);
   }
 
   return rows;
@@ -319,13 +340,27 @@ function detectFileType(headers: string[]): 'me' | 'ik' | null {
 // ============================================================================
 
 function processMEFile(rows: MERow[]): Map<string, MESwingMetrics> {
+  console.log(`[4B-Debug][ME-Process] Input rows to processMEFile: ${rows.length}`);
   const swingGroups = new Map<string, MERow[]>();
 
+  let skippedNoId = 0;
+  let skippedNA = 0;
   for (const row of rows) {
     const movementId = row.org_movement_id;
-    if (!movementId || movementId.toLowerCase() === 'n/a') continue;
+    if (!movementId) { skippedNoId++; continue; }
+    if (movementId.toLowerCase() === 'n/a') { skippedNA++; continue; }
     if (!swingGroups.has(movementId)) swingGroups.set(movementId, []);
     swingGroups.get(movementId)!.push(row);
+  }
+
+  const movementIds = Array.from(swingGroups.keys());
+  console.log(`[4B-Debug][ME-Process] Rows skipped (no org_movement_id): ${skippedNoId}`);
+  console.log(`[4B-Debug][ME-Process] Rows skipped (N/A): ${skippedNA}`);
+  console.log(`[4B-Debug][ME-Process] Unique movement IDs found: ${movementIds.length}`);
+  console.log(`[4B-Debug][ME-Process] Movement IDs: ${movementIds.slice(0, 20).join(', ')}${movementIds.length > 20 ? '...' : ''}`);
+  for (const [id, frames] of swingGroups) {
+    console.log(`[4B-Debug][ME-Process]   movement "${id}": ${frames.length} frames`);
+    if (movementIds.indexOf(id) >= 5) break; // Only log first 5 in detail
   }
 
   const swingMetrics = new Map<string, MESwingMetrics>();
@@ -400,6 +435,15 @@ function processMEFile(rows: MERow[]): Map<string, MESwingMetrics> {
       torsoKE: torsoKE95, totalKE: totalKE95, batEfficiency,
       torsoToArmsTransferPct, legsPeakTime, armsPeakTime, hasBatKE,
     });
+  }
+
+  console.log(`[4B-Debug][ME-Process] Swings surviving (>=5 frames): ${swingMetrics.size} out of ${swingGroups.size} movement groups`);
+  for (const [id, metrics] of swingMetrics) {
+    console.log(`[4B-Debug][ME-Process]   Swing "${id}": legsKE=${metrics.legsKE.toFixed(1)}J torsoKE=${metrics.torsoKE.toFixed(1)}J armsKE=${metrics.armsKE.toFixed(1)}J batKE=${metrics.batKE.toFixed(1)}J totalKE=${metrics.totalKE.toFixed(1)}J batEff=${metrics.batEfficiency.toFixed(1)}%`);
+    if (swingMetrics.size > 5 && [...swingMetrics.keys()].indexOf(id) >= 4) {
+      console.log(`[4B-Debug][ME-Process]   ... (${swingMetrics.size - 5} more swings)`);
+      break;
+    }
   }
 
   return swingMetrics;
@@ -1010,7 +1054,7 @@ Deno.serve(async (req) => {
         console.log(`[4B-Engine] Streaming momentum-energy CSV (capped at 2MB)...`);
         const csvText = await streamCsvFromUrl(url);
         console.log(`[4B-Engine] Got ${csvText.length} chars of ME data`);
-        meRows = parseCsvToRows(csvText) as MERow[];
+        meRows = parseCsvToRows(csvText, 'momentum-energy') as MERow[];
         console.log(`[4B-Engine] Parsed ${meRows.length} ME rows`);
       }
 
@@ -1021,7 +1065,7 @@ Deno.serve(async (req) => {
         try {
           const ikCsv = await streamCsvFromUrl(url);
           console.log(`[4B-Engine] Got ${ikCsv.length} chars of IK data`);
-          ikRows = parseCsvToRows(ikCsv) as IKRow[];
+          ikRows = parseCsvToRows(ikCsv, 'inverse-kinematics') as IKRow[];
           console.log(`[4B-Engine] Parsed ${ikRows?.length || 0} IK rows`);
         } catch (err) {
           console.warn("[4B-Engine] IK streaming failed, continuing without:", err);
