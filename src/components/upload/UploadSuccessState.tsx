@@ -20,18 +20,14 @@ export function UploadSuccessState({ sessionId, onUploadMore }: UploadSuccessSta
         </p>
       </div>
       <div className="flex flex-col gap-2">
-        <Button
-          asChild
-          className="bg-red-600 hover:bg-red-700 text-white font-bold"
+        <a
+          href={`https://dashboard.rebootmotion.com/sessions/${sessionId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center rounded-md bg-red-600 hover:bg-red-700 text-white font-bold h-10 px-4 py-2 text-sm transition-colors w-full"
         >
-          <a
-            href={`https://dashboard.rebootmotion.com/sessions/${sessionId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            View in Reboot Dashboard →
-          </a>
-        </Button>
+          View in Reboot Dashboard →
+        </a>
         <Button
           variant="outline"
           className="border-slate-700 text-slate-300 hover:text-white"
