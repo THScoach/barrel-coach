@@ -19,10 +19,16 @@ const corsHeaders = {
 // TYPES
 // ============================================================================
 
+interface MovementUrlEntry {
+  url: string;
+  movement_id: string;
+}
+
 interface Calculate4BRequest {
   player_id: string;
   session_id?: string;
   download_urls?: Record<string, string[]>;
+  movement_url_map?: Record<string, MovementUrlEntry[]>;
   session_data?: {
     brain_score?: number;
     body_score?: number;
@@ -1058,16 +1064,37 @@ Deno.serve(async (req) => {
       let meRows: MERow[] = [];
       let ikRows: IKRow[] | null = null;
 
+      // Build URL→movement_id lookup from movement_url_map
+      const meMovementMap = body.movement_url_map?.["momentum-energy"] || [];
+      const ikMovementMap = body.movement_url_map?.["inverse-kinematics"] || [];
+
       // Stream momentum-energy CSV(s) (PRIMARY)
       // When we have multiple URLs (per-movement exports), concatenate all CSVs
       const meUrls = body.download_urls["momentum-energy"] || [];
       if (meUrls.length > 0) {
         console.log(`[4B-Engine] Streaming ${meUrls.length} momentum-energy CSV(s) (capped at 2MB each)...`);
+        console.log(`[4B-Engine] Movement URL map has ${meMovementMap.length} entries`);
         for (let urlIdx = 0; urlIdx < meUrls.length; urlIdx++) {
+          const expectedMovementId = meMovementMap[urlIdx]?.movement_id || null;
+          console.log(`[4B-Engine] ME URL ${urlIdx + 1}/${meUrls.length}: expected movement_id="${expectedMovementId}"`);
           const csvText = await streamCsvFromUrl(meUrls[urlIdx]);
           console.log(`[4B-Engine] ME URL ${urlIdx + 1}/${meUrls.length}: ${csvText.length} chars`);
           const rows = parseCsvToRows(csvText, `momentum-energy-${urlIdx + 1}`) as MERow[];
           console.log(`[4B-Engine] ME URL ${urlIdx + 1}: parsed ${rows.length} rows`);
+
+          // Check if rows have org_movement_id; if not, inject from movement map
+          if (rows.length > 0 && expectedMovementId) {
+            const hasOrgMovementId = rows[0].org_movement_id && rows[0].org_movement_id.trim() !== '';
+            if (!hasOrgMovementId) {
+              console.log(`[4B-Engine] ⚠️ ME URL ${urlIdx + 1}: No org_movement_id column found — injecting "${expectedMovementId}" for ${rows.length} rows`);
+              for (const row of rows) {
+                row.org_movement_id = expectedMovementId;
+              }
+            } else {
+              console.log(`[4B-Engine] ME URL ${urlIdx + 1}: org_movement_id present, first value="${rows[0].org_movement_id}"`);
+            }
+          }
+
           meRows.push(...rows);
         }
         console.log(`[4B-Engine] Total ME rows after concatenation: ${meRows.length}`);
@@ -1080,10 +1107,23 @@ Deno.serve(async (req) => {
         const allIkRows: IKRow[] = [];
         for (let urlIdx = 0; urlIdx < ikUrls.length; urlIdx++) {
           try {
+            const expectedMovementId = ikMovementMap[urlIdx]?.movement_id || null;
             const ikCsv = await streamCsvFromUrl(ikUrls[urlIdx]);
-            console.log(`[4B-Engine] IK URL ${urlIdx + 1}/${ikUrls.length}: ${ikCsv.length} chars`);
+            console.log(`[4B-Engine] IK URL ${urlIdx + 1}/${ikUrls.length}: ${ikCsv.length} chars, expected movement_id="${expectedMovementId}"`);
             const rows = parseCsvToRows(ikCsv, `inverse-kinematics-${urlIdx + 1}`) as IKRow[];
             console.log(`[4B-Engine] IK URL ${urlIdx + 1}: parsed ${rows.length} rows`);
+
+            // Inject movement_id if missing
+            if (rows.length > 0 && expectedMovementId) {
+              const hasOrgMovementId = rows[0].org_movement_id && rows[0].org_movement_id.trim() !== '';
+              if (!hasOrgMovementId) {
+                console.log(`[4B-Engine] ⚠️ IK URL ${urlIdx + 1}: No org_movement_id — injecting "${expectedMovementId}"`);
+                for (const row of rows) {
+                  row.org_movement_id = expectedMovementId;
+                }
+              }
+            }
+
             allIkRows.push(...rows);
           } catch (err) {
             console.warn(`[4B-Engine] IK URL ${urlIdx + 1} streaming failed, skipping:`, err);
