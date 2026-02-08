@@ -3,10 +3,9 @@
  * Requests data exports from Reboot Motion and triggers 4B/KRS calculations
  *
  * Strategy:
- * 1. GET /session/{session_id} to learn how many movements exist
- * 2. GET /movements?session_id={id} to get individual movement IDs
- * 3. For each movement: POST /data_export with org_movement_id
- * 4. Pass all download URLs to the 4B engine which concatenates them
+ * 1. Try /data_export WITHOUT org_player_id (session-wide, all movements)
+ * 2. If that fails (422), retry WITH org_player_id
+ * 3. Pass download URLs to the 4B engine
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -39,7 +38,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Look up org_player_id
+    // Look up org_player_id (needed as fallback)
     const { data: player, error: playerError } = await supabase
       .from("players")
       .select("reboot_player_id, reboot_athlete_id, name")
@@ -75,187 +74,88 @@ serve(async (req) => {
       console.warn("[export] Could not fetch movement types, using default");
     }
 
-    // ========================================================================
-    // Step 1: Discover movements in this session
-    // ========================================================================
-    let movementIds: string[] = [];
-    let expectedCount = 0;
-
-    // 1a. GET /session/{id} to see how many movements exist
-    try {
-      const sessionRes = await rebootFetch(`/session/${body.session_id}`);
-      if (sessionRes.ok) {
-        const sessionData = await sessionRes.json();
-        // total_movements: {"baseball-hitting": 3}
-        if (sessionData.total_movements) {
-          for (const [_type, count] of Object.entries(sessionData.total_movements)) {
-            expectedCount += (count as number);
-          }
-        }
-        console.log(`[export] Session has ${expectedCount} total movements (from /session)`);
-      } else {
-        console.warn(`[export] GET /session/${body.session_id} failed: ${sessionRes.status}`);
-      }
-    } catch (err) {
-      console.warn("[export] Error getting session info:", err);
-    }
-
-    // 1b. Try multiple endpoints to discover individual movement IDs
-    const movementEndpoints = [
-      `/movements?session_id=${body.session_id}`,
-      `/movements?session_id=${body.session_id}&org_player_id=${orgPlayerId}`,
-      `/session/${body.session_id}/movements`,
-      `/mocap-sessions/${body.session_id}/movements`,
-      `/player/${orgPlayerId}/movements?session_id=${body.session_id}`,
-    ];
-
-    for (const endpoint of movementEndpoints) {
-      if (movementIds.length > 0) break;
-      try {
-        console.log(`[export] Trying: GET ${endpoint}`);
-        const res = await rebootFetch(endpoint);
-        if (res.ok) {
-          const data = await res.json();
-          console.log(`[export] ${endpoint} returned: ${JSON.stringify(data).substring(0, 500)}`);
-
-          // Parse movements from response
-          const items = Array.isArray(data) ? data : (data.movements || data.results || data.data || []);
-          if (Array.isArray(items) && items.length > 0) {
-            for (const item of items) {
-              const id = item.org_movement_id || item.movement_id || item.id;
-              if (id) movementIds.push(String(id));
-            }
-            console.log(`[export] Found ${movementIds.length} movement IDs from ${endpoint}`);
-          }
-        } else {
-          const errText = await res.text();
-          console.log(`[export] ${endpoint} → ${res.status}: ${errText.substring(0, 200)}`);
-        }
-      } catch (err) {
-        console.log(`[export] ${endpoint} error: ${err}`);
-      }
-    }
-
     const dataTypes = body.data_types || ["inverse-kinematics", "momentum-energy"];
     const triggerAnalysis = body.trigger_analysis !== false;
 
     // ========================================================================
-    // Step 2: Export data
+    // Export: Try WITHOUT org_player_id first, then WITH as fallback
     // ========================================================================
     const exportUrls: Record<string, string[]> = {};
 
-    if (movementIds.length > 0) {
-      // === Per-movement export ===
-      console.log(`[export] Per-movement export: ${movementIds.length} movements × ${dataTypes.length} data types`);
+    for (const dataType of dataTypes) {
+      let gotData = false;
 
-      for (const dataType of dataTypes) {
-        const urls: string[] = [];
-        for (const movementId of movementIds) {
-          try {
-            const res = await rebootFetch("/data_export", {
-              method: "POST",
-              body: JSON.stringify({
-                session_id: body.session_id,
-                movement_type_id: movementTypeId,
-                org_player_id: orgPlayerId,
-                org_movement_id: movementId,
-                data_type: dataType,
-                data_format: "csv",
-                aggregate: true,
-              }),
-            });
+      // --- Attempt 1: WITHOUT org_player_id ---
+      try {
+        const payload1 = {
+          session_id: body.session_id,
+          movement_type_id: movementTypeId,
+          data_type: dataType,
+          data_format: "csv",
+          aggregate: true,
+        };
+        console.log(`[export] Attempt 1 (no org_player_id) for ${dataType}: ${JSON.stringify(payload1)}`);
 
-            if (res.ok) {
-              const d = await res.json();
-              const dlUrls = d.download_urls || [];
-              urls.push(...dlUrls);
-              console.log(`[export]   ${dataType} / ${movementId}: ${dlUrls.length} URL(s)`);
-            } else {
-              const errText = await res.text();
-              console.error(`[export]   ${dataType} / ${movementId} failed (${res.status}): ${errText.substring(0, 200)}`);
-            }
-          } catch (err) {
-            console.error(`[export]   ${dataType} / ${movementId} error:`, err);
+        const res1 = await rebootFetch("/data_export", {
+          method: "POST",
+          body: JSON.stringify(payload1),
+        });
+
+        if (res1.ok) {
+          const d = await res1.json();
+          const urls = d.download_urls || [];
+          console.log(`[export] Attempt 1 success: ${urls.length} URL(s) for ${dataType}`);
+          console.log(`[export] Response keys: ${JSON.stringify(Object.keys(d))}`);
+
+          if (urls.length > 0) {
+            const movCount = await countMovementsInCsv(urls[0]);
+            console.log(`[export] ✅ Attempt 1: CSV contains ${movCount} unique movement(s) for ${dataType}`);
+            exportUrls[dataType] = urls;
+            gotData = true;
           }
+        } else {
+          const errText = await res1.text();
+          console.log(`[export] Attempt 1 failed (${res1.status}) for ${dataType}: ${errText.substring(0, 300)}`);
         }
-        if (urls.length > 0) {
-          exportUrls[dataType] = urls;
-        }
+      } catch (err) {
+        console.error(`[export] Attempt 1 error for ${dataType}:`, err);
       }
-    } else {
-      // === Session-level export (fallback) ===
-      // Try both aggregate:true and aggregate:false to see which gives more data
-      console.log(`[export] No movement IDs found. Trying session-level export...`);
 
-      for (const dataType of dataTypes) {
-        // First try aggregate:false — may return one URL per movement
-        try {
-          console.log(`[export] Trying ${dataType} with aggregate:false...`);
-          const res = await rebootFetch("/data_export", {
-            method: "POST",
-            body: JSON.stringify({
-              session_id: body.session_id,
-              movement_type_id: movementTypeId,
-              org_player_id: orgPlayerId,
-              data_type: dataType,
-              data_format: "csv",
-              aggregate: false,
-            }),
-          });
+      if (gotData) continue;
 
-          if (res.ok) {
-            const d = await res.json();
-            const urls = d.download_urls || [];
-            console.log(`[export] ${dataType} aggregate:false → ${urls.length} URL(s)`);
-            // Log full response structure for debugging
-            console.log(`[export] ${dataType} response keys: ${JSON.stringify(Object.keys(d))}`);
+      // --- Attempt 2: WITH org_player_id ---
+      try {
+        const payload2 = {
+          session_id: body.session_id,
+          movement_type_id: movementTypeId,
+          org_player_id: orgPlayerId,
+          data_type: dataType,
+          data_format: "csv",
+          aggregate: true,
+        };
+        console.log(`[export] Attempt 2 (with org_player_id) for ${dataType}: ${JSON.stringify(payload2)}`);
 
-            if (urls.length > 0) {
-              exportUrls[dataType] = urls;
-              // Sample first URL to count movements inside
-              const movCount = await countMovementsInCsv(urls[0]);
-              console.log(`[export] ${dataType} URL[0] contains ${movCount} unique movement(s)`);
-              continue; // Got data, skip aggregate:true attempt
-            }
-          } else {
-            const errText = await res.text();
-            console.warn(`[export] ${dataType} aggregate:false failed (${res.status}): ${errText.substring(0, 200)}`);
+        const res2 = await rebootFetch("/data_export", {
+          method: "POST",
+          body: JSON.stringify(payload2),
+        });
+
+        if (res2.ok) {
+          const d = await res2.json();
+          const urls = d.download_urls || [];
+          console.log(`[export] Attempt 2 success: ${urls.length} URL(s) for ${dataType}`);
+
+          if (urls.length > 0) {
+            const movCount = await countMovementsInCsv(urls[0]);
+            console.log(`[export] Attempt 2: CSV contains ${movCount} unique movement(s) for ${dataType}`);
+            exportUrls[dataType] = urls;
           }
-        } catch (err) {
-          console.warn(`[export] ${dataType} aggregate:false error:`, err);
+        } else {
+          const errText = await res2.text();
+          console.error(`[export] Attempt 2 failed (${res2.status}) for ${dataType}: ${errText.substring(0, 300)}`);
         }
-
-        // Fallback: aggregate:true
-        try {
-          console.log(`[export] Trying ${dataType} with aggregate:true...`);
-          const res = await rebootFetch("/data_export", {
-            method: "POST",
-            body: JSON.stringify({
-              session_id: body.session_id,
-              movement_type_id: movementTypeId,
-              org_player_id: orgPlayerId,
-              data_type: dataType,
-              data_format: "csv",
-              aggregate: true,
-            }),
-          });
-
-          if (res.ok) {
-            const d = await res.json();
-            const urls = d.download_urls || [];
-            console.log(`[export] ${dataType} aggregate:true → ${urls.length} URL(s)`);
-            if (urls.length > 0) {
-              exportUrls[dataType] = urls;
-              const movCount = await countMovementsInCsv(urls[0]);
-              console.log(`[export] ${dataType} URL[0] contains ${movCount} unique movement(s)`);
-            }
-          } else {
-            const errText = await res.text();
-            console.error(`[export] ${dataType} aggregate:true failed (${res.status}): ${errText.substring(0, 200)}`);
-          }
-        } catch (err) {
-          console.error(`[export] ${dataType} aggregate:true error:`, err);
-        }
+      } catch (err) {
+        console.error(`[export] Attempt 2 error for ${dataType}:`, err);
       }
     }
 
@@ -342,13 +242,11 @@ serve(async (req) => {
     // Activity log
     await supabase.from("activity_log").insert({
       action: "reboot_data_exported",
-      description: `Exported ${Object.keys(exportUrls).length} data types (${movementIds.length || expectedCount} movements) from Reboot Motion`,
+      description: `Exported ${Object.keys(exportUrls).length} data types from Reboot Motion`,
       player_id: body.player_id,
       metadata: {
         session_id: body.session_id,
         data_types: Object.keys(exportUrls),
-        movement_count: movementIds.length || expectedCount,
-        movement_ids: movementIds,
         url_counts: Object.fromEntries(Object.entries(exportUrls).map(([k, v]) => [k, v.length])),
         analysis_triggered: triggerAnalysis,
       },
@@ -358,8 +256,6 @@ serve(async (req) => {
       success: true,
       session_id: body.session_id,
       player_id: body.player_id,
-      expected_movements: expectedCount,
-      discovered_movement_ids: movementIds,
       data_types_exported: Object.keys(exportUrls),
       download_urls: exportUrls,
       url_counts: Object.fromEntries(Object.entries(exportUrls).map(([k, v]) => [k, v.length])),
@@ -377,13 +273,10 @@ serve(async (req) => {
 // HELPERS
 // ============================================================================
 
-/**
- * Sample the first ~20KB of a CSV to count unique org_movement_id values.
- */
 async function countMovementsInCsv(url: string): Promise<number> {
   try {
     const response = await fetch(url, {
-      headers: { "Range": "bytes=0-30000" },
+      headers: { "Range": "bytes=0-50000" },
     });
     if (!response.ok && response.status !== 206) return 0;
 
@@ -393,7 +286,10 @@ async function countMovementsInCsv(url: string): Promise<number> {
 
     const headers = lines[0].toLowerCase().replace(/"/g, '').split(",");
     const movIdIdx = headers.findIndex(h => h.includes("org_movement_id"));
-    if (movIdIdx < 0) return 0;
+    if (movIdIdx < 0) {
+      console.log(`[export] CSV headers (no org_movement_id found): ${headers.join(', ')}`);
+      return 0;
+    }
 
     const movIds = new Set<string>();
     for (let i = 1; i < lines.length; i++) {
@@ -401,6 +297,8 @@ async function countMovementsInCsv(url: string): Promise<number> {
       const val = (cols[movIdIdx] || '').replace(/"/g, '').trim();
       if (val) movIds.add(val);
     }
+
+    console.log(`[export] CSV movement IDs found: ${[...movIds].join(', ')}`);
     return movIds.size;
   } catch (err) {
     console.warn("[export] Could not sample CSV:", err);
