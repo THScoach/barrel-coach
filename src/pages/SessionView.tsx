@@ -6,6 +6,7 @@ import { Footer } from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Brain, Dumbbell, Swords, Target } from "lucide-react";
+import { predictBallFlight, confidenceLabel } from "@/lib/ballFlightPredictor";
 import { SessionHeader } from "@/components/session/SessionHeader";
 import { ProcessingBanner } from "@/components/session/ProcessingBanner";
 import { FourBCard } from "@/components/session/FourBCard";
@@ -241,18 +242,48 @@ export default function SessionView() {
             ]}
           />
 
-          <FourBCard
-            icon={<Target className="w-7 h-7" />}
-            title="Ball"
-            score={null}
-            iconColor="text-red-400"
-            metrics={[
-              { label: "Exit Velocity", value: null, unit: "mph" },
-              { label: "Launch Angle", value: null, unit: "°" },
-              { label: "Contact Quality", value: null },
-            ]}
-            footer="Ball data requires HitTrax / Trackman integration"
-          />
+          {(() => {
+            const ballPrediction = predictBallFlight({
+              bat_ke: avg("bat_ke"),
+              pelvis_velocity: avg("pelvis_velocity"),
+              torso_velocity: avg("torso_velocity"),
+              transfer_efficiency: avg("transfer_efficiency"),
+              x_factor: avg("x_factor"),
+              brain_score: brainScore,
+              body_score: bodyScore,
+              motor_profile: motorProfile,
+            });
+
+            return (
+              <FourBCard
+                icon={<Target className="w-7 h-7" />}
+                title="Ball"
+                score={ballPrediction.kinetic_potential}
+                iconColor="text-red-400"
+                metrics={[
+                  {
+                    label: "Predicted Exit Velo",
+                    value: ballPrediction.exit_velocity,
+                    unit: "mph",
+                  },
+                  {
+                    label: "Predicted Launch Angle",
+                    value: ballPrediction.launch_angle,
+                    unit: "°",
+                  },
+                  {
+                    label: "Kinetic Potential",
+                    value: ballPrediction.kinetic_potential,
+                  },
+                  {
+                    label: "Confidence",
+                    value: confidenceLabel(ballPrediction.confidence),
+                  },
+                ]}
+                footer="Predictions based on biomechanics. Add Trackman for actual results."
+              />
+            );
+          })()}
         </div>
 
         {/* Session Summary */}
