@@ -153,6 +153,7 @@ export default function SessionView() {
       <main className="flex-1 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full">
         <SessionHeader
           playerName={session?.players?.name || null}
+          playerId={session?.player_id || null}
           sessionDate={session?.session_date || completedUploads[0]?.session_date || null}
           rebootSessionId={sessionId || null}
           grade={grade}

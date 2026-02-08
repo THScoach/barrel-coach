@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 
 interface SessionHeaderProps {
   playerName: string | null;
+  playerId: string | null;
   sessionDate: string | null;
   rebootSessionId: string | null;
   grade: string | null;
@@ -15,6 +16,7 @@ interface SessionHeaderProps {
 
 export function SessionHeader({
   playerName,
+  playerId,
   sessionDate,
   rebootSessionId,
   grade,
@@ -34,11 +36,11 @@ export function SessionHeader({
   return (
     <div className="mb-8">
       <Link
-        to="/athletes"
+        to={playerId ? `/athletes/${playerId}` : "/athletes"}
         className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Athletes
+        {playerId ? `Back to ${playerName || "Athlete"}` : "Back to Athletes"}
       </Link>
 
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
