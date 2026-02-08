@@ -1,29 +1,19 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Logo } from './Logo';
-import { Menu, X, ArrowRight } from 'lucide-react';
+import { Menu, X, LogIn, LogOut } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navigation = [
-  { name: 'Home', href: '/' },
-  { name: 'About', href: '/about' },
-  { name: 'Library', href: '/library' },
-  { name: 'Pricing', href: '/pricing' },
+  { name: 'Athletes', href: '/athletes' },
+  { name: 'Upload', href: '/upload' },
 ];
 
-interface HeaderProps {
-  showLogin?: boolean;
-}
-
-export function Header({ showLogin = true }: HeaderProps) {
+export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
-
-  const goToFreeDiagnostic = () => {
-    // Ensure this still "works" even if the user is already on /diagnostic
-    navigate(`/diagnostic?r=${Date.now()}`);
-  };
+  const { user, signOut } = useAuth();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/50">
@@ -50,15 +40,24 @@ export function Header({ showLogin = true }: HeaderProps) {
           ))}
         </nav>
 
-        {/* Desktop CTA + Login */}
+        {/* Desktop Auth */}
         <div className="hidden md:flex items-center gap-4">
-          <Button onClick={goToFreeDiagnostic} className="bg-red-600 hover:bg-red-700 text-white font-bold">
-            Free Diagnostic
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-          {showLogin && (
+          {user ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={signOut}
+              className="text-slate-400 hover:text-white"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          ) : (
             <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:text-white">
-              <Link to="/login">Login</Link>
+              <Link to="/login">
+                <LogIn className="w-4 h-4 mr-2" />
+                Login
+              </Link>
             </Button>
           )}
         </div>
@@ -90,19 +89,25 @@ export function Header({ showLogin = true }: HeaderProps) {
                 {item.name}
               </Link>
             ))}
-            <div className="pt-4 space-y-3">
-              <Button
-                onClick={() => {
-                  goToFreeDiagnostic();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold"
-              >
-                Free Diagnostic
-              </Button>
-              {showLogin && (
+            <div className="pt-4">
+              {user ? (
+                <Button
+                  variant="outline"
+                  className="w-full border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800"
+                  onClick={() => {
+                    signOut();
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </Button>
+              ) : (
                 <Button asChild variant="outline" className="w-full border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800">
-                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Login
+                  </Link>
                 </Button>
               )}
             </div>
