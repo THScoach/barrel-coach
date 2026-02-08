@@ -20,6 +20,7 @@ interface UploadRequest {
   session_type?: 'practice' | 'game';
   frame_rate?: number;
   upload_source?: string;
+  existing_session_id?: string; // Reuse an existing Reboot session for multi-video uploads
 }
 
 interface RebootPlayer {
@@ -277,7 +278,7 @@ async function createMocapSession(
 }
 
 // Get pre-signed upload URL for video
-async function getUploadUrl(sessionId: string, filename: string, frameRate: number): Promise<string> {
+async function getUploadUrl(sessionId: string, orgPlayerId: string, filename: string, frameRate: number): Promise<string> {
   const headers = await getRebootHeaders();
   
   const response = await fetch(`${REBOOT_API_BASE}/mocap_session_file`, {
@@ -285,8 +286,10 @@ async function getUploadUrl(sessionId: string, filename: string, frameRate: numb
     headers,
     body: JSON.stringify({
       session_id: sessionId,
+      org_player_id: orgPlayerId,
       filenames: [filename],
       video_framerate: frameRate,
+      movement_type: 'baseball-hitting',
     }),
   });
 
@@ -350,7 +353,8 @@ serve(async (req) => {
       filename,
       session_type = 'practice',
       frame_rate = 240,
-      upload_source = 'direct_upload'
+      upload_source = 'direct_upload',
+      existing_session_id,
     } = body;
 
     if (!player_id) {
@@ -417,18 +421,24 @@ serve(async (req) => {
         throw new Error(`Video not accessible at URL: ${videoCheckResponse.status}`);
       }
 
-      const sessionTypeId = session_type === 'game' ? 2 : 1;
-      const mocapSession = await createMocapSession(rebootPlayerId, sessionDate, sessionTypeId);
-      const rebootSessionId = mocapSession.session_id || mocapSession.id;
-
-      console.log(`[Upload] Created Reboot session: ${rebootSessionId}`);
+      // Reuse existing session or create a new one
+      let rebootSessionId: string;
+      if (existing_session_id) {
+        console.log(`[Upload] Reusing existing Reboot session: ${existing_session_id}`);
+        rebootSessionId = existing_session_id;
+      } else {
+        const sessionTypeId = session_type === 'game' ? 2 : 1;
+        const mocapSession = await createMocapSession(rebootPlayerId, sessionDate, sessionTypeId);
+        rebootSessionId = mocapSession.session_id || mocapSession.id;
+        console.log(`[Upload] Created Reboot session: ${rebootSessionId}`);
+      }
 
       await supabase
         .from("reboot_uploads")
         .update({ reboot_session_id: rebootSessionId })
         .eq("id", uploadId);
 
-      const presignedUrl = await getUploadUrl(rebootSessionId, filename, frame_rate);
+      const presignedUrl = await getUploadUrl(rebootSessionId, rebootPlayerId, filename, frame_rate);
 
       await uploadVideoToS3(video_url, presignedUrl);
 
