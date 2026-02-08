@@ -3,9 +3,10 @@
  * Requests data exports from Reboot Motion and triggers 4B/KRS calculations
  *
  * Strategy:
- * 1. Call GET /session/{session_id} to get session details + movement IDs
- * 2. For each movement: call /data_export with that specific org_movement_id
- * 3. Pass all download URLs to the 4B engine which concatenates them
+ * 1. GET /session/{session_id} to learn how many movements exist
+ * 2. GET /movements?session_id={id} to get individual movement IDs
+ * 3. For each movement: POST /data_export with org_movement_id
+ * 4. Pass all download URLs to the 4B engine which concatenates them
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -54,7 +55,7 @@ serve(async (req) => {
       return errorResponse("Player has no Reboot org_player_id configured.", 400);
     }
 
-    console.log(`[reboot-export-data] Player: ${player.name}, org_player_id: ${orgPlayerId}`);
+    console.log(`[export] Player: ${player.name}, org_player_id: ${orgPlayerId}`);
 
     // Look up movement_type_id
     let movementTypeId = 1;
@@ -71,145 +72,189 @@ serve(async (req) => {
         }
       }
     } catch (_err) {
-      console.warn("[reboot-export-data] Could not fetch movement types, using default");
+      console.warn("[export] Could not fetch movement types, using default");
     }
 
     // ========================================================================
-    // Step 1: GET /session/{session_id} to discover movements
+    // Step 1: Discover movements in this session
     // ========================================================================
-    let sessionDetails: any = null;
     let movementIds: string[] = [];
+    let expectedCount = 0;
 
+    // 1a. GET /session/{id} to see how many movements exist
     try {
-      console.log(`[reboot-export-data] Fetching session details: GET /session/${body.session_id}`);
-      const sessionResponse = await rebootFetch(`/session/${body.session_id}`);
-
-      if (sessionResponse.ok) {
-        sessionDetails = await sessionResponse.json();
-        // Log the full response so we can see the structure
-        console.log(`[reboot-export-data] Session details response: ${JSON.stringify(sessionDetails, null, 2)}`);
-
-        // Try to extract movement IDs from various possible structures
-        movementIds = extractMovementIds(sessionDetails);
-        console.log(`[reboot-export-data] Extracted ${movementIds.length} movement IDs: ${movementIds.join(', ')}`);
-      } else {
-        const errText = await sessionResponse.text();
-        console.error(`[reboot-export-data] GET /session/${body.session_id} failed (${sessionResponse.status}): ${errText}`);
-
-        // Try alternate endpoint formats
-        for (const altPath of [`/sessions/${body.session_id}`, `/mocap-sessions/${body.session_id}`]) {
-          try {
-            console.log(`[reboot-export-data] Trying alternate: GET ${altPath}`);
-            const altResponse = await rebootFetch(altPath);
-            if (altResponse.ok) {
-              sessionDetails = await altResponse.json();
-              console.log(`[reboot-export-data] Alt session response (${altPath}): ${JSON.stringify(sessionDetails, null, 2)}`);
-              movementIds = extractMovementIds(sessionDetails);
-              console.log(`[reboot-export-data] Extracted ${movementIds.length} movement IDs from ${altPath}`);
-              break;
-            } else {
-              const altErr = await altResponse.text();
-              console.warn(`[reboot-export-data] ${altPath} failed (${altResponse.status}): ${altErr}`);
-            }
-          } catch (altErr) {
-            console.warn(`[reboot-export-data] ${altPath} error:`, altErr);
+      const sessionRes = await rebootFetch(`/session/${body.session_id}`);
+      if (sessionRes.ok) {
+        const sessionData = await sessionRes.json();
+        // total_movements: {"baseball-hitting": 3}
+        if (sessionData.total_movements) {
+          for (const [_type, count] of Object.entries(sessionData.total_movements)) {
+            expectedCount += (count as number);
           }
         }
+        console.log(`[export] Session has ${expectedCount} total movements (from /session)`);
+      } else {
+        console.warn(`[export] GET /session/${body.session_id} failed: ${sessionRes.status}`);
       }
     } catch (err) {
-      console.error("[reboot-export-data] Error fetching session details:", err);
+      console.warn("[export] Error getting session info:", err);
+    }
+
+    // 1b. Try multiple endpoints to discover individual movement IDs
+    const movementEndpoints = [
+      `/movements?session_id=${body.session_id}`,
+      `/movements?session_id=${body.session_id}&org_player_id=${orgPlayerId}`,
+      `/session/${body.session_id}/movements`,
+      `/mocap-sessions/${body.session_id}/movements`,
+      `/player/${orgPlayerId}/movements?session_id=${body.session_id}`,
+    ];
+
+    for (const endpoint of movementEndpoints) {
+      if (movementIds.length > 0) break;
+      try {
+        console.log(`[export] Trying: GET ${endpoint}`);
+        const res = await rebootFetch(endpoint);
+        if (res.ok) {
+          const data = await res.json();
+          console.log(`[export] ${endpoint} returned: ${JSON.stringify(data).substring(0, 500)}`);
+
+          // Parse movements from response
+          const items = Array.isArray(data) ? data : (data.movements || data.results || data.data || []);
+          if (Array.isArray(items) && items.length > 0) {
+            for (const item of items) {
+              const id = item.org_movement_id || item.movement_id || item.id;
+              if (id) movementIds.push(String(id));
+            }
+            console.log(`[export] Found ${movementIds.length} movement IDs from ${endpoint}`);
+          }
+        } else {
+          const errText = await res.text();
+          console.log(`[export] ${endpoint} → ${res.status}: ${errText.substring(0, 200)}`);
+        }
+      } catch (err) {
+        console.log(`[export] ${endpoint} error: ${err}`);
+      }
     }
 
     const dataTypes = body.data_types || ["inverse-kinematics", "momentum-energy"];
     const triggerAnalysis = body.trigger_analysis !== false;
 
-    console.log(`[reboot-export-data] Exporting ${dataTypes.length} data types for ${movementIds.length} movements, movement_type_id: ${movementTypeId}`);
-
     // ========================================================================
-    // Step 2: Export data — per-movement if we have IDs, else session-level
+    // Step 2: Export data
     // ========================================================================
     const exportUrls: Record<string, string[]> = {};
 
     if (movementIds.length > 0) {
-      // Per-movement export: call /data_export for each movement individually
+      // === Per-movement export ===
+      console.log(`[export] Per-movement export: ${movementIds.length} movements × ${dataTypes.length} data types`);
+
       for (const dataType of dataTypes) {
         const urls: string[] = [];
-
         for (const movementId of movementIds) {
           try {
-            const exportPayload = {
-              session_id: body.session_id,
-              movement_type_id: movementTypeId,
-              org_player_id: orgPlayerId,
-              org_movement_id: movementId,
-              data_type: dataType,
-              data_format: "csv",
-              aggregate: true,
-            };
-
-            console.log(`[reboot-export-data] Exporting ${dataType} for movement ${movementId}...`);
-            const exportResponse = await rebootFetch("/data_export", {
+            const res = await rebootFetch("/data_export", {
               method: "POST",
-              body: JSON.stringify(exportPayload),
+              body: JSON.stringify({
+                session_id: body.session_id,
+                movement_type_id: movementTypeId,
+                org_player_id: orgPlayerId,
+                org_movement_id: movementId,
+                data_type: dataType,
+                data_format: "csv",
+                aggregate: true,
+              }),
             });
 
-            if (exportResponse.ok) {
-              const exportData = await exportResponse.json();
-              const dlUrls = exportData.download_urls || [];
-              if (dlUrls.length > 0) {
-                urls.push(...dlUrls);
-                console.log(`[reboot-export-data]   Movement ${movementId}: ${dlUrls.length} URL(s)`);
-              } else {
-                console.warn(`[reboot-export-data]   Movement ${movementId}: 0 URLs returned`);
-              }
+            if (res.ok) {
+              const d = await res.json();
+              const dlUrls = d.download_urls || [];
+              urls.push(...dlUrls);
+              console.log(`[export]   ${dataType} / ${movementId}: ${dlUrls.length} URL(s)`);
             } else {
-              const errText = await exportResponse.text();
-              console.error(`[reboot-export-data]   Movement ${movementId} export failed (${exportResponse.status}): ${errText}`);
+              const errText = await res.text();
+              console.error(`[export]   ${dataType} / ${movementId} failed (${res.status}): ${errText.substring(0, 200)}`);
             }
           } catch (err) {
-            console.error(`[reboot-export-data]   Movement ${movementId} error:`, err);
+            console.error(`[export]   ${dataType} / ${movementId} error:`, err);
           }
         }
-
         if (urls.length > 0) {
           exportUrls[dataType] = urls;
-          console.log(`[reboot-export-data] ${dataType}: ${urls.length} total URL(s) from ${movementIds.length} movements`);
         }
       }
     } else {
-      // Fallback: session-level export (no movement IDs discovered)
-      console.log("[reboot-export-data] No movement IDs found, falling back to session-level export");
+      // === Session-level export (fallback) ===
+      // Try both aggregate:true and aggregate:false to see which gives more data
+      console.log(`[export] No movement IDs found. Trying session-level export...`);
 
       for (const dataType of dataTypes) {
+        // First try aggregate:false — may return one URL per movement
         try {
-          const exportPayload = {
-            session_id: body.session_id,
-            movement_type_id: movementTypeId,
-            org_player_id: orgPlayerId,
-            data_type: dataType,
-            data_format: "csv",
-            aggregate: true,
-          };
-
-          console.log(`[reboot-export-data] Session-level export for ${dataType}...`);
-          const exportResponse = await rebootFetch("/data_export", {
+          console.log(`[export] Trying ${dataType} with aggregate:false...`);
+          const res = await rebootFetch("/data_export", {
             method: "POST",
-            body: JSON.stringify(exportPayload),
+            body: JSON.stringify({
+              session_id: body.session_id,
+              movement_type_id: movementTypeId,
+              org_player_id: orgPlayerId,
+              data_type: dataType,
+              data_format: "csv",
+              aggregate: false,
+            }),
           });
 
-          if (exportResponse.ok) {
-            const exportData = await exportResponse.json();
-            const urls: string[] = exportData.download_urls || [];
+          if (res.ok) {
+            const d = await res.json();
+            const urls = d.download_urls || [];
+            console.log(`[export] ${dataType} aggregate:false → ${urls.length} URL(s)`);
+            // Log full response structure for debugging
+            console.log(`[export] ${dataType} response keys: ${JSON.stringify(Object.keys(d))}`);
+
             if (urls.length > 0) {
               exportUrls[dataType] = urls;
-              console.log(`[reboot-export-data] ${dataType}: ${urls.length} URL(s) from session-level export`);
+              // Sample first URL to count movements inside
+              const movCount = await countMovementsInCsv(urls[0]);
+              console.log(`[export] ${dataType} URL[0] contains ${movCount} unique movement(s)`);
+              continue; // Got data, skip aggregate:true attempt
             }
           } else {
-            const errText = await exportResponse.text();
-            console.error(`[reboot-export-data] Session-level export failed for ${dataType} (${exportResponse.status}): ${errText}`);
+            const errText = await res.text();
+            console.warn(`[export] ${dataType} aggregate:false failed (${res.status}): ${errText.substring(0, 200)}`);
           }
         } catch (err) {
-          console.error(`[reboot-export-data] Error requesting ${dataType}:`, err);
+          console.warn(`[export] ${dataType} aggregate:false error:`, err);
+        }
+
+        // Fallback: aggregate:true
+        try {
+          console.log(`[export] Trying ${dataType} with aggregate:true...`);
+          const res = await rebootFetch("/data_export", {
+            method: "POST",
+            body: JSON.stringify({
+              session_id: body.session_id,
+              movement_type_id: movementTypeId,
+              org_player_id: orgPlayerId,
+              data_type: dataType,
+              data_format: "csv",
+              aggregate: true,
+            }),
+          });
+
+          if (res.ok) {
+            const d = await res.json();
+            const urls = d.download_urls || [];
+            console.log(`[export] ${dataType} aggregate:true → ${urls.length} URL(s)`);
+            if (urls.length > 0) {
+              exportUrls[dataType] = urls;
+              const movCount = await countMovementsInCsv(urls[0]);
+              console.log(`[export] ${dataType} URL[0] contains ${movCount} unique movement(s)`);
+            }
+          } else {
+            const errText = await res.text();
+            console.error(`[export] ${dataType} aggregate:true failed (${res.status}): ${errText.substring(0, 200)}`);
+          }
+        } catch (err) {
+          console.error(`[export] ${dataType} aggregate:true error:`, err);
         }
       }
     }
@@ -218,12 +263,11 @@ serve(async (req) => {
       return errorResponse("No data types were successfully exported.", 400);
     }
 
-    // Log final URL counts
     for (const [dt, urls] of Object.entries(exportUrls)) {
-      console.log(`[reboot-export-data] Final: ${dt} → ${urls.length} download URL(s)`);
+      console.log(`[export] Final: ${dt} → ${urls.length} download URL(s)`);
     }
 
-    // Store export URLs in our database
+    // Store export record
     const { error: insertError } = await supabase
       .from("reboot_exports")
       .insert({
@@ -234,12 +278,11 @@ serve(async (req) => {
         raw_response: exportUrls,
         created_at: new Date().toISOString(),
       });
-
     if (insertError) {
-      console.error("[reboot-export-data] Failed to save export record:", insertError);
+      console.error("[export] Failed to save export record:", insertError);
     }
 
-    // Ensure a reboot_sessions record exists
+    // Ensure reboot_sessions record
     const { data: existingSession } = await supabase
       .from("reboot_sessions")
       .select("id")
@@ -263,12 +306,12 @@ serve(async (req) => {
         .eq("player_id", body.player_id);
     }
 
-    // Trigger analysis — pass all URLs to calculate-4b-scores
+    // Trigger 4B analysis
     let analysisResult = null;
     if (triggerAnalysis) {
       try {
         const totalUrls = Object.values(exportUrls).flat().length;
-        console.log(`[reboot-export-data] Triggering 4B analysis with ${totalUrls} total download URLs...`);
+        console.log(`[export] Triggering 4B analysis with ${totalUrls} total URLs...`);
 
         const analysisUrl = `${supabaseUrl}/functions/v1/calculate-4b-scores`;
         const analysisResponse = await fetch(analysisUrl, {
@@ -286,25 +329,25 @@ serve(async (req) => {
 
         if (analysisResponse.ok) {
           analysisResult = await analysisResponse.json();
-          console.log("[reboot-export-data] 4B analysis complete");
+          console.log("[export] 4B analysis complete");
         } else {
           const errText = await analysisResponse.text();
-          console.error("[reboot-export-data] Analysis failed:", errText);
+          console.error("[export] Analysis failed:", errText);
         }
       } catch (err) {
-        console.error("[reboot-export-data] Error during analysis:", err);
+        console.error("[export] Error during analysis:", err);
       }
     }
 
-    // Log activity
+    // Activity log
     await supabase.from("activity_log").insert({
       action: "reboot_data_exported",
-      description: `Exported ${Object.keys(exportUrls).length} data types (${movementIds.length} movements) from Reboot Motion`,
+      description: `Exported ${Object.keys(exportUrls).length} data types (${movementIds.length || expectedCount} movements) from Reboot Motion`,
       player_id: body.player_id,
       metadata: {
         session_id: body.session_id,
         data_types: Object.keys(exportUrls),
-        movement_count: movementIds.length,
+        movement_count: movementIds.length || expectedCount,
         movement_ids: movementIds,
         url_counts: Object.fromEntries(Object.entries(exportUrls).map(([k, v]) => [k, v.length])),
         analysis_triggered: triggerAnalysis,
@@ -315,8 +358,8 @@ serve(async (req) => {
       success: true,
       session_id: body.session_id,
       player_id: body.player_id,
-      movement_count: movementIds.length,
-      movement_ids: movementIds,
+      expected_movements: expectedCount,
+      discovered_movement_ids: movementIds,
       data_types_exported: Object.keys(exportUrls),
       download_urls: exportUrls,
       url_counts: Object.fromEntries(Object.entries(exportUrls).map(([k, v]) => [k, v.length])),
@@ -325,7 +368,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error("[reboot-export-data] Error:", error);
+    console.error("[export] Error:", error);
     return errorResponse(error instanceof Error ? error.message : "Unknown error");
   }
 });
@@ -335,83 +378,32 @@ serve(async (req) => {
 // ============================================================================
 
 /**
- * Extract movement IDs from a Reboot session details response.
- * Tries multiple possible response structures since we're discovering the API shape.
+ * Sample the first ~20KB of a CSV to count unique org_movement_id values.
  */
-function extractMovementIds(sessionData: any): string[] {
-  const ids: string[] = [];
+async function countMovementsInCsv(url: string): Promise<number> {
+  try {
+    const response = await fetch(url, {
+      headers: { "Range": "bytes=0-30000" },
+    });
+    if (!response.ok && response.status !== 206) return 0;
 
-  if (!sessionData) return ids;
+    const text = await response.text();
+    const lines = text.split("\n");
+    if (lines.length < 2) return 0;
 
-  // Try: sessionData.movements (array of movement objects)
-  if (Array.isArray(sessionData.movements)) {
-    for (const m of sessionData.movements) {
-      const id = m.org_movement_id || m.movement_id || m.id;
-      if (id) ids.push(String(id));
+    const headers = lines[0].toLowerCase().replace(/"/g, '').split(",");
+    const movIdIdx = headers.findIndex(h => h.includes("org_movement_id"));
+    if (movIdIdx < 0) return 0;
+
+    const movIds = new Set<string>();
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(",");
+      const val = (cols[movIdIdx] || '').replace(/"/g, '').trim();
+      if (val) movIds.add(val);
     }
-    if (ids.length > 0) {
-      console.log(`[reboot-export-data] Found movement IDs in .movements array`);
-      return ids;
-    }
+    return movIds.size;
+  } catch (err) {
+    console.warn("[export] Could not sample CSV:", err);
+    return 0;
   }
-
-  // Try: sessionData.players (array/object with movements nested)
-  if (sessionData.players) {
-    const players = Array.isArray(sessionData.players) ? sessionData.players : [sessionData.players];
-    for (const p of players) {
-      if (Array.isArray(p.movements)) {
-        for (const m of p.movements) {
-          const id = m.org_movement_id || m.movement_id || m.id;
-          if (id) ids.push(String(id));
-        }
-      }
-      // Also check for movement_ids as a flat array
-      if (Array.isArray(p.movement_ids)) {
-        ids.push(...p.movement_ids.map(String));
-      }
-    }
-    if (ids.length > 0) {
-      console.log(`[reboot-export-data] Found movement IDs in .players[].movements`);
-      return ids;
-    }
-  }
-
-  // Try: sessionData.movement_ids (flat array)
-  if (Array.isArray(sessionData.movement_ids)) {
-    ids.push(...sessionData.movement_ids.map(String));
-    if (ids.length > 0) {
-      console.log(`[reboot-export-data] Found movement IDs in .movement_ids array`);
-      return ids;
-    }
-  }
-
-  // Try: sessionData.org_movement_ids
-  if (Array.isArray(sessionData.org_movement_ids)) {
-    ids.push(...sessionData.org_movement_ids.map(String));
-    if (ids.length > 0) {
-      console.log(`[reboot-export-data] Found movement IDs in .org_movement_ids array`);
-      return ids;
-    }
-  }
-
-  // Try: recursively search for any key containing "movement" with array values
-  for (const [key, value] of Object.entries(sessionData)) {
-    if (key.toLowerCase().includes("movement") && Array.isArray(value)) {
-      for (const item of value) {
-        if (typeof item === "string" || typeof item === "number") {
-          ids.push(String(item));
-        } else if (typeof item === "object" && item !== null) {
-          const id = (item as any).org_movement_id || (item as any).movement_id || (item as any).id;
-          if (id) ids.push(String(id));
-        }
-      }
-      if (ids.length > 0) {
-        console.log(`[reboot-export-data] Found movement IDs in .${key}`);
-        return ids;
-      }
-    }
-  }
-
-  console.warn("[reboot-export-data] Could not extract movement IDs from session response. Keys present:", Object.keys(sessionData).join(", "));
-  return ids;
 }
