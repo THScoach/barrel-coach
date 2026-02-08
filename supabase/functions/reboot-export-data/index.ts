@@ -306,7 +306,13 @@ async function discoverMovementIds(
     }
 
     const csvText = await csvResponse.text();
-    const lines = csvText.split("\n");
+    console.log(`[export] Metadata CSV length: ${csvText.length} chars`);
+    console.log(`[export] Metadata CSV first 500 chars: ${csvText.substring(0, 500)}`);
+
+    // Handle both \r\n and \n line endings, filter out empty lines
+    const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+    console.log(`[export] Metadata CSV: ${lines.length} non-empty line(s)`);
+
     if (lines.length < 2) {
       console.error("[export] Metadata CSV has no data rows");
       return [];
