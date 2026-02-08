@@ -101,10 +101,12 @@ serve(async (req) => {
       `[Create Athlete] ✅ Created — id: ${athlete.id}, org_player_id: ${athlete.org_player_id}`
     );
 
+    // IMPORTANT: Return org_player_id as athlete_id — this is what data_export needs
     return jsonResponse({
       success: true,
-      athlete_id: athlete.id || athlete.org_player_id,
+      athlete_id: athlete.org_player_id || athlete.id,
       org_player_id: athlete.org_player_id,
+      internal_id: athlete.id,
       name: `${firstName} ${lastName}`.trim(),
     });
   } catch (error: any) {

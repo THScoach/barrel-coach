@@ -317,49 +317,78 @@ serve(async (req) => {
     // 2. Connect to Supabase with service role
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+    // Pre-fetch all existing players to avoid N+1 queries and speed up matching
+    const { data: allExistingPlayers } = await supabase
+      .from("players")
+      .select("id, name, reboot_athlete_id")
+      .not("reboot_athlete_id", "is", null);
+
+    // Build lookup maps: by reboot_athlete_id AND by lowercase name
+    const existingByRebootId = new Map<string, { id: string; name: string }>();
+    const existingByName = new Map<string, { id: string; reboot_athlete_id: string | null }>();
+    for (const p of allExistingPlayers || []) {
+      if (p.reboot_athlete_id) existingByRebootId.set(p.reboot_athlete_id, p);
+      if (p.name) existingByName.set(p.name.toLowerCase().trim(), p);
+    }
+
+    console.log(`[Fetch Reboot Players] ${existingByRebootId.size} existing players with reboot IDs, ${existingByName.size} by name`);
+
     let created = 0;
     let updated = 0;
     let skipped = 0;
+    let idCorrected = 0;
     let errors: string[] = [];
 
     // 3. Sync each player
     for (const player of playersToSync) {
       try {
-        // Get the Reboot player ID - try multiple possible field names
-        const rebootId = player.org_player_id || player.orgPlayerId || player.id || player.player_id || player.playerId || player._id;
+        // Get org_player_id (preferred) and internal id
+        const orgPlayerId = player.org_player_id || player.orgPlayerId;
+        const internalId = player.id || player.player_id || player.playerId || player._id;
+        const rebootId = orgPlayerId || internalId;
         
         if (!rebootId) {
-          console.log("[Fetch Reboot Players] Skipping player with no ID:", JSON.stringify(player).substring(0, 300));
           skipped++;
           continue;
         }
 
-        // Build player name - try multiple possible field names
+        // Build player name
         const firstName = player.first_name || player.firstName || player.given_name || player.givenName || "";
         const lastName = player.last_name || player.lastName || player.family_name || player.familyName || player.surname || "";
         const fullName = player.name || player.full_name || player.fullName || player.display_name || player.displayName || `${firstName} ${lastName}`.trim();
 
         if (!fullName) {
-          console.log("[Fetch Reboot Players] Skipping player with no name:", JSON.stringify(player).substring(0, 300));
           skipped++;
           continue;
         }
 
-        // Check if player already exists by reboot_athlete_id OR reboot_id
-        const { data: existingPlayer } = await supabase
-          .from("players")
-          .select("id")
-          .or(`reboot_athlete_id.eq.${rebootId},reboot_id.eq.${rebootId}`)
-          .maybeSingle();
+        // Match existing player: by org_player_id, then by internal id, then by name
+        let existingPlayer = existingByRebootId.get(rebootId);
+        if (!existingPlayer && internalId && internalId !== rebootId) {
+          existingPlayer = existingByRebootId.get(internalId);
+          if (existingPlayer) {
+            console.log(`[Fetch Reboot Players] ✓ ID correction for ${fullName}: ${internalId} → ${rebootId}`);
+            idCorrected++;
+          }
+        }
+        if (!existingPlayer) {
+          const nameMatch = existingByName.get(fullName.toLowerCase().trim());
+          if (nameMatch) {
+            existingPlayer = { id: nameMatch.id, name: fullName };
+            if (nameMatch.reboot_athlete_id && nameMatch.reboot_athlete_id !== rebootId) {
+              console.log(`[Fetch Reboot Players] ✓ Name-matched ID correction for ${fullName}: ${nameMatch.reboot_athlete_id} → ${rebootId}`);
+              idCorrected++;
+            }
+          }
+        }
 
-        // Extract handedness/bats - try multiple field names
+        // Extract handedness
         const bats = player.bats || player.hitting_hand || player.hittingHand || player.hits || player.bat_side || player.batSide || null;
         
+        // Always store org_player_id as reboot_athlete_id (this is what data_export needs)
         const playerData = {
           name: fullName,
           reboot_athlete_id: rebootId,
-          reboot_id: rebootId, // Also set reboot_id for compatibility
-          // Optional fields - map from Reboot if available
           height_inches: parseHeight(player.height || player.height_display),
           weight_lbs: parseWeight(player.weight || player.weight_display),
           handedness: bats,
@@ -368,7 +397,6 @@ serve(async (req) => {
         };
 
         if (existingPlayer) {
-          // Update existing player
           const { error: updateError } = await supabase
             .from("players")
             .update(playerData)
@@ -380,7 +408,6 @@ serve(async (req) => {
             updated++;
           }
         } else {
-          // Create new player
           const { error: insertError } = await supabase
             .from("players")
             .insert(playerData);
@@ -396,15 +423,18 @@ serve(async (req) => {
       }
     }
 
+    console.log(`[Fetch Reboot Players] ✅ Done: ${created} created, ${updated} updated, ${skipped} skipped, ${idCorrected} IDs corrected`);
+
     // 4. Log activity
     await supabase.from("activity_log").insert({
       action: "reboot_players_synced",
-      description: `Synced ${created + updated} players from Reboot Motion (${created} new, ${updated} updated, ${skipped} skipped)`,
+      description: `Synced ${created + updated} players from Reboot Motion (${created} new, ${updated} updated, ${skipped} skipped, ${idCorrected} IDs corrected)`,
       metadata: { 
         total_from_reboot: rebootPlayers.length,
         created,
         updated,
         skipped,
+        id_corrected: idCorrected,
         errors: errors.length > 0 ? errors : undefined
       },
     });
@@ -413,11 +443,12 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Synced ${created + updated} players from Reboot Motion`,
+        message: `Synced ${created + updated} players from Reboot Motion (${idCorrected} IDs corrected to org_player_id)`,
         synced: created + updated,
         created,
         updated,
         skipped,
+        id_corrected: idCorrected,
         total_in_reboot: rebootPlayers.length,
         errors: errors.length > 0 ? errors : undefined,
       }),
