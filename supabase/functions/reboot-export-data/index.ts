@@ -85,16 +85,17 @@ serve(async (req) => {
     for (const dataType of dataTypes) {
       let gotData = false;
 
-      // --- Attempt 1: WITHOUT org_player_id ---
+      // --- Attempt 1: aggregate=false (separate per-movement URLs) ---
       try {
         const payload1 = {
           session_id: body.session_id,
           movement_type_id: movementTypeId,
+          org_player_id: orgPlayerId,
           data_type: dataType,
           data_format: "csv",
-          aggregate: true,
+          aggregate: false,
         };
-        console.log(`[export] Attempt 1 (no org_player_id) for ${dataType}: ${JSON.stringify(payload1)}`);
+        console.log(`[export] Attempt 1 (aggregate=false) for ${dataType}: ${JSON.stringify(payload1)}`);
 
         const res1 = await rebootFetch("/data_export", {
           method: "POST",
@@ -103,19 +104,25 @@ serve(async (req) => {
 
         if (res1.ok) {
           const d = await res1.json();
+          console.log(`[export] Attempt 1 full response keys: ${JSON.stringify(Object.keys(d))}`);
+          console.log(`[export] Attempt 1 full response: ${JSON.stringify(d).substring(0, 1000)}`);
           const urls = d.download_urls || [];
-          console.log(`[export] Attempt 1 success: ${urls.length} URL(s) for ${dataType}`);
-          console.log(`[export] Response keys: ${JSON.stringify(Object.keys(d))}`);
+          console.log(`[export] Attempt 1 (aggregate=false): ${urls.length} URL(s) for ${dataType}`);
 
           if (urls.length > 0) {
+            // Sample first URL to count movements
             const movCount = await countMovementsInCsv(urls[0]);
-            console.log(`[export] ✅ Attempt 1: CSV contains ${movCount} unique movement(s) for ${dataType}`);
+            console.log(`[export] ✅ Attempt 1: first CSV contains ${movCount} unique movement(s) for ${dataType}`);
+            // If we got multiple URLs, each is likely a separate movement
+            if (urls.length > 1) {
+              console.log(`[export] ✅ Got ${urls.length} separate URLs — likely one per movement!`);
+            }
             exportUrls[dataType] = urls;
             gotData = true;
           }
         } else {
           const errText = await res1.text();
-          console.log(`[export] Attempt 1 failed (${res1.status}) for ${dataType}: ${errText.substring(0, 300)}`);
+          console.log(`[export] Attempt 1 failed (${res1.status}) for ${dataType}: ${errText.substring(0, 500)}`);
         }
       } catch (err) {
         console.error(`[export] Attempt 1 error for ${dataType}:`, err);
@@ -123,7 +130,7 @@ serve(async (req) => {
 
       if (gotData) continue;
 
-      // --- Attempt 2: WITH org_player_id ---
+      // --- Attempt 2: aggregate=true (combined CSV fallback) ---
       try {
         const payload2 = {
           session_id: body.session_id,
@@ -133,7 +140,7 @@ serve(async (req) => {
           data_format: "csv",
           aggregate: true,
         };
-        console.log(`[export] Attempt 2 (with org_player_id) for ${dataType}: ${JSON.stringify(payload2)}`);
+        console.log(`[export] Attempt 2 (aggregate=true) for ${dataType}: ${JSON.stringify(payload2)}`);
 
         const res2 = await rebootFetch("/data_export", {
           method: "POST",
@@ -143,7 +150,7 @@ serve(async (req) => {
         if (res2.ok) {
           const d = await res2.json();
           const urls = d.download_urls || [];
-          console.log(`[export] Attempt 2 success: ${urls.length} URL(s) for ${dataType}`);
+          console.log(`[export] Attempt 2 (aggregate=true): ${urls.length} URL(s) for ${dataType}`);
 
           if (urls.length > 0) {
             const movCount = await countMovementsInCsv(urls[0]);
@@ -152,7 +159,7 @@ serve(async (req) => {
           }
         } else {
           const errText = await res2.text();
-          console.error(`[export] Attempt 2 failed (${res2.status}) for ${dataType}: ${errText.substring(0, 300)}`);
+          console.error(`[export] Attempt 2 failed (${res2.status}) for ${dataType}: ${errText.substring(0, 500)}`);
         }
       } catch (err) {
         console.error(`[export] Attempt 2 error for ${dataType}:`, err);
