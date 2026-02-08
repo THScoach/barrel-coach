@@ -9,6 +9,7 @@ import { CoachRickWidget } from "@/components/CoachRickWidget";
 
 // Core pages
 import Athletes from "./pages/Athletes";
+import AthleteDetail from "./pages/AthleteDetail";
 import Upload from "./pages/Upload";
 import SessionView from "./pages/SessionView";
 
@@ -35,6 +36,7 @@ const App = () => (
             {/* Core app routes */}
             <Route path="/" element={<Athletes />} />
             <Route path="/athletes" element={<Athletes />} />
+            <Route path="/athletes/:id" element={<AthleteDetail />} />
             <Route path="/upload" element={<Upload />} />
             <Route path="/sessions/:sessionId" element={<SessionView />} />
 

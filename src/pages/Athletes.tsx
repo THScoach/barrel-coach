@@ -22,7 +22,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, User, Search, RefreshCw } from "lucide-react";
+import { Plus, User, Search, RefreshCw, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Player {
@@ -302,7 +302,7 @@ export default function Athletes() {
               <Card
                 key={player.id}
                 className="bg-slate-900/80 border-slate-800 hover:border-slate-600 transition-colors cursor-pointer"
-                onClick={() => navigate(`/upload?athlete=${player.id}`)}
+                onClick={() => navigate(`/athletes/${player.id}`)}
               >
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-4">
@@ -322,9 +322,7 @@ export default function Athletes() {
                       </div>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
-                    Upload →
-                  </Button>
+                  <ChevronRight className="h-4 w-4 text-slate-600" />
                 </CardContent>
               </Card>
             ))}
