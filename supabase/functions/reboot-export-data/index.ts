@@ -113,6 +113,7 @@ serve(async (req) => {
         const exportPayload: Record<string, any> = {
           session_id: body.session_id,
           movement_type_id: movementTypeId,
+          org_player_id: orgPlayerId,
           data_type: dataType,
           data_format: "csv",
           aggregate: true,
