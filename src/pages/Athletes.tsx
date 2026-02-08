@@ -73,20 +73,51 @@ export default function Athletes() {
     }
     setSaving(true);
     try {
-      const { error } = await supabase.from("players").insert({
+      // Step 1: Create athlete in Reboot Motion first
+      console.log("[Add Athlete] Creating in Reboot Motion:", newPlayer.name);
+
+      const { data: rebootData, error: rebootError } = await supabase.functions.invoke(
+        "create-reboot-athlete",
+        {
+          body: {
+            name: newPlayer.name.trim(),
+            handedness: newPlayer.handedness || null,
+            height_inches: newPlayer.height_inches ? Number(newPlayer.height_inches) : null,
+            weight_lbs: newPlayer.weight_lbs ? Number(newPlayer.weight_lbs) : null,
+            level: newPlayer.level || null,
+          },
+        }
+      );
+
+      if (rebootError) throw rebootError;
+
+      if (!rebootData?.athlete_id) {
+        throw new Error("Failed to get Reboot athlete ID");
+      }
+
+      console.log("[Add Athlete] ✅ Created in Reboot:", rebootData.athlete_id);
+
+      // Step 2: Save to local database with Reboot IDs
+      const { error: dbError } = await supabase.from("players").insert({
         name: newPlayer.name.trim(),
         handedness: newPlayer.handedness || null,
         height_inches: newPlayer.height_inches ? Number(newPlayer.height_inches) : null,
         weight_lbs: newPlayer.weight_lbs ? Number(newPlayer.weight_lbs) : null,
         level: newPlayer.level || null,
         team: newPlayer.team.trim() || null,
+        reboot_athlete_id: rebootData.athlete_id,
       });
-      if (error) throw error;
-      toast.success("Athlete added");
+
+      if (dbError) throw dbError;
+
+      console.log("[Add Athlete] ✅ Saved to database with Reboot ID");
+
+      toast.success(`${newPlayer.name} added and synced to Reboot`);
       setNewPlayer({ name: "", handedness: "", height_inches: "", weight_lbs: "", level: "", team: "" });
       setAddOpen(false);
       refetch();
     } catch (err: any) {
+      console.error("[Add Athlete] Error:", err);
       toast.error(err.message || "Failed to add athlete");
     } finally {
       setSaving(false);
