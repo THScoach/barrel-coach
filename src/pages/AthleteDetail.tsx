@@ -362,8 +362,9 @@ export default function AthleteDetail() {
                 onClick={() => {
                   if (session.source === "reboot_sessions" && session.rebootSessionId) {
                     navigate(`/sessions/${session.rebootSessionId}`);
+                  } else {
+                    navigate(`/sessions/${session.id}`);
                   }
-                  // player_sessions don't have a detail view yet — could navigate to a score summary
                 }}
               >
                 <CardContent className="flex items-center justify-between p-4">
