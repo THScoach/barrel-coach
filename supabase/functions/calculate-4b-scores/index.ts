@@ -326,6 +326,20 @@ Deno.serve(async (req) => {
 
     console.log(`[calculate-4b-scores] Session saved: ${insertedSession.id}`);
 
+    // Update reboot_sessions status to "completed" if session_id was provided
+    if (body.session_id) {
+      const { error: updateError } = await supabase
+        .from('reboot_sessions')
+        .update({ status: 'completed' })
+        .eq('reboot_session_id', body.session_id)
+        .eq('player_id', body.player_id);
+
+      if (updateError) {
+        console.warn('[calculate-4b-scores] Could not update reboot_sessions status:', updateError);
+      } else {
+        console.log(`[calculate-4b-scores] Marked reboot_session ${body.session_id} as completed`);
+      }
+    }
     return new Response(
       JSON.stringify({
         success: true,

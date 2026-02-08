@@ -172,9 +172,16 @@ export default function AthleteDetail() {
       if (!data?.success) {
         throw new Error(data?.error || "Import failed");
       }
-      toast.success(`Session imported — ${data.data_types_exported?.length || 0} data types exported`);
+      const resultSessionId = data.analysis_result?.session_id;
+      toast.success(
+        `Session imported — ${data.data_types_exported?.length || 0} data types, score: ${data.analysis_result?.scores?.overall ?? "pending"}`
+      );
       setSessionIdInput("");
-      queryClient.invalidateQueries({ queryKey: ["athlete-sessions", id] });
+      await queryClient.invalidateQueries({ queryKey: ["athlete-sessions", id] });
+      // Navigate to the newly created session if we have one
+      if (resultSessionId) {
+        toast.info("Scores calculated — view details below");
+      }
     } catch (err: any) {
       console.error("[Import Session] Error:", err);
       toast.error(err.message || "Failed to import session");
@@ -183,14 +190,17 @@ export default function AthleteDetail() {
     }
   };
 
-  const statusBadge = (status: string, completedSwings: number, swingCount: number) => {
-    if (status === "completed" && completedSwings > 0) {
+  const statusBadge = (status: string) => {
+    if (status === "complete" || status === "completed") {
       return <Badge className="bg-green-900/50 text-green-400 border-green-800 text-[10px]">Complete</Badge>;
     }
-    if (status === "completed") {
-      return <Badge className="bg-blue-900/50 text-blue-400 border-blue-800 text-[10px]">Synced</Badge>;
+    if (status === "exported") {
+      return <Badge className="bg-blue-900/50 text-blue-400 border-blue-800 text-[10px]">Exported</Badge>;
     }
-    return <Badge className="bg-yellow-900/50 text-yellow-400 border-yellow-800 text-[10px]">Processing</Badge>;
+    if (status === "processing") {
+      return <Badge className="bg-yellow-900/50 text-yellow-400 border-yellow-800 text-[10px]">Processing</Badge>;
+    }
+    return <Badge className="bg-slate-800 text-slate-400 border-slate-700 text-[10px]">{status}</Badge>;
   };
 
   if (playerLoading) {
@@ -363,7 +373,7 @@ export default function AthleteDetail() {
                         <p className="text-sm font-semibold text-white">
                           {format(new Date(session.sessionDate), "MMM d, yyyy")}
                         </p>
-                        {statusBadge(session.status, session.completedSwings, session.swingCount)}
+                        {statusBadge(session.status)}
                         {session.dataQuality && (
                           <Badge className="bg-slate-800 text-slate-400 border-slate-700 text-[10px]">
                             {session.dataQuality}
