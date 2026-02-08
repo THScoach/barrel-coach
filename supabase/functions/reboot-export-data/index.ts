@@ -154,54 +154,12 @@ serve(async (req) => {
         .eq("player_id", body.player_id);
     }
 
-    // Trigger analysis by streaming only what we need (sample rows)
+    // Trigger analysis — pass URLs only, let calculate-4b-scores handle streaming
     let analysisResult = null;
-    if (triggerAnalysis && exportUrls["momentum-energy"]?.length) {
+    if (triggerAnalysis) {
       try {
-        console.log("[reboot-export-data] Downloading sampled CSV for analysis...");
+        console.log("[reboot-export-data] Triggering 4B analysis with download URLs...");
 
-        // Download only the momentum-energy CSV, but cap at ~2MB to stay in memory
-        const meUrl = exportUrls["momentum-energy"][0];
-        const meResponse = await fetch(meUrl);
-        if (!meResponse.ok) throw new Error(`Download failed: ${meResponse.status}`);
-
-        // Read as text but cap size
-        const reader = meResponse.body?.getReader();
-        const decoder = new TextDecoder();
-        let csvText = "";
-        const MAX_CHARS = 2_000_000; // 2MB cap
-
-        if (reader) {
-          while (csvText.length < MAX_CHARS) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            csvText += decoder.decode(value, { stream: true });
-          }
-          reader.cancel(); // Stop reading if we hit cap
-        }
-
-        console.log(`[reboot-export-data] Downloaded ${csvText.length} chars of momentum-energy (capped at ${MAX_CHARS})`);
-
-        // Optionally download IK data (also capped)
-        let ikText = "";
-        if (exportUrls["inverse-kinematics"]?.length) {
-          const ikUrl = exportUrls["inverse-kinematics"][0];
-          const ikResponse = await fetch(ikUrl);
-          if (ikResponse.ok) {
-            const ikReader = ikResponse.body?.getReader();
-            if (ikReader) {
-              while (ikText.length < MAX_CHARS) {
-                const { done, value } = await ikReader.read();
-                if (done) break;
-                ikText += decoder.decode(value, { stream: true });
-              }
-              ikReader.cancel();
-            }
-          }
-          console.log(`[reboot-export-data] Downloaded ${ikText.length} chars of inverse-kinematics`);
-        }
-
-        // Call 4B scoring
         const analysisUrl = `${supabaseUrl}/functions/v1/calculate-4b-scores`;
         const analysisResponse = await fetch(analysisUrl, {
           method: "POST",
@@ -212,8 +170,7 @@ serve(async (req) => {
           body: JSON.stringify({
             player_id: body.player_id,
             session_id: body.session_id,
-            momentum_csv: csvText,
-            kinematics_csv: ikText || undefined,
+            download_urls: exportUrls,
           }),
         });
 

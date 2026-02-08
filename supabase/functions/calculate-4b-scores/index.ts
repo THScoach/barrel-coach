@@ -7,6 +7,8 @@ const corsHeaders = {
 
 interface Calculate4BRequest {
   player_id: string;
+  session_id?: string;
+  download_urls?: Record<string, string[]>;
   session_data?: {
     brain_score?: number;
     body_score?: number;
@@ -39,13 +41,11 @@ function getGrade(score: number): string {
 
 // Calculate overall composite score (weighted average)
 function calculateOverallScore(brain: number, body: number, bat: number, ball: number): number {
-  // Weights: Brain 20%, Body 35%, Bat 30%, Ball 15%
   return Math.round(brain * 0.20 + body * 0.35 + bat * 0.30 + ball * 0.15);
 }
 
 // Detect energy leaks based on flow components
 function detectLeak(groundFlow: number, coreFlow: number, upperFlow: number): LeakResult {
-  // Clean transfer - all flows are balanced and strong
   if (groundFlow >= 60 && coreFlow >= 60 && upperFlow >= 60) {
     return {
       leak_type: 'clean_transfer',
@@ -53,8 +53,6 @@ function detectLeak(groundFlow: number, coreFlow: number, upperFlow: number): Le
       leak_training: 'Maintain current mechanics. Focus on consistency.'
     };
   }
-  
-  // Late legs - ground flow is weak
   if (groundFlow < 45 && coreFlow >= 50) {
     return {
       leak_type: 'late_legs',
@@ -62,8 +60,6 @@ function detectLeak(groundFlow: number, coreFlow: number, upperFlow: number): Le
       leak_training: 'Work on leg drive timing drills. Focus on early hip rotation.'
     };
   }
-  
-  // Torso bypass - core flow is weak relative to others
   if (coreFlow < 45 && groundFlow >= 50 && upperFlow >= 50) {
     return {
       leak_type: 'torso_bypass',
@@ -71,8 +67,6 @@ function detectLeak(groundFlow: number, coreFlow: number, upperFlow: number): Le
       leak_training: 'Core connection drills. Focus on hip-shoulder separation.'
     };
   }
-  
-  // Early arms - upper flow dominates
   if (upperFlow > groundFlow + 15 && upperFlow > coreFlow + 15) {
     return {
       leak_type: 'early_arms',
@@ -80,8 +74,6 @@ function detectLeak(groundFlow: number, coreFlow: number, upperFlow: number): Le
       leak_training: 'Sequence timing drills. Let the body lead the hands.'
     };
   }
-  
-  // No bat delivery - upper flow is very weak
   if (upperFlow < 40) {
     return {
       leak_type: 'no_bat_delivery',
@@ -89,8 +81,6 @@ function detectLeak(groundFlow: number, coreFlow: number, upperFlow: number): Le
       leak_training: 'Bat path drills. Focus on connection through the zone.'
     };
   }
-  
-  // Unknown / general inefficiency
   return {
     leak_type: 'unknown',
     leak_caption: 'Energy transfer pattern needs further analysis.',
@@ -98,8 +88,111 @@ function detectLeak(groundFlow: number, coreFlow: number, upperFlow: number): Le
   };
 }
 
+/**
+ * Stream a CSV from a URL with a size cap to stay within memory limits.
+ * Returns the sampled CSV text.
+ */
+async function streamCsvFromUrl(url: string, maxChars: number = 2_000_000): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`CSV download failed: ${response.status}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response body to stream");
+
+  const decoder = new TextDecoder();
+  let text = "";
+
+  try {
+    while (text.length < maxChars) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    reader.cancel();
+  }
+
+  // Trim to last complete line to avoid partial row
+  const lastNewline = text.lastIndexOf("\n");
+  if (lastNewline > 0 && text.length >= maxChars) {
+    text = text.substring(0, lastNewline);
+  }
+
+  return text;
+}
+
+/**
+ * Parse momentum-energy CSV to extract basic metrics for scoring.
+ * Returns swing count and average energy values.
+ */
+function parseMomentumCsv(csvText: string): {
+  swingCount: number;
+  avgGroundFlow: number;
+  avgCoreFlow: number;
+  avgUpperFlow: number;
+} {
+  const lines = csvText.split("\n").filter(l => l.trim());
+  if (lines.length < 2) {
+    return { swingCount: 0, avgGroundFlow: 55, avgCoreFlow: 55, avgUpperFlow: 55 };
+  }
+
+  const header = lines[0].toLowerCase();
+  const cols = header.split(",");
+
+  // Try to find relevant column indices
+  const findCol = (patterns: string[]) =>
+    cols.findIndex(c => patterns.some(p => c.includes(p)));
+
+  const peakLinearMomentumIdx = findCol(["peak_linear_momentum", "linear_momentum"]);
+  const peakAngularMomentumIdx = findCol(["peak_angular_momentum", "angular_momentum"]);
+  const kineticEnergyIdx = findCol(["kinetic_energy", "total_energy"]);
+
+  // Count data rows (each represents a swing/rep)
+  const dataRows = lines.slice(1);
+  const swingCount = dataRows.length;
+
+  // Extract numeric values for flow estimation
+  let totalLinear = 0, totalAngular = 0, totalEnergy = 0;
+  let validCount = 0;
+
+  for (const row of dataRows) {
+    const vals = row.split(",");
+    const linear = peakLinearMomentumIdx >= 0 ? parseFloat(vals[peakLinearMomentumIdx]) : NaN;
+    const angular = peakAngularMomentumIdx >= 0 ? parseFloat(vals[peakAngularMomentumIdx]) : NaN;
+    const energy = kineticEnergyIdx >= 0 ? parseFloat(vals[kineticEnergyIdx]) : NaN;
+
+    if (!isNaN(linear) || !isNaN(angular) || !isNaN(energy)) {
+      totalLinear += isNaN(linear) ? 0 : linear;
+      totalAngular += isNaN(angular) ? 0 : angular;
+      totalEnergy += isNaN(energy) ? 0 : energy;
+      validCount++;
+    }
+  }
+
+  if (validCount === 0) {
+    return { swingCount, avgGroundFlow: 55, avgCoreFlow: 55, avgUpperFlow: 55 };
+  }
+
+  // Normalize to 20-80 scale (these are rough mappings, will be refined)
+  const avgLinear = totalLinear / validCount;
+  const avgAngular = totalAngular / validCount;
+  const avgEnergy = totalEnergy / validCount;
+
+  // Map to flow scores (ground=linear momentum, core=angular, upper=energy delivery)
+  const normalize = (val: number, min: number, max: number) =>
+    Math.max(20, Math.min(80, Math.round(20 + ((val - min) / (max - min)) * 60)));
+
+  return {
+    swingCount,
+    avgGroundFlow: normalize(avgLinear, 0, 300),
+    avgCoreFlow: normalize(avgAngular, 0, 500),
+    avgUpperFlow: normalize(avgEnergy, 0, 1000),
+  };
+}
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -109,34 +202,92 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { player_id, session_data } = await req.json() as Calculate4BRequest;
+    const body = await req.json() as Calculate4BRequest;
 
-    if (!player_id) {
+    if (!body.player_id) {
       return new Response(
         JSON.stringify({ error: 'player_id is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`[calculate-4b-scores] Processing for player: ${player_id}`);
+    console.log(`[calculate-4b-scores] Processing for player: ${body.player_id}`);
 
-    // Use provided scores or defaults for demo
-    const brainScore = session_data?.brain_score ?? 50;
-    const bodyScore = session_data?.body_score ?? 50;
-    const batScore = session_data?.bat_score ?? 50;
-    const ballScore = session_data?.ball_score ?? 50;
-    const groundFlow = session_data?.ground_flow ?? 55;
-    const coreFlow = session_data?.core_flow ?? 55;
-    const upperFlow = session_data?.upper_flow ?? 55;
-    const swingCount = session_data?.swing_count ?? 1;
+    let brainScore: number;
+    let bodyScore: number;
+    let batScore: number;
+    let ballScore: number;
+    let groundFlow: number;
+    let coreFlow: number;
+    let upperFlow: number;
+    let swingCount: number;
+
+    // If download_urls provided, stream and parse CSVs here
+    if (body.download_urls && Object.keys(body.download_urls).length > 0) {
+      console.log("[calculate-4b-scores] Streaming CSV data from download URLs...");
+
+      let momentumData = { swingCount: 0, avgGroundFlow: 55, avgCoreFlow: 55, avgUpperFlow: 55 };
+
+      // Stream momentum-energy CSV (primary data source)
+      if (body.download_urls["momentum-energy"]?.length) {
+        const url = body.download_urls["momentum-energy"][0];
+        console.log(`[calculate-4b-scores] Streaming momentum-energy CSV (capped at 2MB)...`);
+        const csvText = await streamCsvFromUrl(url);
+        console.log(`[calculate-4b-scores] Got ${csvText.length} chars of momentum-energy data`);
+        momentumData = parseMomentumCsv(csvText);
+        console.log(`[calculate-4b-scores] Parsed ${momentumData.swingCount} swings from momentum CSV`);
+      }
+
+      // Stream inverse-kinematics CSV (secondary, for bat/brain metrics)
+      let ikSwingCount = 0;
+      if (body.download_urls["inverse-kinematics"]?.length) {
+        const url = body.download_urls["inverse-kinematics"][0];
+        console.log(`[calculate-4b-scores] Streaming inverse-kinematics CSV (capped at 2MB)...`);
+        try {
+          const ikCsv = await streamCsvFromUrl(url);
+          console.log(`[calculate-4b-scores] Got ${ikCsv.length} chars of IK data`);
+          const ikLines = ikCsv.split("\n").filter(l => l.trim());
+          ikSwingCount = Math.max(0, ikLines.length - 1);
+        } catch (err) {
+          console.warn("[calculate-4b-scores] IK streaming failed, continuing without:", err);
+        }
+      }
+
+      swingCount = momentumData.swingCount || ikSwingCount || 1;
+      groundFlow = momentumData.avgGroundFlow;
+      coreFlow = momentumData.avgCoreFlow;
+      upperFlow = momentumData.avgUpperFlow;
+
+      // Derive 4B scores from flow data
+      bodyScore = Math.round((groundFlow + coreFlow) / 2);
+      batScore = Math.round((coreFlow + upperFlow) / 2);
+      brainScore = swingCount >= 5
+        ? Math.min(80, Math.round(50 + (swingCount * 0.5)))
+        : Math.round(45 + (swingCount * 2));
+      ballScore = Math.round(upperFlow * 0.8 + groundFlow * 0.2);
+
+    } else {
+      // Fallback: use provided session_data or defaults
+      brainScore = body.session_data?.brain_score ?? 50;
+      bodyScore = body.session_data?.body_score ?? 50;
+      batScore = body.session_data?.bat_score ?? 50;
+      ballScore = body.session_data?.ball_score ?? 50;
+      groundFlow = body.session_data?.ground_flow ?? 55;
+      coreFlow = body.session_data?.core_flow ?? 55;
+      upperFlow = body.session_data?.upper_flow ?? 55;
+      swingCount = body.session_data?.swing_count ?? 1;
+    }
 
     // Calculate overall score and grades
     const overallScore = calculateOverallScore(brainScore, bodyScore, batScore, ballScore);
     const leak = detectLeak(groundFlow, coreFlow, upperFlow);
 
+    console.log(`[calculate-4b-scores] Scores: Brain=${brainScore} Body=${bodyScore} Bat=${batScore} Ball=${ballScore} Overall=${overallScore}`);
+    console.log(`[calculate-4b-scores] Flows: Ground=${groundFlow} Core=${coreFlow} Upper=${upperFlow} | Leak: ${leak.leak_type}`);
+
     // Build session record
     const sessionRecord = {
-      player_id,
+      player_id: body.player_id,
       session_date: new Date().toISOString(),
       brain_score: brainScore,
       body_score: bodyScore,
@@ -194,6 +345,8 @@ Deno.serve(async (req) => {
           overall: getGrade(overallScore),
         },
         leak,
+        swing_count: swingCount,
+        data_quality: swingCount >= 5 ? 'good' : swingCount >= 3 ? 'fair' : 'limited',
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
