@@ -7,7 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const navigation = [
   { name: 'Athletes', href: '/athletes' },
-  { name: 'Upload', href: '/upload' },
 ];
 
 export function Header() {
