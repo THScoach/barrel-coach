@@ -4871,6 +4871,122 @@ export type Database = {
           },
         ]
       }
+      swing_leaks: {
+        Row: {
+          description: string | null
+          frame_reference: string | null
+          id: string
+          leak_name: string
+          session_id: string
+          severity: string
+        }
+        Insert: {
+          description?: string | null
+          frame_reference?: string | null
+          id?: string
+          leak_name: string
+          session_id: string
+          severity?: string
+        }
+        Update: {
+          description?: string | null
+          frame_reference?: string | null
+          id?: string
+          leak_name?: string
+          session_id?: string
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swing_leaks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "swing_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swing_sessions: {
+        Row: {
+          analysis_source: string
+          analysis_status: string
+          ball_score: number | null
+          bat_score: number | null
+          body_score: number | null
+          brain_score: number | null
+          coaching_priority: string | null
+          composite_score: number | null
+          contact_window_type: string | null
+          created_at: string
+          energy_pattern: string | null
+          gemini_confidence: number | null
+          id: string
+          leaks_detected: Json | null
+          motor_profile_hint: string | null
+          player_id: string | null
+          raw_gemini_response: Json | null
+          speed_gains: Json | null
+          video_url: string | null
+        }
+        Insert: {
+          analysis_source?: string
+          analysis_status?: string
+          ball_score?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          coaching_priority?: string | null
+          composite_score?: number | null
+          contact_window_type?: string | null
+          created_at?: string
+          energy_pattern?: string | null
+          gemini_confidence?: number | null
+          id?: string
+          leaks_detected?: Json | null
+          motor_profile_hint?: string | null
+          player_id?: string | null
+          raw_gemini_response?: Json | null
+          speed_gains?: Json | null
+          video_url?: string | null
+        }
+        Update: {
+          analysis_source?: string
+          analysis_status?: string
+          ball_score?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          coaching_priority?: string | null
+          composite_score?: number | null
+          contact_window_type?: string | null
+          created_at?: string
+          energy_pattern?: string | null
+          gemini_confidence?: number | null
+          id?: string
+          leaks_detected?: Json | null
+          motor_profile_hint?: string | null
+          player_id?: string | null
+          raw_gemini_response?: Json | null
+          speed_gains?: Json | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swing_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swing_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       swings: {
         Row: {
           analysis_json: Json | null
