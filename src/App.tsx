@@ -9,6 +9,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Athletes from "./pages/Athletes";
 import AthleteDetail from "./pages/AthleteDetail";
 import Upload from "./pages/Upload";
+import SwingUpload from "./pages/SwingUpload";
 import SessionView from "./pages/SessionView";
 
 // Auth & legal
@@ -32,6 +33,8 @@ const App = () => (
             <Route path="/athletes" element={<Athletes />} />
             <Route path="/athletes/:id" element={<AthleteDetail />} />
             <Route path="/upload" element={<Upload />} />
+            <Route path="/analyze" element={<SwingUpload />} />
+            <Route path="/session/:sessionId" element={<SessionView />} />
             <Route path="/sessions/:sessionId" element={<SessionView />} />
 
             {/* Auth */}

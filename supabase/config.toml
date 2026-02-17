@@ -236,3 +236,6 @@ verify_jwt = false
 
 [functions.sync-reboot-sessions]
 verify_jwt = false
+
+[functions.analyze-swing-2d]
+verify_jwt = false
