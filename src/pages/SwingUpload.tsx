@@ -80,15 +80,65 @@ export default function SwingUpload() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const extractFrames = async (videoFile: File): Promise<string[]> => {
+    const FRAME_PERCENTAGES = [0.05, 0.20, 0.35, 0.50, 0.65, 0.80, 0.95];
+    const TARGET_WIDTH = 800;
+
+    return new Promise((resolve, reject) => {
+      const video = document.createElement("video");
+      video.preload = "auto";
+      video.muted = true;
+      video.playsInline = true;
+      const objUrl = URL.createObjectURL(videoFile);
+      video.src = objUrl;
+
+      video.onloadedmetadata = async () => {
+        const { duration, videoWidth, videoHeight } = video;
+        if (!duration || duration === Infinity) {
+          URL.revokeObjectURL(objUrl);
+          return reject(new Error("Could not read video duration."));
+        }
+
+        const scale = TARGET_WIDTH / videoWidth;
+        const canvas = document.createElement("canvas");
+        canvas.width = TARGET_WIDTH;
+        canvas.height = Math.round(videoHeight * scale);
+        const ctx = canvas.getContext("2d")!;
+
+        const frames: string[] = [];
+
+        for (const pct of FRAME_PERCENTAGES) {
+          const time = pct * duration;
+          await new Promise<void>((res) => {
+            video.currentTime = time;
+            video.onseeked = () => {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              frames.push(canvas.toDataURL("image/jpeg", 0.85));
+              res();
+            };
+          });
+        }
+
+        URL.revokeObjectURL(objUrl);
+        resolve(frames);
+      };
+
+      video.onerror = () => {
+        URL.revokeObjectURL(objUrl);
+        reject(new Error("Failed to load video for frame extraction."));
+      };
+    });
+  };
+
   const startPolling = (sid: string) => {
     pollingRef.current = setInterval(async () => {
       const { data } = await supabase
-        .from("swing_sessions")
-        .select("analysis_status")
+        .from("video_2d_sessions" as any)
+        .select("processing_status")
         .eq("id", sid)
         .single();
 
-      const status = data?.analysis_status;
+      const status = (data as any)?.processing_status;
       if (status === "processing") setStep("analyzing");
       if (status === "complete") {
         setStep("complete");
@@ -119,10 +169,16 @@ export default function SwingUpload() {
   const handleAnalyze = async () => {
     if (!file) return;
     setErrorMessage(null);
-    setStep("uploading");
+    setStep("processing");
     setUploadProgress(0);
 
     try {
+      // Step 1: Extract frames from video
+      const frames = await extractFrames(file);
+      console.log(`[SwingUpload] Extracted ${frames.length} frames`);
+
+      // Step 2: Upload original video
+      setStep("uploading");
       const ext = file.name.split(".").pop() || "mp4";
       const storagePath = `2d-analysis/${Date.now()}_${crypto.randomUUID()}.${ext}`;
 
@@ -141,26 +197,33 @@ export default function SwingUpload() {
       const { data: urlData } = supabase.storage.from("swing-videos").getPublicUrl(storagePath);
       const videoUrl = urlData.publicUrl;
 
-      setStep("processing");
+      // Step 3: Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      const playerId = user?.id || "anonymous";
 
-      const { data: sessionData, error: sessionError } = await supabase
-        .from("swing_sessions")
-        .insert({ video_url: videoUrl, analysis_status: "pending", analysis_source: "2d_gemini" })
-        .select("id")
-        .single();
-
-      if (sessionError || !sessionData) throw new Error("Failed to create session.");
-
-      const sid = sessionData.id;
-      setSessionId(sid);
       setStep("analyzing");
 
-      const { error: fnError } = await supabase.functions.invoke("analyze-swing-2d", {
-        body: { session_id: sid, video_url: videoUrl },
+      // Step 4: Call analyze-video-2d with frames
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("analyze-video-2d", {
+        body: {
+          player_id: playerId,
+          video_url: videoUrl,
+          video_filename: file.name,
+          video_storage_path: storagePath,
+          frames,
+          is_paid_user: false,
+        },
       });
 
-      if (fnError) console.error("[SwingUpload] Edge function error:", fnError);
+      if (fnError) {
+        console.error("[SwingUpload] Edge function error:", fnError);
+        throw new Error("Analysis failed. Please try again.");
+      }
 
+      const sid = fnData?.session_id;
+      if (!sid) throw new Error("No session ID returned from analysis.");
+
+      setSessionId(sid);
       startPolling(sid);
     } catch (err: any) {
       console.error("[SwingUpload] Error:", err);
