@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,15 +63,10 @@ export default function Signup() {
             </div>
             <CardTitle className="text-2xl">Account Created!</CardTitle>
             <CardDescription>
-              Your account has been created successfully.
+              Check your email to confirm your account, then log in to access your dashboard.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Alert>
-              <AlertDescription>
-                <strong>Note:</strong> To access admin features, an existing admin must grant you admin privileges in the database.
-              </AlertDescription>
-            </Alert>
             
             <Button asChild className="w-full">
               <Link to="/login">Go to Login</Link>
@@ -88,12 +84,26 @@ export default function Signup() {
           <div className="flex justify-center mb-4">
             <Logo size="lg" linkTo="" />
           </div>
-          <CardTitle className="text-2xl">Create Account</CardTitle>
+          <CardTitle className="text-2xl">Join Catching Barrels</CardTitle>
           <CardDescription>
-            Create an account to access admin features
+            Start with a free diagnostic or choose a plan
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <Button asChild className="w-full mb-6 bg-teal-500 hover:bg-teal-600 text-white font-bold py-6 text-lg">
+            <Link to="/pricing" className="flex items-center justify-center gap-2">
+              View Plans <ArrowRight className="w-5 h-5" />
+            </Link>
+          </Button>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">or sign up with email</span>
+            </div>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
