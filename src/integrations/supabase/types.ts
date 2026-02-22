@@ -3054,6 +3054,9 @@ export type Database = {
           sessions_this_week: number | null
           sms_opt_in: boolean | null
           stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string | null
+          subscription_tier: string | null
           tags: string[] | null
           team: string | null
           total_xp: number | null
@@ -3120,6 +3123,9 @@ export type Database = {
           sessions_this_week?: number | null
           sms_opt_in?: boolean | null
           stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          subscription_tier?: string | null
           tags?: string[] | null
           team?: string | null
           total_xp?: number | null
@@ -3186,6 +3192,9 @@ export type Database = {
           sessions_this_week?: number | null
           sms_opt_in?: boolean | null
           stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          subscription_tier?: string | null
           tags?: string[] | null
           team?: string | null
           total_xp?: number | null
