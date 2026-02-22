@@ -68,7 +68,7 @@ export default function Landing() {
         {/* Subtle red accent glow */}
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[160px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
 
-        <div className="relative max-w-4xl mx-auto px-4 text-center">
+        <div className="relative max-w-4xl mx-auto px-8 text-center">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-black leading-tight mb-6">
             Stop Guessing.{" "}
             <span className="text-red-500">Start Catching Barrels.</span>
