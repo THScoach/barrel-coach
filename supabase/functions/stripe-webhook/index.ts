@@ -59,59 +59,111 @@ serve(async (req) => {
     if (event.type === "checkout.session.completed") {
       const checkoutSession = event.data.object as Stripe.Checkout.Session;
       const sessionId = checkoutSession.metadata?.session_id;
+      const priceType = checkoutSession.metadata?.price_type;
+      const customerEmail = checkoutSession.customer_details?.email;
+      const stripeCustomerId = checkoutSession.customer as string | null;
+      const stripeSubscriptionId = checkoutSession.subscription as string | null;
 
-      if (!sessionId) {
-        console.error("No session_id in checkout metadata");
-        return new Response("Missing session_id", { status: 400 });
+      // === SUBSCRIPTION CHECKOUT (has price_type, no session_id) ===
+      if (priceType && customerEmail) {
+        console.log("Subscription checkout completed:", { priceType, customerEmail });
+
+        // 1. Create or get auth user
+        const { data: createUserData, error: createUserError } = await supabase.auth.admin.createUser({
+          email: customerEmail,
+          email_confirm: true,
+          user_metadata: { subscription_tier: priceType },
+        });
+
+        if (createUserError && !createUserError.message?.includes("already been registered")) {
+          console.error("Failed to create user:", createUserError);
+        } else {
+          console.log("User created/exists:", createUserData?.user?.id || "existing");
+        }
+
+        // 2. Upsert player record
+        const { error: upsertError } = await supabase
+          .from("players")
+          .upsert(
+            {
+              email: customerEmail,
+              name: customerEmail.split("@")[0],
+              subscription_tier: priceType,
+              subscription_status: "active",
+              stripe_customer_id: stripeCustomerId,
+              stripe_subscription_id: stripeSubscriptionId,
+            },
+            { onConflict: "email" }
+          );
+
+        if (upsertError) {
+          console.error("Failed to upsert player:", upsertError);
+        } else {
+          console.log("Player upserted successfully");
+        }
+
+        // 3. Generate magic link
+        const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+          type: "magiclink",
+          email: customerEmail,
+        });
+
+        if (linkError) {
+          console.error("Failed to generate magic link:", linkError);
+        } else {
+          console.log("Magic link generated:", linkData?.properties?.action_link ? "success" : "no link");
+        }
       }
 
-      console.log("Payment completed for session:", sessionId);
+      // === ONE-TIME PAYMENT CHECKOUT (has session_id) ===
+      if (sessionId) {
+        console.log("Payment completed for session:", sessionId);
 
-      // Update session status to paid
-      const { error: updateError } = await supabase
-        .from("sessions")
-        .update({
-          status: "paid",
-          stripe_payment_intent_id: checkoutSession.payment_intent as string,
-          paid_at: new Date().toISOString(),
-        })
-        .eq("id", sessionId);
+        // Update session status to paid
+        const { error: updateError } = await supabase
+          .from("sessions")
+          .update({
+            status: "paid",
+            stripe_payment_intent_id: checkoutSession.payment_intent as string,
+            paid_at: new Date().toISOString(),
+          })
+          .eq("id", sessionId);
 
-      if (updateError) {
-        console.error("Failed to update session:", updateError);
-        return new Response("Failed to update session", { status: 500 });
-      }
+        if (updateError) {
+          console.error("Failed to update session:", updateError);
+          return new Response("Failed to update session", { status: 500 });
+        }
 
-      // === SMS WORKFLOW: PURCHASE COMPLETE ===
-      // Send immediate purchase confirmation SMS
-      await callSmsFunction("send-sms", {
-        sessionId,
-        triggerName: "purchase_complete",
-        useTemplate: true,
-      });
+        // === SMS WORKFLOW: PURCHASE COMPLETE ===
+        // Send immediate purchase confirmation SMS
+        await callSmsFunction("send-sms", {
+          sessionId,
+          triggerName: "purchase_complete",
+          useTemplate: true,
+        });
 
-      // Schedule follow-up reminders
-      // no_upload_reminder - 24 hours (1440 minutes)
-      await callSmsFunction("schedule-sms", {
-        sessionId,
-        triggerName: "no_upload_reminder",
-      });
+        // Schedule follow-up reminders
+        await callSmsFunction("schedule-sms", {
+          sessionId,
+          triggerName: "no_upload_reminder",
+        });
 
-      // Trigger analysis
-      const analyzeUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-swings`;
-      const response = await fetch(analyzeUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        },
-        body: JSON.stringify({ sessionId }),
-      });
+        // Trigger analysis
+        const analyzeUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-swings`;
+        const response = await fetch(analyzeUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ sessionId }),
+        });
 
-      if (!response.ok) {
-        console.error("Failed to trigger analysis:", await response.text());
-      } else {
-        console.log("Analysis triggered successfully");
+        if (!response.ok) {
+          console.error("Failed to trigger analysis:", await response.text());
+        } else {
+          console.log("Analysis triggered successfully");
+        }
       }
     }
 
