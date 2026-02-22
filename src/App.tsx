@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 // Core pages
+import Landing from "./pages/Landing";
 import Athletes from "./pages/Athletes";
 import AthleteDetail from "./pages/AthleteDetail";
 import Upload from "./pages/Upload";
@@ -31,8 +32,11 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* Public landing */}
+            <Route path="/" element={<Landing />} />
+
             {/* Core app routes */}
-            <Route path="/" element={<Athletes />} />
+            <Route path="/athletes" element={<Athletes />} />
             <Route path="/athletes" element={<Athletes />} />
             <Route path="/athletes/:id" element={<AthleteDetail />} />
             <Route path="/upload" element={<Upload />} />
