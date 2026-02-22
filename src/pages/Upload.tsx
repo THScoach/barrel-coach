@@ -20,6 +20,7 @@ import { Upload as UploadIcon, Loader2 } from "lucide-react";
 import { UploadFileList } from "@/components/upload/UploadFileList";
 import { OnFormLinksInput } from "@/components/upload/OnFormLinksInput";
 import { UploadSuccessState } from "@/components/upload/UploadSuccessState";
+import { extractFrames } from "@/utils/extractFrames";
 import type { UploadFile } from "@/types/upload";
 
 interface Player {
@@ -36,6 +37,7 @@ export default function Upload() {
   const [uploading, setUploading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [frameRate, setFrameRate] = useState("240");
+  const [video2dSessionId, setVideo2dSessionId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: players = [] } = useQuery({
@@ -91,6 +93,8 @@ export default function Upload() {
     setUploading(true);
     let rebootSessionId: string | undefined;
 
+    let captured2dSessionId: string | null = null;
+
     try {
       for (const uploadFile of files) {
         updateFileStatus(uploadFile.id, { status: "uploading", progress: 10 });
@@ -114,7 +118,6 @@ export default function Upload() {
           videoUrl = urlData.publicUrl;
           filename = uploadFile.file.name;
         } else if (uploadFile.source === "onform" && uploadFile.url) {
-          // OnForm link — pass directly; the edge function will resolve it
           videoUrl = uploadFile.url;
           filename = `onform_${uploadFile.onformId || "unknown"}.mp4`;
           updateFileStatus(uploadFile.id, { progress: 30 });
@@ -127,6 +130,41 @@ export default function Upload() {
         }
 
         updateFileStatus(uploadFile.id, { progress: 60 });
+
+        // Fire-and-forget 2D analysis if we have a local file
+        if (uploadFile.source === "file" && uploadFile.file && !captured2dSessionId) {
+          const fileForFrames = uploadFile.file;
+          extractFrames(fileForFrames)
+            .then((frames) => {
+              if (frames.length > 0) {
+                console.log("[Upload] Extracted", frames.length, "frames for 2D analysis");
+                supabase.functions
+                  .invoke("analyze-video-2d", {
+                    body: {
+                      player_id: selectedPlayer,
+                      video_url: videoUrl,
+                      video_filename: filename,
+                      frames,
+                      is_paid_user: true,
+                    },
+                  })
+                  .then(({ data, error }) => {
+                    if (error) {
+                      console.error("[Upload] 2D analysis failed:", error);
+                      return;
+                    }
+                    if (data?.session_id) {
+                      console.log("[Upload] ✅ 2D session:", data.session_id);
+                      captured2dSessionId = data.session_id;
+                      setVideo2dSessionId(data.session_id);
+                    }
+                  });
+              }
+            })
+            .catch((err) => {
+              console.error("[Upload] Frame extraction failed:", err);
+            });
+        }
 
         console.log("[Upload] Sending to upload-to-reboot:", {
           player_id: selectedPlayer,
@@ -165,6 +203,17 @@ export default function Upload() {
       }
 
       toast.success(`${files.length} video(s) uploaded successfully!`);
+
+      // Notify about 2D analysis if it was triggered
+      if (captured2dSessionId || video2dSessionId) {
+        const sid = captured2dSessionId || video2dSessionId;
+        toast.info("2D analysis running — view report when ready", {
+          action: {
+            label: "View Report",
+            onClick: () => window.open(`/report/${sid}`, "_blank"),
+          },
+        });
+      }
     } catch (err: any) {
       console.error("[Upload] Error:", err);
       toast.error(err.message || "Upload failed");
