@@ -11,6 +11,7 @@ import AthleteDetail from "./pages/AthleteDetail";
 import Upload from "./pages/Upload";
 import SwingUpload from "./pages/SwingUpload";
 import SessionView from "./pages/SessionView";
+import SwingReport from "./pages/SwingReport";
 
 // Auth & legal
 import Login from "./pages/Login";
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/analyze" element={<SwingUpload />} />
             <Route path="/session/:sessionId" element={<SessionView />} />
             <Route path="/sessions/:sessionId" element={<SessionView />} />
+            <Route path="/report/:sessionId" element={<SwingReport />} />
 
             {/* Auth */}
             <Route path="/login" element={<Login />} />

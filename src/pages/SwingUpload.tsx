@@ -144,7 +144,7 @@ export default function SwingUpload() {
         setStep("complete");
         if (pollingRef.current) clearInterval(pollingRef.current);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        setTimeout(() => navigate(`/session/${sid}`), 1500);
+        setTimeout(() => navigate(`/report/${sid}`), 1500);
       }
       if (status === "failed") {
         setStep("error");
