@@ -74,7 +74,7 @@ serve(async (req) => {
       }
     }
 
-    const origin = req.headers.get("origin") || "https://barrel-coach.lovable.app";
+    const SITE_URL = Deno.env.get("SITE_URL") || req.headers.get("origin") || "https://barrel-coach.lovable.app";
 
     // Create Stripe checkout session for subscription
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -87,8 +87,8 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
-      success_url: `${origin}/player?subscription=success`,
-      cancel_url: `${origin}/?subscription=cancelled`,
+      success_url: `${SITE_URL}/welcome?plan=${priceType}`,
+      cancel_url: `${SITE_URL}/pricing`,
       metadata: {
         price_type: priceType,
       },
