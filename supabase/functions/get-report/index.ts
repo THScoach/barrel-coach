@@ -52,30 +52,99 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Query reboot_uploads for the session scores
-    // Using reboot_uploads.id as the report identifier
+    // ========================================================================
+    // DUAL-SOURCE LOOKUP: video_2d_sessions first, then reboot_uploads
+    // ========================================================================
+
+    // 1. Try video_2d_sessions first
+    const { data: v2dData } = await supabase
+      .from('video_2d_sessions')
+      .select(`
+        id, player_id, session_date, composite_score, body_score,
+        brain_score, bat_score, ball_score, grade, leak_detected,
+        leak_evidence, motor_profile, coach_rick_take, priority_drill,
+        analysis_json, processing_status, created_at
+      `)
+      .eq('id', sessionId)
+      .single();
+
+    if (v2dData) {
+      // Found in video_2d_sessions
+      if (v2dData.processing_status !== 'complete') {
+        return new Response(
+          JSON.stringify({ processing: true, status: v2dData.processing_status }),
+          { status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Format leak title: replace underscores with spaces, title case
+      const formatLeakTitle = (s: string | null) => {
+        if (!s) return undefined;
+        return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      };
+
+      const currentScore = Math.round(v2dData.composite_score || 0);
+      const ceiling = Math.min(100, currentScore + 15);
+
+      // Get player info
+      let playerInfo = { name: 'Player', age: null as number | null, level: null as string | null, handedness: null as string | null };
+      if (v2dData.player_id) {
+        const { data: pd } = await supabase.from('players').select('name, age, level, handedness').eq('id', v2dData.player_id).single();
+        if (pd) {
+          playerInfo = { name: pd.name || 'Player', age: pd.age, level: pd.level, handedness: pd.handedness === 'left' ? 'L' : pd.handedness === 'right' ? 'R' : null };
+        }
+      }
+
+      const analysisJson = v2dData.analysis_json as Record<string, any> | null;
+
+      const reportData = {
+        contract_version: '2026-01-14',
+        generated_at: new Date().toISOString(),
+        session: {
+          id: v2dData.id,
+          date: v2dData.session_date,
+          player: playerInfo,
+        },
+        scores: {
+          body: v2dData.body_score || 0,
+          brain: v2dData.brain_score || 0,
+          bat: v2dData.bat_score || 0,
+          ball: v2dData.ball_score || 0,
+          composite: currentScore,
+          deltas: { body: 0, brain: 0, bat: 0, ball: 0, composite: 0 },
+        },
+        kinetic_potential: { present: true, ceiling, current: currentScore },
+        primary_leak: v2dData.leak_detected
+          ? { present: true, title: formatLeakTitle(v2dData.leak_detected), description: v2dData.leak_evidence, why_it_matters: v2dData.coach_rick_take, frame_url: undefined, loop_url: undefined }
+          : { present: false, title: undefined, description: undefined, why_it_matters: undefined, frame_url: undefined, loop_url: undefined },
+        fix_order: { present: false, items: [], do_not_chase: [] },
+        square_up_window: { present: false, grid: undefined, best_zone: undefined, avoid_zone: undefined, coach_note: undefined },
+        weapon_panel: { present: false, metrics: [] },
+        ball_panel: { present: false, is_projected: false, outcomes: [] },
+        barrel_sling_panel: { present: false },
+        drills: v2dData.priority_drill
+          ? { present: true, items: [{ name: v2dData.priority_drill, focus: 'Primary prescription' }] }
+          : { present: false, items: [] },
+        session_history: { present: false, items: [] },
+        coach_note: { present: false, text: undefined, audio_url: undefined },
+        badges: [],
+        motor_profile_hint: analysisJson?.motor_profile || v2dData.motor_profile || undefined,
+      };
+
+      return new Response(JSON.stringify(reportData), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 2. Fall back to reboot_uploads
     const { data: rebootData, error: rebootError } = await supabase
       .from('reboot_uploads')
       .select(`
-        id,
-        player_id,
-        session_date,
-        body_score,
-        brain_score,
-        bat_score,
-        composite_score,
-        grade,
-        weakest_link,
-        pelvis_velocity,
-        torso_velocity,
-        x_factor,
-        bat_ke,
-        transfer_efficiency,
-        ground_flow_score,
-        core_flow_score,
-        upper_flow_score,
-        consistency_cv,
-        consistency_grade,
+        id, player_id, session_date, body_score, brain_score, bat_score,
+        composite_score, grade, weakest_link, pelvis_velocity, torso_velocity,
+        x_factor, bat_ke, transfer_efficiency, ground_flow_score,
+        core_flow_score, upper_flow_score, consistency_cv, consistency_grade,
         created_at
       `)
       .eq('id', sessionId)
@@ -85,10 +154,7 @@ serve(async (req) => {
       console.error('Error fetching reboot data:', rebootError);
       return new Response(
         JSON.stringify({ error: 'Report not found', details: rebootError?.message }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
