@@ -315,6 +315,44 @@ async function processAnalysisInBackground(
 
     console.log(`[2D Analysis BG] Got scores: Body=${analysis.body}, Brain=${analysis.brain}, Bat=${analysis.bat}, Ball=${analysis.ball}`);
 
+    // Axis stability classification
+    const cogVeloY = typeof analysis.cog_velo_y === 'number' ? analysis.cog_velo_y : (analysis.visible_metrics?.cog_velo_y ?? null);
+    const pelvisAv = typeof analysis.pelvis_av === 'number' ? analysis.pelvis_av : null;
+    const trunkAv = typeof analysis.trunk_av === 'number' ? analysis.trunk_av : null;
+    const armAv = typeof analysis.arm_av === 'number' ? analysis.arm_av : null;
+    const ptRatio = pelvisAv && trunkAv ? pelvisAv / trunkAv : null;
+    const taRatio = trunkAv && armAv ? trunkAv / armAv : null;
+
+    let axisStabilityType = 'DEVELOPING';
+    let stabilityScore = 50;
+    let stabilityNote = '';
+    let stabilityCue = '';
+
+    if (cogVeloY !== null) {
+      if (cogVeloY < -0.5) {
+        axisStabilityType = 'BACKWARD_DRIFT';
+        stabilityNote = 'Center of gravity drifting backward during swing';
+        stabilityCue = 'Feel weight stay centered over belly button through contact';
+      } else if (cogVeloY > 0.8) {
+        axisStabilityType = 'FORWARD_SPIN';
+        stabilityNote = 'Center of gravity lunging forward, losing rotational axis';
+        stabilityCue = 'Brace front leg and rotate around a fixed post';
+      } else if (cogVeloY >= -0.1 && cogVeloY <= 0.3) {
+        axisStabilityType = 'STABLE';
+        stabilityNote = 'Excellent rotational axis stability';
+        stabilityCue = 'Maintain current movement pattern';
+      } else {
+        axisStabilityType = 'DEVELOPING';
+        stabilityNote = 'Axis stability is developing - minor drift detected';
+        stabilityCue = 'Focus on keeping head centered over hips through rotation';
+      }
+      // Score: 100 when cogVeloY is 0, drops as it deviates
+      const deviation = Math.abs(cogVeloY);
+      stabilityScore = Math.max(0, Math.min(100, Math.round(100 - (deviation * 80))));
+    }
+
+    console.log(`[2D Analysis BG] Axis stability: ${axisStabilityType}, score=${stabilityScore}, cogVeloY=${cogVeloY}`);
+
     // Update session with analysis results (individual swing scores)
     const { data: sessionData, error: updateError } = await supabase
       .from("video_2d_sessions")
@@ -329,7 +367,7 @@ async function processAnalysisInBackground(
         leak_detected: analysis.leak_detected,
         leak_evidence: analysis.leak_evidence,
         motor_profile: analysis.motor_profile,
-        motor_profile_indication: analysis.motor_profile, // For aggregation
+        motor_profile_indication: analysis.motor_profile,
         motor_profile_evidence: analysis.profile_evidence,
         priority_drill: analysis.priority_drill,
         coach_rick_take: analysis.coach_rick_take,
@@ -337,6 +375,16 @@ async function processAnalysisInBackground(
         analysis_confidence: analysis.confidence,
         processing_status: "complete",
         completed_at: new Date().toISOString(),
+        axis_stability_type: axisStabilityType,
+        axis_stability_score: stabilityScore,
+        cog_velo_y: cogVeloY,
+        pelvis_av: pelvisAv,
+        trunk_av: trunkAv,
+        arm_av: armAv,
+        pt_ratio: ptRatio,
+        ta_ratio: taRatio,
+        stability_note: stabilityNote,
+        stability_cue: stabilityCue,
       })
       .eq("id", sessionId)
       .select("batch_session_id")
