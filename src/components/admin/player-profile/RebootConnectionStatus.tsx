@@ -18,7 +18,7 @@ export function RebootConnectionStatus({ rebootPlayerId }: RebootConnectionStatu
   return (
     <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30">
       <AlertCircle className="h-3 w-3 mr-1" />
-      Not in Reboot - will be created on first upload
+      3D Analysis Ready
     </Badge>
   );
 }
