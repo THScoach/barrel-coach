@@ -493,7 +493,63 @@ serve(async (req) => {
         .update({ reboot_session_id: rebootSessionId })
         .eq("id", uploadId);
 
-      const presignedUrl = await getUploadUrl(rebootSessionId, rebootPlayerId, filename, frame_rate);
+      let activeRebootPlayerId = rebootPlayerId;
+      let presignedUrl: string;
+
+      try {
+        presignedUrl = await getUploadUrl(rebootSessionId, activeRebootPlayerId, filename, frame_rate);
+      } catch (presignError: any) {
+        const errMsg = presignError?.message || "";
+        if (presignError && errMsg.includes("not valid") && errMsg.includes("400")) {
+          console.warn(`[Upload] Presigned URL failed for reboot_player_id=${activeRebootPlayerId}. Re-registering player...`);
+          const oldId = activeRebootPlayerId;
+
+          // Clear stale IDs so createRebootPlayer makes a fresh one
+          await supabase
+            .from("players")
+            .update({ reboot_player_id: null, reboot_athlete_id: null } as any)
+            .eq("id", player_id);
+
+          // Re-create player in Reboot
+          const { data: playerRow } = await supabase
+            .from("players")
+            .select("name, height_inches, weight_lbs, handedness")
+            .eq("id", player_id)
+            .single();
+
+          const newRebootId = await createRebootPlayer({
+            name: playerRow.name,
+            height_inches: playerRow.height_inches,
+            weight_lbs: playerRow.weight_lbs,
+            bats: playerRow.handedness,
+          });
+
+          // Persist the new ID
+          await supabase
+            .from("players")
+            .update({ reboot_player_id: newRebootId, reboot_athlete_id: newRebootId } as any)
+            .eq("id", player_id);
+
+          console.log(`[Upload] Re-registered player. Old ID: ${oldId} → New ID: ${newRebootId}`);
+          activeRebootPlayerId = newRebootId;
+
+          // Re-create session with new player ID
+          const sessionTypeId = session_type === 'game' ? 2 : 1;
+          const newSession = await createMocapSession(activeRebootPlayerId, sessionDate, sessionTypeId);
+          rebootSessionId = newSession.session_id || newSession.id;
+          console.log(`[Upload] Created new session after re-registration: ${rebootSessionId}`);
+
+          await supabase
+            .from("reboot_uploads")
+            .update({ reboot_session_id: rebootSessionId })
+            .eq("id", uploadId);
+
+          // Retry presigned URL
+          presignedUrl = await getUploadUrl(rebootSessionId, activeRebootPlayerId, filename, frame_rate);
+        } else {
+          throw presignError;
+        }
+      }
 
       await uploadVideoToS3(resolvedVideoUrl, presignedUrl);
 
@@ -520,7 +576,7 @@ serve(async (req) => {
           success: true,
           upload_id: uploadId,
           reboot_session_id: rebootSessionId,
-          reboot_player_id: rebootPlayerId,
+          reboot_player_id: activeRebootPlayerId,
           status: 'processing',
           message: 'Video uploaded successfully. Processing will complete in a few minutes.',
         }),
