@@ -63,7 +63,8 @@ serve(async (req) => {
         id, player_id, session_date, composite_score, body_score,
         brain_score, bat_score, ball_score, grade, leak_detected,
         leak_evidence, motor_profile, coach_rick_take, priority_drill,
-        analysis_json, processing_status, created_at
+        analysis_json, processing_status, created_at,
+        axis_stability_type, axis_stability_score, stability_note, stability_cue, cog_velo_y
       `)
       .eq('id', sessionId)
       .single();
@@ -175,6 +176,15 @@ serve(async (req) => {
           camera_angle: analysisJson?.camera_angle || null,
           confidence: analysisJson?.confidence || null,
           limitations: analysisJson?.limitations || [],
+        } : { present: false },
+
+        axis_stability: v2dData.axis_stability_type ? {
+          present: true,
+          type: v2dData.axis_stability_type,
+          score: v2dData.axis_stability_score,
+          note: v2dData.stability_note,
+          cue: v2dData.stability_cue,
+          cog_velo_y: v2dData.cog_velo_y,
         } : { present: false },
 
         fix_order: { present: false, items: [], do_not_chase: [] },

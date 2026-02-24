@@ -15,3 +15,4 @@ export { PrescriptionCard } from './PrescriptionCard';
 export { FourBScoreboardV2 } from './FourBScoreboardV2';
 export { KineticFingerprintScoreCard } from './KineticFingerprintScoreCard';
 export { MLBComparisonCard } from './MLBComparisonCard';
+export { AxisStabilityCard } from './AxisStabilityCard';

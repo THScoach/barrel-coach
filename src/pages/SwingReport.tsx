@@ -20,6 +20,7 @@ import {
   PrescriptionCard,
   KineticFingerprintScoreCard,
   MLBComparisonCard,
+  AxisStabilityCard,
 } from '@/components/lab-report';
 
 // ============================================================================
@@ -130,7 +131,10 @@ export default function SwingReport() {
           mlbMatch={mlbMatch?.player_name}
         />
         
-        {/* 2. Structure (Anthropometrics) */}
+        {/* 2. Axis Stability - first section after header */}
+        {data.axis_stability?.present && <AxisStabilityCard data={data.axis_stability} />}
+        
+        {/* 3. Structure (Anthropometrics) */}
         {data.structure?.present && <StructureCard structure={data.structure} />}
         
         {/* 3. Kinetic Fingerprint Score Breakdown */}

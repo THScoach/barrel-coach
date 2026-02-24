@@ -1,3 +1,5 @@
+import type { AxisStabilityData } from '@/components/lab-report/AxisStabilityCard';
+
 // ============================================================================
 // Lab Report v2.0 Types - Catching Barrels Player Analysis Output
 // 
@@ -357,6 +359,9 @@ export interface LabReportData {
   motor_profile: MotorProfileSection;
   energy_leak: EnergyLeakReport;
   prescription: CoachingPrescription;
+  
+  // Axis Stability (2D analysis)
+  axis_stability?: AxisStabilityData;
   
   // Session history for progress tracking
   session_history?: {
