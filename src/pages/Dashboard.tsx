@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScoreCard } from "@/components/dashboard/ScoreCard";
 import { LeakAlert } from "@/components/dashboard/LeakAlert";
+import { CoachRickChat } from "@/components/dashboard/CoachRickChat";
 import { PrescribedDrills } from "@/components/drills/PrescribedDrills";
 import { PrescribedVideos } from "@/components/player/PrescribedVideos";
 import { Button } from "@/components/ui/button";
@@ -322,6 +323,13 @@ export default function Dashboard() {
         {playerId && (
           <div className="mb-10">
             <PrescribedDrills playerId={playerId} />
+          </div>
+        )}
+
+        {/* Coach Rick Chat */}
+        {playerId && (
+          <div className="mb-10">
+            <CoachRickChat playerId={playerId} priorityPillar={session.leak_type} />
           </div>
         )}
 
