@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Video, Clock, CheckCircle, XCircle, Loader2, ChevronRight, Play, AlertTriangle, Target, MessageSquare } from "lucide-react";
+import { RefreshCw, Video, Clock, CheckCircle, XCircle, Loader2, ChevronRight, Play, AlertTriangle, Target, MessageSquare, X } from "lucide-react";
 import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { SessionDetailModal } from "./SessionDetailModal";
@@ -62,6 +62,7 @@ export function PlayerUploadHistory({ playerId }: PlayerUploadHistoryProps) {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [selectedSession, setSelectedSession] = useState<RebootUpload | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [clearingStuck, setClearingStuck] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: uploads, isLoading, refetch, isRefetching } = useQuery({
@@ -170,6 +171,38 @@ export function PlayerUploadHistory({ playerId }: PlayerUploadHistoryProps) {
     }
   };
 
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const hasStuckRows = uploads?.some(u =>
+    u.processing_status !== 'complete' && u.processing_status !== 'failed' &&
+    u.created_at && u.created_at < cutoff
+  );
+
+  const handleClearStuck = async () => {
+    setClearingStuck(true);
+    try {
+      await supabase
+        .from('reboot_sessions')
+        .delete()
+        .eq('player_id', playerId)
+        .neq('status', 'complete')
+        .lt('created_at', cutoff);
+
+      await supabase
+        .from('reboot_uploads')
+        .delete()
+        .eq('player_id', playerId)
+        .is('composite_score', null)
+        .lt('created_at', cutoff);
+
+      toast.success('Cleared stuck sessions');
+      refetch();
+    } catch {
+      toast.error('Failed to clear stuck sessions');
+    } finally {
+      setClearingStuck(false);
+    }
+  };
+
   const getStatusDisplay = (status: string | null) => {
     const config = statusConfig[status || 'pending'] || statusConfig.pending;
     const Icon = config.icon;
@@ -204,6 +237,18 @@ export function PlayerUploadHistory({ playerId }: PlayerUploadHistoryProps) {
               <Loader2 className="h-3 w-3 animate-spin" />
               Auto-refreshing
             </span>
+          )}
+          {hasStuckRows && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearStuck}
+              disabled={clearingStuck}
+              className="text-red-500 hover:text-red-400 text-xs h-7 px-2"
+            >
+              {clearingStuck ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <X className="h-3 w-3 mr-1" />}
+              Clear Stuck
+            </Button>
           )}
           <Button
             variant="ghost"
