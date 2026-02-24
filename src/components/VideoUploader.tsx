@@ -29,6 +29,24 @@ const MAX_RETRY_ATTEMPTS = 1;
 const ACCEPTED_TYPES = ["video/mp4", "video/quicktime"];
 const MAX_SIZE_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
 
+const detectFps = (file: File): Promise<{ duration: number; isHighSpeed: boolean }> =>
+  new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.src = URL.createObjectURL(file);
+    video.onloadedmetadata = () => {
+      const result = {
+        duration: video.duration,
+        isHighSpeed: file.size > 50 * 1024 * 1024 || video.duration < 3,
+      };
+      URL.revokeObjectURL(video.src);
+      resolve(result);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src);
+      resolve({ duration: 0, isHighSpeed: false });
+    };
+  });
+
 export function VideoUploader({
   swingsRequired,
   swingsMaxAllowed = DEFAULT_MAX_SWINGS,
@@ -84,14 +102,18 @@ export function VideoUploader({
     return currentSlots.findIndex((s) => s === null);
   }, []);
 
-  const validateVideo = useCallback(async (file: File): Promise<{ valid: boolean; error?: string }> => {
+  const validateVideo = useCallback(async (file: File): Promise<{ valid: boolean; error?: string; duration?: number; isHighSpeed?: boolean }> => {
     if (!ACCEPTED_TYPES.includes(file.type)) {
       return { valid: false, error: "Upload a .mp4 or .mov." };
     }
     if (file.size > MAX_SIZE_BYTES) {
       return { valid: false, error: "That file is too big. Keep it under 2GB." };
     }
-    return { valid: true };
+    const fpsInfo = await detectFps(file);
+    if (fpsInfo.isHighSpeed) {
+      toast.info("🎥 High-speed video detected — nice! Upload may take a moment.", { duration: 4000 });
+    }
+    return { valid: true, duration: fpsInfo.duration, isHighSpeed: fpsInfo.isHighSpeed };
   }, []);
 
   // Upload with XHR for progress tracking + user JWT
