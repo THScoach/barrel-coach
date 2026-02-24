@@ -96,6 +96,10 @@ serve(async (req) => {
       }
 
       const analysisJson = v2dData.analysis_json as Record<string, any> | null;
+      const visibleMetrics = analysisJson?.visible_metrics || {};
+      const bodyComponents = analysisJson?.body_components || {};
+      const brainComponents = analysisJson?.brain_components || {};
+      const batComponents = analysisJson?.bat_components || {};
 
       const reportData = {
         contract_version: '2026-01-14',
@@ -114,19 +118,76 @@ serve(async (req) => {
           deltas: { body: 0, brain: 0, bat: 0, ball: 0, composite: 0 },
         },
         kinetic_potential: { present: true, ceiling, current: currentScore },
-        primary_leak: v2dData.leak_detected
-          ? { present: true, title: formatLeakTitle(v2dData.leak_detected), description: v2dData.leak_evidence, why_it_matters: v2dData.coach_rick_take, frame_url: undefined, loop_url: undefined }
-          : { present: false, title: undefined, description: undefined, why_it_matters: undefined, frame_url: undefined, loop_url: undefined },
+
+        motor_profile: analysisJson?.motor_profile ? {
+          present: true,
+          profile: analysisJson.motor_profile,
+          evidence: analysisJson.profile_evidence,
+          mlb_match: null,
+        } : { present: false },
+
+        energy_leak: v2dData.leak_detected ? {
+          present: true,
+          title: formatLeakTitle(v2dData.leak_detected),
+          description: v2dData.leak_evidence,
+          why_it_matters: analysisJson?.coach_rick_take,
+          severity: 'primary',
+        } : { present: false },
+
+        primary_leak: v2dData.leak_detected ? {
+          present: true,
+          title: formatLeakTitle(v2dData.leak_detected),
+          description: v2dData.leak_evidence,
+          why_it_matters: analysisJson?.coach_rick_take,
+          frame_url: undefined,
+          loop_url: undefined,
+        } : { present: false },
+
+        prescription: v2dData.priority_drill ? {
+          present: true,
+          items: [{
+            name: v2dData.priority_drill,
+            focus: formatLeakTitle(v2dData.leak_detected) || 'Primary leak',
+            reps: '3 sets x 10 reps',
+            notes: bodyComponents.notes || batComponents.notes || null,
+          }],
+        } : { present: false },
+
+        timing: brainComponents.notes ? {
+          present: true,
+          summary: brainComponents.notes,
+          confidence: analysisJson?.confidence || 0.6,
+          limitation: '2D estimate — full timing requires 3D sensor data',
+        } : { present: false },
+
+        direction: visibleMetrics.stride_direction || visibleMetrics.head_movement ? {
+          present: true,
+          stride_direction: visibleMetrics.stride_direction,
+          head_movement: visibleMetrics.head_movement,
+          finish_balance: visibleMetrics.finish_balance,
+          front_leg_action: visibleMetrics.front_leg_action,
+        } : { present: false },
+
+        structure: visibleMetrics.hip_shoulder_separation_estimate ? {
+          present: true,
+          hip_shoulder_separation: visibleMetrics.hip_shoulder_separation_estimate,
+          spine_angle: visibleMetrics.spine_angle || null,
+          camera_angle: analysisJson?.camera_angle || null,
+          confidence: analysisJson?.confidence || null,
+          limitations: analysisJson?.limitations || [],
+        } : { present: false },
+
         fix_order: { present: false, items: [], do_not_chase: [] },
-        square_up_window: { present: false, grid: undefined, best_zone: undefined, avoid_zone: undefined, coach_note: undefined },
+        square_up_window: { present: false },
         weapon_panel: { present: false, metrics: [] },
         ball_panel: { present: false, is_projected: false, outcomes: [] },
         barrel_sling_panel: { present: false },
-        drills: v2dData.priority_drill
-          ? { present: true, items: [{ name: v2dData.priority_drill, focus: 'Primary prescription' }] }
-          : { present: false, items: [] },
         session_history: { present: false, items: [] },
-        coach_note: { present: false, text: undefined, audio_url: undefined },
+        coach_note: analysisJson?.coach_rick_take ? {
+          present: true,
+          text: analysisJson.coach_rick_take,
+          audio_url: undefined,
+        } : { present: false },
         badges: [],
         motor_profile_hint: analysisJson?.motor_profile || v2dData.motor_profile || undefined,
       };
