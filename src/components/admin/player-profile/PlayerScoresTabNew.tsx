@@ -24,6 +24,7 @@ import {
   TrendingDown,
   Minus,
   Share2,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
@@ -225,6 +226,29 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
     }
   };
 
+  const handleDeleteSession = async (report: KRSReport) => {
+    const confirmed = window.confirm('Delete this session? This cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      if (report.type === 'reboot') {
+        const rebootSessionId = report.rawData.reboot_session_id;
+        if (rebootSessionId) {
+          await supabase.from('reboot_uploads').delete().eq('reboot_session_id', rebootSessionId);
+          await supabase.from('reboot_sessions').delete().eq('reboot_session_id', rebootSessionId);
+        } else {
+          await supabase.from('reboot_uploads').delete().eq('id', report.id);
+        }
+      } else if (report.type === 'video_2d') {
+        await supabase.from('video_2d_sessions').delete().eq('id', report.id);
+      }
+      toast.success('Session deleted');
+      loadReports();
+    } catch (err) {
+      toast.error('Failed to delete session');
+    }
+  };
+
   const getScoreBadgeColor = (score: number | null | undefined) => {
     if (score === null || score === undefined) return 'bg-slate-700 text-slate-400';
     if (score >= 70) return 'bg-emerald-900/50 text-emerald-400 border-emerald-700';
@@ -330,7 +354,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
                   {reports.map((report) => (
                     <TableRow 
                       key={report.id} 
-                      className="border-slate-800 hover:bg-slate-800/50 cursor-pointer"
+                      className="group border-slate-800 hover:bg-slate-800/50 cursor-pointer"
                       onClick={() => handleViewReport(report)}
                     >
                       <TableCell className="text-white font-medium">
@@ -413,8 +437,23 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
                               handleViewReport(report);
                             }}
                           >
-                            <ExternalLink className="h-4 w-4" />
+                          <ExternalLink className="h-4 w-4" />
                           </Button>
+                          {(report.type === 'reboot' || report.type === 'video_2d') && 
+                           (report.compositeScore === null || report.processingStatus === 'failed') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteSession(report);
+                              }}
+                              title="Delete session"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
