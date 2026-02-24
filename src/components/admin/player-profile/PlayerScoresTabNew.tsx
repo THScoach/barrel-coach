@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,8 +41,9 @@ interface PlayerScoresTabNewProps {
 
 interface KRSReport {
   id: string;
-  type: 'reboot' | 'analyzer' | 'hittrax';
+  type: 'reboot' | 'analyzer' | 'hittrax' | 'video_2d';
   typeName: string;
+  processingStatus?: string;
   date: Date;
   compositeScore: number | null;
   mainLeak: string | null;
@@ -56,6 +57,7 @@ interface KRSReport {
 }
 
 export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: PlayerScoresTabNewProps) {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialSubTab = searchParams.get('subtab') || 'reports';
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab);
@@ -118,7 +120,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
     
     setLoading(true);
     
-    const [rebootRes, sessionsRes, launchRes] = await Promise.all([
+    const [rebootRes, sessionsRes, launchRes, video2dRes] = await Promise.all([
       supabase
         .from('reboot_uploads')
         .select('*')
@@ -134,7 +136,17 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
         .select('*')
         .eq('player_id', mappedPlayersId)
         .order('session_date', { ascending: false }),
+      supabase
+        .from('video_2d_sessions')
+        .select('id, session_date, composite_score, body_score, brain_score, bat_score, ball_score, leak_detected, motor_profile, processing_status, created_at')
+        .eq('player_id', mappedPlayersId)
+        .order('created_at', { ascending: false }),
     ]);
+
+    const formatLeakTitle = (s: string | null) => {
+      if (!s) return null;
+      return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    };
 
     const allReports: KRSReport[] = [
       ...(rebootRes.data || []).map(s => ({
@@ -178,6 +190,22 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
         },
         rawData: s,
       })),
+      ...(video2dRes.data || []).map(s => ({
+        id: s.id,
+        type: 'video_2d' as const,
+        typeName: '2D Video',
+        date: new Date(s.session_date || s.created_at || new Date()),
+        compositeScore: s.composite_score ? Math.round(s.composite_score) : null,
+        mainLeak: formatLeakTitle(s.leak_detected),
+        processingStatus: s.processing_status,
+        scores: {
+          brain: s.brain_score ?? undefined,
+          body: s.body_score ?? undefined,
+          bat: s.bat_score ?? undefined,
+          ball: s.ball_score ?? undefined,
+        },
+        rawData: s,
+      })),
     ];
 
     allReports.sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -186,7 +214,9 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
   };
 
   const handleViewReport = (report: KRSReport) => {
-    if (report.type === 'reboot') {
+    if (report.type === 'video_2d') {
+      navigate(`/report/${report.id}`);
+    } else if (report.type === 'reboot') {
       setSelectedRebootSession(report.rawData);
     } else if (report.type === 'hittrax') {
       setSelectedLaunchSession(report.rawData);
@@ -307,12 +337,21 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
                         {format(report.date, 'MMM d, yyyy')}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="border-slate-700 text-slate-300 text-xs">
+                        <Badge variant="outline" className={cn(
+                          "text-xs",
+                          report.type === 'video_2d' 
+                            ? "border-blue-500/50 text-blue-400" 
+                            : "border-slate-700 text-slate-300"
+                        )}>
                           {report.typeName}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        {report.compositeScore !== null ? (
+                        {report.type === 'video_2d' && report.processingStatus !== 'complete' ? (
+                          <Badge className="bg-yellow-900/50 text-yellow-400 border-yellow-700 text-xs">
+                            Processing
+                          </Badge>
+                        ) : report.compositeScore !== null ? (
                           <Badge className={cn("text-sm font-bold", getScoreBadgeColor(report.compositeScore))}>
                             {report.compositeScore}
                           </Badge>
@@ -321,23 +360,32 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
                         )}
                       </TableCell>
                       <TableCell>
-                        {getLeakBadge(report.mainLeak)}
+                        {report.type === 'video_2d' && report.processingStatus !== 'complete' 
+                          ? <span className="text-slate-500">—</span>
+                          : report.mainLeak 
+                            ? getLeakBadge(report.mainLeak) 
+                            : <span className="text-slate-500">—</span>
+                        }
                       </TableCell>
                       <TableCell>
-                        <div className="flex justify-center gap-1">
-                          {report.scores.brain !== undefined && (
-                            <span className="text-xs text-pink-400">Br:{report.scores.brain}</span>
-                          )}
-                          {report.scores.body !== undefined && (
-                            <span className="text-xs text-blue-400">Bo:{report.scores.body}</span>
-                          )}
-                          {report.scores.bat !== undefined && (
-                            <span className="text-xs text-orange-400">Ba:{report.scores.bat}</span>
-                          )}
-                          {report.scores.ball !== undefined && (
-                            <span className="text-xs text-green-400">Bl:{report.scores.ball}</span>
-                          )}
-                        </div>
+                        {report.type === 'video_2d' && report.processingStatus !== 'complete' ? (
+                          <span className="text-xs text-yellow-400">Processing…</span>
+                        ) : (
+                          <div className="flex justify-center gap-1">
+                            {report.scores.brain !== undefined && (
+                              <span className="text-xs text-pink-400">Br:{report.scores.brain}</span>
+                            )}
+                            {report.scores.body !== undefined && (
+                              <span className="text-xs text-blue-400">Bo:{report.scores.body}</span>
+                            )}
+                            {report.scores.bat !== undefined && (
+                              <span className="text-xs text-orange-400">Ba:{report.scores.bat}</span>
+                            )}
+                            {report.scores.ball !== undefined && (
+                              <span className="text-xs text-green-400">Bl:{report.scores.ball}</span>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
