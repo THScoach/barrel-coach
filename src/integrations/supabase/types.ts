@@ -5425,6 +5425,9 @@ export type Database = {
         Row: {
           analysis_confidence: number | null
           analysis_json: Json | null
+          arm_av: number | null
+          axis_stability_score: number | null
+          axis_stability_type: string | null
           ball_score: number | null
           bat_score: number | null
           batch_session_id: string | null
@@ -5432,6 +5435,7 @@ export type Database = {
           brain_score: number | null
           camera_angle: string | null
           coach_rick_take: string | null
+          cog_velo_y: number | null
           completed_at: string | null
           composite_score: number | null
           context: string | null
@@ -5446,14 +5450,20 @@ export type Database = {
           motor_profile: string | null
           motor_profile_evidence: string | null
           motor_profile_indication: string | null
+          pelvis_av: number | null
           pending_3d_analysis: boolean | null
           player_id: string | null
           priority_drill: string | null
           processing_status: string | null
+          pt_ratio: number | null
           reboot_upload_id: string | null
           session_date: string
+          stability_cue: string | null
+          stability_note: string | null
           swing_index: number | null
           swing_number: number | null
+          ta_ratio: number | null
+          trunk_av: number | null
           updated_at: string | null
           upgraded_to_3d_at: string | null
           upload_source: string | null
@@ -5465,6 +5475,9 @@ export type Database = {
         Insert: {
           analysis_confidence?: number | null
           analysis_json?: Json | null
+          arm_av?: number | null
+          axis_stability_score?: number | null
+          axis_stability_type?: string | null
           ball_score?: number | null
           bat_score?: number | null
           batch_session_id?: string | null
@@ -5472,6 +5485,7 @@ export type Database = {
           brain_score?: number | null
           camera_angle?: string | null
           coach_rick_take?: string | null
+          cog_velo_y?: number | null
           completed_at?: string | null
           composite_score?: number | null
           context?: string | null
@@ -5486,14 +5500,20 @@ export type Database = {
           motor_profile?: string | null
           motor_profile_evidence?: string | null
           motor_profile_indication?: string | null
+          pelvis_av?: number | null
           pending_3d_analysis?: boolean | null
           player_id?: string | null
           priority_drill?: string | null
           processing_status?: string | null
+          pt_ratio?: number | null
           reboot_upload_id?: string | null
           session_date?: string
+          stability_cue?: string | null
+          stability_note?: string | null
           swing_index?: number | null
           swing_number?: number | null
+          ta_ratio?: number | null
+          trunk_av?: number | null
           updated_at?: string | null
           upgraded_to_3d_at?: string | null
           upload_source?: string | null
@@ -5505,6 +5525,9 @@ export type Database = {
         Update: {
           analysis_confidence?: number | null
           analysis_json?: Json | null
+          arm_av?: number | null
+          axis_stability_score?: number | null
+          axis_stability_type?: string | null
           ball_score?: number | null
           bat_score?: number | null
           batch_session_id?: string | null
@@ -5512,6 +5535,7 @@ export type Database = {
           brain_score?: number | null
           camera_angle?: string | null
           coach_rick_take?: string | null
+          cog_velo_y?: number | null
           completed_at?: string | null
           composite_score?: number | null
           context?: string | null
@@ -5526,14 +5550,20 @@ export type Database = {
           motor_profile?: string | null
           motor_profile_evidence?: string | null
           motor_profile_indication?: string | null
+          pelvis_av?: number | null
           pending_3d_analysis?: boolean | null
           player_id?: string | null
           priority_drill?: string | null
           processing_status?: string | null
+          pt_ratio?: number | null
           reboot_upload_id?: string | null
           session_date?: string
+          stability_cue?: string | null
+          stability_note?: string | null
           swing_index?: number | null
           swing_number?: number | null
+          ta_ratio?: number | null
+          trunk_av?: number | null
           updated_at?: string | null
           upgraded_to_3d_at?: string | null
           upload_source?: string | null
