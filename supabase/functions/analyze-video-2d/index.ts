@@ -385,6 +385,12 @@ async function processAnalysisInBackground(
         arm_av: armAv,
         pt_ratio: ptRatio,
         ta_ratio: taRatio,
+        transfer_ratio: transferRatio,
+        ke_shape: null,
+        braking_quality: null,
+        trunk_tilt_std: null,
+        x_factor_peak: null,
+        com_barrel_dist: null,
         stability_note: stabilityNote,
         stability_cue: stabilityCue,
       })
