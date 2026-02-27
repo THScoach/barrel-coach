@@ -322,6 +322,8 @@ async function processAnalysisInBackground(
     const armAv = typeof analysis.arm_av === 'number' ? analysis.arm_av : null;
     const ptRatio = pelvisAv && trunkAv ? pelvisAv / trunkAv : null;
     const taRatio = trunkAv && armAv ? trunkAv / armAv : null;
+    // Correct transfer ratio: trunk / pelvis (how much trunk amplifies pelvis)
+    const transferRatio = pelvisAv && trunkAv && pelvisAv > 0 ? trunkAv / pelvisAv : null;
 
     let axisStabilityType = 'DEVELOPING';
     let stabilityScore = 50;
