@@ -2930,6 +2930,54 @@ export type Database = {
           },
         ]
       }
+      player_streaks: {
+        Row: {
+          created_at: string | null
+          current_streak: number | null
+          id: string
+          last_activity_date: string | null
+          longest_streak: number | null
+          player_id: string
+          streak_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_streak?: number | null
+          id?: string
+          last_activity_date?: string | null
+          longest_streak?: number | null
+          player_id: string
+          streak_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_streak?: number | null
+          id?: string
+          last_activity_date?: string | null
+          longest_streak?: number | null
+          player_id?: string
+          streak_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_streaks_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_streaks_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_video_prescriptions: {
         Row: {
           created_at: string | null
