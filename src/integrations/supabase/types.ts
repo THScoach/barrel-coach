@@ -59,6 +59,48 @@ export type Database = {
           },
         ]
       }
+      agent_actions_log: {
+        Row: {
+          action_type: string
+          created_at: string | null
+          description: string | null
+          id: string
+          metadata: Json | null
+          player_id: string | null
+        }
+        Insert: {
+          action_type: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          player_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          player_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_actions_log_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_actions_log_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       athlete_krs_models: {
         Row: {
           beta_0: number
