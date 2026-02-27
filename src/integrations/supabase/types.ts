@@ -5516,9 +5516,11 @@ export type Database = {
           analysis_confidence: number | null
           analysis_json: Json | null
           arm_av: number | null
+          attack_angle: number | null
           axis_stability_score: number | null
           axis_stability_type: string | null
           ball_score: number | null
+          barrel_control: number | null
           bat_score: number | null
           batch_session_id: string | null
           body_score: number | null
@@ -5535,6 +5537,9 @@ export type Database = {
           error_message: string | null
           frame_rate: number | null
           grade: string | null
+          ground_connection: number | null
+          hand_path: number | null
+          hip_rotation: number | null
           id: string
           is_paid_user: boolean | null
           ke_shape: string | null
@@ -5546,16 +5551,19 @@ export type Database = {
           pelvis_av: number | null
           pending_3d_analysis: boolean | null
           player_id: string | null
+          power_estimate: number | null
           priority_drill: string | null
           processing_status: string | null
           pt_ratio: number | null
           reboot_upload_id: string | null
+          sequence_quality: number | null
           session_date: string
           stability_cue: string | null
           stability_note: string | null
           swing_index: number | null
           swing_number: number | null
           ta_ratio: number | null
+          timing_estimate: number | null
           transfer_ratio: number | null
           trunk_av: number | null
           trunk_tilt_std: number | null
@@ -5572,9 +5580,11 @@ export type Database = {
           analysis_confidence?: number | null
           analysis_json?: Json | null
           arm_av?: number | null
+          attack_angle?: number | null
           axis_stability_score?: number | null
           axis_stability_type?: string | null
           ball_score?: number | null
+          barrel_control?: number | null
           bat_score?: number | null
           batch_session_id?: string | null
           body_score?: number | null
@@ -5591,6 +5601,9 @@ export type Database = {
           error_message?: string | null
           frame_rate?: number | null
           grade?: string | null
+          ground_connection?: number | null
+          hand_path?: number | null
+          hip_rotation?: number | null
           id?: string
           is_paid_user?: boolean | null
           ke_shape?: string | null
@@ -5602,16 +5615,19 @@ export type Database = {
           pelvis_av?: number | null
           pending_3d_analysis?: boolean | null
           player_id?: string | null
+          power_estimate?: number | null
           priority_drill?: string | null
           processing_status?: string | null
           pt_ratio?: number | null
           reboot_upload_id?: string | null
+          sequence_quality?: number | null
           session_date?: string
           stability_cue?: string | null
           stability_note?: string | null
           swing_index?: number | null
           swing_number?: number | null
           ta_ratio?: number | null
+          timing_estimate?: number | null
           transfer_ratio?: number | null
           trunk_av?: number | null
           trunk_tilt_std?: number | null
@@ -5628,9 +5644,11 @@ export type Database = {
           analysis_confidence?: number | null
           analysis_json?: Json | null
           arm_av?: number | null
+          attack_angle?: number | null
           axis_stability_score?: number | null
           axis_stability_type?: string | null
           ball_score?: number | null
+          barrel_control?: number | null
           bat_score?: number | null
           batch_session_id?: string | null
           body_score?: number | null
@@ -5647,6 +5665,9 @@ export type Database = {
           error_message?: string | null
           frame_rate?: number | null
           grade?: string | null
+          ground_connection?: number | null
+          hand_path?: number | null
+          hip_rotation?: number | null
           id?: string
           is_paid_user?: boolean | null
           ke_shape?: string | null
@@ -5658,16 +5679,19 @@ export type Database = {
           pelvis_av?: number | null
           pending_3d_analysis?: boolean | null
           player_id?: string | null
+          power_estimate?: number | null
           priority_drill?: string | null
           processing_status?: string | null
           pt_ratio?: number | null
           reboot_upload_id?: string | null
+          sequence_quality?: number | null
           session_date?: string
           stability_cue?: string | null
           stability_note?: string | null
           swing_index?: number | null
           swing_number?: number | null
           ta_ratio?: number | null
+          timing_estimate?: number | null
           transfer_ratio?: number | null
           trunk_av?: number | null
           trunk_tilt_std?: number | null
