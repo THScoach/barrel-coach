@@ -5433,9 +5433,11 @@ export type Database = {
           batch_session_id: string | null
           body_score: number | null
           brain_score: number | null
+          braking_quality: string | null
           camera_angle: string | null
           coach_rick_take: string | null
           cog_velo_y: number | null
+          com_barrel_dist: number | null
           completed_at: string | null
           composite_score: number | null
           context: string | null
@@ -5445,6 +5447,7 @@ export type Database = {
           grade: string | null
           id: string
           is_paid_user: boolean | null
+          ke_shape: string | null
           leak_detected: string | null
           leak_evidence: string | null
           motor_profile: string | null
@@ -5463,7 +5466,9 @@ export type Database = {
           swing_index: number | null
           swing_number: number | null
           ta_ratio: number | null
+          transfer_ratio: number | null
           trunk_av: number | null
+          trunk_tilt_std: number | null
           updated_at: string | null
           upgraded_to_3d_at: string | null
           upload_source: string | null
@@ -5471,6 +5476,7 @@ export type Database = {
           video_quality: string | null
           video_storage_path: string | null
           video_url: string
+          x_factor_peak: number | null
         }
         Insert: {
           analysis_confidence?: number | null
@@ -5483,9 +5489,11 @@ export type Database = {
           batch_session_id?: string | null
           body_score?: number | null
           brain_score?: number | null
+          braking_quality?: string | null
           camera_angle?: string | null
           coach_rick_take?: string | null
           cog_velo_y?: number | null
+          com_barrel_dist?: number | null
           completed_at?: string | null
           composite_score?: number | null
           context?: string | null
@@ -5495,6 +5503,7 @@ export type Database = {
           grade?: string | null
           id?: string
           is_paid_user?: boolean | null
+          ke_shape?: string | null
           leak_detected?: string | null
           leak_evidence?: string | null
           motor_profile?: string | null
@@ -5513,7 +5522,9 @@ export type Database = {
           swing_index?: number | null
           swing_number?: number | null
           ta_ratio?: number | null
+          transfer_ratio?: number | null
           trunk_av?: number | null
+          trunk_tilt_std?: number | null
           updated_at?: string | null
           upgraded_to_3d_at?: string | null
           upload_source?: string | null
@@ -5521,6 +5532,7 @@ export type Database = {
           video_quality?: string | null
           video_storage_path?: string | null
           video_url: string
+          x_factor_peak?: number | null
         }
         Update: {
           analysis_confidence?: number | null
@@ -5533,9 +5545,11 @@ export type Database = {
           batch_session_id?: string | null
           body_score?: number | null
           brain_score?: number | null
+          braking_quality?: string | null
           camera_angle?: string | null
           coach_rick_take?: string | null
           cog_velo_y?: number | null
+          com_barrel_dist?: number | null
           completed_at?: string | null
           composite_score?: number | null
           context?: string | null
@@ -5545,6 +5559,7 @@ export type Database = {
           grade?: string | null
           id?: string
           is_paid_user?: boolean | null
+          ke_shape?: string | null
           leak_detected?: string | null
           leak_evidence?: string | null
           motor_profile?: string | null
@@ -5563,7 +5578,9 @@ export type Database = {
           swing_index?: number | null
           swing_number?: number | null
           ta_ratio?: number | null
+          transfer_ratio?: number | null
           trunk_av?: number | null
+          trunk_tilt_std?: number | null
           updated_at?: string | null
           upgraded_to_3d_at?: string | null
           upload_source?: string | null
@@ -5571,6 +5588,7 @@ export type Database = {
           video_quality?: string | null
           video_storage_path?: string | null
           video_url?: string
+          x_factor_peak?: number | null
         }
         Relationships: [
           {
