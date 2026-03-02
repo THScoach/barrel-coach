@@ -13,6 +13,8 @@ import type {
   PopulationBaseline,
 } from './types';
 import { calculatePercentile } from './extract-facts';
+import { kespSensorOnly } from '@/lib/kesp-engine';
+import type { BatType, PitchPreset } from '@/lib/kesp-engine';
 
 // ============================================================================
 // BAT SCORE (HIGH confidence - direct from sensor)
