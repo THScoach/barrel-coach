@@ -321,7 +321,7 @@ export function calculateFourBFromSensor(
   const bat = calculateBatScore(facts, baseline);
   const brain = calculateBrainScore(facts, baseline);
   const body = calculateBodyScore(facts, baseline);
-  const ball = calculateBallScore(launchMonitorData);
+  const ball = calculateBallScore(facts, launchMonitorData);
 
   // Composite: weight by confidence
   // BAT (HIGH): 40%
