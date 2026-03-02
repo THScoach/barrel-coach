@@ -13,6 +13,8 @@ import type {
   PopulationBaseline,
 } from './types';
 import { calculatePercentile } from './extract-facts';
+import { kespSensorOnly } from '@/lib/kesp-engine';
+import type { BatType, PitchPreset } from '@/lib/kesp-engine';
 
 // ============================================================================
 // BAT SCORE (HIGH confidence - direct from sensor)
@@ -213,61 +215,90 @@ export function calculateBodyScore(
  * This requires launch monitor data, not bat sensor
  */
 export function calculateBallScore(
+  facts?: SensorFacts,
   launchMonitorData?: {
     exitVelocity?: number;
     launchAngle?: number;
     hardHitRate?: number;
-  }
+  },
+  kespOpts?: {
+    bat_type?: BatType;
+    pitch_preset?: PitchPreset;
+  },
 ): BallScore {
-  if (!launchMonitorData || launchMonitorData.exitVelocity === undefined) {
+  // --- Path 1: Real launch monitor data (HIGH confidence) ---
+  if (launchMonitorData && launchMonitorData.exitVelocity !== undefined) {
+    const ev = launchMonitorData.exitVelocity;
+    const la = launchMonitorData.launchAngle;
+    const hhr = launchMonitorData.hardHitRate;
+
+    const evScore = Math.min(100, (ev / 100) * 100);
+
+    let laScore = 50;
+    if (la !== undefined) {
+      if (la >= 10 && la <= 30) {
+        laScore = 80 + ((20 - Math.abs(la - 20)) / 20) * 20;
+      } else if (la > 0 && la < 10) {
+        laScore = 50 + la * 3;
+      } else if (la > 30 && la < 45) {
+        laScore = 80 - (la - 30) * 2;
+      } else {
+        laScore = Math.max(20, 50 - Math.abs(la));
+      }
+    }
+
+    let hhrScore = 50;
+    if (hhr !== undefined) {
+      hhrScore = Math.min(100, hhr);
+    }
+
+    const overall = Math.round(evScore * 0.5 + laScore * 0.3 + hhrScore * 0.2);
+
     return {
-      overall: 0,
-      available: false,
-      confidence: 'low',
+      overall: clamp(overall, 0, 100),
+      available: true,
+      exitVelocity: ev,
+      launchAngle: la,
+      hardHitRate: hhr,
+      confidence: 'high',
     };
   }
 
-  // If we have launch monitor data, calculate score
-  const ev = launchMonitorData.exitVelocity;
-  const la = launchMonitorData.launchAngle;
-  const hhr = launchMonitorData.hardHitRate;
+  // --- Path 2: KESP prediction from sensor data (MEDIUM confidence) ---
+  if (facts) {
+    const kesp = kespSensorOnly(
+      {
+        bat_speed_mph: facts.batSpeedMax,
+        attack_angle_std_deg: facts.attackAngleStdDev,
+        attack_angle_mean_deg: facts.attackAngleMean,
+        hand_to_bat_ratio: facts.handToBatRatio,
+      },
+      {
+        bat_type: kespOpts?.bat_type ?? 'bbcor',
+        pitch_preset: kespOpts?.pitch_preset ?? 'bp_machine',
+      },
+    );
 
-  // Exit velocity score (50% weight for youth, scales up)
-  // Youth 12U: 50+ is good, 70+ is elite
-  // High school: 80+ is good, 95+ is elite
-  // For now, use a general scale
-  const evScore = Math.min(100, (ev / 100) * 100);
+    // Score the predicted EV on the same 0-100 scale
+    const evScore = Math.min(100, (kesp.predicted_ev_mph / 100) * 100);
+    const overall = Math.round(evScore);
 
-  // Launch angle score (30% weight)
-  // Optimal is 10-30 degrees
-  let laScore = 50;
-  if (la !== undefined) {
-    if (la >= 10 && la <= 30) {
-      laScore = 80 + ((20 - Math.abs(la - 20)) / 20) * 20;
-    } else if (la > 0 && la < 10) {
-      laScore = 50 + la * 3;
-    } else if (la > 30 && la < 45) {
-      laScore = 80 - (la - 30) * 2;
-    } else {
-      laScore = Math.max(20, 50 - Math.abs(la));
-    }
+    return {
+      overall: clamp(overall, 0, 100),
+      available: true,
+      exitVelocity: kesp.predicted_ev_mph,
+      confidence: 'medium',
+      reasoning: `Predicted via KESP collision model (bat ${facts.batSpeedMax} mph, ` +
+        `contact quality ${kesp.contact_quality}, pitch preset ${kespOpts?.pitch_preset ?? 'bp_machine'}). ` +
+        `Launch monitor data would upgrade this to HIGH confidence.`,
+    };
   }
 
-  // Hard hit rate score (20% weight)
-  let hhrScore = 50;
-  if (hhr !== undefined) {
-    hhrScore = Math.min(100, hhr);
-  }
-
-  const overall = Math.round(evScore * 0.5 + laScore * 0.3 + hhrScore * 0.2);
-
+  // --- Path 3: No data at all ---
   return {
-    overall: clamp(overall, 0, 100),
-    available: true,
-    exitVelocity: ev,
-    launchAngle: la,
-    hardHitRate: hhr,
-    confidence: 'high',
+    overall: 0,
+    available: false,
+    confidence: 'low',
   };
 }
 
@@ -290,7 +321,7 @@ export function calculateFourBFromSensor(
   const bat = calculateBatScore(facts, baseline);
   const brain = calculateBrainScore(facts, baseline);
   const body = calculateBodyScore(facts, baseline);
-  const ball = calculateBallScore(launchMonitorData);
+  const ball = calculateBallScore(facts, launchMonitorData);
 
   // Composite: weight by confidence
   // BAT (HIGH): 40%
