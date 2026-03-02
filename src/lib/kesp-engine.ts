@@ -91,7 +91,7 @@ const BAT_PROFILES: Record<BatType, { e: number; r: number; q: number; batCoeff:
   wood:    { e: 0.50, r: 0.20, q: 0.25, batCoeff: 1.25 },
   bbcor:   { e: 0.50, r: 0.22, q: 0.27, batCoeff: 1.27 },
   usssa:   { e: 0.55, r: 0.25, q: 0.32, batCoeff: 1.32 },
-  usa_bat: { e: 0.50, r: 0.20, q: 0.25, batCoeff: 1.24 },
+  usa_bat: { e: 0.50, r: 0.20, q: 0.25, batCoeff: 1.25 },
 };
 
 /** Pitch speed presets (mph) */
@@ -109,7 +109,7 @@ const PITCH_PRESETS: Record<PitchPreset, number> = {
  * [base_bat_speed_mph, reference_weight_lbs, reference_transfer_ratio]
  */
 const LEVEL_BASELINES: Record<PlayerLevel, { base: number; refWeight: number; refTR: number }> = {
-  youth:       { base: 55, refWeight: 120, refTR: 1.15 },
+  youth:       { base: 48, refWeight: 120, refTR: 1.15 },
   high_school: { base: 64, refWeight: 170, refTR: 1.25 },
   college:     { base: 68, refWeight: 190, refTR: 1.30 },
   milb:        { base: 72, refWeight: 200, refTR: 1.32 },
@@ -230,10 +230,10 @@ function collisionEV(
   vBat: number,
   vPitch: number,
   contactQuality: number,
-  profile: { e: number; r: number; batCoeff: number },
+  profile: { e: number; r: number; q: number; batCoeff: number },
 ): number {
-  const { e, r, batCoeff } = profile;
-  const ev = (e * vPitch + batCoeff * vBat * contactQuality) / (1 + r);
+  const { q, batCoeff } = profile;
+  const ev = q * vPitch + batCoeff * vBat * contactQuality;
   return Math.round(ev * 10) / 10;
 }
 
