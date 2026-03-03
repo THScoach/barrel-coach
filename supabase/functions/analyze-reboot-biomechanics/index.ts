@@ -230,6 +230,8 @@ function analyzeSwingData(
   // Rotation data
   const pelvisRot = kinematicsData.map(r => r.pelvis_rot);
   const torsoRot = kinematicsData.map(r => r.torso_rot);
+  const torsoExt = kinematicsData.map(r => r.torso_ext);
+  const torsoSide = kinematicsData.map(r => r.torso_side);
   
   // Calculate peak indices
   const pelvisPeakIndex = findPeakIndex(pelvisMomentumZ);
@@ -253,7 +255,38 @@ function analyzeSwingData(
   const xFactor = calculateXFactor(pelvisRot, torsoRot);
   const pelvisRom = calculateROM(pelvisRot);
   const torsoRom = calculateROM(torsoRot);
-  
+
+  // --- Trunk stability (stride-to-contact window) ---
+  // Stride-to-contact window: use time_from_max_hand.
+  // Stride ≈ earliest negative time (start of motion), contact ≈ 0.
+  // Use pelvis peak as proxy for stride onset, contact as time_from_max_hand ≈ 0.
+  let contactIndex = timeFromMaxHand.findIndex(t => Math.abs(t) < 0.01);
+  if (contactIndex === -1) contactIndex = timeFromMaxHand.length - 1;
+  const strideIndex = pelvisPeakIndex; // Pelvis firing marks stride commitment
+  const winStart = Math.min(strideIndex, contactIndex);
+  const winEnd = Math.max(strideIndex, contactIndex) + 1;
+
+  const windowTorsoExt = torsoExt.slice(winStart, winEnd);
+  const windowTorsoSide = torsoSide.slice(winStart, winEnd);
+  const windowTorsoRot = torsoRot.slice(winStart, winEnd);
+
+  // trunk_pitch_sd: SD of torso_ext in window
+  const trunkPitchSd = windowTorsoExt.length >= 2 ? stdDev(windowTorsoExt) : 0;
+
+  // trunk_lat_sd: SD of torso_side in window
+  const trunkLatSd = windowTorsoSide.length >= 2 ? stdDev(windowTorsoSide) : 0;
+
+  // trunk_rot_cv: CV of angular velocity from torso_rot
+  // Estimate frame interval from time_from_max_hand
+  const dtEstimates: number[] = [];
+  for (let i = winStart + 1; i < winEnd && i < timeFromMaxHand.length; i++) {
+    const dt = Math.abs(timeFromMaxHand[i] - timeFromMaxHand[i - 1]);
+    if (dt > 0) dtEstimates.push(dt);
+  }
+  const dt = dtEstimates.length > 0 ? dtEstimates.reduce((a, b) => a + b, 0) / dtEstimates.length : 0.01;
+  const rotVelocities = angularVelocity(windowTorsoRot, dt);
+  const trunkRotCv = rotVelocities.length >= 2 ? coeffOfVariation(rotVelocities) : 0;
+
   return {
     pelvisPeakMomentum: Math.max(...pelvisMomentumZ.map(Math.abs)),
     torsoPeakMomentum: Math.max(...torsoMomentumZ.map(Math.abs)),
@@ -269,6 +302,9 @@ function analyzeSwingData(
     xFactor,
     pelvisRom,
     torsoRom,
+    trunkPitchSd,
+    trunkLatSd,
+    trunkRotCv,
   };
 }
 
