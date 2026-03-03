@@ -11,6 +11,7 @@ import type {
   BallScore,
   FourBFromSensor,
   PopulationBaseline,
+  TrunkStabilityData,
 } from './types';
 import { calculatePercentile } from './extract-facts';
 import { kespSensorOnly } from '@/lib/kesp-engine';
