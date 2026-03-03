@@ -65,6 +65,9 @@ interface AnalysisMetrics {
   trunkPitchSd: number;
   trunkLatSd: number;
   trunkRotCv: number;
+  trunkLatMean: number;
+  trunkSsi: number;
+  dumpDirection: string;
 }
 
 interface Flag {
