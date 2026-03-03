@@ -68,6 +68,17 @@ interface AnalysisMetrics {
   trunkLatMean: number;
   trunkSsi: number;
   dumpDirection: string;
+  ssiBandwidth: number;
+  interSagIqr: number;
+  interFrontIqr: number;
+}
+
+interface PerSwingStability {
+  sagSd: number;
+  frontSd: number;
+  rotCv: number;
+  latMean: number;
+  ssi: number;
 }
 
 interface Flag {

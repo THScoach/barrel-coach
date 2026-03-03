@@ -4815,6 +4815,8 @@ export type Database = {
           event_contact_frame: number | null
           frame_rate: number | null
           id: string
+          inter_front_iqr: number | null
+          inter_sag_iqr: number | null
           motor_profile: string | null
           motor_profile_confidence: number | null
           movement_id: string
@@ -4829,6 +4831,7 @@ export type Database = {
           session_id: string | null
           slingshotter_score: number | null
           spinner_score: number | null
+          ssi_bandwidth: number | null
           titan_score: number | null
           torso_decel_before_contact: boolean | null
           torso_vel_peak_frame: number | null
@@ -4856,6 +4859,8 @@ export type Database = {
           event_contact_frame?: number | null
           frame_rate?: number | null
           id?: string
+          inter_front_iqr?: number | null
+          inter_sag_iqr?: number | null
           motor_profile?: string | null
           motor_profile_confidence?: number | null
           movement_id: string
@@ -4870,6 +4875,7 @@ export type Database = {
           session_id?: string | null
           slingshotter_score?: number | null
           spinner_score?: number | null
+          ssi_bandwidth?: number | null
           titan_score?: number | null
           torso_decel_before_contact?: boolean | null
           torso_vel_peak_frame?: number | null
@@ -4897,6 +4903,8 @@ export type Database = {
           event_contact_frame?: number | null
           frame_rate?: number | null
           id?: string
+          inter_front_iqr?: number | null
+          inter_sag_iqr?: number | null
           motor_profile?: string | null
           motor_profile_confidence?: number | null
           movement_id?: string
@@ -4911,6 +4919,7 @@ export type Database = {
           session_id?: string | null
           slingshotter_score?: number | null
           spinner_score?: number | null
+          ssi_bandwidth?: number | null
           titan_score?: number | null
           torso_decel_before_contact?: boolean | null
           torso_vel_peak_frame?: number | null
