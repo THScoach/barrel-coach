@@ -208,7 +208,37 @@ interface Video2DRequest {
   swing_index?: number; // Swing number within batch
 }
 
-// Background processing function - runs after response is sent
+// Look up trunk stability composite from latest Reboot analysis for this player
+// deno-lint-ignore no-explicit-any
+async function lookupTrunkTiltStd(supabase: any, playerId: string): Promise<number | null> {
+  try {
+    const { data } = await supabase
+      .from("swing_analysis")
+      .select("trunk_pitch_sd, trunk_lat_sd, trunk_rot_cv")
+      .eq("player_id", playerId)
+      .not("trunk_pitch_sd", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!data || data.trunk_pitch_sd == null) return null;
+
+    // Composite trunk stability: weighted RMS of the 3 metrics (lower = more stable)
+    const pitchSd = data.trunk_pitch_sd ?? 0;
+    const latSd = data.trunk_lat_sd ?? 0;
+    const rotCv = data.trunk_rot_cv ?? 0;
+    // Convert to degrees for ext/side (radians → degrees), rotCv is dimensionless
+    const pitchDeg = pitchSd * (180 / Math.PI);
+    const latDeg = latSd * (180 / Math.PI);
+    const composite = Math.sqrt((pitchDeg ** 2 + latDeg ** 2 + (rotCv * 10) ** 2) / 3);
+    return Math.round(composite * 1000) / 1000;
+  } catch (err) {
+    console.error("[2D Analysis] Failed to lookup trunk stability:", err);
+    return null;
+  }
+}
+
+
 async function processAnalysisInBackground(
   sessionId: string, 
   playerId: string, 
