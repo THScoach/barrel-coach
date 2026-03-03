@@ -797,11 +797,11 @@ serve(async (req) => {
     const bodyScore = calculateBodyScore(metrics, flags);
     const playerReport = generatePlayerReport(player.name || "Player", metrics, flags, bodyScore);
 
-    console.log(`[Analysis] Results: Transfer Ratio=${metrics.transferRatio.toFixed(2)}, ` +
-      `Timing Gap=${metrics.timingGapPercent.toFixed(1)}%, X-Factor=${metrics.xFactor.toFixed(1)}°, ` +
-      `Body Score=${bodyScore}, SSI=${metrics.trunkSsi}, Dump=${metrics.dumpDirection}, ` +
-      `TrunkPitchSD=${metrics.trunkPitchSd.toFixed(3)}, TrunkLatSD=${metrics.trunkLatSd.toFixed(3)}, ` +
-      `TrunkRotCV=${metrics.trunkRotCv.toFixed(3)}, TrunkLatMean=${metrics.trunkLatMean.toFixed(3)}`);
+    console.log(`[Analysis v3] Results: TR=${metrics.transferRatio.toFixed(2)}, ` +
+      `Gap=${metrics.timingGapPercent.toFixed(1)}%, XF=${metrics.xFactor.toFixed(1)}°, ` +
+      `Body=${bodyScore}, SSI=${metrics.trunkSsi}(bw=${metrics.ssiBandwidth}), ` +
+      `Dump=${metrics.dumpDirection}, SagSD=${metrics.trunkPitchSd}, ` +
+      `FrontSD=${metrics.trunkLatSd}, RotCV=${metrics.trunkRotCv}, LatMean=${metrics.trunkLatMean}`);
 
     // Store results
     const { data: analysisResult, error: insertError } = await supabase
@@ -838,6 +838,9 @@ serve(async (req) => {
         trunk_lat_mean: metrics.trunkLatMean,
         trunk_ssi: metrics.trunkSsi,
         dump_direction: metrics.dumpDirection,
+        ssi_bandwidth: metrics.ssiBandwidth,
+        inter_sag_iqr: metrics.interSagIqr,
+        inter_front_iqr: metrics.interFrontIqr,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: "session_id",
