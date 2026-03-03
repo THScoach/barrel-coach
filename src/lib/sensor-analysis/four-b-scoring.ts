@@ -89,48 +89,65 @@ export function calculateBatScore(
  */
 export function calculateBrainScore(
   facts: SensorFacts,
-  baseline: PopulationBaseline
+  baseline: PopulationBaseline,
+  trunkData?: TrunkStabilityData | null,
 ): BrainScore {
-  // Timing consistency (40% weight)
-  // Lower CV = higher score
+  // Timing consistency
   const timingCV = facts.timingCV;
   const timingScore = Math.max(0, Math.min(100, 100 - (timingCV * 1000)));
 
-  // Path consistency (30% weight)
-  // Lower attack angle StdDev = higher score
+  // Path consistency
   const pathStdDev = facts.attackAngleStdDev;
   const pathScore = Math.max(0, Math.min(100, 100 - (pathStdDev * 5)));
 
-  // Zone adaptability (30% weight)
-  // Moderate attack direction range is ideal (5-12 degrees)
+  // Zone adaptability
   const directionRange = facts.attackDirectionStdDev;
   let adaptabilityScore: number;
   if (directionRange < 3) {
-    // Too rigid
     adaptabilityScore = 60;
   } else if (directionRange <= 12) {
-    // Ideal range - adaptable
     adaptabilityScore = 80 + (directionRange - 3) * 2;
   } else {
-    // Too scattered - might be inconsistent
     adaptabilityScore = Math.max(40, 100 - (directionRange - 12) * 3);
   }
 
-  const overall = Math.round(
-    timingScore * 0.4 +
-    pathScore * 0.3 +
-    adaptabilityScore * 0.3
-  );
+  // Trunk consistency from ssi_bandwidth (20% weight when available)
+  // bandwidth 0 = perfect consistency (100), bandwidth >= 50 = no consistency (0)
+  const hasTrunkConsistency = trunkData?.ssi_bandwidth != null;
+  let trunkConsistencyScore: number | undefined;
+
+  let overall: number;
+  if (hasTrunkConsistency) {
+    const bw = trunkData!.ssi_bandwidth!;
+    trunkConsistencyScore = Math.round(clamp((1 - Math.min(bw, 50) / 50) * 100, 0, 100));
+    // Redistribute: timing 32%, path 24%, adaptability 24%, trunk 20%
+    overall = Math.round(
+      timingScore * 0.32 +
+      pathScore * 0.24 +
+      adaptabilityScore * 0.24 +
+      trunkConsistencyScore * 0.20
+    );
+  } else {
+    // Original weights: timing 40%, path 30%, adaptability 30%
+    overall = Math.round(
+      timingScore * 0.4 +
+      pathScore * 0.3 +
+      adaptabilityScore * 0.3
+    );
+  }
 
   return {
     overall: clamp(overall, 0, 100),
     timingConsistency: Math.round(timingScore),
     pathConsistency: Math.round(pathScore),
     zoneAdaptability: Math.round(adaptabilityScore),
+    trunkConsistency: trunkConsistencyScore,
     confidence: 'medium',
     reasoning: `BRAIN score inferred from timing CV (${(timingCV * 100).toFixed(1)}%), ` +
       `attack angle variance (${pathStdDev.toFixed(1)}°), and direction range ` +
-      `(${directionRange.toFixed(1)}°). Timing and path consistency are measurable, ` +
+      `(${directionRange.toFixed(1)}°).` +
+      (hasTrunkConsistency ? ` Trunk consistency (SSI bandwidth ${trunkData!.ssi_bandwidth!.toFixed(1)}) added at 20% weight.` : '') +
+      ` Timing and path consistency are measurable, ` +
       `but pitch recognition and decision-making require video/game data.`,
   };
 }
