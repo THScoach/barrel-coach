@@ -139,6 +139,7 @@ export interface BrainScore extends FourBComponent {
   timingConsistency: number;
   pathConsistency: number;
   zoneAdaptability: number;
+  trunkConsistency?: number; // from ssi_bandwidth, 20% weight when available
 }
 
 /**
@@ -148,6 +149,7 @@ export interface BodyScore extends FourBComponent {
   estimatedSequencing: number;
   estimatedSeparation: number;
   estimatedGroundForce: number;
+  transferScore?: number; // from trunk SSI, 30% weight when available
 }
 
 /**
@@ -347,6 +349,13 @@ export const POPULATION_BASELINES: Record<string, PopulationBaseline> = {
 /**
  * 4B scores computed from sensor data
  */
+export interface TrunkStabilityData {
+  trunk_ssi: number | null;
+  ssi_bandwidth: number | null;
+  dump_direction: string | null;
+  trunk_lat_mean: number | null;
+}
+
 export interface FourBFromSensor {
   bat: BatScore;
   brain: BrainScore;

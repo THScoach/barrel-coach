@@ -11,6 +11,7 @@ import type {
   BallScore,
   FourBFromSensor,
   PopulationBaseline,
+  TrunkStabilityData,
 } from './types';
 import { calculatePercentile } from './extract-facts';
 import { kespSensorOnly } from '@/lib/kesp-engine';
@@ -88,48 +89,65 @@ export function calculateBatScore(
  */
 export function calculateBrainScore(
   facts: SensorFacts,
-  baseline: PopulationBaseline
+  baseline: PopulationBaseline,
+  trunkData?: TrunkStabilityData | null,
 ): BrainScore {
-  // Timing consistency (40% weight)
-  // Lower CV = higher score
+  // Timing consistency
   const timingCV = facts.timingCV;
   const timingScore = Math.max(0, Math.min(100, 100 - (timingCV * 1000)));
 
-  // Path consistency (30% weight)
-  // Lower attack angle StdDev = higher score
+  // Path consistency
   const pathStdDev = facts.attackAngleStdDev;
   const pathScore = Math.max(0, Math.min(100, 100 - (pathStdDev * 5)));
 
-  // Zone adaptability (30% weight)
-  // Moderate attack direction range is ideal (5-12 degrees)
+  // Zone adaptability
   const directionRange = facts.attackDirectionStdDev;
   let adaptabilityScore: number;
   if (directionRange < 3) {
-    // Too rigid
     adaptabilityScore = 60;
   } else if (directionRange <= 12) {
-    // Ideal range - adaptable
     adaptabilityScore = 80 + (directionRange - 3) * 2;
   } else {
-    // Too scattered - might be inconsistent
     adaptabilityScore = Math.max(40, 100 - (directionRange - 12) * 3);
   }
 
-  const overall = Math.round(
-    timingScore * 0.4 +
-    pathScore * 0.3 +
-    adaptabilityScore * 0.3
-  );
+  // Trunk consistency from ssi_bandwidth (20% weight when available)
+  // bandwidth 0 = perfect consistency (100), bandwidth >= 50 = no consistency (0)
+  const hasTrunkConsistency = trunkData?.ssi_bandwidth != null;
+  let trunkConsistencyScore: number | undefined;
+
+  let overall: number;
+  if (hasTrunkConsistency) {
+    const bw = trunkData!.ssi_bandwidth!;
+    trunkConsistencyScore = Math.round(clamp((1 - Math.min(bw, 50) / 50) * 100, 0, 100));
+    // Redistribute: timing 32%, path 24%, adaptability 24%, trunk 20%
+    overall = Math.round(
+      timingScore * 0.32 +
+      pathScore * 0.24 +
+      adaptabilityScore * 0.24 +
+      trunkConsistencyScore * 0.20
+    );
+  } else {
+    // Original weights: timing 40%, path 30%, adaptability 30%
+    overall = Math.round(
+      timingScore * 0.4 +
+      pathScore * 0.3 +
+      adaptabilityScore * 0.3
+    );
+  }
 
   return {
     overall: clamp(overall, 0, 100),
     timingConsistency: Math.round(timingScore),
     pathConsistency: Math.round(pathScore),
     zoneAdaptability: Math.round(adaptabilityScore),
+    trunkConsistency: trunkConsistencyScore,
     confidence: 'medium',
     reasoning: `BRAIN score inferred from timing CV (${(timingCV * 100).toFixed(1)}%), ` +
       `attack angle variance (${pathStdDev.toFixed(1)}°), and direction range ` +
-      `(${directionRange.toFixed(1)}°). Timing and path consistency are measurable, ` +
+      `(${directionRange.toFixed(1)}°).` +
+      (hasTrunkConsistency ? ` Trunk consistency (SSI bandwidth ${trunkData!.ssi_bandwidth!.toFixed(1)}) added at 20% weight.` : '') +
+      ` Timing and path consistency are measurable, ` +
       `but pitch recognition and decision-making require video/game data.`,
   };
 }
@@ -144,13 +162,12 @@ export function calculateBrainScore(
  */
 export function calculateBodyScore(
   facts: SensorFacts,
-  baseline: PopulationBaseline
+  baseline: PopulationBaseline,
+  trunkData?: TrunkStabilityData | null,
 ): BodyScore {
   const needsVideoFor: string[] = [];
 
-  // Sequencing estimate (35% weight)
-  // Infer from relationship between hand speed and bat speed
-  // Good sequencing = efficient energy transfer = good ratio
+  // Sequencing estimate
   const ratioPercentile = calculatePercentile(
     facts.handToBatRatio,
     baseline.handToBatRatio.p10,
@@ -161,48 +178,65 @@ export function calculateBodyScore(
   needsVideoFor.push('Hip-shoulder separation at load');
   needsVideoFor.push('Kinetic chain timing');
 
-  // Separation estimate (35% weight)
-  // Infer from rotational acceleration if available
+  // Separation estimate
   let separationScore: number;
   if (facts.rotationalAccelerationMean !== undefined) {
     separationScore = Math.min(100, facts.rotationalAccelerationMean / 200);
   } else {
-    // Without this data, use ratio as proxy
     separationScore = ratioPercentile * 0.8;
     needsVideoFor.push('Rotational mechanics');
   }
   needsVideoFor.push('X-factor angle');
 
-  // Ground force estimate (30% weight)
-  // Very speculative - we can't measure this from bat sensor
-  // Use hand speed percentile as weak proxy (more force = more speed)
+  // Ground force estimate
   const handSpeedPercentile = calculatePercentile(
     facts.handSpeedMean,
     baseline.handSpeed.p10,
     baseline.handSpeed.p50,
     baseline.handSpeed.p90
   );
-  const groundForceScore = handSpeedPercentile * 0.7 + 15; // Scale down and add floor
+  const groundForceScore = handSpeedPercentile * 0.7 + 15;
   needsVideoFor.push('Weight transfer pattern');
   needsVideoFor.push('Ground reaction forces');
 
-  const overall = Math.round(
-    sequencingScore * 0.35 +
-    separationScore * 0.35 +
-    groundForceScore * 0.30
-  );
+  // Transfer score from trunk SSI (30% weight when available)
+  // SSI is 0-100 where 100=rock solid, maps directly to transfer quality
+  const hasTrunkTransfer = trunkData?.trunk_ssi != null;
+  let transferScore: number | undefined;
+
+  let overall: number;
+  if (hasTrunkTransfer) {
+    transferScore = Math.round(clamp(trunkData!.trunk_ssi!, 0, 100));
+    // Redistribute: sequencing 24.5%, separation 24.5%, groundForce 21%, transfer 30%
+    overall = Math.round(
+      sequencingScore * 0.245 +
+      separationScore * 0.245 +
+      groundForceScore * 0.21 +
+      transferScore * 0.30
+    );
+  } else {
+    // Original weights: sequencing 35%, separation 35%, groundForce 30%
+    overall = Math.round(
+      sequencingScore * 0.35 +
+      separationScore * 0.35 +
+      groundForceScore * 0.30
+    );
+  }
 
   return {
     overall: clamp(overall, 0, 100),
     estimatedSequencing: Math.round(sequencingScore),
     estimatedSeparation: Math.round(separationScore),
     estimatedGroundForce: Math.round(groundForceScore),
-    confidence: 'low',
+    transferScore,
+    confidence: hasTrunkTransfer ? 'medium' : 'low',
     reasoning: `BODY score is a PREDICTION based on energy transfer efficiency. ` +
-      `Without video or 3D motion capture, we cannot directly observe body mechanics. ` +
+      (hasTrunkTransfer
+        ? `Trunk stability (SSI ${trunkData!.trunk_ssi!.toFixed(0)}, dump: ${trunkData!.dump_direction ?? 'unknown'}) adds a direct Transfer subscore at 30% weight. `
+        : `Without video or 3D motion capture, we cannot directly observe body mechanics. `) +
       `This score assumes that efficient energy transfer (good ratio) correlates with ` +
       `good body sequencing, which is often but not always true.`,
-    needsVideoFor: Array.from(new Set(needsVideoFor)), // Deduplicate
+    needsVideoFor: Array.from(new Set(needsVideoFor)),
   };
 }
 
@@ -316,18 +350,15 @@ export function calculateFourBFromSensor(
     exitVelocity?: number;
     launchAngle?: number;
     hardHitRate?: number;
-  }
+  },
+  trunkData?: TrunkStabilityData | null,
 ): FourBFromSensor {
   const bat = calculateBatScore(facts, baseline);
-  const brain = calculateBrainScore(facts, baseline);
-  const body = calculateBodyScore(facts, baseline);
+  const brain = calculateBrainScore(facts, baseline, trunkData);
+  const body = calculateBodyScore(facts, baseline, trunkData);
   const ball = calculateBallScore(facts, launchMonitorData);
 
   // Composite: weight by confidence
-  // BAT (HIGH): 40%
-  // BRAIN (MEDIUM): 30%
-  // BODY (LOW): 15%
-  // BALL: 15% (if available, otherwise redistribute)
   let composite: number;
   if (ball.available && ball.confidence === 'high') {
     composite = Math.round(
