@@ -724,8 +724,9 @@ serve(async (req) => {
 
     console.log(`[Analysis] Results: Transfer Ratio=${metrics.transferRatio.toFixed(2)}, ` +
       `Timing Gap=${metrics.timingGapPercent.toFixed(1)}%, X-Factor=${metrics.xFactor.toFixed(1)}°, ` +
-      `Body Score=${bodyScore}, TrunkPitchSD=${metrics.trunkPitchSd.toFixed(3)}, ` +
-      `TrunkLatSD=${metrics.trunkLatSd.toFixed(3)}, TrunkRotCV=${metrics.trunkRotCv.toFixed(3)}`);
+      `Body Score=${bodyScore}, SSI=${metrics.trunkSsi}, Dump=${metrics.dumpDirection}, ` +
+      `TrunkPitchSD=${metrics.trunkPitchSd.toFixed(3)}, TrunkLatSD=${metrics.trunkLatSd.toFixed(3)}, ` +
+      `TrunkRotCV=${metrics.trunkRotCv.toFixed(3)}, TrunkLatMean=${metrics.trunkLatMean.toFixed(3)}`);
 
     // Store results
     const { data: analysisResult, error: insertError } = await supabase
@@ -759,6 +760,9 @@ serve(async (req) => {
         trunk_pitch_sd: metrics.trunkPitchSd,
         trunk_lat_sd: metrics.trunkLatSd,
         trunk_rot_cv: metrics.trunkRotCv,
+        trunk_lat_mean: metrics.trunkLatMean,
+        trunk_ssi: metrics.trunkSsi,
+        dump_direction: metrics.dumpDirection,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: "session_id",
