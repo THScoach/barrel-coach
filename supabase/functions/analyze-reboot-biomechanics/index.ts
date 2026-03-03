@@ -181,22 +181,70 @@ function stdDev(arr: number[]): number {
   return Math.sqrt(variance);
 }
 
-// Coefficient of variation helper
-function coeffOfVariation(arr: number[]): number {
-  if (arr.length < 2) return 0;
-  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
-  if (Math.abs(mean) < 1e-9) return 0;
-  return stdDev(arr) / Math.abs(mean);
+// Median helper (robust to outliers)
+function median(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-// Compute angular velocity from rotation signal (frame-to-frame differences / dt)
-function angularVelocity(rot: number[], dt: number): number[] {
+// IQR helper
+function iqr(arr: number[]): number {
+  if (arr.length < 4) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const q1 = sorted[Math.floor(sorted.length * 0.25)];
+  const q3 = sorted[Math.floor(sorted.length * 0.75)];
+  return q3 - q1;
+}
+
+// Unwrap angles to prevent false spikes at ±180° boundaries
+function unwrapAngles(angles: number[]): number[] {
+  if (angles.length === 0) return [];
+  const unwrapped = [angles[0]];
+  for (let i = 1; i < angles.length; i++) {
+    let diff = angles[i] - angles[i - 1];
+    while (diff > 180) diff -= 360;
+    while (diff < -180) diff += 360;
+    unwrapped.push(unwrapped[i - 1] + diff);
+  }
+  return unwrapped;
+}
+
+// Compute angular velocity from unwrapped rotation signal (deg/s)
+function angularVelocity(rot: number[], frameRate: number = 240): number[] {
+  const dt = 1 / frameRate;
+  const unwrapped = unwrapAngles(rot);
   const vels: number[] = [];
-  for (let i = 1; i < rot.length; i++) {
-    vels.push((rot[i] - rot[i - 1]) / dt);
+  for (let i = 1; i < unwrapped.length; i++) {
+    vels.push((unwrapped[i] - unwrapped[i - 1]) / dt);
   }
   return vels;
 }
+
+// Filtered CV: only use velocities > 20% of peak to prevent near-zero mean blowup
+function filteredCoeffOfVariation(vels: number[]): number {
+  if (vels.length < 2) return 0;
+  const absVels = vels.map(Math.abs);
+  const peak = Math.max(...absVels);
+  if (peak < 1e-9) return 0;
+  const threshold = peak * 0.2;
+  const filtered = vels.filter((_, i) => absVels[i] > threshold);
+  if (filtered.length < 2) return 0;
+  const mean = filtered.reduce((a, b) => a + b, 0) / filtered.length;
+  if (Math.abs(mean) < 1e-9) return 0;
+  return stdDev(filtered) / Math.abs(mean);
+}
+
+// Normalize "good" score: 100 = rock solid (raw=0), 0 = worst (raw≥maxBad)
+function normalizeGood(raw: number, maxBad: number): number {
+  return (1 - Math.min(raw, maxBad) / maxBad) * 100;
+}
+
+// V1 calibration bounds
+const SAG_SD_MAX = 8.0;   // degrees
+const FRONTAL_SD_MAX = 6.0; // degrees
+const TRANS_CV_MAX = 1.5;   // dimensionless
 
 
 function calculateROM(rotationData: number[]): number {
