@@ -396,7 +396,7 @@ async function processAnalysisInBackground(
         power_estimate: analysis.ball_components?.power_estimate ?? null,
         ke_shape: null,
         braking_quality: null,
-        trunk_tilt_std: null,
+        trunk_tilt_std: await lookupTrunkTiltStd(supabase, playerId),
         x_factor_peak: null,
         com_barrel_dist: null,
         stability_note: stabilityNote,

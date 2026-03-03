@@ -655,7 +655,8 @@ serve(async (req) => {
 
     console.log(`[Analysis] Results: Transfer Ratio=${metrics.transferRatio.toFixed(2)}, ` +
       `Timing Gap=${metrics.timingGapPercent.toFixed(1)}%, X-Factor=${metrics.xFactor.toFixed(1)}°, ` +
-      `Body Score=${bodyScore}`);
+      `Body Score=${bodyScore}, TrunkPitchSD=${metrics.trunkPitchSd.toFixed(3)}, ` +
+      `TrunkLatSD=${metrics.trunkLatSd.toFixed(3)}, TrunkRotCV=${metrics.trunkRotCv.toFixed(3)}`);
 
     // Store results
     const { data: analysisResult, error: insertError } = await supabase
@@ -686,6 +687,9 @@ serve(async (req) => {
         player_report: playerReport,
         momentum_csv_url: momentum_energy_url,
         kinematics_csv_url: inverse_kinematics_url,
+        trunk_pitch_sd: metrics.trunkPitchSd,
+        trunk_lat_sd: metrics.trunkLatSd,
+        trunk_rot_cv: metrics.trunkRotCv,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: "session_id",
