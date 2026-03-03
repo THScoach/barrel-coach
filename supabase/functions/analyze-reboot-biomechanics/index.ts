@@ -289,11 +289,12 @@ function analyzeSwingData(
   const armsMomentumX = momentumData.map(r => r.arms_angular_momentum_x);
   const armsMomentumY = momentumData.map(r => r.arms_angular_momentum_y);
   
-  // Rotation data
-  const pelvisRot = kinematicsData.map(r => r.pelvis_rot);
-  const torsoRot = kinematicsData.map(r => r.torso_rot);
-  const torsoExt = kinematicsData.map(r => r.torso_ext);
-  const torsoSide = kinematicsData.map(r => r.torso_side);
+  // Rotation data — Reboot values are in RADIANS, convert to degrees
+  const RAD2DEG = 180 / Math.PI;
+  const pelvisRot = kinematicsData.map(r => r.pelvis_rot * RAD2DEG);
+  const torsoRot = kinematicsData.map(r => r.torso_rot * RAD2DEG);
+  const torsoExt = kinematicsData.map(r => r.torso_ext * RAD2DEG);
+  const torsoSide = kinematicsData.map(r => r.torso_side * RAD2DEG);
   
   // Calculate peak indices
   const pelvisPeakIndex = findPeakIndex(pelvisMomentumZ);
@@ -313,13 +314,16 @@ function analyzeSwingData(
   const planeAlignmentPelvisToTorso = Math.abs(pelvisPlaneTilt - torsoPlaneTilt);
   const planeAlignmentTorsoToArms = Math.abs(torsoPlaneTilt - armsPlaneTilt);
   
-  // X-Factor and ROM
-  const xFactor = calculateXFactor(pelvisRot, torsoRot);
-  const pelvisRom = calculateROM(pelvisRot);
-  const torsoRom = calculateROM(torsoRot);
+  // X-Factor and ROM (already in degrees after conversion above)
+  const xFactor = calculateXFactor(pelvisRot.map(r => r * Math.PI / 180), torsoRot.map(r => r * Math.PI / 180));
+  const pelvisRom = calculateROM(pelvisRot.map(r => r * Math.PI / 180));
+  const torsoRom = calculateROM(torsoRot.map(r => r * Math.PI / 180));
 
-  // --- Trunk stability (stride-to-contact window) ---
-  // Detect frame rate from time_from_max_hand
+  // ===================================================================
+  // TRUNK STABILITY v3 — Per-swing detection + session rollup
+  // ===================================================================
+
+  // Detect frame rate from time_from_max_hand (Fix 2: explicit dt)
   const dtEstimates: number[] = [];
   for (let i = 1; i < timeFromMaxHand.length; i++) {
     const d = Math.abs(timeFromMaxHand[i] - timeFromMaxHand[i - 1]);
@@ -328,41 +332,98 @@ function analyzeSwingData(
   const detectedDt = dtEstimates.length > 0 ? median(dtEstimates) : 1 / 240;
   const frameRate = Math.round(1 / detectedDt) || 240;
 
-  // Window: pelvis peak (stride commitment) → contact (time_from_max_hand ≈ 0)
-  let contactIndex = timeFromMaxHand.findIndex(t => Math.abs(t) < 0.01);
-  if (contactIndex === -1) contactIndex = timeFromMaxHand.length - 1;
-  const strideIndex = pelvisPeakIndex;
-  const winStart = Math.min(strideIndex, contactIndex);
-  const winEnd = Math.max(strideIndex, contactIndex) + 1;
+  // Fix 5: Detect individual swings via pelvis rotational velocity peaks >150 deg/s
+  // pelvisRot is already in degrees; angularVelocity unwraps + uses dt = 1/frameRate
+  const pelvisRotVel = angularVelocity(pelvisRot, frameRate);
+  const SWING_PEAK_THRESHOLD = 150; // deg/s
+  const PRE_PEAK_FRAMES = 36;
+  const POST_PEAK_FRAMES = 24;
+  const SWING_WINDOW = PRE_PEAK_FRAMES + POST_PEAK_FRAMES;
+  const MIN_PEAK_SEPARATION = SWING_WINDOW; // prevent overlapping windows
 
-  const windowTorsoExt = torsoExt.slice(winStart, winEnd);
-  const windowTorsoSide = torsoSide.slice(winStart, winEnd);
-  const windowTorsoRot = torsoRot.slice(winStart, winEnd);
+  // Find pelvis rotational velocity peaks
+  const swingPeakIndices: number[] = [];
+  for (let i = 1; i < pelvisRotVel.length - 1; i++) {
+    const v = Math.abs(pelvisRotVel[i]);
+    if (v > SWING_PEAK_THRESHOLD &&
+        v >= Math.abs(pelvisRotVel[i - 1]) &&
+        v >= Math.abs(pelvisRotVel[i + 1])) {
+      // Check minimum separation from last detected peak
+      if (swingPeakIndices.length === 0 || i - swingPeakIndices[swingPeakIndices.length - 1] >= MIN_PEAK_SEPARATION) {
+        swingPeakIndices.push(i);
+      }
+    }
+  }
 
-  // Fix 1: trunk_pitch_sd (sagittal plane SD in degrees)
-  const trunkPitchSd = windowTorsoExt.length >= 2 ? stdDev(windowTorsoExt) : 0;
+  // Compute per-swing stability metrics
+  const perSwingResults: PerSwingStability[] = [];
+  for (const peakIdx of swingPeakIndices) {
+    const wStart = Math.max(0, peakIdx - PRE_PEAK_FRAMES);
+    const wEnd = Math.min(torsoExt.length, peakIdx + POST_PEAK_FRAMES);
+    if (wEnd - wStart < 10) continue;
 
-  // Fix 2: trunk_lat_sd (frontal plane SD in degrees)
-  const trunkLatSd = windowTorsoSide.length >= 2 ? stdDev(windowTorsoSide) : 0;
+    const winExt = torsoExt.slice(wStart, wEnd);
+    const winSide = torsoSide.slice(wStart, wEnd);
+    const winRot = torsoRot.slice(wStart, wEnd);
 
-  // Fix 3 + 5: trunk_rot_cv with angle unwrapping + filtered CV (>20% peak)
-  const rotVelocities = angularVelocity(windowTorsoRot, frameRate);
-  const trunkRotCv = filteredCoeffOfVariation(rotVelocities);
+    const sagSd = winExt.length >= 2 ? stdDev(winExt) : 0;
+    const frontSd = winSide.length >= 2 ? stdDev(winSide) : 0;
+    const rotVels = angularVelocity(winRot, frameRate);
+    const rotCv = filteredCoeffOfVariation(rotVels);
+    const latMean = winSide.length > 0 ? winSide.reduce((a, b) => a + b, 0) / winSide.length : 0;
 
-  // Fix 6: Lateral dump detection (mean of torso_side in window)
-  const trunkLatMean = windowTorsoSide.length > 0
-    ? windowTorsoSide.reduce((a, b) => a + b, 0) / windowTorsoSide.length
-    : 0;
+    // Per-swing SSI (Fix 1: normalizeGood, no double inversion)
+    const sagScore = normalizeGood(sagSd, SAG_SD_MAX);
+    const frontScore = normalizeGood(frontSd, FRONTAL_SD_MAX);
+    const transScore = normalizeGood(rotCv, TRANS_CV_MAX);
+    const ssi = 0.25 * sagScore + 0.40 * frontScore + 0.35 * transScore;
+
+    perSwingResults.push({ sagSd, frontSd, rotCv, latMean, ssi });
+  }
+
+  // Session rollup: use MEDIAN of per-swing values (robust to outliers)
+  let trunkPitchSd: number, trunkLatSd: number, trunkRotCv: number, trunkLatMean: number, trunkSsi: number;
+  let ssiBandwidth = 0, interSagIqr = 0, interFrontIqr = 0;
+
+  if (perSwingResults.length >= 2) {
+    trunkPitchSd = median(perSwingResults.map(r => r.sagSd));
+    trunkLatSd = median(perSwingResults.map(r => r.frontSd));
+    trunkRotCv = median(perSwingResults.map(r => r.rotCv));
+    trunkLatMean = median(perSwingResults.map(r => r.latMean));
+    trunkSsi = median(perSwingResults.map(r => r.ssi));
+
+    // Inter-swing repeatability (IQR)
+    ssiBandwidth = iqr(perSwingResults.map(r => r.ssi));
+    interSagIqr = iqr(perSwingResults.map(r => r.sagSd));
+    interFrontIqr = iqr(perSwingResults.map(r => r.frontSd));
+  } else {
+    // Fallback: single-window approach (stride-to-contact)
+    let contactIndex = timeFromMaxHand.findIndex(t => Math.abs(t) < 0.01);
+    if (contactIndex === -1) contactIndex = timeFromMaxHand.length - 1;
+    const winStart = Math.min(pelvisPeakIndex, contactIndex);
+    const winEnd = Math.max(pelvisPeakIndex, contactIndex) + 1;
+
+    const winExt = torsoExt.slice(winStart, winEnd);
+    const winSide = torsoSide.slice(winStart, winEnd);
+    const winRot = torsoRot.slice(winStart, winEnd);
+
+    trunkPitchSd = winExt.length >= 2 ? stdDev(winExt) : 0;
+    trunkLatSd = winSide.length >= 2 ? stdDev(winSide) : 0;
+    const rotVels = angularVelocity(winRot, frameRate);
+    trunkRotCv = filteredCoeffOfVariation(rotVels);
+    trunkLatMean = winSide.length > 0 ? winSide.reduce((a, b) => a + b, 0) / winSide.length : 0;
+
+    const sagScore = normalizeGood(trunkPitchSd, SAG_SD_MAX);
+    const frontScore = normalizeGood(trunkLatSd, FRONTAL_SD_MAX);
+    const transScore = normalizeGood(trunkRotCv, TRANS_CV_MAX);
+    trunkSsi = 0.25 * sagScore + 0.40 * frontScore + 0.35 * transScore;
+  }
+
+  // Fix 6: Dump direction from session-level lat mean
   let dumpDirection = "neutral";
   if (Math.abs(trunkLatMean) >= 1.0) {
     dumpDirection = trunkLatMean > 0 ? "glove_side" : "pull_side";
   }
-
-  // Fix 4: SSI = weighted normalizeGood composite (100=rock solid, 0=worst)
-  const sagScore = normalizeGood(trunkPitchSd, SAG_SD_MAX);
-  const frontScore = normalizeGood(trunkLatSd, FRONTAL_SD_MAX);
-  const transScore = normalizeGood(trunkRotCv, TRANS_CV_MAX);
-  const trunkSsi = 0.25 * sagScore + 0.40 * frontScore + 0.35 * transScore;
 
   return {
     pelvisPeakMomentum: Math.max(...pelvisMomentumZ.map(Math.abs)),
@@ -379,12 +440,15 @@ function analyzeSwingData(
     xFactor,
     pelvisRom,
     torsoRom,
-    trunkPitchSd,
-    trunkLatSd,
-    trunkRotCv,
-    trunkLatMean,
+    trunkPitchSd: Math.round(trunkPitchSd * 1000) / 1000,
+    trunkLatSd: Math.round(trunkLatSd * 1000) / 1000,
+    trunkRotCv: Math.round(trunkRotCv * 1000) / 1000,
+    trunkLatMean: Math.round(trunkLatMean * 1000) / 1000,
     trunkSsi: Math.round(trunkSsi * 100) / 100,
     dumpDirection,
+    ssiBandwidth: Math.round(ssiBandwidth * 100) / 100,
+    interSagIqr: Math.round(interSagIqr * 1000) / 1000,
+    interFrontIqr: Math.round(interFrontIqr * 1000) / 1000,
   };
 }
 
