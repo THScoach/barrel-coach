@@ -350,18 +350,15 @@ export function calculateFourBFromSensor(
     exitVelocity?: number;
     launchAngle?: number;
     hardHitRate?: number;
-  }
+  },
+  trunkData?: TrunkStabilityData | null,
 ): FourBFromSensor {
   const bat = calculateBatScore(facts, baseline);
-  const brain = calculateBrainScore(facts, baseline);
-  const body = calculateBodyScore(facts, baseline);
+  const brain = calculateBrainScore(facts, baseline, trunkData);
+  const body = calculateBodyScore(facts, baseline, trunkData);
   const ball = calculateBallScore(facts, launchMonitorData);
 
   // Composite: weight by confidence
-  // BAT (HIGH): 40%
-  // BRAIN (MEDIUM): 30%
-  // BODY (LOW): 15%
-  // BALL: 15% (if available, otherwise redistribute)
   let composite: number;
   if (ball.available && ball.confidence === 'high') {
     composite = Math.round(
