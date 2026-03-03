@@ -392,6 +392,9 @@ async function processAnalysisInBackground(
 
     console.log(`[2D Analysis BG] Axis stability: ${axisStabilityType}, score=${stabilityScore}, cogVeloY=${cogVeloY}`);
 
+    // Look up Reboot trunk stability data
+    const trunkStability = await lookupTrunkStability(supabase, playerId);
+
     // Update session with analysis results (individual swing scores)
     const { data: sessionData, error: updateError } = await supabase
       .from("video_2d_sessions")
@@ -433,10 +436,7 @@ async function processAnalysisInBackground(
         power_estimate: analysis.ball_components?.power_estimate ?? null,
         ke_shape: null,
         braking_quality: null,
-        ...await (async () => {
-          const ts = await lookupTrunkStability(supabase, playerId);
-          return { trunk_tilt_std: ts.trunk_tilt_std };
-        })(),
+        trunk_tilt_std: trunkStability.trunk_tilt_std,
         x_factor_peak: null,
         com_barrel_dist: null,
         stability_note: stabilityNote,
