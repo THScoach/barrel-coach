@@ -173,7 +173,32 @@ function calculateXFactor(pelvisRot: number[], torsoRot: number[]): number {
   return Math.max(...separations);
 }
 
-// Calculate ROM utilization
+// Standard deviation helper
+function stdDev(arr: number[]): number {
+  if (arr.length < 2) return 0;
+  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+  const variance = arr.reduce((sum, v) => sum + (v - mean) ** 2, 0) / (arr.length - 1);
+  return Math.sqrt(variance);
+}
+
+// Coefficient of variation helper
+function coeffOfVariation(arr: number[]): number {
+  if (arr.length < 2) return 0;
+  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+  if (Math.abs(mean) < 1e-9) return 0;
+  return stdDev(arr) / Math.abs(mean);
+}
+
+// Compute angular velocity from rotation signal (frame-to-frame differences / dt)
+function angularVelocity(rot: number[], dt: number): number[] {
+  const vels: number[] = [];
+  for (let i = 1; i < rot.length; i++) {
+    vels.push((rot[i] - rot[i - 1]) / dt);
+  }
+  return vels;
+}
+
+
 function calculateROM(rotationData: number[]): number {
   if (rotationData.length === 0) return 0;
   
