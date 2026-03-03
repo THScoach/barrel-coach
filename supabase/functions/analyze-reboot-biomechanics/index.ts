@@ -308,12 +308,19 @@ function analyzeSwingData(
   const torsoRom = calculateROM(torsoRot);
 
   // --- Trunk stability (stride-to-contact window) ---
-  // Stride-to-contact window: use time_from_max_hand.
-  // Stride ≈ earliest negative time (start of motion), contact ≈ 0.
-  // Use pelvis peak as proxy for stride onset, contact as time_from_max_hand ≈ 0.
+  // Detect frame rate from time_from_max_hand
+  const dtEstimates: number[] = [];
+  for (let i = 1; i < timeFromMaxHand.length; i++) {
+    const d = Math.abs(timeFromMaxHand[i] - timeFromMaxHand[i - 1]);
+    if (d > 0) dtEstimates.push(d);
+  }
+  const detectedDt = dtEstimates.length > 0 ? median(dtEstimates) : 1 / 240;
+  const frameRate = Math.round(1 / detectedDt) || 240;
+
+  // Window: pelvis peak (stride commitment) → contact (time_from_max_hand ≈ 0)
   let contactIndex = timeFromMaxHand.findIndex(t => Math.abs(t) < 0.01);
   if (contactIndex === -1) contactIndex = timeFromMaxHand.length - 1;
-  const strideIndex = pelvisPeakIndex; // Pelvis firing marks stride commitment
+  const strideIndex = pelvisPeakIndex;
   const winStart = Math.min(strideIndex, contactIndex);
   const winEnd = Math.max(strideIndex, contactIndex) + 1;
 
@@ -321,22 +328,30 @@ function analyzeSwingData(
   const windowTorsoSide = torsoSide.slice(winStart, winEnd);
   const windowTorsoRot = torsoRot.slice(winStart, winEnd);
 
-  // trunk_pitch_sd: SD of torso_ext in window
+  // Fix 1: trunk_pitch_sd (sagittal plane SD in degrees)
   const trunkPitchSd = windowTorsoExt.length >= 2 ? stdDev(windowTorsoExt) : 0;
 
-  // trunk_lat_sd: SD of torso_side in window
+  // Fix 2: trunk_lat_sd (frontal plane SD in degrees)
   const trunkLatSd = windowTorsoSide.length >= 2 ? stdDev(windowTorsoSide) : 0;
 
-  // trunk_rot_cv: CV of angular velocity from torso_rot
-  // Estimate frame interval from time_from_max_hand
-  const dtEstimates: number[] = [];
-  for (let i = winStart + 1; i < winEnd && i < timeFromMaxHand.length; i++) {
-    const dt = Math.abs(timeFromMaxHand[i] - timeFromMaxHand[i - 1]);
-    if (dt > 0) dtEstimates.push(dt);
+  // Fix 3 + 5: trunk_rot_cv with angle unwrapping + filtered CV (>20% peak)
+  const rotVelocities = angularVelocity(windowTorsoRot, frameRate);
+  const trunkRotCv = filteredCoeffOfVariation(rotVelocities);
+
+  // Fix 6: Lateral dump detection (mean of torso_side in window)
+  const trunkLatMean = windowTorsoSide.length > 0
+    ? windowTorsoSide.reduce((a, b) => a + b, 0) / windowTorsoSide.length
+    : 0;
+  let dumpDirection = "neutral";
+  if (Math.abs(trunkLatMean) >= 1.0) {
+    dumpDirection = trunkLatMean > 0 ? "glove_side" : "pull_side";
   }
-  const dt = dtEstimates.length > 0 ? dtEstimates.reduce((a, b) => a + b, 0) / dtEstimates.length : 0.01;
-  const rotVelocities = angularVelocity(windowTorsoRot, dt);
-  const trunkRotCv = rotVelocities.length >= 2 ? coeffOfVariation(rotVelocities) : 0;
+
+  // Fix 4: SSI = weighted normalizeGood composite (100=rock solid, 0=worst)
+  const sagScore = normalizeGood(trunkPitchSd, SAG_SD_MAX);
+  const frontScore = normalizeGood(trunkLatSd, FRONTAL_SD_MAX);
+  const transScore = normalizeGood(trunkRotCv, TRANS_CV_MAX);
+  const trunkSsi = 0.25 * sagScore + 0.40 * frontScore + 0.35 * transScore;
 
   return {
     pelvisPeakMomentum: Math.max(...pelvisMomentumZ.map(Math.abs)),
@@ -356,6 +371,9 @@ function analyzeSwingData(
     trunkPitchSd,
     trunkLatSd,
     trunkRotCv,
+    trunkLatMean,
+    trunkSsi: Math.round(trunkSsi * 100) / 100,
+    dumpDirection,
   };
 }
 
