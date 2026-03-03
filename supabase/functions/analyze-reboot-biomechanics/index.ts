@@ -43,6 +43,8 @@ interface MomentumRow {
 interface KinematicsRow {
   pelvis_rot: number;
   torso_rot: number;
+  torso_ext: number;
+  torso_side: number;
 }
 
 interface AnalysisMetrics {
@@ -60,6 +62,9 @@ interface AnalysisMetrics {
   xFactor: number;
   pelvisRom: number;
   torsoRom: number;
+  trunkPitchSd: number;
+  trunkLatSd: number;
+  trunkRotCv: number;
 }
 
 interface Flag {
@@ -168,7 +173,32 @@ function calculateXFactor(pelvisRot: number[], torsoRot: number[]): number {
   return Math.max(...separations);
 }
 
-// Calculate ROM utilization
+// Standard deviation helper
+function stdDev(arr: number[]): number {
+  if (arr.length < 2) return 0;
+  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+  const variance = arr.reduce((sum, v) => sum + (v - mean) ** 2, 0) / (arr.length - 1);
+  return Math.sqrt(variance);
+}
+
+// Coefficient of variation helper
+function coeffOfVariation(arr: number[]): number {
+  if (arr.length < 2) return 0;
+  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+  if (Math.abs(mean) < 1e-9) return 0;
+  return stdDev(arr) / Math.abs(mean);
+}
+
+// Compute angular velocity from rotation signal (frame-to-frame differences / dt)
+function angularVelocity(rot: number[], dt: number): number[] {
+  const vels: number[] = [];
+  for (let i = 1; i < rot.length; i++) {
+    vels.push((rot[i] - rot[i - 1]) / dt);
+  }
+  return vels;
+}
+
+
 function calculateROM(rotationData: number[]): number {
   if (rotationData.length === 0) return 0;
   
@@ -200,6 +230,8 @@ function analyzeSwingData(
   // Rotation data
   const pelvisRot = kinematicsData.map(r => r.pelvis_rot);
   const torsoRot = kinematicsData.map(r => r.torso_rot);
+  const torsoExt = kinematicsData.map(r => r.torso_ext);
+  const torsoSide = kinematicsData.map(r => r.torso_side);
   
   // Calculate peak indices
   const pelvisPeakIndex = findPeakIndex(pelvisMomentumZ);
@@ -223,7 +255,38 @@ function analyzeSwingData(
   const xFactor = calculateXFactor(pelvisRot, torsoRot);
   const pelvisRom = calculateROM(pelvisRot);
   const torsoRom = calculateROM(torsoRot);
-  
+
+  // --- Trunk stability (stride-to-contact window) ---
+  // Stride-to-contact window: use time_from_max_hand.
+  // Stride ≈ earliest negative time (start of motion), contact ≈ 0.
+  // Use pelvis peak as proxy for stride onset, contact as time_from_max_hand ≈ 0.
+  let contactIndex = timeFromMaxHand.findIndex(t => Math.abs(t) < 0.01);
+  if (contactIndex === -1) contactIndex = timeFromMaxHand.length - 1;
+  const strideIndex = pelvisPeakIndex; // Pelvis firing marks stride commitment
+  const winStart = Math.min(strideIndex, contactIndex);
+  const winEnd = Math.max(strideIndex, contactIndex) + 1;
+
+  const windowTorsoExt = torsoExt.slice(winStart, winEnd);
+  const windowTorsoSide = torsoSide.slice(winStart, winEnd);
+  const windowTorsoRot = torsoRot.slice(winStart, winEnd);
+
+  // trunk_pitch_sd: SD of torso_ext in window
+  const trunkPitchSd = windowTorsoExt.length >= 2 ? stdDev(windowTorsoExt) : 0;
+
+  // trunk_lat_sd: SD of torso_side in window
+  const trunkLatSd = windowTorsoSide.length >= 2 ? stdDev(windowTorsoSide) : 0;
+
+  // trunk_rot_cv: CV of angular velocity from torso_rot
+  // Estimate frame interval from time_from_max_hand
+  const dtEstimates: number[] = [];
+  for (let i = winStart + 1; i < winEnd && i < timeFromMaxHand.length; i++) {
+    const dt = Math.abs(timeFromMaxHand[i] - timeFromMaxHand[i - 1]);
+    if (dt > 0) dtEstimates.push(dt);
+  }
+  const dt = dtEstimates.length > 0 ? dtEstimates.reduce((a, b) => a + b, 0) / dtEstimates.length : 0.01;
+  const rotVelocities = angularVelocity(windowTorsoRot, dt);
+  const trunkRotCv = rotVelocities.length >= 2 ? coeffOfVariation(rotVelocities) : 0;
+
   return {
     pelvisPeakMomentum: Math.max(...pelvisMomentumZ.map(Math.abs)),
     torsoPeakMomentum: Math.max(...torsoMomentumZ.map(Math.abs)),
@@ -239,6 +302,9 @@ function analyzeSwingData(
     xFactor,
     pelvisRom,
     torsoRom,
+    trunkPitchSd,
+    trunkLatSd,
+    trunkRotCv,
   };
 }
 
@@ -589,7 +655,8 @@ serve(async (req) => {
 
     console.log(`[Analysis] Results: Transfer Ratio=${metrics.transferRatio.toFixed(2)}, ` +
       `Timing Gap=${metrics.timingGapPercent.toFixed(1)}%, X-Factor=${metrics.xFactor.toFixed(1)}°, ` +
-      `Body Score=${bodyScore}`);
+      `Body Score=${bodyScore}, TrunkPitchSD=${metrics.trunkPitchSd.toFixed(3)}, ` +
+      `TrunkLatSD=${metrics.trunkLatSd.toFixed(3)}, TrunkRotCV=${metrics.trunkRotCv.toFixed(3)}`);
 
     // Store results
     const { data: analysisResult, error: insertError } = await supabase
@@ -620,6 +687,9 @@ serve(async (req) => {
         player_report: playerReport,
         momentum_csv_url: momentum_energy_url,
         kinematics_csv_url: inverse_kinematics_url,
+        trunk_pitch_sd: metrics.trunkPitchSd,
+        trunk_lat_sd: metrics.trunkLatSd,
+        trunk_rot_cv: metrics.trunkRotCv,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: "session_id",
