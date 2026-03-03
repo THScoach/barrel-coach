@@ -329,15 +329,21 @@ export function calculateFourBFromSensor(
   // BODY (LOW): 15%
   // BALL: 15% (if available, otherwise redistribute)
   let composite: number;
-  if (ball.available) {
+  if (ball.available && ball.confidence === 'high') {
+    composite = Math.round(
+      bat.overall * 0.35 +
+      brain.overall * 0.25 +
+      body.overall * 0.15 +
+      ball.overall * 0.25
+    );
+  } else if (ball.available && ball.confidence === 'medium') {
     composite = Math.round(
       bat.overall * 0.40 +
-      brain.overall * 0.30 +
+      brain.overall * 0.25 +
       body.overall * 0.15 +
-      ball.overall * 0.15
+      ball.overall * 0.20
     );
   } else {
-    // Redistribute ball weight to bat
     composite = Math.round(
       bat.overall * 0.50 +
       brain.overall * 0.35 +
@@ -373,10 +379,12 @@ function generateConfidenceNote(
   parts.push(`BODY score (${body.overall}) is LOW confidence - predicted from energy transfer patterns. ` +
     `Video analysis would improve accuracy.`);
 
-  if (ball.available) {
+  if (ball.available && ball.confidence === 'high') {
     parts.push(`BALL score (${ball.overall}) is HIGH confidence - measured from launch monitor.`);
+  } else if (ball.available && ball.confidence === 'medium') {
+    parts.push(`BALL score (${ball.overall}) is MEDIUM confidence - predicted via KESP collision model. Launch monitor data would upgrade this to HIGH confidence.`);
   } else {
-    parts.push(`BALL score requires launch monitor data (HitTrax, Rapsodo, etc.).`);
+    parts.push(`BALL score requires launch monitor or sensor data.`);
   }
 
   return parts.join(' ');
