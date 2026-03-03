@@ -43,6 +43,8 @@ interface MomentumRow {
 interface KinematicsRow {
   pelvis_rot: number;
   torso_rot: number;
+  torso_ext: number;
+  torso_side: number;
 }
 
 interface AnalysisMetrics {
@@ -60,6 +62,9 @@ interface AnalysisMetrics {
   xFactor: number;
   pelvisRom: number;
   torsoRom: number;
+  trunkPitchSd: number;
+  trunkLatSd: number;
+  trunkRotCv: number;
 }
 
 interface Flag {

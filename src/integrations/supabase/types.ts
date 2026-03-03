@@ -4833,6 +4833,9 @@ export type Database = {
           torso_vel_peak_frame: number | null
           transfer_ratio: number | null
           transfer_ratio_rating: string | null
+          trunk_lat_sd: number | null
+          trunk_pitch_sd: number | null
+          trunk_rot_cv: number | null
           updated_at: string
           whip_timing_pct: number | null
           whipper_score: number | null
@@ -4868,6 +4871,9 @@ export type Database = {
           torso_vel_peak_frame?: number | null
           transfer_ratio?: number | null
           transfer_ratio_rating?: string | null
+          trunk_lat_sd?: number | null
+          trunk_pitch_sd?: number | null
+          trunk_rot_cv?: number | null
           updated_at?: string
           whip_timing_pct?: number | null
           whipper_score?: number | null
@@ -4903,6 +4909,9 @@ export type Database = {
           torso_vel_peak_frame?: number | null
           transfer_ratio?: number | null
           transfer_ratio_rating?: string | null
+          trunk_lat_sd?: number | null
+          trunk_pitch_sd?: number | null
+          trunk_rot_cv?: number | null
           updated_at?: string
           whip_timing_pct?: number | null
           whipper_score?: number | null
