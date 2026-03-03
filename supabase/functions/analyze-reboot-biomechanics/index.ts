@@ -65,6 +65,9 @@ interface AnalysisMetrics {
   trunkPitchSd: number;
   trunkLatSd: number;
   trunkRotCv: number;
+  trunkLatMean: number;
+  trunkSsi: number;
+  dumpDirection: string;
 }
 
 interface Flag {
@@ -181,22 +184,70 @@ function stdDev(arr: number[]): number {
   return Math.sqrt(variance);
 }
 
-// Coefficient of variation helper
-function coeffOfVariation(arr: number[]): number {
-  if (arr.length < 2) return 0;
-  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
-  if (Math.abs(mean) < 1e-9) return 0;
-  return stdDev(arr) / Math.abs(mean);
+// Median helper (robust to outliers)
+function median(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-// Compute angular velocity from rotation signal (frame-to-frame differences / dt)
-function angularVelocity(rot: number[], dt: number): number[] {
+// IQR helper
+function iqr(arr: number[]): number {
+  if (arr.length < 4) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const q1 = sorted[Math.floor(sorted.length * 0.25)];
+  const q3 = sorted[Math.floor(sorted.length * 0.75)];
+  return q3 - q1;
+}
+
+// Unwrap angles to prevent false spikes at ±180° boundaries
+function unwrapAngles(angles: number[]): number[] {
+  if (angles.length === 0) return [];
+  const unwrapped = [angles[0]];
+  for (let i = 1; i < angles.length; i++) {
+    let diff = angles[i] - angles[i - 1];
+    while (diff > 180) diff -= 360;
+    while (diff < -180) diff += 360;
+    unwrapped.push(unwrapped[i - 1] + diff);
+  }
+  return unwrapped;
+}
+
+// Compute angular velocity from unwrapped rotation signal (deg/s)
+function angularVelocity(rot: number[], frameRate: number = 240): number[] {
+  const dt = 1 / frameRate;
+  const unwrapped = unwrapAngles(rot);
   const vels: number[] = [];
-  for (let i = 1; i < rot.length; i++) {
-    vels.push((rot[i] - rot[i - 1]) / dt);
+  for (let i = 1; i < unwrapped.length; i++) {
+    vels.push((unwrapped[i] - unwrapped[i - 1]) / dt);
   }
   return vels;
 }
+
+// Filtered CV: only use velocities > 20% of peak to prevent near-zero mean blowup
+function filteredCoeffOfVariation(vels: number[]): number {
+  if (vels.length < 2) return 0;
+  const absVels = vels.map(Math.abs);
+  const peak = Math.max(...absVels);
+  if (peak < 1e-9) return 0;
+  const threshold = peak * 0.2;
+  const filtered = vels.filter((_, i) => absVels[i] > threshold);
+  if (filtered.length < 2) return 0;
+  const mean = filtered.reduce((a, b) => a + b, 0) / filtered.length;
+  if (Math.abs(mean) < 1e-9) return 0;
+  return stdDev(filtered) / Math.abs(mean);
+}
+
+// Normalize "good" score: 100 = rock solid (raw=0), 0 = worst (raw≥maxBad)
+function normalizeGood(raw: number, maxBad: number): number {
+  return (1 - Math.min(raw, maxBad) / maxBad) * 100;
+}
+
+// V1 calibration bounds
+const SAG_SD_MAX = 8.0;   // degrees
+const FRONTAL_SD_MAX = 6.0; // degrees
+const TRANS_CV_MAX = 1.5;   // dimensionless
 
 
 function calculateROM(rotationData: number[]): number {
@@ -257,12 +308,19 @@ function analyzeSwingData(
   const torsoRom = calculateROM(torsoRot);
 
   // --- Trunk stability (stride-to-contact window) ---
-  // Stride-to-contact window: use time_from_max_hand.
-  // Stride ≈ earliest negative time (start of motion), contact ≈ 0.
-  // Use pelvis peak as proxy for stride onset, contact as time_from_max_hand ≈ 0.
+  // Detect frame rate from time_from_max_hand
+  const dtEstimates: number[] = [];
+  for (let i = 1; i < timeFromMaxHand.length; i++) {
+    const d = Math.abs(timeFromMaxHand[i] - timeFromMaxHand[i - 1]);
+    if (d > 0) dtEstimates.push(d);
+  }
+  const detectedDt = dtEstimates.length > 0 ? median(dtEstimates) : 1 / 240;
+  const frameRate = Math.round(1 / detectedDt) || 240;
+
+  // Window: pelvis peak (stride commitment) → contact (time_from_max_hand ≈ 0)
   let contactIndex = timeFromMaxHand.findIndex(t => Math.abs(t) < 0.01);
   if (contactIndex === -1) contactIndex = timeFromMaxHand.length - 1;
-  const strideIndex = pelvisPeakIndex; // Pelvis firing marks stride commitment
+  const strideIndex = pelvisPeakIndex;
   const winStart = Math.min(strideIndex, contactIndex);
   const winEnd = Math.max(strideIndex, contactIndex) + 1;
 
@@ -270,22 +328,30 @@ function analyzeSwingData(
   const windowTorsoSide = torsoSide.slice(winStart, winEnd);
   const windowTorsoRot = torsoRot.slice(winStart, winEnd);
 
-  // trunk_pitch_sd: SD of torso_ext in window
+  // Fix 1: trunk_pitch_sd (sagittal plane SD in degrees)
   const trunkPitchSd = windowTorsoExt.length >= 2 ? stdDev(windowTorsoExt) : 0;
 
-  // trunk_lat_sd: SD of torso_side in window
+  // Fix 2: trunk_lat_sd (frontal plane SD in degrees)
   const trunkLatSd = windowTorsoSide.length >= 2 ? stdDev(windowTorsoSide) : 0;
 
-  // trunk_rot_cv: CV of angular velocity from torso_rot
-  // Estimate frame interval from time_from_max_hand
-  const dtEstimates: number[] = [];
-  for (let i = winStart + 1; i < winEnd && i < timeFromMaxHand.length; i++) {
-    const dt = Math.abs(timeFromMaxHand[i] - timeFromMaxHand[i - 1]);
-    if (dt > 0) dtEstimates.push(dt);
+  // Fix 3 + 5: trunk_rot_cv with angle unwrapping + filtered CV (>20% peak)
+  const rotVelocities = angularVelocity(windowTorsoRot, frameRate);
+  const trunkRotCv = filteredCoeffOfVariation(rotVelocities);
+
+  // Fix 6: Lateral dump detection (mean of torso_side in window)
+  const trunkLatMean = windowTorsoSide.length > 0
+    ? windowTorsoSide.reduce((a, b) => a + b, 0) / windowTorsoSide.length
+    : 0;
+  let dumpDirection = "neutral";
+  if (Math.abs(trunkLatMean) >= 1.0) {
+    dumpDirection = trunkLatMean > 0 ? "glove_side" : "pull_side";
   }
-  const dt = dtEstimates.length > 0 ? dtEstimates.reduce((a, b) => a + b, 0) / dtEstimates.length : 0.01;
-  const rotVelocities = angularVelocity(windowTorsoRot, dt);
-  const trunkRotCv = rotVelocities.length >= 2 ? coeffOfVariation(rotVelocities) : 0;
+
+  // Fix 4: SSI = weighted normalizeGood composite (100=rock solid, 0=worst)
+  const sagScore = normalizeGood(trunkPitchSd, SAG_SD_MAX);
+  const frontScore = normalizeGood(trunkLatSd, FRONTAL_SD_MAX);
+  const transScore = normalizeGood(trunkRotCv, TRANS_CV_MAX);
+  const trunkSsi = 0.25 * sagScore + 0.40 * frontScore + 0.35 * transScore;
 
   return {
     pelvisPeakMomentum: Math.max(...pelvisMomentumZ.map(Math.abs)),
@@ -305,6 +371,9 @@ function analyzeSwingData(
     trunkPitchSd,
     trunkLatSd,
     trunkRotCv,
+    trunkLatMean,
+    trunkSsi: Math.round(trunkSsi * 100) / 100,
+    dumpDirection,
   };
 }
 
@@ -655,8 +724,9 @@ serve(async (req) => {
 
     console.log(`[Analysis] Results: Transfer Ratio=${metrics.transferRatio.toFixed(2)}, ` +
       `Timing Gap=${metrics.timingGapPercent.toFixed(1)}%, X-Factor=${metrics.xFactor.toFixed(1)}°, ` +
-      `Body Score=${bodyScore}, TrunkPitchSD=${metrics.trunkPitchSd.toFixed(3)}, ` +
-      `TrunkLatSD=${metrics.trunkLatSd.toFixed(3)}, TrunkRotCV=${metrics.trunkRotCv.toFixed(3)}`);
+      `Body Score=${bodyScore}, SSI=${metrics.trunkSsi}, Dump=${metrics.dumpDirection}, ` +
+      `TrunkPitchSD=${metrics.trunkPitchSd.toFixed(3)}, TrunkLatSD=${metrics.trunkLatSd.toFixed(3)}, ` +
+      `TrunkRotCV=${metrics.trunkRotCv.toFixed(3)}, TrunkLatMean=${metrics.trunkLatMean.toFixed(3)}`);
 
     // Store results
     const { data: analysisResult, error: insertError } = await supabase
@@ -690,6 +760,9 @@ serve(async (req) => {
         trunk_pitch_sd: metrics.trunkPitchSd,
         trunk_lat_sd: metrics.trunkLatSd,
         trunk_rot_cv: metrics.trunkRotCv,
+        trunk_lat_mean: metrics.trunkLatMean,
+        trunk_ssi: metrics.trunkSsi,
+        dump_direction: metrics.dumpDirection,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: "session_id",
