@@ -228,10 +228,11 @@ async function lookupTrunkStability(supabase: any, playerId: string): Promise<{
 
     if (!data || data.trunk_pitch_sd == null) return empty;
 
-    // Composite trunk stability: weighted RMS (lower = more stable)
+    // Composite trunk stability: weighted RMS in degrees (values already in degrees from v3)
     const pitchSd = data.trunk_pitch_sd ?? 0;
     const latSd = data.trunk_lat_sd ?? 0;
     const rotCv = data.trunk_rot_cv ?? 0;
+    // pitchSd and latSd are degrees, rotCv is dimensionless — scale rotCv by 10 for comparable magnitude
     const composite = Math.sqrt((pitchSd ** 2 + latSd ** 2 + (rotCv * 10) ** 2) / 3);
 
     return {
