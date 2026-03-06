@@ -202,6 +202,7 @@ const App = () => (
             <Route path="/admin/knowledge-editor" element={<ProtectedAdminRoute><KnowledgeBaseEditor /></ProtectedAdminRoute>} />
             <Route path="/admin/scenario-trainer" element={<ProtectedAdminRoute><ScenarioTrainer /></ProtectedAdminRoute>} />
             <Route path="/admin/video-script-analyzer" element={<ProtectedAdminRoute><VideoScriptAnalyzer /></ProtectedAdminRoute>} />
+            <Route path="/admin/seed-swing-data" element={<ProtectedAdminRoute><AdminSeedSwingData /></ProtectedAdminRoute>} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
