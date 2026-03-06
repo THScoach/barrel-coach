@@ -80,6 +80,7 @@ import CueBankManager from "./pages/admin/CueBankManager";
 import KnowledgeBaseEditor from "./pages/admin/KnowledgeBaseEditor";
 import ScenarioTrainer from "./pages/admin/ScenarioTrainer";
 import VideoScriptAnalyzer from "./pages/admin/VideoScriptAnalyzer";
+import AdminSeedSwingData from "./pages/AdminSeedSwingData";
 
 // Player pages
 import PlayerHome from "./pages/player/PlayerHome";
@@ -201,6 +202,7 @@ const App = () => (
             <Route path="/admin/knowledge-editor" element={<ProtectedAdminRoute><KnowledgeBaseEditor /></ProtectedAdminRoute>} />
             <Route path="/admin/scenario-trainer" element={<ProtectedAdminRoute><ScenarioTrainer /></ProtectedAdminRoute>} />
             <Route path="/admin/video-script-analyzer" element={<ProtectedAdminRoute><VideoScriptAnalyzer /></ProtectedAdminRoute>} />
+            <Route path="/admin/seed-swing-data" element={<ProtectedAdminRoute><AdminSeedSwingData /></ProtectedAdminRoute>} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
