@@ -3596,6 +3596,99 @@ export type Database = {
           },
         ]
       }
+      reboot_swing_sessions: {
+        Row: {
+          arm_bat_gain: number | null
+          arm_variability_cv: number | null
+          com_drift_inches: number | null
+          com_velocity_mps: number | null
+          created_at: string
+          drift_variability_inches: number | null
+          exit_velocity_max: number | null
+          exit_velocity_min: number | null
+          height_inches: number | null
+          id: string
+          pelvis_angular_momentum: number | null
+          pelvis_peak_deg_s: number | null
+          pelvis_torso_gain: number | null
+          pelvis_torso_gap_ms: number | null
+          player_id: string
+          session_date: string
+          swing_count: number | null
+          torso_arm_gain: number | null
+          trunk_frontal_change_deg: number | null
+          trunk_lateral_change_deg: number | null
+          trunk_peak_deg_s: number | null
+          trunk_variability_cv: number | null
+          weight_lbs: number | null
+        }
+        Insert: {
+          arm_bat_gain?: number | null
+          arm_variability_cv?: number | null
+          com_drift_inches?: number | null
+          com_velocity_mps?: number | null
+          created_at?: string
+          drift_variability_inches?: number | null
+          exit_velocity_max?: number | null
+          exit_velocity_min?: number | null
+          height_inches?: number | null
+          id?: string
+          pelvis_angular_momentum?: number | null
+          pelvis_peak_deg_s?: number | null
+          pelvis_torso_gain?: number | null
+          pelvis_torso_gap_ms?: number | null
+          player_id: string
+          session_date: string
+          swing_count?: number | null
+          torso_arm_gain?: number | null
+          trunk_frontal_change_deg?: number | null
+          trunk_lateral_change_deg?: number | null
+          trunk_peak_deg_s?: number | null
+          trunk_variability_cv?: number | null
+          weight_lbs?: number | null
+        }
+        Update: {
+          arm_bat_gain?: number | null
+          arm_variability_cv?: number | null
+          com_drift_inches?: number | null
+          com_velocity_mps?: number | null
+          created_at?: string
+          drift_variability_inches?: number | null
+          exit_velocity_max?: number | null
+          exit_velocity_min?: number | null
+          height_inches?: number | null
+          id?: string
+          pelvis_angular_momentum?: number | null
+          pelvis_peak_deg_s?: number | null
+          pelvis_torso_gain?: number | null
+          pelvis_torso_gap_ms?: number | null
+          player_id?: string
+          session_date?: string
+          swing_count?: number | null
+          torso_arm_gain?: number | null
+          trunk_frontal_change_deg?: number | null
+          trunk_lateral_change_deg?: number | null
+          trunk_peak_deg_s?: number | null
+          trunk_variability_cv?: number | null
+          weight_lbs?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reboot_swing_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reboot_swing_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reboot_uploads: {
         Row: {
           analysis_confidence: number | null
@@ -5028,6 +5121,71 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "swing_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swing_scores: {
+        Row: {
+          ball_score: number | null
+          bat_score: number | null
+          body_score: number | null
+          brain_score: number | null
+          created_at: string
+          ev_floor: number | null
+          ev_gap: number | null
+          id: string
+          platform_score: number | null
+          report_json: Json | null
+          root_issue: string | null
+          session_id: string
+          swing_archetype: string | null
+          swing_window_score: number | null
+          window_space_score: number | null
+          window_timing_score: number | null
+        }
+        Insert: {
+          ball_score?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          created_at?: string
+          ev_floor?: number | null
+          ev_gap?: number | null
+          id?: string
+          platform_score?: number | null
+          report_json?: Json | null
+          root_issue?: string | null
+          session_id: string
+          swing_archetype?: string | null
+          swing_window_score?: number | null
+          window_space_score?: number | null
+          window_timing_score?: number | null
+        }
+        Update: {
+          ball_score?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          created_at?: string
+          ev_floor?: number | null
+          ev_gap?: number | null
+          id?: string
+          platform_score?: number | null
+          report_json?: Json | null
+          root_issue?: string | null
+          session_id?: string
+          swing_archetype?: string | null
+          swing_window_score?: number | null
+          window_space_score?: number | null
+          window_timing_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swing_scores_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "reboot_swing_sessions"
             referencedColumns: ["id"]
           },
         ]
