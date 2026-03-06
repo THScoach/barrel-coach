@@ -80,6 +80,7 @@ import CueBankManager from "./pages/admin/CueBankManager";
 import KnowledgeBaseEditor from "./pages/admin/KnowledgeBaseEditor";
 import ScenarioTrainer from "./pages/admin/ScenarioTrainer";
 import VideoScriptAnalyzer from "./pages/admin/VideoScriptAnalyzer";
+import AdminSeedSwingData from "./pages/AdminSeedSwingData";
 
 // Player pages
 import PlayerHome from "./pages/player/PlayerHome";
