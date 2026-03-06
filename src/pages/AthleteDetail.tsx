@@ -17,10 +17,14 @@ import {
   Activity,
   Loader2,
   ChevronRight,
-  RefreshCw,
   Download,
+  Plus,
+  BarChart3,
 } from "lucide-react";
 import { format } from "date-fns";
+import PlayerReport from "@/components/swing-report/PlayerReport";
+import Trendboard from "@/components/swing-report/Trendboard";
+import NewSessionForm from "@/components/swing-report/NewSessionForm";
 
 export default function AthleteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +32,7 @@ export default function AthleteDetail() {
   const queryClient = useQueryClient();
   const [importing, setImporting] = useState(false);
   const [sessionIdInput, setSessionIdInput] = useState("");
+  const [showNewSession, setShowNewSession] = useState(false);
 
   // Fetch player info
   const { data: player, isLoading: playerLoading } = useQuery({
@@ -44,29 +49,73 @@ export default function AthleteDetail() {
     enabled: !!id,
   });
 
+  // Fetch latest swing report
+  const { data: latestReport, isLoading: reportLoading } = useQuery({
+    queryKey: ["swing-report-latest", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("swing_scores" as any)
+        .select(`
+          *,
+          reboot_swing_sessions!inner (
+            id, player_id, session_date,
+            com_drift_inches, com_velocity_mps, pelvis_peak_deg_s,
+            trunk_variability_cv, trunk_frontal_change_deg, trunk_lateral_change_deg,
+            pelvis_torso_gap_ms, pelvis_torso_gain, torso_arm_gain,
+            arm_bat_gain, arm_variability_cv, exit_velocity_max, exit_velocity_min,
+            height_inches, weight_lbs
+          )
+        `)
+        .eq("reboot_swing_sessions.player_id", id!)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!id,
+  });
+
+  // Fetch trendboard data
+  const { data: trendData = [] } = useQuery({
+    queryKey: ["swing-trendboard", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("swing_scores" as any)
+        .select(`
+          platform_score, swing_window_score, body_score, brain_score,
+          bat_score, ball_score, ev_floor, ev_gap, created_at,
+          reboot_swing_sessions!inner ( player_id, session_date )
+        `)
+        .eq("reboot_swing_sessions.player_id", id!)
+        .order("created_at", { ascending: true })
+        .limit(20);
+
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+    enabled: !!id,
+  });
+
   // Fetch sessions from both reboot_sessions and player_sessions
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery({
     queryKey: ["athlete-sessions", id],
     queryFn: async () => {
-      // Fetch from player_sessions (where 4B scores land from imports)
       const { data: playerSessions, error: psError } = await supabase
         .from("player_sessions")
         .select("id, session_date, brain_score, body_score, bat_score, ball_score, overall_score, overall_grade, swing_count, data_quality, leak_type, created_at")
         .eq("player_id", id!)
         .order("session_date", { ascending: false });
-
       if (psError) throw psError;
 
-      // Fetch from reboot_sessions (from video uploads)
       const { data: rebootSessions, error: rsError } = await supabase
         .from("reboot_sessions")
         .select("id, reboot_session_id, session_date, status, movement_type, created_at")
         .eq("player_id", id!)
         .order("created_at", { ascending: false });
-
       if (rsError) throw rsError;
 
-      // Fetch uploads for reboot sessions
       const { data: uploads } = await supabase
         .from("reboot_uploads")
         .select("reboot_session_id, composite_score, grade, processing_status")
@@ -87,7 +136,6 @@ export default function AthleteDetail() {
         uploadsBySession.set(sid, existing);
       }
 
-      // Build unified session list
       type SessionItem = {
         id: string;
         source: "player_sessions" | "reboot_sessions";
@@ -103,46 +151,28 @@ export default function AthleteDetail() {
       };
 
       const results: SessionItem[] = [];
-
-      // Add player_sessions (from CSV imports / 4B calculations)
       for (const ps of playerSessions || []) {
         results.push({
-          id: ps.id,
-          source: "player_sessions",
-          sessionDate: ps.session_date,
-          status: "complete",
-          swingCount: ps.swing_count || 0,
-          overallScore: ps.overall_score,
-          grade: ps.overall_grade,
-          completedSwings: ps.swing_count || 0,
-          rebootSessionId: null,
-          leakType: ps.leak_type,
-          dataQuality: ps.data_quality,
+          id: ps.id, source: "player_sessions", sessionDate: ps.session_date,
+          status: "complete", swingCount: ps.swing_count || 0, overallScore: ps.overall_score,
+          grade: ps.overall_grade, completedSwings: ps.swing_count || 0,
+          rebootSessionId: null, leakType: ps.leak_type, dataQuality: ps.data_quality,
         });
       }
 
-      // Add reboot_sessions (from video uploads), deduped
       const seen = new Set<string>();
       for (const rs of rebootSessions || []) {
         if (seen.has(rs.reboot_session_id)) continue;
         seen.add(rs.reboot_session_id);
         const uplData = uploadsBySession.get(rs.reboot_session_id);
         results.push({
-          id: rs.id,
-          source: "reboot_sessions",
-          sessionDate: rs.session_date || rs.created_at,
-          status: rs.status,
-          swingCount: uplData?.count || 0,
-          overallScore: uplData?.avgScore || null,
-          grade: uplData?.grade || null,
-          completedSwings: uplData?.complete || 0,
-          rebootSessionId: rs.reboot_session_id,
-          leakType: null,
-          dataQuality: null,
+          id: rs.id, source: "reboot_sessions", sessionDate: rs.session_date || rs.created_at,
+          status: rs.status, swingCount: uplData?.count || 0, overallScore: uplData?.avgScore || null,
+          grade: uplData?.grade || null, completedSwings: uplData?.complete || 0,
+          rebootSessionId: rs.reboot_session_id, leakType: null, dataQuality: null,
         });
       }
 
-      // Sort by date descending
       results.sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime());
       return results;
     },
@@ -162,32 +192,25 @@ export default function AthleteDetail() {
     setImporting(true);
     try {
       const { data, error } = await supabase.functions.invoke("reboot-export-data", {
-        body: {
-          session_id: trimmedId,
-          player_id: id,
-          trigger_analysis: true,
-        },
+        body: { session_id: trimmedId, player_id: id, trigger_analysis: true },
       });
       if (error) throw error;
-      if (!data?.success) {
-        throw new Error(data?.error || "Import failed");
-      }
-      const resultSessionId = data.analysis_result?.session_id;
-      toast.success(
-        `Session imported — ${data.data_types_exported?.length || 0} data types, score: ${data.analysis_result?.scores?.overall ?? "pending"}`
-      );
+      if (!data?.success) throw new Error(data?.error || "Import failed");
+      toast.success(`Session imported — ${data.data_types_exported?.length || 0} data types`);
       setSessionIdInput("");
       await queryClient.invalidateQueries({ queryKey: ["athlete-sessions", id] });
-      // Navigate to the newly created session if we have one
-      if (resultSessionId) {
-        toast.info("Scores calculated — view details below");
-      }
     } catch (err: any) {
       console.error("[Import Session] Error:", err);
       toast.error(err.message || "Failed to import session");
     } finally {
       setImporting(false);
     }
+  };
+
+  const handleNewSessionComplete = () => {
+    setShowNewSession(false);
+    queryClient.invalidateQueries({ queryKey: ["swing-report-latest", id] });
+    queryClient.invalidateQueries({ queryKey: ["swing-trendboard", id] });
   };
 
   const statusBadge = (status: string) => {
@@ -202,6 +225,39 @@ export default function AthleteDetail() {
     }
     return <Badge className="bg-slate-800 text-slate-400 border-slate-700 text-[10px]">{status}</Badge>;
   };
+
+  // Build report props from latest data
+  const reportProps = (() => {
+    if (!latestReport?.report_json) return null;
+    const rj = latestReport.report_json as any;
+    const session = latestReport.reboot_swing_sessions;
+    if (!rj.playerView || !rj.coachView || !session) return null;
+
+    const metrics = {
+      com_drift_inches: session.com_drift_inches ?? 0,
+      com_velocity_mps: session.com_velocity_mps ?? 0,
+      pelvis_peak_deg_s: session.pelvis_peak_deg_s ?? 0,
+      trunk_variability_cv: session.trunk_variability_cv ?? 0,
+      trunk_frontal_change_deg: session.trunk_frontal_change_deg ?? 0,
+      trunk_lateral_change_deg: session.trunk_lateral_change_deg ?? 0,
+      pelvis_torso_gap_ms: session.pelvis_torso_gap_ms ?? 0,
+      pelvis_torso_gain: session.pelvis_torso_gain ?? 1,
+      torso_arm_gain: session.torso_arm_gain ?? 1,
+      arm_bat_gain: session.arm_bat_gain ?? 1,
+      arm_variability_cv: session.arm_variability_cv ?? 0,
+      exit_velocity_max: session.exit_velocity_max ?? 0,
+      exit_velocity_min: session.exit_velocity_min ?? 0,
+      height_inches: session.height_inches,
+      weight_lbs: session.weight_lbs,
+    };
+
+    return {
+      metrics,
+      scores: rj.coachView.scores,
+      report: { scores: rj.coachView.scores, archetype: rj.coachView.archetype, rootIssue: rj.coachView.rootIssue, beat: rj.coachView.beat },
+      playerView: rj.playerView,
+    };
+  })();
 
   if (playerLoading) {
     return (
@@ -220,12 +276,8 @@ export default function AthleteDetail() {
       <div className="min-h-screen bg-slate-950 flex flex-col">
         <Header />
         <main className="flex-1 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full">
-          <Link
-            to="/athletes"
-            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-6 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Athletes
+          <Link to="/athletes" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-6 transition-colors">
+            <ArrowLeft className="w-4 h-4" /> Back to Athletes
           </Link>
           <p className="text-slate-400 text-center py-20">Athlete not found</p>
         </main>
@@ -239,12 +291,8 @@ export default function AthleteDetail() {
       <Header />
       <main className="flex-1 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full">
         {/* Back button */}
-        <Link
-          to="/athletes"
-          className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Athletes
+        <Link to="/athletes" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-6 transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Back to Athletes
         </Link>
 
         {/* Athlete Bio Card */}
@@ -258,41 +306,88 @@ export default function AthleteDetail() {
                 <div>
                   <h1 className="text-2xl font-black text-white">{player.name}</h1>
                   <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-slate-400">
-                    {player.handedness && (
-                      <span className="capitalize">{player.handedness}-handed</span>
-                    )}
-                    {player.level && (
-                      <span className="capitalize">
-                        {player.level.replace("_", " ")}
-                      </span>
-                    )}
+                    {player.handedness && <span className="capitalize">{player.handedness}-handed</span>}
+                    {player.level && <span className="capitalize">{player.level.replace("_", " ")}</span>}
                     {player.team && <span>{player.team}</span>}
-                    {formatHeight(player.height_inches) && (
-                      <span>{formatHeight(player.height_inches)}</span>
-                    )}
+                    {formatHeight(player.height_inches) && <span>{formatHeight(player.height_inches)}</span>}
                     {player.weight_lbs && <span>{player.weight_lbs} lbs</span>}
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Button
+                  onClick={() => setShowNewSession(true)}
+                  variant="outline"
+                  className="border-slate-700 text-slate-300 hover:text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" /> New Session
+                </Button>
+                <Button
                   onClick={() => navigate(`/upload?athlete=${player.id}`)}
                   className="bg-red-600 hover:bg-red-700 text-white font-bold"
                 >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Videos
+                  <Upload className="w-4 h-4 mr-2" /> Upload Videos
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* New Session Form */}
+        {showNewSession && (
+          <div className="mb-8">
+            <NewSessionForm
+              playerId={player.id}
+              heightInches={player.height_inches}
+              weightLbs={player.weight_lbs}
+              onComplete={handleNewSessionComplete}
+              onCancel={() => setShowNewSession(false)}
+            />
+          </div>
+        )}
+
+        {/* Latest Report */}
+        {!reportLoading && reportProps && (
+          <div className="mb-8 space-y-6">
+            <div className="flex items-center gap-2 mb-2">
+              <BarChart3 className="w-5 h-5 text-slate-400" />
+              <h2 className="text-lg font-bold text-white">Latest Report</h2>
+            </div>
+            <PlayerReport
+              metrics={reportProps.metrics}
+              scores={reportProps.scores}
+              report={reportProps.report}
+              playerView={reportProps.playerView}
+            />
+          </div>
+        )}
+
+        {/* Trendboard */}
+        {trendData.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+              <Activity className="w-5 h-5 text-slate-400" />
+              Progress
+            </h2>
+            <Trendboard
+              sessions={trendData.map((t: any) => ({
+                created_at: t.created_at,
+                platform_score: t.platform_score ?? 0,
+                swing_window_score: t.swing_window_score ?? 0,
+                ev_floor: t.ev_floor ?? 0,
+                body_score: t.body_score ?? 0,
+                brain_score: t.brain_score ?? 0,
+                bat_score: t.bat_score ?? 0,
+                ball_score: t.ball_score ?? 0,
+              }))}
+            />
+          </div>
+        )}
+
         {/* Import Session by ID */}
         <Card className="bg-slate-900/80 border-slate-800 mb-8">
           <CardContent className="p-4">
-            <label className="text-sm font-medium text-slate-300 mb-2 block">
-              Reboot Session ID
-            </label>
+            <label className="text-sm font-medium text-slate-300 mb-2 block">Reboot Session ID</label>
             <div className="flex items-center gap-2">
               <Input
                 placeholder="Paste session ID from Reboot dashboard…"
@@ -305,11 +400,7 @@ export default function AthleteDetail() {
                 disabled={importing || !sessionIdInput.trim()}
                 className="bg-red-600 hover:bg-red-700 text-white font-bold shrink-0"
               >
-                {importing ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4 mr-2" />
-                )}
+                {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
                 {importing ? "Importing…" : "Import Session"}
               </Button>
             </div>
@@ -324,11 +415,7 @@ export default function AthleteDetail() {
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Activity className="w-5 h-5 text-slate-400" />
             Sessions
-            {sessions.length > 0 && (
-              <span className="text-sm font-normal text-slate-500">
-                ({sessions.length})
-              </span>
-            )}
+            {sessions.length > 0 && <span className="text-sm font-normal text-slate-500">({sessions.length})</span>}
           </h2>
         </div>
 
@@ -341,14 +428,8 @@ export default function AthleteDetail() {
             <CardContent className="py-16 text-center">
               <Calendar className="w-12 h-12 text-slate-600 mx-auto mb-4" />
               <p className="text-slate-400 mb-2">No sessions yet</p>
-              <p className="text-slate-500 text-sm mb-4">
-                Upload videos or sync from Reboot to see sessions here
-              </p>
-              <Button
-                onClick={() => navigate(`/upload?athlete=${player.id}`)}
-                variant="outline"
-                className="border-slate-700 text-slate-300 hover:text-white"
-              >
+              <p className="text-slate-500 text-sm mb-4">Upload videos or sync from Reboot to see sessions here</p>
+              <Button onClick={() => navigate(`/upload?athlete=${player.id}`)} variant="outline" className="border-slate-700 text-slate-300 hover:text-white">
                 Upload First Video
               </Button>
             </CardContent>
@@ -376,40 +457,24 @@ export default function AthleteDetail() {
                         </p>
                         {statusBadge(session.status)}
                         {session.dataQuality && (
-                          <Badge className="bg-slate-800 text-slate-400 border-slate-700 text-[10px]">
-                            {session.dataQuality}
-                          </Badge>
+                          <Badge className="bg-slate-800 text-slate-400 border-slate-700 text-[10px]">{session.dataQuality}</Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
-                        <span>
-                          {session.swingCount} swing{session.swingCount !== 1 ? "s" : ""}
-                        </span>
+                        <span>{session.swingCount} swing{session.swingCount !== 1 ? "s" : ""}</span>
                         {session.leakType && session.leakType !== "unknown" && (
-                          <span className="text-orange-400 capitalize">
-                            {session.leakType.replace(/_/g, " ")}
-                          </span>
+                          <span className="text-orange-400 capitalize">{session.leakType.replace(/_/g, " ")}</span>
                         )}
-                        {session.source === "player_sessions" && (
-                          <span className="text-blue-400">4B Import</span>
-                        )}
+                        {session.source === "player_sessions" && <span className="text-blue-400">4B Import</span>}
                       </div>
                     </div>
                   </div>
-
                   <div className="flex items-center gap-3 shrink-0">
                     {session.grade && (
-                      <Badge
-                        variant="outline"
-                        className="border-slate-700 text-slate-300 text-xs"
-                      >
-                        {session.grade}
-                      </Badge>
+                      <Badge variant="outline" className="border-slate-700 text-slate-300 text-xs">{session.grade}</Badge>
                     )}
                     {session.overallScore != null && (
-                      <span className="text-xs bg-red-900/50 text-red-300 px-2 py-0.5 rounded-full font-mono">
-                        {session.overallScore}
-                      </span>
+                      <span className="text-xs bg-red-900/50 text-red-300 px-2 py-0.5 rounded-full font-mono">{session.overallScore}</span>
                     )}
                     <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
                   </div>
