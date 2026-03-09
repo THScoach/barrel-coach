@@ -94,6 +94,8 @@ import PlayerGhostRecovery from "./pages/player/PlayerGhostRecovery";
 import PlayerWeeklyCheckin from "./pages/player/PlayerWeeklyCheckin";
 import PlayerNewSession from "./pages/player/PlayerNewSession";
 import CoachChat from "./pages/player/CoachChat";
+import PlayerSwings from "./pages/player/PlayerSwings";
+import PlayerSwingDetail from "./pages/player/PlayerSwingDetail";
 
 // RickBot
 import Rick from "./pages/Rick";
