@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
-import { Home, MessageSquare, Dumbbell, User, LogOut, Database, Bot } from "lucide-react";
+import { Home, MessageSquare, Dumbbell, User, LogOut, Database, Bot, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
@@ -39,6 +39,7 @@ export function PlayerLayout() {
   // Dashboard now contains all 4B performance data
   const navItems = [
     { to: '/player', icon: Home, label: 'Dashboard', end: true },
+    { to: '/player/swings', icon: Activity, label: 'Swing Data', end: false },
     { to: '/player/data', icon: Database, label: 'My Data', end: false },
     { to: '/player/coach-chat', icon: Bot, label: 'Ask Rick', end: false },
     { to: '/player/messages', icon: MessageSquare, label: 'Coach', end: false },
