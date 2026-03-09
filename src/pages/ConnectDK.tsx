@@ -51,7 +51,7 @@ export default function ConnectDK() {
     const checkAuthAndConnection = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) {
-        navigate('/login?redirect=/connect-dk');
+        navigate('/login?returnTo=%2Fconnect-dk');
         return;
       }
 
