@@ -84,6 +84,44 @@ export default function AdminPlayers() {
   const [showRebootImport, setShowRebootImport] = useState(false);
   const [showDKCsvImport, setShowDKCsvImport] = useState(false);
   const [activatingPlayerId, setActivatingPlayerId] = useState<string | null>(null);
+  const [isSyncingDK, setIsSyncingDK] = useState(false);
+  const [isLinkingDK, setIsLinkingDK] = useState(false);
+
+  const handleSyncDK = async () => {
+    setIsSyncingDK(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("dk-auto-sync");
+      if (error) throw error;
+      toast.success(`Synced ${data.sessions_added} sessions, ${data.swings_added} swings for ${data.players_synced} players`);
+      if (data.errors?.length > 0) {
+        toast.warning(`${data.errors.length} error(s) during sync`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["admin-player-roster"] });
+    } catch (err: any) {
+      console.error("DK sync error:", err);
+      toast.error(err.message || "DK sync failed");
+    } finally {
+      setIsSyncingDK(false);
+    }
+  };
+
+  const handleLinkDK = async () => {
+    setIsLinkingDK(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("dk-link-players");
+      if (error) throw error;
+      toast.success(`Matched ${data.matched} players, ${data.unmatched} unmatched`);
+      if (data.errors?.length > 0) {
+        toast.warning(`${data.errors.length} error(s) during linking`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["admin-player-roster"] });
+    } catch (err: any) {
+      console.error("DK link error:", err);
+      toast.error(err.message || "DK link failed");
+    } finally {
+      setIsLinkingDK(false);
+    }
+  };
 
   const handleActivatePlayer = async (player: PlayerOnlyRow, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent row click navigation
