@@ -2,7 +2,7 @@
  * Quick Actions Row - Stack-style horizontal scrolling action buttons
  * Icons with labels for common player actions
  */
-import { Share2, Zap, BarChart3, RefreshCw, ListChecks } from "lucide-react";
+import { Share2, Zap, BarChart3, RefreshCw, ListChecks, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface QuickAction {
