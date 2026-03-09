@@ -795,6 +795,9 @@ export default function AdminPlayerProfile() {
                 playerName={getPlayerName()} 
               />
             </TabsContent>
+            <TabsContent value="dk-sessions">
+              <PlayerDKSessionsTab playersTableId={player?.players_id} />
+            </TabsContent>
             <TabsContent value="communication">
               <PlayerCommunicationTabNew 
                 playerId={player?.id || id!} 

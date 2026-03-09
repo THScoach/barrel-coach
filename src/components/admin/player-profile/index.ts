@@ -17,6 +17,8 @@ export { PlayerVideoTab } from './PlayerVideoTab';
 export { PlayerVideoUpload } from './PlayerVideoUpload';
 export { PlayerUploadHistory } from './PlayerUploadHistory';
 export { RebootConnectionStatus } from './RebootConnectionStatus';
+export { DKConnectionBadge } from './DKConnectionBadge';
+export { PlayerDKSessionsTab } from './PlayerDKSessionsTab';
 export { SessionDetailModal } from './SessionDetailModal';
 // Diagnostic Lab components
 export { DiagnosticLabHeader } from './DiagnosticLabHeader';
