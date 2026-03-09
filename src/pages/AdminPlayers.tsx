@@ -39,6 +39,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AdminHeader } from "@/components/AdminHeader";
 import { ProfileLinkingManager } from "@/components/admin/ProfileLinkingManager";
 import { RebootPlayerImportModal } from "@/components/admin/RebootPlayerImportModal";
+import { DKCsvImportModal } from "@/components/admin/DKCsvImportModal";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 
