@@ -117,6 +117,9 @@ verify_jwt = false
 [functions.dk-link-players]
 verify_jwt = false
 
+[functions.dk-machine-sync]
+verify_jwt = false
+
 [functions.ask-the-lab]
 verify_jwt = false
 
