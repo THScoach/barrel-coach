@@ -53,6 +53,7 @@ import {
   DKConnectionBadge,
   PlayerDKSessionsTab,
   DKFieldsSection,
+  PlayerRebootMotionTab,
 } from "@/components/admin/player-profile";
 
 const LEVELS = ['Youth', 'High School', 'Travel Ball', 'College', 'Independent', 'MiLB', 'MLB'];
@@ -767,6 +768,9 @@ export default function AdminPlayerProfile() {
               <TabsTrigger value="dk-sessions" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 DK Sessions
               </TabsTrigger>
+              <TabsTrigger value="reboot" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Reboot Motion
+              </TabsTrigger>
               <TabsTrigger value="communication" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Communication
               </TabsTrigger>
@@ -798,6 +802,12 @@ export default function AdminPlayerProfile() {
             </TabsContent>
             <TabsContent value="dk-sessions">
               <PlayerDKSessionsTab playersTableId={player?.players_id} />
+            </TabsContent>
+            <TabsContent value="reboot">
+              <PlayerRebootMotionTab
+                playersTableId={player?.players_id}
+                playerName={getPlayerName()}
+              />
             </TabsContent>
             <TabsContent value="communication">
               <PlayerCommunicationTabNew 
