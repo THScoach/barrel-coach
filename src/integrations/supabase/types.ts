@@ -1030,6 +1030,48 @@ export type Database = {
           },
         ]
       }
+      dk_sync_log: {
+        Row: {
+          created_at: string | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          players_matched: number | null
+          sessions_added: number | null
+          sessions_found: number | null
+          started_at: string
+          status: string
+          swings_added: number | null
+          triggered_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          players_matched?: number | null
+          sessions_added?: number | null
+          sessions_found?: number | null
+          started_at?: string
+          status?: string
+          swings_added?: number | null
+          triggered_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          players_matched?: number | null
+          sessions_added?: number | null
+          sessions_found?: number | null
+          started_at?: string
+          status?: string
+          swings_added?: number | null
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
       dk_token_cache: {
         Row: {
           access_token: string
@@ -4091,6 +4133,7 @@ export type Database = {
           duration_minutes: number | null
           environment: string | null
           estimated_pitch_speed: number | null
+          external_session_id: string | null
           four_b_bat: number | null
           four_b_brain: number | null
           hand_speed_max: number | null
@@ -4120,6 +4163,7 @@ export type Database = {
           duration_minutes?: number | null
           environment?: string | null
           estimated_pitch_speed?: number | null
+          external_session_id?: string | null
           four_b_bat?: number | null
           four_b_brain?: number | null
           hand_speed_max?: number | null
@@ -4149,6 +4193,7 @@ export type Database = {
           duration_minutes?: number | null
           environment?: string | null
           estimated_pitch_speed?: number | null
+          external_session_id?: string | null
           four_b_bat?: number | null
           four_b_brain?: number | null
           hand_speed_max?: number | null
@@ -4191,6 +4236,7 @@ export type Database = {
           bat_speed_mph: number | null
           created_at: string | null
           dk_swing_id: string | null
+          hand_cast: number | null
           hand_speed_mph: number | null
           hand_to_bat_ratio: number | null
           id: string
@@ -4201,12 +4247,15 @@ export type Database = {
           is_valid: boolean | null
           max_acceleration: number | null
           occurred_at: string
+          on_plane_pct: number | null
           player_id: string
           raw_dk_data: Json | null
           session_id: string
           swing_number: number | null
+          swing_plane_steepness: number | null
           swing_plane_tilt_deg: number | null
           trigger_to_impact_ms: number | null
+          vertical_bat_angle: number | null
           warnings: string[] | null
         }
         Insert: {
@@ -4216,6 +4265,7 @@ export type Database = {
           bat_speed_mph?: number | null
           created_at?: string | null
           dk_swing_id?: string | null
+          hand_cast?: number | null
           hand_speed_mph?: number | null
           hand_to_bat_ratio?: number | null
           id?: string
@@ -4226,12 +4276,15 @@ export type Database = {
           is_valid?: boolean | null
           max_acceleration?: number | null
           occurred_at?: string
+          on_plane_pct?: number | null
           player_id: string
           raw_dk_data?: Json | null
           session_id: string
           swing_number?: number | null
+          swing_plane_steepness?: number | null
           swing_plane_tilt_deg?: number | null
           trigger_to_impact_ms?: number | null
+          vertical_bat_angle?: number | null
           warnings?: string[] | null
         }
         Update: {
@@ -4241,6 +4294,7 @@ export type Database = {
           bat_speed_mph?: number | null
           created_at?: string | null
           dk_swing_id?: string | null
+          hand_cast?: number | null
           hand_speed_mph?: number | null
           hand_to_bat_ratio?: number | null
           id?: string
@@ -4251,12 +4305,15 @@ export type Database = {
           is_valid?: boolean | null
           max_acceleration?: number | null
           occurred_at?: string
+          on_plane_pct?: number | null
           player_id?: string
           raw_dk_data?: Json | null
           session_id?: string
           swing_number?: number | null
+          swing_plane_steepness?: number | null
           swing_plane_tilt_deg?: number | null
           trigger_to_impact_ms?: number | null
+          vertical_bat_angle?: number | null
           warnings?: string[] | null
         }
         Relationships: [
