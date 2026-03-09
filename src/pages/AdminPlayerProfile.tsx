@@ -763,6 +763,9 @@ export default function AdminPlayerProfile() {
               <TabsTrigger value="video" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Video
               </TabsTrigger>
+              <TabsTrigger value="dk-sessions" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                DK Sessions
+              </TabsTrigger>
               <TabsTrigger value="communication" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Communication
               </TabsTrigger>
