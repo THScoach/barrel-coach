@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,8 @@ export default function Login() {
   // Get return URL from query params, default to player portal
   const returnTo = searchParams.get("returnTo") || "/player";
 
+  const isAdminOnlyPath = (path: string) => /^\/(admin|rick)(\/|$)/.test(path);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -32,8 +35,20 @@ export default function Login() {
         setLoading(false);
         return;
       }
-      // Redirect to the original destination after login
-      setTimeout(() => navigate(decodeURIComponent(returnTo)), 500);
+
+      const decodedReturnTo = decodeURIComponent(returnTo);
+      const safeReturnTo = decodedReturnTo.startsWith("/") ? decodedReturnTo : "/player";
+      let destination = safeReturnTo;
+
+      // Prevent non-admin users from being redirected back into admin-only pages
+      if (isAdminOnlyPath(safeReturnTo)) {
+        const { data: adminStatus, error: adminCheckError } = await supabase.rpc("is_admin");
+        if (adminCheckError || adminStatus !== true) {
+          destination = "/player";
+        }
+      }
+
+      setTimeout(() => navigate(destination), 500);
     } catch (err) {
       setError("An unexpected error occurred");
       setLoading(false);
@@ -129,3 +144,4 @@ export default function Login() {
     </div>
   );
 }
+
