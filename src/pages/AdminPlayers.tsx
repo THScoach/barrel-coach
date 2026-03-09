@@ -380,7 +380,27 @@ export default function AdminPlayers() {
             </h1>
             <p className="text-slate-400 text-sm md:text-base mt-0.5">Manage your player database</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={handleSyncDK}
+              disabled={isSyncingDK}
+              className="border-slate-600 text-slate-300 hover:bg-slate-800 gap-2"
+            >
+              {isSyncingDK ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              <span className="hidden sm:inline">Sync DK Now</span>
+              <span className="sm:hidden">Sync</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleLinkDK}
+              disabled={isLinkingDK}
+              className="border-slate-600 text-slate-300 hover:bg-slate-800 gap-2"
+            >
+              {isLinkingDK ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+              <span className="hidden sm:inline">Link DK Players</span>
+              <span className="sm:hidden">Link</span>
+            </Button>
             <Button
               variant="outline"
               onClick={() => setShowRebootImport(true)}
