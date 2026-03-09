@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { VideoSwingUploadModal } from "@/components/video-analyzer";
 import { calculateComposite4B, getWeakestLink } from "@/lib/fourb-composite";
 import { ActiveSessionPanel } from "@/components/player/ActiveSessionPanel";
+import { SwingSnapshotCard } from "@/components/player/SwingSnapshotCard";
 import { FourBGaugeGrid } from "@/components/player/FourBGaugeGrid";
 import { QuickActionsRow } from "@/components/player/QuickActionsRow";
 import { StartAssessmentCTA } from "@/components/player/StartAssessmentCTA";
