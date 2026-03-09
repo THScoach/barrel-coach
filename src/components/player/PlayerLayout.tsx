@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
-import { Home, MessageSquare, Dumbbell, User, LogOut, Database, Bot } from "lucide-react";
+import { Home, MessageSquare, Dumbbell, User, LogOut, Database, Bot, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
