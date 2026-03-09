@@ -27,16 +27,23 @@ Deno.serve(async (req) => {
   const logId = syncLog?.id;
 
   try {
+    // Parse optional body
+    let bodyTriggeredBy: string | null = null;
+    try {
+      const body = await req.json();
+      bodyTriggeredBy = body?.triggered_by || null;
+    } catch { /* no body or not JSON */ }
+
     // --- AUTH ---
     const cronSecret = req.headers.get("x-cron-secret");
     const authHeader = req.headers.get("Authorization");
-    let triggeredBy = "unknown";
+    let triggeredBy = bodyTriggeredBy || "unknown";
 
     if (cronSecret) {
       if (cronSecret !== Deno.env.get("CRON_SECRET")) {
         return respond({ error: "Invalid cron secret" }, 401);
       }
-      triggeredBy = "cron";
+      triggeredBy = bodyTriggeredBy || "cron";
       console.log("[dk-machine-sync] Auth: cron");
     } else if (authHeader) {
       const userClient = createClient(
@@ -51,7 +58,7 @@ Deno.serve(async (req) => {
       const userId = claims.claims.sub;
       const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: userId, _role: "admin" });
       if (!isAdmin) return respond({ error: "Admin required" }, 403);
-      triggeredBy = "admin";
+      triggeredBy = bodyTriggeredBy || "admin";
       console.log("[dk-machine-sync] Auth: admin JWT");
     } else {
       return respond({ error: "Unauthorized" }, 401);

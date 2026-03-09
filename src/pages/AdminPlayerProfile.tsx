@@ -52,6 +52,7 @@ import {
   PlayerVideoTab,
   DKConnectionBadge,
   PlayerDKSessionsTab,
+  DKFieldsSection,
 } from "@/components/admin/player-profile";
 
 const LEVELS = ['Youth', 'High School', 'Travel Ball', 'College', 'Independent', 'MiLB', 'MLB'];
@@ -979,6 +980,11 @@ export default function AdminPlayerProfile() {
                 </div>
               </div>
             </div>
+
+            {/* Diamond Kinetics */}
+            {!isNew && player?.players_id && (
+              <DKFieldsSection playersId={player.players_id} />
+            )}
 
             {/* Coach Notes */}
             <div className="space-y-4">
