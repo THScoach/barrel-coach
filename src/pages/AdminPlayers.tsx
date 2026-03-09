@@ -635,6 +635,12 @@ export default function AdminPlayers() {
         onOpenChange={setShowRebootImport}
         onImportComplete={() => refetch()}
       />
+
+      {/* DK CSV Import Modal */}
+      <DKCsvImportModal
+        open={showDKCsvImport}
+        onOpenChange={setShowDKCsvImport}
+      />
     </div>
   );
 }
