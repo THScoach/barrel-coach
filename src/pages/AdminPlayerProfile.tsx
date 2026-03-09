@@ -52,6 +52,7 @@ import {
   PlayerVideoTab,
   DKConnectionBadge,
   PlayerDKSessionsTab,
+  DKFieldsSection,
 } from "@/components/admin/player-profile";
 
 const LEVELS = ['Youth', 'High School', 'Travel Ball', 'College', 'Independent', 'MiLB', 'MLB'];
