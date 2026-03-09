@@ -50,6 +50,8 @@ import {
   PlayerScoresTabNew,
   PlayerCommunicationTabNew,
   PlayerVideoTab,
+  DKConnectionBadge,
+  PlayerDKSessionsTab,
 } from "@/components/admin/player-profile";
 
 const LEVELS = ['Youth', 'High School', 'Travel Ball', 'College', 'Independent', 'MiLB', 'MLB'];
@@ -611,7 +613,13 @@ export default function AdminPlayerProfile() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <h1 className="text-2xl font-bold text-white">{getPlayerName()}</h1>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-2xl font-bold text-white">{getPlayerName()}</h1>
+                <DKConnectionBadge 
+                  playersTableId={player?.players_id} 
+                  playerPhone={player?.phone}
+                />
+              </div>
               <p className="text-slate-400">
                 {player?.level || 'No level'} • {player?.current_team || 'No team'} • 
                 Bats: {player?.bats || 'R'} / Throws: {player?.throws || 'R'}
@@ -755,6 +763,9 @@ export default function AdminPlayerProfile() {
               <TabsTrigger value="video" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Video
               </TabsTrigger>
+              <TabsTrigger value="dk-sessions" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                DK Sessions
+              </TabsTrigger>
               <TabsTrigger value="communication" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Communication
               </TabsTrigger>
@@ -783,6 +794,9 @@ export default function AdminPlayerProfile() {
                 playersTableId={player?.players_id}
                 playerName={getPlayerName()} 
               />
+            </TabsContent>
+            <TabsContent value="dk-sessions">
+              <PlayerDKSessionsTab playersTableId={player?.players_id} />
             </TabsContent>
             <TabsContent value="communication">
               <PlayerCommunicationTabNew 
