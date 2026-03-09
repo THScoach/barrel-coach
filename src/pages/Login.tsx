@@ -17,8 +17,8 @@ export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Get return URL from query params, default to /admin
-  const returnTo = searchParams.get("returnTo") || "/admin";
+  // Get return URL from query params, default to player portal
+  const returnTo = searchParams.get("returnTo") || "/player";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
