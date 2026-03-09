@@ -167,6 +167,8 @@ const App = () => (
             <Route path="/player/weekly-checkin" element={<PlayerWeeklyCheckin />} />
             <Route path="/player/new-session" element={<PlayerNewSession />} />
             <Route path="/player/coach-chat" element={<CoachChat />} />
+            <Route path="/player/swings" element={<PlayerSwings />} />
+            <Route path="/player/swings/:sessionId" element={<PlayerSwingDetail />} />
 
             {/* RickBot */}
             <Route path="/rick" element={<ProtectedAdminRoute><Rick /></ProtectedAdminRoute>} />
