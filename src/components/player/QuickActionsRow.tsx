@@ -2,8 +2,9 @@
  * Quick Actions Row - Stack-style horizontal scrolling action buttons
  * Icons with labels for common player actions
  */
-import { Share2, Zap, BarChart3, RefreshCw, ListChecks } from "lucide-react";
+import { Share2, Zap, BarChart3, RefreshCw, ListChecks, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 interface QuickAction {
   id: string;
@@ -28,10 +29,12 @@ export function QuickActionsRow({
   onChangeProgram,
   onCompletedPrograms,
 }: QuickActionsRowProps) {
+  const navigate = useNavigate();
+
   const actions: QuickAction[] = [
     { id: 'share', icon: Share2, label: 'Share Progress', onClick: onShareProgress },
     { id: 'special', icon: Zap, label: 'Special Session', onClick: onSpecialSession },
-    { id: 'history', icon: BarChart3, label: 'Session History', onClick: onViewHistory },
+    { id: 'swings', icon: Activity, label: 'Swing Data', onClick: () => navigate('/player/swings') },
     { id: 'change', icon: RefreshCw, label: 'Change Focus', onClick: onChangeProgram },
     { id: 'completed', icon: ListChecks, label: 'Completed', onClick: onCompletedPrograms },
   ];
