@@ -80,6 +80,7 @@ export default function AdminPlayers() {
   const [orgFilter, setOrgFilter] = useState<string>("all");
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const [showRebootImport, setShowRebootImport] = useState(false);
+  const [showDKCsvImport, setShowDKCsvImport] = useState(false);
   const [activatingPlayerId, setActivatingPlayerId] = useState<string | null>(null);
 
   const handleActivatePlayer = async (player: PlayerOnlyRow, e: React.MouseEvent) => {
