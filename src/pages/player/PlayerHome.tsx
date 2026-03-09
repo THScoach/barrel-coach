@@ -441,6 +441,9 @@ export default function PlayerHome() {
           )
         )}
 
+        {/* Swing Snapshot Card */}
+        {player && <SwingSnapshotCard playerId={player.id} />}
+
         {/* Recent Prescriptions Feed */}
         {player && (
           <RecentPrescriptionsFeed
