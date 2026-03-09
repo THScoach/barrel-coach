@@ -19,6 +19,7 @@ export { PlayerUploadHistory } from './PlayerUploadHistory';
 export { RebootConnectionStatus } from './RebootConnectionStatus';
 export { DKConnectionBadge } from './DKConnectionBadge';
 export { PlayerDKSessionsTab } from './PlayerDKSessionsTab';
+export { DKFieldsSection } from './DKFieldsSection';
 export { SessionDetailModal } from './SessionDetailModal';
 // Diagnostic Lab components
 export { DiagnosticLabHeader } from './DiagnosticLabHeader';
