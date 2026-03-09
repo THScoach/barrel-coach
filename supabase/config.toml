@@ -111,6 +111,12 @@ verify_jwt = false
 [functions.dk-sync]
 verify_jwt = false
 
+[functions.dk-auto-sync]
+verify_jwt = false
+
+[functions.dk-link-players]
+verify_jwt = false
+
 [functions.ask-the-lab]
 verify_jwt = false
 

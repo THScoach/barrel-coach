@@ -35,6 +35,7 @@ import {
   Download,
   FileSpreadsheet,
   UserCheck,
+  RefreshCw,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -83,6 +84,44 @@ export default function AdminPlayers() {
   const [showRebootImport, setShowRebootImport] = useState(false);
   const [showDKCsvImport, setShowDKCsvImport] = useState(false);
   const [activatingPlayerId, setActivatingPlayerId] = useState<string | null>(null);
+  const [isSyncingDK, setIsSyncingDK] = useState(false);
+  const [isLinkingDK, setIsLinkingDK] = useState(false);
+
+  const handleSyncDK = async () => {
+    setIsSyncingDK(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("dk-auto-sync");
+      if (error) throw error;
+      toast.success(`Synced ${data.sessions_added} sessions, ${data.swings_added} swings for ${data.players_synced} players`);
+      if (data.errors?.length > 0) {
+        toast.warning(`${data.errors.length} error(s) during sync`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["admin-player-roster"] });
+    } catch (err: any) {
+      console.error("DK sync error:", err);
+      toast.error(err.message || "DK sync failed");
+    } finally {
+      setIsSyncingDK(false);
+    }
+  };
+
+  const handleLinkDK = async () => {
+    setIsLinkingDK(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("dk-link-players");
+      if (error) throw error;
+      toast.success(`Matched ${data.matched} players, ${data.unmatched} unmatched`);
+      if (data.errors?.length > 0) {
+        toast.warning(`${data.errors.length} error(s) during linking`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["admin-player-roster"] });
+    } catch (err: any) {
+      console.error("DK link error:", err);
+      toast.error(err.message || "DK link failed");
+    } finally {
+      setIsLinkingDK(false);
+    }
+  };
 
   const handleActivatePlayer = async (player: PlayerOnlyRow, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent row click navigation
@@ -341,7 +380,27 @@ export default function AdminPlayers() {
             </h1>
             <p className="text-slate-400 text-sm md:text-base mt-0.5">Manage your player database</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={handleSyncDK}
+              disabled={isSyncingDK}
+              className="border-slate-600 text-slate-300 hover:bg-slate-800 gap-2"
+            >
+              {isSyncingDK ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              <span className="hidden sm:inline">Sync DK Now</span>
+              <span className="sm:hidden">Sync</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleLinkDK}
+              disabled={isLinkingDK}
+              className="border-slate-600 text-slate-300 hover:bg-slate-800 gap-2"
+            >
+              {isLinkingDK ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+              <span className="hidden sm:inline">Link DK Players</span>
+              <span className="sm:hidden">Link</span>
+            </Button>
             <Button
               variant="outline"
               onClick={() => setShowRebootImport(true)}
