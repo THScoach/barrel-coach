@@ -613,7 +613,13 @@ export default function AdminPlayerProfile() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <h1 className="text-2xl font-bold text-white">{getPlayerName()}</h1>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-2xl font-bold text-white">{getPlayerName()}</h1>
+                <DKConnectionBadge 
+                  playersTableId={player?.players_id} 
+                  playerPhone={player?.phone}
+                />
+              </div>
               <p className="text-slate-400">
                 {player?.level || 'No level'} • {player?.current_team || 'No team'} • 
                 Bats: {player?.bats || 'R'} / Throws: {player?.throws || 'R'}
