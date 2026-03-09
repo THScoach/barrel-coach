@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Bluetooth, Calendar, Activity } from 'lucide-react';
+import { Loader2, Bluetooth, Calendar, Activity, TrendingUp, TrendingDown } from 'lucide-react';
 import { format } from 'date-fns';
+import { LineChart, Line, ResponsiveContainer } from 'recharts';
 
 interface PlayerDKSessionsTabProps {
   playersTableId: string | null | undefined;
@@ -22,6 +23,29 @@ export function PlayerDKSessionsTab({ playersTableId }: PlayerDKSessionsTabProps
 
       if (error) throw error;
       return data || [];
+    },
+    enabled: !!playersTableId,
+  });
+
+  // Fetch all-time swing averages
+  const { data: allTimeStats } = useQuery({
+    queryKey: ['dk-all-time', playersTableId],
+    queryFn: async () => {
+      if (!playersTableId) return null;
+      const { data: swings } = await supabase
+        .from('sensor_swings')
+        .select('bat_speed_mph, attack_angle_deg, on_plane_pct')
+        .eq('player_id', playersTableId)
+        .eq('is_valid', true);
+
+      if (!swings?.length) return null;
+      const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+      return {
+        batSpeed: avg(swings.map(s => s.bat_speed_mph).filter(Boolean) as number[]),
+        attackAngle: avg(swings.map(s => s.attack_angle_deg).filter(v => v != null) as number[]),
+        onPlane: avg(swings.map(s => s.on_plane_pct).filter(v => v != null) as number[]),
+        totalSwings: swings.length,
+      };
     },
     enabled: !!playersTableId,
   });
@@ -48,8 +72,54 @@ export function PlayerDKSessionsTab({ playersTableId }: PlayerDKSessionsTabProps
     );
   }
 
+  // Sparkline data (last 5 sessions, ascending for chart)
+  const sparklineSessions = sessions.slice(0, 5).reverse();
+  const batSpeedSpark = sparklineSessions.map(s => ({ v: s.bat_speed_avg ?? 0 }));
+  const attackAngleSpark = sparklineSessions.map(s => ({ v: s.attack_angle_avg ?? 0 }));
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* All-time Summary */}
+      {allTimeStats && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {[
+            { label: 'Avg Bat Speed', value: allTimeStats.batSpeed != null ? `${allTimeStats.batSpeed.toFixed(1)} mph` : '—', color: 'text-red-400' },
+            { label: 'Avg Attack Angle', value: allTimeStats.attackAngle != null ? `${allTimeStats.attackAngle > 0 ? '+' : ''}${allTimeStats.attackAngle.toFixed(1)}°` : '—', color: 'text-amber-400' },
+            { label: 'Avg On Plane %', value: allTimeStats.onPlane != null ? `${Math.round(allTimeStats.onPlane)}%` : '—', color: 'text-blue-400' },
+            { label: 'Total Sessions', value: `${sessions.length}`, color: 'text-slate-300' },
+            { label: 'Total Swings', value: `${allTimeStats.totalSwings}`, color: 'text-slate-300' },
+          ].map(s => (
+            <div key={s.label} className="bg-slate-800/50 rounded-lg p-3 text-center">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide">{s.label}</p>
+              <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Sparklines */}
+      {sessions.length >= 2 && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-slate-800/50 rounded-lg p-3">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Bat Speed (last 5)</p>
+            <ResponsiveContainer width="100%" height={40}>
+              <LineChart data={batSpeedSpark}>
+                <Line type="monotone" dataKey="v" stroke="#f87171" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="bg-slate-800/50 rounded-lg p-3">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Attack Angle (last 5)</p>
+            <ResponsiveContainer width="100%" height={40}>
+              <LineChart data={attackAngleSpark}>
+                <Line type="monotone" dataKey="v" stroke="#fbbf24" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Sessions Table */}
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">
           DK Sessions ({sessions.length})
@@ -80,15 +150,17 @@ export function PlayerDKSessionsTab({ playersTableId }: PlayerDKSessionsTabProps
                   </div>
                 </td>
                 <td className="py-3 pr-4">
-                  <Badge 
+                  <Badge
                     variant="secondary"
                     className={
                       session.environment === 'manual_upload'
                         ? 'bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs'
-                        : 'bg-green-500/20 text-green-400 border-green-500/30 text-xs'
+                        : session.environment === 'auto_sync'
+                          ? 'bg-green-500/20 text-green-400 border-green-500/30 text-xs'
+                          : 'bg-green-500/20 text-green-400 border-green-500/30 text-xs'
                     }
                   >
-                    {session.environment === 'manual_upload' ? 'CSV' : 'OAuth'}
+                    {session.environment === 'manual_upload' ? 'CSV' : session.environment === 'auto_sync' ? 'Auto-Sync' : 'OAuth'}
                   </Badge>
                 </td>
                 <td className="py-3 pr-4 text-right">
