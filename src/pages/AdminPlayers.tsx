@@ -90,9 +90,11 @@ export default function AdminPlayers() {
   const handleSyncDK = async () => {
     setIsSyncingDK(true);
     try {
-      const { data, error } = await supabase.functions.invoke("dk-auto-sync");
+      const { data, error } = await supabase.functions.invoke("dk-machine-sync", {
+        body: { triggered_by: 'admin' },
+      });
       if (error) throw error;
-      toast.success(`Synced ${data.sessions_added} sessions, ${data.swings_added} swings for ${data.players_synced} players`);
+      toast.success(`✅ Sync complete — ${data.sessions_added} new sessions, ${data.swings_added} new swings, ${data.players_matched} players matched`);
       if (data.errors?.length > 0) {
         toast.warning(`${data.errors.length} error(s) during sync`);
       }

@@ -980,6 +980,11 @@ export default function AdminPlayerProfile() {
               </div>
             </div>
 
+            {/* Diamond Kinetics */}
+            {!isNew && player?.players_id && (
+              <DKFieldsSection playersId={player.players_id} />
+            )}
+
             {/* Coach Notes */}
             <div className="space-y-4">
               <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Notes</h3>
