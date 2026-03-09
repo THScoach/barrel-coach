@@ -1030,6 +1030,27 @@ export type Database = {
           },
         ]
       }
+      dk_token_cache: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          expires_at: string
+          id: number
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          expires_at: string
+          id?: number
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: number
+        }
+        Relationships: []
+      }
       drill_completions: {
         Row: {
           assignment_id: string | null
@@ -3101,6 +3122,7 @@ export type Database = {
           current_bat_speed: number | null
           current_streak: number | null
           dk_email: string | null
+          dk_user_uuid: string | null
           email: string | null
           email_opt_in: boolean | null
           fangraphs_id: string | null
@@ -3170,6 +3192,7 @@ export type Database = {
           current_bat_speed?: number | null
           current_streak?: number | null
           dk_email?: string | null
+          dk_user_uuid?: string | null
           email?: string | null
           email_opt_in?: boolean | null
           fangraphs_id?: string | null
@@ -3239,6 +3262,7 @@ export type Database = {
           current_bat_speed?: number | null
           current_streak?: number | null
           dk_email?: string | null
+          dk_user_uuid?: string | null
           email?: string | null
           email_opt_in?: boolean | null
           fangraphs_id?: string | null
