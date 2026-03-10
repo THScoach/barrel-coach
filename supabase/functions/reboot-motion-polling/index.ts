@@ -263,7 +263,7 @@ class RebootClient {
 
       headers.forEach((header, index) => {
         const value = values[index]?.trim();
-        if (header.includes('kinetic_energy') || header.includes('time_from')) {
+        if (header.includes('kinetic_energy') || header.includes('time_from') || header === 'mass_total') {
           row[header] = parseFloat(value) || 0;
         } else {
           row[header] = value;
