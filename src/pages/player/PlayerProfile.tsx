@@ -173,6 +173,38 @@ export default function PlayerProfile() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label>Height</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Select
+                  value={formData.heightFeet}
+                  onValueChange={(v) => setFormData({ ...formData, heightFeet: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Feet" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[3, 4, 5, 6, 7].map((ft) => (
+                      <SelectItem key={ft} value={String(ft)}>{ft} ft</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={formData.heightInches}
+                  onValueChange={(v) => setFormData({ ...formData, heightInches: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Inches" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <SelectItem key={i} value={String(i)}>{i} in</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Bats</Label>
