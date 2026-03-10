@@ -67,9 +67,12 @@ export function MergePlayerModal({
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      toast.success(
-        `Merged successfully — ${data.sessions_moved} records moved, ${data.fields_copied?.length || 0} fields copied`
-      );
+      const moved = data.sessions_moved || 0;
+      const copied = data.fields_copied?.length || 0;
+      const details = moved > 0 || copied > 0 
+        ? `${moved} records moved, ${copied} fields copied` 
+        : "Duplicate removed, no data needed moving";
+      toast.success(`✅ Merged successfully — ${details}`);
       onOpenChange(false);
 
       // Find the winner's profile page - check if they have a player_profiles entry
