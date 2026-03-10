@@ -90,7 +90,7 @@ Calculate KINETIC POTENTIAL - estimate exit velocity capability from body mechan
 When no contact data, the output MUST include a kinetic_potential object:
 
 ### COMPOSITE FORMULA
-COMPOSITE = (BODY × 0.30) + (BRAIN × 0.20) + (BAT × 0.30) + (BALL × 0.20)
+COMPOSITE = (BODY × 0.45) + (BRAIN × 0.15) + (BAT × 0.25) + (BALL × 0.15)
 
 ## SCORE SCALE (20-80 Baseball Scouting)
 - 70+ = Plus-Plus (Elite)
