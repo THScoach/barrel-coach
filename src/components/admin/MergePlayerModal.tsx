@@ -64,7 +64,15 @@ export function MergePlayerModal({
       const { data, error } = await supabase.functions.invoke("merge-player-accounts", {
         body: { winner_id: selectedWinner.id, loser_id: currentPlayerId },
       });
-      if (error) throw error;
+      if (error) {
+        // Extract message from FunctionsHttpError
+        let msg = error.message || "Merge failed";
+        try {
+          const body = await (error as any).context?.json?.();
+          if (body?.error) msg = body.error;
+        } catch {}
+        throw new Error(msg);
+      }
       if (data?.error) throw new Error(data.error);
 
       const moved = data.sessions_moved || 0;
