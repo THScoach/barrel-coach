@@ -28,3 +28,4 @@ export { KineticLeakCard } from './KineticLeakCard';
 export { LeakDetectionCard } from './LeakDetectionCard';
 export { PrescriptionCard } from './PrescriptionCard';
 export { PlayerRebootMotionTab } from './PlayerRebootMotionTab';
+export { RebootSessionDetailDrawer } from './RebootSessionDetailDrawer';
