@@ -719,15 +719,19 @@ async function syncPlayerSessions(
         }
 
         // Process CSV into swing data
-        const swings = processCSVToSwings(csvRows);
+        const { swings, csvMassKg } = processCSVToSwings(csvRows);
         
         if (swings.length === 0) {
           result.errors.push(`No valid swings in session ${session.id}`);
           continue;
         }
 
-        // Calculate 4B scores
-        const scoreResult = calculate4BScores(swings);
+        // Determine athlete mass: CSV mass_total > player weight_lbs > null
+        const athleteMassKg = csvMassKg
+          ?? (player.weight_lbs ? player.weight_lbs / 2.20462 : null);
+
+        // Calculate 4B scores with mass normalization
+        const scoreResult = calculate4BScores(swings, athleteMassKg);
 
         // 5. Save to sensor_sessions
         const { data: savedSession, error: saveError } = await supabase
