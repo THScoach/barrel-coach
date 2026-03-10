@@ -118,6 +118,9 @@ Deno.serve(async (req) => {
       { table: "video_2d_sessions", column: "player_id" },
       { table: "xp_log", column: "player_id" },
       { table: "invites", column: "player_id" },
+      { table: "messages", column: "player_id" },
+      { table: "locker_messages", column: "player_id" },
+      { table: "web_messages", column: "player_id" },
       // Tables with non-standard column names
       { table: "player_profiles", column: "players_id" },
       { table: "swing_analysis", column: "player_id" },
