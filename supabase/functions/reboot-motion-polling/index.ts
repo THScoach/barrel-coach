@@ -849,7 +849,7 @@ serve(async (req) => {
     // Build query for players
     let query = supabase
       .from('players')
-      .select('id, reboot_athlete_id, reboot_player_id, name, motor_profile_sensor');
+      .select('id, reboot_athlete_id, reboot_player_id, name, motor_profile_sensor, weight_lbs');
 
     if (targetPlayerIds && targetPlayerIds.length > 0) {
       // Filter to specific players
