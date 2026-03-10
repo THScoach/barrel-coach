@@ -71,7 +71,7 @@ export function VideoRecommendations({
   const [lockedVideo, setLockedVideo] = useState<DrillVideo | null>(null);
   const [currentViewId, setCurrentViewId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const watchIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const watchIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {

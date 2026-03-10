@@ -265,7 +265,7 @@ export class CatchingBarrelsService {
    */
   calculateMetrics(peakAcceleration: number): SwingMetrics {
     // Import processor functions for real calculations
-    const { calculateTempoScore, calculateEfficiencyRating, classifyMotorProfile } = require('./SwingMetricsProcessor');
+    const { calculateTempoScore, calculateEfficiencyRating, classifyMotorProfile } = await import('./SwingMetricsProcessor');
     
     // Estimate bat speed from acceleration (simplified model)
     const batSpeed = Math.min(95, Math.max(40, peakAcceleration * 5.5 + 5));
