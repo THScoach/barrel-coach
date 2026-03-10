@@ -182,6 +182,20 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
             </>
           )}
 
+          {/* Raw Data */}
+          <Separator className="bg-slate-700" />
+          <Collapsible open={rawOpen} onOpenChange={setRawOpen}>
+            <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-semibold text-slate-400 uppercase tracking-wider py-1 hover:text-slate-300 transition-colors">
+              Raw Data
+              <ChevronDown className={`h-4 w-4 transition-transform ${rawOpen ? "rotate-180" : ""}`} />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <pre className="text-xs text-slate-400 bg-slate-800/50 rounded-lg p-4 mt-2 overflow-auto max-h-80 whitespace-pre-wrap break-all">
+                {JSON.stringify(session, null, 2)}
+              </pre>
+            </CollapsibleContent>
+          </Collapsible>
+
           {/* Metadata */}
           <div className="text-xs text-slate-500 space-y-1 pt-2">
             <div>ID: {session.id}</div>
