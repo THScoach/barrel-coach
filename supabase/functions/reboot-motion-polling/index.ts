@@ -67,6 +67,7 @@ interface MERow {
   arms_kinetic_energy: number;
   bat_kinetic_energy?: number;
   total_kinetic_energy: number;
+  mass_total?: number;
 }
 
 interface SyncResult {
