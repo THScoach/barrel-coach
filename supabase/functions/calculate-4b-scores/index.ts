@@ -152,7 +152,7 @@ const THRESHOLDS = {
   cvBatEfficiency: { min: 10, max: 50 },
 };
 
-const WEIGHTS = { body: 0.35, bat: 0.30, brain: 0.20, ball: 0.15 };
+const WEIGHTS = { body: 0.45, brain: 0.15, bat: 0.25, ball: 0.15 };
 const MIN_SWINGS_FOR_CV = 3;
 
 // Kinetic Potential constants
