@@ -34,10 +34,11 @@ import { toast } from "sonner";
 import { 
   ArrowLeft, Save, User, Phone, Building, 
   FileText, Plus, Loader2, Sparkles, Settings,
-  MessageSquare, MoreHorizontal, Zap, ChevronDown
+  MessageSquare, MoreHorizontal, Zap, ChevronDown, GitMerge
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { PlayerResearchModal } from "@/components/PlayerResearchModal";
+import { MergePlayerModal } from "@/components/admin/MergePlayerModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
 import { MobileSegmentedControl } from "@/components/admin/MobileSegmentedControl";

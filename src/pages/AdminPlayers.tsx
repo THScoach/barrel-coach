@@ -715,6 +715,12 @@ export default function AdminPlayers() {
         open={showDKCsvImport}
         onOpenChange={setShowDKCsvImport}
       />
+
+      {/* Find Duplicates Modal */}
+      <FindDuplicatesModal
+        open={showFindDuplicates}
+        onOpenChange={setShowFindDuplicates}
+      />
     </div>
   );
 }
