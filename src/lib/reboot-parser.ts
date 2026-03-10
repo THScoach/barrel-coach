@@ -1227,12 +1227,27 @@ export function calculate4BScores(
   }
   
   // Process ME file (PRIMARY)
-  const meMetrics = processMEFile(meRows);
+  const meResult = processMEFile(meRows);
+  const meMetrics = meResult.swingMetrics;
+  const csvMassKg = meResult.csvMassKg;
   result.dataQuality.hasMEData = meMetrics.size > 0;
   
   if (meMetrics.size === 0) {
     result.dataQuality.warnings.push('No valid swings found in ME file');
     return result;
+  }
+  
+  // Determine athlete mass for threshold scaling:
+  // Priority: CSV mass_total > player weight param > null (use defaults)
+  const athleteMassKg = csvMassKg
+    ?? (playerWeightLbs ? playerWeightLbs / 2.20462 : null);
+  
+  // Get mass-scaled thresholds for KE scoring
+  const th = getMassScaledThresholds(athleteMassKg);
+  
+  if (athleteMassKg) {
+    result.rawMetrics.athleteMassKg = Math.round(athleteMassKg * 10) / 10;
+    result.rawMetrics.massScaleFactor = Math.round((athleteMassKg / BASELINE_MASS_KG) * 100) / 100;
   }
   
   // Process IK file (OPTIONAL)
