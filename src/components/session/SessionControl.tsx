@@ -200,7 +200,7 @@ export function SessionControl({ onSwingCaptured, onSessionEnd }: SessionControl
     });
     
     // Calculate metrics
-    const metrics = catchingBarrelsService.calculateMetrics(peakAcceleration);
+    const metrics = await catchingBarrelsService.calculateMetrics(peakAcceleration);
     
     // Capture video clip (pre-swing + post-swing buffer)
     let videoUrl: string | null = null;
