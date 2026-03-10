@@ -163,6 +163,27 @@ const KP_SPEED_MULTIPLIER = 2.5;
 const KP_EFFICIENCY_SCALE = 1.4;
 const BASELINE_HEIGHT_INCHES = 68;
 
+// Mass normalization baseline (kg) - thresholds calibrated for ~165 lb / 75 kg
+const BASELINE_MASS_KG = 75;
+
+// KE threshold keys that scale linearly with body mass
+const MASS_SCALED_KEYS: (keyof typeof THRESHOLDS)[] = [
+  'legsKE', 'torsoKE', 'armsKE', 'batKE',
+];
+
+function getMassScaledThresholds(athleteMassKg: number | null) {
+  if (!athleteMassKg || athleteMassKg <= 0) return THRESHOLDS;
+  const factor = Math.min(2.0, Math.max(0.5, athleteMassKg / BASELINE_MASS_KG));
+  const scaled = { ...THRESHOLDS };
+  for (const key of MASS_SCALED_KEYS) {
+    scaled[key] = {
+      min: Math.round(THRESHOLDS[key].min * factor),
+      max: Math.round(THRESHOLDS[key].max * factor),
+    };
+  }
+  return scaled;
+}
+
 const BAT_SPEED_CLAMPS: Record<string, { min: number; max: number }> = {
   youth: { min: 45, max: 85 },
   hs: { min: 55, max: 95 },
