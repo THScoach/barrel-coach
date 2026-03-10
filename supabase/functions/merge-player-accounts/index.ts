@@ -86,51 +86,49 @@ Deno.serve(async (req) => {
       if (updateErr) throw new Error(`Failed to update winner: ${updateErr.message}`);
     }
 
-    // Step B: Re-parent all data tables
-    const tablesToReparent = [
-      "sensor_sessions",
-      "reboot_sessions",
-      "dk_accounts",
-      "player_sessions",
-      "player_profiles",
-      "sessions",
-      "swings",
-      "sensor_swings",
-      "capture_sessions",
-      "captured_swings",
-      "batted_ball_events",
-      "hittrax_sessions",
-      "launch_monitor_sessions",
-      "ghost_sessions",
-      "kinetic_fingerprints",
-      "kinetic_fingerprint_history",
-      "kwon_analyses",
-      "athlete_krs_models",
-      "game_weekly_reports",
-      "drill_completions",
-      "player_drill_assignments",
-      "challenge_entries",
-      "activity_log",
-      "agent_actions_log",
-      "communication_logs",
-      "coach_conversations",
-      "chat_logs",
-      "locker_messages",
-      "player_video_prescriptions",
-      "player_programs",
-      "video_2d_sessions",
-      "swing_leaks",
-      "video_swing_events",
-      "xp_log",
-      "invites",
+    // Step B: Re-parent all data tables (table -> column name)
+    const tablesToReparent: Array<{ table: string; column: string }> = [
+      { table: "sensor_sessions", column: "player_id" },
+      { table: "reboot_sessions", column: "player_id" },
+      { table: "dk_accounts", column: "player_id" },
+      { table: "player_sessions", column: "player_id" },
+      { table: "sessions", column: "player_id" },
+      { table: "sensor_swings", column: "player_id" },
+      { table: "capture_sessions", column: "player_id" },
+      { table: "captured_swings", column: "player_id" },
+      { table: "batted_ball_events", column: "player_id" },
+      { table: "hittrax_sessions", column: "player_id" },
+      { table: "launch_monitor_sessions", column: "player_id" },
+      { table: "ghost_sessions", column: "player_id" },
+      { table: "kinetic_fingerprints", column: "player_id" },
+      { table: "kinetic_fingerprint_history", column: "player_id" },
+      { table: "kwon_analyses", column: "player_id" },
+      { table: "athlete_krs_models", column: "player_id" },
+      { table: "game_weekly_reports", column: "player_id" },
+      { table: "drill_completions", column: "player_id" },
+      { table: "player_drill_assignments", column: "player_id" },
+      { table: "challenge_entries", column: "player_id" },
+      { table: "activity_log", column: "player_id" },
+      { table: "agent_actions_log", column: "player_id" },
+      { table: "communication_logs", column: "player_id" },
+      { table: "coach_conversations", column: "player_id" },
+      { table: "chat_logs", column: "player_id" },
+      { table: "player_video_prescriptions", column: "player_id" },
+      { table: "player_programs", column: "player_id" },
+      { table: "video_2d_sessions", column: "player_id" },
+      { table: "xp_log", column: "player_id" },
+      { table: "invites", column: "player_id" },
+      // Tables with non-standard column names
+      { table: "player_profiles", column: "players_id" },
+      { table: "swing_analysis", column: "player_id" },
     ];
 
-    for (const table of tablesToReparent) {
+    for (const { table, column } of tablesToReparent) {
       try {
         const { count, error: reparentErr } = await supabase
           .from(table)
-          .update({ player_id: winner_id })
-          .eq("player_id", loser_id)
+          .update({ [column]: winner_id })
+          .eq(column, loser_id)
           .select("id", { count: "exact", head: true });
 
         if (reparentErr) {
@@ -146,15 +144,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step C: Re-parent player_profiles.players_id
-    try {
-      await supabase
-        .from("player_profiles")
-        .update({ players_id: winner_id })
-        .eq("players_id", loser_id);
-    } catch (e) {
-      console.warn("player_profiles players_id reparent:", e);
-    }
+    // Step C: Delete player_profiles.players_id reparent handled above now
 
     // Step D: Delete the loser record
     const { error: deleteErr } = await supabase
