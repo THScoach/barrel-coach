@@ -1059,6 +1059,15 @@ export default function AdminPlayerProfile() {
         onPlayerFound={handleResearchData}
         initialName={`${formData.first_name} ${formData.last_name}`.trim()}
       />
+
+      {player?.players_id && (
+        <MergePlayerModal
+          open={showMergeModal}
+          onOpenChange={setShowMergeModal}
+          currentPlayerId={player.players_id}
+          currentPlayerName={getPlayerName()}
+        />
+      )}
     </div>
   );
 }
