@@ -263,7 +263,7 @@ export class CatchingBarrelsService {
   /**
    * Calculate metrics from raw sensor data using SwingMetricsProcessor
    */
-  calculateMetrics(peakAcceleration: number): SwingMetrics {
+  async calculateMetrics(peakAcceleration: number): Promise<SwingMetrics> {
     // Import processor functions for real calculations
     const { calculateTempoScore, calculateEfficiencyRating, classifyMotorProfile } = await import('./SwingMetricsProcessor');
     
