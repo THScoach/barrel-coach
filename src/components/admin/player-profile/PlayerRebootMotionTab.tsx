@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { RebootSessionDetailDrawer } from "./RebootSessionDetailDrawer";
+import { ManualRebootUpload } from "./ManualRebootUpload";
 
 interface PlayerRebootMotionTabProps {
   playersTableId?: string | null;
@@ -261,6 +262,14 @@ export function PlayerRebootMotionTab({
           )}
         </CardContent>
       </Card>
+
+      {/* ── MANUAL CSV UPLOAD (only when linked) ── */}
+      {isLinked && (
+        <ManualRebootUpload
+          playersTableId={playersTableId!}
+          playerName={playerName}
+        />
+      )}
 
       {/* ── REBOOT SESSIONS (only when linked) ── */}
       {isLinked && (
