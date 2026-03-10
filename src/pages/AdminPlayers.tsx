@@ -84,6 +84,7 @@ export default function AdminPlayers() {
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const [showRebootImport, setShowRebootImport] = useState(false);
   const [showDKCsvImport, setShowDKCsvImport] = useState(false);
+  const [showFindDuplicates, setShowFindDuplicates] = useState(false);
   const [activatingPlayerId, setActivatingPlayerId] = useState<string | null>(null);
   const [isSyncingDK, setIsSyncingDK] = useState(false);
   const [isLinkingDK, setIsLinkingDK] = useState(false);
