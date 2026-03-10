@@ -689,6 +689,13 @@ export default function AdminPlayerProfile() {
                 <DropdownMenuItem className="text-slate-300 focus:bg-slate-800 focus:text-white">
                   Archive
                 </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setShowMergeModal(true)}
+                  className="text-slate-300 focus:bg-slate-800 focus:text-white"
+                >
+                  <GitMerge className="h-4 w-4 mr-2" />
+                  Merge With Another Player
+                </DropdownMenuItem>
                 <DropdownMenuItem className="text-red-400 focus:bg-slate-800 focus:text-red-400">
                   Delete
                 </DropdownMenuItem>
