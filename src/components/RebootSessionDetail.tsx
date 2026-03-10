@@ -472,7 +472,7 @@ export function RebootSessionDetail({
                 </div>
 
                 {/* Support metrics line */}
-                <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+                <div className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
                   <span>
                     Efficiency: <span className="font-medium text-foreground">{Math.round(kineticPotential.efficiency * 100)}%</span>
                   </span>
@@ -482,6 +482,12 @@ export function RebootSessionDetail({
                   <span>
                     Lever: <span className="font-medium text-foreground">{kineticPotential.leverIndex.toFixed(2)}</span>
                   </span>
+                  {meMetrics.massTotalKg && (
+                    <span>
+                      Mass: <span className="font-medium text-foreground">{meMetrics.massTotalKg} kg</span>
+                      <span className="ml-1 opacity-70">({meMetrics.massScaleFactor}×)</span>
+                    </span>
+                  )}
                 </div>
 
                 {/* Coach voice helper text */}
