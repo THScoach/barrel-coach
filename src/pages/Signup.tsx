@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,11 +89,6 @@ export default function Signup() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild className="w-full mb-6 bg-teal-500 hover:bg-teal-600 text-white font-bold py-6 text-lg">
-            <Link to="/pricing" className="flex items-center justify-center gap-2">
-              View Plans <ArrowRight className="w-5 h-5" />
-            </Link>
-          </Button>
 
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
