@@ -952,33 +952,33 @@ function calculate4BScores(
     rawMetrics.avgXFactor = Math.round(avg(xFactors) * 10) / 10;
   }
 
-  // ========== GROUND FLOW ==========
-  const groundFlowScore = to2080Scale(avgLegsKE, THRESHOLDS.legsKE.min, THRESHOLDS.legsKE.max);
+  // ========== GROUND FLOW (mass-normalized) ==========
+  const groundFlowScore = to2080Scale(avgLegsKE, th.legsKE.min, th.legsKE.max);
 
-  // ========== CORE FLOW ==========
+  // ========== CORE FLOW (mass-normalized) ==========
   const coreFlowComponents = [
-    to2080Scale(avgTorsoKE, THRESHOLDS.torsoKE.min, THRESHOLDS.torsoKE.max),
-    to2080Scale(avgTorsoToArms, THRESHOLDS.torsoToArmsTransfer.min, THRESHOLDS.torsoToArmsTransfer.max),
+    to2080Scale(avgTorsoKE, th.torsoKE.min, th.torsoKE.max),
+    to2080Scale(avgTorsoToArms, th.torsoToArmsTransfer.min, th.torsoToArmsTransfer.max),
   ];
   const coreFlowScore = Math.round(avg(coreFlowComponents));
 
   // ========== BODY (Ground + Core) ==========
   const bodyScore = Math.round((groundFlowScore + coreFlowScore) / 2);
 
-  // ========== BAT (Upper Flow) ==========
+  // ========== BAT (Upper Flow, mass-normalized) ==========
   let upperFlowComponents: number[];
   if (dataQuality.hasBatKE) {
     upperFlowComponents = [
-      to2080Scale(avgBatKE, THRESHOLDS.batKE.min, THRESHOLDS.batKE.max),
-      to2080Scale(avgArmsKE, THRESHOLDS.armsKE.min, THRESHOLDS.armsKE.max),
-      to2080Scale(avgBatEff, THRESHOLDS.batEfficiency.min, THRESHOLDS.batEfficiency.max),
+      to2080Scale(avgBatKE, th.batKE.min, th.batKE.max),
+      to2080Scale(avgArmsKE, th.armsKE.min, th.armsKE.max),
+      to2080Scale(avgBatEff, th.batEfficiency.min, th.batEfficiency.max),
     ];
   } else {
     const deliveryEffProxy = avgArmsKE * (avgTorsoToArms / 100);
     const proxyEffPct = avgTotalKE > 0 ? (deliveryEffProxy / avgTotalKE) * 100 : avgTorsoToArms * 0.4;
     upperFlowComponents = [
-      to2080Scale(avgArmsKE, THRESHOLDS.armsKE.min, THRESHOLDS.armsKE.max),
-      to2080Scale(proxyEffPct, THRESHOLDS.torsoToArmsTransfer.min, THRESHOLDS.torsoToArmsTransfer.max),
+      to2080Scale(avgArmsKE, th.armsKE.min, th.armsKE.max),
+      to2080Scale(proxyEffPct, th.torsoToArmsTransfer.min, th.torsoToArmsTransfer.max),
     ];
   }
   const batScore = Math.round(avg(upperFlowComponents));
@@ -997,9 +997,9 @@ function calculate4BScores(
     rawMetrics.cvOutput = Math.round(cvOutput * 10) / 10;
 
     const brainComponents = [
-      to2080Scale(cvLegsKE, THRESHOLDS.cvLegsKE.min, THRESHOLDS.cvLegsKE.max, true),
-      to2080Scale(cvTorsoKE, THRESHOLDS.cvTorsoKE.min, THRESHOLDS.cvTorsoKE.max, true),
-      to2080Scale(cvOutput, THRESHOLDS.cvOutput.min, THRESHOLDS.cvOutput.max, true),
+      to2080Scale(cvLegsKE, th.cvLegsKE.min, th.cvLegsKE.max, true),
+      to2080Scale(cvTorsoKE, th.cvTorsoKE.min, th.cvTorsoKE.max, true),
+      to2080Scale(cvOutput, th.cvOutput.min, th.cvOutput.max, true),
     ];
     brainScore = Math.round(avg(brainComponents));
   }
@@ -1014,8 +1014,8 @@ function calculate4BScores(
     rawMetrics.cvBatEfficiency = Math.round(cvBatEff * 10) / 10;
 
     const ballComponents = [
-      to2080Scale(cvTotalKE, THRESHOLDS.cvTotalKE.min, THRESHOLDS.cvTotalKE.max, true),
-      to2080Scale(cvBatEff, THRESHOLDS.cvBatEfficiency.min, THRESHOLDS.cvBatEfficiency.max, true),
+      to2080Scale(cvTotalKE, th.cvTotalKE.min, th.cvTotalKE.max, true),
+      to2080Scale(cvBatEff, th.cvBatEfficiency.min, th.cvBatEfficiency.max, true),
     ];
     ballScore = Math.round(avg(ballComponents));
   }
