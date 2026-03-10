@@ -16,6 +16,7 @@ import {
   Calendar,
   Hash,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -114,6 +115,28 @@ export function PlayerRebootMotionTab({
     onSuccess: () => {
       toast.success("Registered with Reboot Motion");
       queryClient.invalidateQueries({ queryKey: ["reboot-link", playersTableId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Sync sessions from Reboot for THIS player only
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      if (!playersTableId) throw new Error("No player record");
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.access_token) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase.functions.invoke("sync-reboot-sessions", {
+        body: { player_id: playersTableId },
+        headers: { Authorization: `Bearer ${session.session.access_token}` },
+      });
+      if (error) throw new Error(error.message || "Sync failed");
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || "Sessions synced");
+      queryClient.invalidateQueries({ queryKey: ["reboot-sessions", playersTableId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -241,15 +264,27 @@ export function PlayerRebootMotionTab({
       {isLinked && (
         <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm uppercase tracking-wider text-slate-400 flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Reboot Sessions
-              {sessions && sessions.length > 0 && (
-                <Badge variant="secondary" className="bg-slate-800 text-slate-300 ml-auto">
-                  {sessions.length}
-                </Badge>
-              )}
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Reboot Sessions
+                {sessions && sessions.length > 0 && (
+                  <Badge variant="secondary" className="bg-slate-800 text-slate-300 ml-2">
+                    {sessions.length}
+                  </Badge>
+                )}
+              </CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => syncMutation.mutate()}
+                disabled={syncMutation.isPending}
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+                {syncMutation.isPending ? "Syncing…" : "Sync Sessions"}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {loadingSessions ? (
