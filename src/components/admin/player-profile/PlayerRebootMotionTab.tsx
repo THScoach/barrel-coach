@@ -31,6 +31,7 @@ export function PlayerRebootMotionTab({
   playerName,
 }: PlayerRebootMotionTabProps) {
   const queryClient = useQueryClient();
+  const [manualId, setManualId] = useState("");
   const [selectedSession, setSelectedSession] = useState<any>(null);
 
   // Fetch player's reboot IDs from players table
