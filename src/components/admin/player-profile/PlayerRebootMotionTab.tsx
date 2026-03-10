@@ -305,7 +305,8 @@ export function PlayerRebootMotionTab({
                 {sessions.map((session) => (
                   <div
                     key={session.id}
-                    className="flex items-center gap-3 py-3 group hover:bg-slate-800/30 -mx-4 px-4 rounded transition-colors"
+                    onClick={() => setSelectedSession(session)}
+                    className="flex items-center gap-3 py-3 group hover:bg-slate-800/30 -mx-4 px-4 rounded transition-colors cursor-pointer"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -337,7 +338,7 @@ export function PlayerRebootMotionTab({
                         )}
                       </div>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                    <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400 group-hover:translate-x-0.5 transition-all" />
                   </div>
                 ))}
               </div>
