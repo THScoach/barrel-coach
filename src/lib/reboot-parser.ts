@@ -325,6 +325,36 @@ export const THRESHOLDS = {
   properSequencePct: { min: 40, max: 100 },
 };
 
+// Baseline mass (kg) used for threshold normalization.
+// Thresholds above are calibrated for a ~165 lb / 75 kg athlete.
+const BASELINE_MASS_KG = 75;
+
+// Keys in THRESHOLDS that represent absolute kinetic energy (Joules)
+// and should scale linearly with body mass.
+const MASS_SCALED_THRESHOLD_KEYS: (keyof typeof THRESHOLDS)[] = [
+  'legsKE', 'legsKEContact', 'torsoKE', 'armsKE', 'batKE', 'torsoKELegacy',
+];
+
+/**
+ * Return a copy of THRESHOLDS with KE-based min/max scaled by
+ * (athleteMassKg / BASELINE_MASS_KG).  Ratio thresholds (percentages, CV)
+ * are left unchanged because they are already mass-agnostic.
+ */
+export function getMassScaledThresholds(athleteMassKg: number | null) {
+  if (!athleteMassKg || athleteMassKg <= 0) return THRESHOLDS;
+  const factor = athleteMassKg / BASELINE_MASS_KG;
+  // Avoid extreme scaling for outlier masses
+  const clampedFactor = clamp(factor, 0.5, 2.0);
+  const scaled = { ...THRESHOLDS };
+  for (const key of MASS_SCALED_THRESHOLD_KEYS) {
+    scaled[key] = {
+      min: Math.round(THRESHOLDS[key].min * clampedFactor),
+      max: Math.round(THRESHOLDS[key].max * clampedFactor),
+    };
+  }
+  return scaled;
+}
+
 export const WEIGHTS = {
   body: 0.35,
   bat: 0.30,
@@ -543,7 +573,23 @@ export interface MESwingMetrics {
   hasBatKE: boolean;
 }
 
-export function processMEFile(rows: MERow[]): Map<string, MESwingMetrics> {
+export interface MEProcessResult {
+  swingMetrics: Map<string, MESwingMetrics>;
+  /** Median mass_total (kg) extracted from the CSV, or null if not present */
+  csvMassKg: number | null;
+}
+
+export function processMEFile(rows: MERow[]): MEProcessResult {
+  // Extract mass_total values from all rows for median calculation
+  const massValues: number[] = [];
+  for (const row of rows) {
+    const m = parseFloat(row.mass_total || '');
+    if (!isNaN(m) && m > 0) massValues.push(m);
+  }
+  const csvMassKg = massValues.length > 0
+    ? percentile(massValues, 50)
+    : null;
+
   // Group by movement_id
   const swingGroups = new Map<string, MERow[]>();
   
@@ -649,7 +695,7 @@ export function processMEFile(rows: MERow[]): Map<string, MESwingMetrics> {
     });
   }
   
-  return swingMetrics;
+  return { swingMetrics, csvMassKg };
 }
 
 // ============================================================================
@@ -1181,12 +1227,27 @@ export function calculate4BScores(
   }
   
   // Process ME file (PRIMARY)
-  const meMetrics = processMEFile(meRows);
+  const meResult = processMEFile(meRows);
+  const meMetrics = meResult.swingMetrics;
+  const csvMassKg = meResult.csvMassKg;
   result.dataQuality.hasMEData = meMetrics.size > 0;
   
   if (meMetrics.size === 0) {
     result.dataQuality.warnings.push('No valid swings found in ME file');
     return result;
+  }
+  
+  // Determine athlete mass for threshold scaling:
+  // Priority: CSV mass_total > player weight param > null (use defaults)
+  const athleteMassKg = csvMassKg
+    ?? (playerWeightLbs ? playerWeightLbs / 2.20462 : null);
+  
+  // Get mass-scaled thresholds for KE scoring
+  const th = getMassScaledThresholds(athleteMassKg);
+  
+  if (athleteMassKg) {
+    result.rawMetrics.athleteMassKg = Math.round(athleteMassKg * 10) / 10;
+    result.rawMetrics.massScaleFactor = Math.round((athleteMassKg / BASELINE_MASS_KG) * 100) / 100;
   }
   
   // Process IK file (OPTIONAL)
@@ -1302,26 +1363,26 @@ export function calculate4BScores(
     result.rawMetrics.avgXFactor = Math.round(avg(xFactors) * 10) / 10;
   }
   
-  // ========== GROUND FLOW (ME-based) ==========
-  const groundFlowScore = to2080Scale(avgLegsKE, THRESHOLDS.legsKE.min, THRESHOLDS.legsKE.max);
+  // ========== GROUND FLOW (ME-based, mass-normalized) ==========
+  const groundFlowScore = to2080Scale(avgLegsKE, th.legsKE.min, th.legsKE.max);
   
-  // ========== CORE FLOW (ME-based) ==========
+  // ========== CORE FLOW (ME-based, mass-normalized) ==========
   const coreFlowComponents = [
-    to2080Scale(avgTorsoKE, THRESHOLDS.torsoKE.min, THRESHOLDS.torsoKE.max),
-    to2080Scale(avgTorsoToArms, THRESHOLDS.torsoToArmsTransfer.min, THRESHOLDS.torsoToArmsTransfer.max),
+    to2080Scale(avgTorsoKE, th.torsoKE.min, th.torsoKE.max),
+    to2080Scale(avgTorsoToArms, th.torsoToArmsTransfer.min, th.torsoToArmsTransfer.max),
   ];
   const coreFlowScore = Math.round(avg(coreFlowComponents));
   
   // ========== BODY (Ground + Core) ==========
   const bodyScore = Math.round((groundFlowScore + coreFlowScore) / 2);
   
-  // ========== BAT (Upper Flow - ME-based) ==========
+  // ========== BAT (Upper Flow - ME-based, mass-normalized) ==========
   let upperFlowComponents: number[];
   if (result.dataQuality.hasBatKE) {
     upperFlowComponents = [
-      to2080Scale(avgBatKE, THRESHOLDS.batKE.min, THRESHOLDS.batKE.max),
-      to2080Scale(avgArmsKE, THRESHOLDS.armsKE.min, THRESHOLDS.armsKE.max),
-      to2080Scale(avgBatEff, THRESHOLDS.batEfficiency.min, THRESHOLDS.batEfficiency.max),
+      to2080Scale(avgBatKE, th.batKE.min, th.batKE.max),
+      to2080Scale(avgArmsKE, th.armsKE.min, th.armsKE.max),
+      to2080Scale(avgBatEff, th.batEfficiency.min, th.batEfficiency.max),
     ];
   } else {
     // Use proxy: arms KE + torso-to-arms transfer
@@ -1329,8 +1390,8 @@ export function calculate4BScores(
     const proxyEffPct = avgTotalKE > 0 ? (deliveryEffProxy / avgTotalKE) * 100 : avgTorsoToArms * 0.4;
     
     upperFlowComponents = [
-      to2080Scale(avgArmsKE, THRESHOLDS.armsKE.min, THRESHOLDS.armsKE.max),
-      to2080Scale(proxyEffPct, THRESHOLDS.torsoToArmsTransfer.min, THRESHOLDS.torsoToArmsTransfer.max),
+      to2080Scale(avgArmsKE, th.armsKE.min, th.armsKE.max),
+      to2080Scale(proxyEffPct, th.torsoToArmsTransfer.min, th.torsoToArmsTransfer.max),
     ];
   }
   const batScore = Math.round(avg(upperFlowComponents));
@@ -1349,9 +1410,9 @@ export function calculate4BScores(
     result.rawMetrics.cvOutput = Math.round(cvOutput * 10) / 10;
     
     const brainComponents = [
-      to2080Scale(cvLegsKE, THRESHOLDS.cvLegsKE.min, THRESHOLDS.cvLegsKE.max, true),
-      to2080Scale(cvTorsoKE, THRESHOLDS.cvTorsoKE.min, THRESHOLDS.cvTorsoKE.max, true),
-      to2080Scale(cvOutput, THRESHOLDS.cvOutput.min, THRESHOLDS.cvOutput.max, true),
+      to2080Scale(cvLegsKE, th.cvLegsKE.min, th.cvLegsKE.max, true),
+      to2080Scale(cvTorsoKE, th.cvTorsoKE.min, th.cvTorsoKE.max, true),
+      to2080Scale(cvOutput, th.cvOutput.min, th.cvOutput.max, true),
     ];
     brainScore = Math.round(avg(brainComponents));
   }
@@ -1366,8 +1427,8 @@ export function calculate4BScores(
     result.rawMetrics.cvBatEfficiency = Math.round(cvBatEff * 10) / 10;
     
     const ballComponents = [
-      to2080Scale(cvTotalKE, THRESHOLDS.cvTotalKE.min, THRESHOLDS.cvTotalKE.max, true),
-      to2080Scale(cvBatEff, THRESHOLDS.cvBatEfficiency.min, THRESHOLDS.cvBatEfficiency.max, true),
+      to2080Scale(cvTotalKE, th.cvTotalKE.min, th.cvTotalKE.max, true),
+      to2080Scale(cvBatEff, th.cvBatEfficiency.min, th.cvBatEfficiency.max, true),
     ];
     ballScore = Math.round(avg(ballComponents));
   }
