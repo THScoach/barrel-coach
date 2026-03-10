@@ -1363,26 +1363,26 @@ export function calculate4BScores(
     result.rawMetrics.avgXFactor = Math.round(avg(xFactors) * 10) / 10;
   }
   
-  // ========== GROUND FLOW (ME-based) ==========
-  const groundFlowScore = to2080Scale(avgLegsKE, THRESHOLDS.legsKE.min, THRESHOLDS.legsKE.max);
+  // ========== GROUND FLOW (ME-based, mass-normalized) ==========
+  const groundFlowScore = to2080Scale(avgLegsKE, th.legsKE.min, th.legsKE.max);
   
-  // ========== CORE FLOW (ME-based) ==========
+  // ========== CORE FLOW (ME-based, mass-normalized) ==========
   const coreFlowComponents = [
-    to2080Scale(avgTorsoKE, THRESHOLDS.torsoKE.min, THRESHOLDS.torsoKE.max),
-    to2080Scale(avgTorsoToArms, THRESHOLDS.torsoToArmsTransfer.min, THRESHOLDS.torsoToArmsTransfer.max),
+    to2080Scale(avgTorsoKE, th.torsoKE.min, th.torsoKE.max),
+    to2080Scale(avgTorsoToArms, th.torsoToArmsTransfer.min, th.torsoToArmsTransfer.max),
   ];
   const coreFlowScore = Math.round(avg(coreFlowComponents));
   
   // ========== BODY (Ground + Core) ==========
   const bodyScore = Math.round((groundFlowScore + coreFlowScore) / 2);
   
-  // ========== BAT (Upper Flow - ME-based) ==========
+  // ========== BAT (Upper Flow - ME-based, mass-normalized) ==========
   let upperFlowComponents: number[];
   if (result.dataQuality.hasBatKE) {
     upperFlowComponents = [
-      to2080Scale(avgBatKE, THRESHOLDS.batKE.min, THRESHOLDS.batKE.max),
-      to2080Scale(avgArmsKE, THRESHOLDS.armsKE.min, THRESHOLDS.armsKE.max),
-      to2080Scale(avgBatEff, THRESHOLDS.batEfficiency.min, THRESHOLDS.batEfficiency.max),
+      to2080Scale(avgBatKE, th.batKE.min, th.batKE.max),
+      to2080Scale(avgArmsKE, th.armsKE.min, th.armsKE.max),
+      to2080Scale(avgBatEff, th.batEfficiency.min, th.batEfficiency.max),
     ];
   } else {
     // Use proxy: arms KE + torso-to-arms transfer
@@ -1390,8 +1390,8 @@ export function calculate4BScores(
     const proxyEffPct = avgTotalKE > 0 ? (deliveryEffProxy / avgTotalKE) * 100 : avgTorsoToArms * 0.4;
     
     upperFlowComponents = [
-      to2080Scale(avgArmsKE, THRESHOLDS.armsKE.min, THRESHOLDS.armsKE.max),
-      to2080Scale(proxyEffPct, THRESHOLDS.torsoToArmsTransfer.min, THRESHOLDS.torsoToArmsTransfer.max),
+      to2080Scale(avgArmsKE, th.armsKE.min, th.armsKE.max),
+      to2080Scale(proxyEffPct, th.torsoToArmsTransfer.min, th.torsoToArmsTransfer.max),
     ];
   }
   const batScore = Math.round(avg(upperFlowComponents));
