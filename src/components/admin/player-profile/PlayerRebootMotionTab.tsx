@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { RebootSessionDetailDrawer } from "./RebootSessionDetailDrawer";
+import { ManualRebootUpload } from "./ManualRebootUpload";
 
 interface PlayerRebootMotionTabProps {
   playersTableId?: string | null;
