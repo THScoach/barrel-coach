@@ -36,6 +36,7 @@ import {
   FileSpreadsheet,
   UserCheck,
   RefreshCw,
+  GitMerge,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminHeader } from "@/components/AdminHeader";
