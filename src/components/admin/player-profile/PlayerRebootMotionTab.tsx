@@ -264,15 +264,27 @@ export function PlayerRebootMotionTab({
       {isLinked && (
         <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm uppercase tracking-wider text-slate-400 flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Reboot Sessions
-              {sessions && sessions.length > 0 && (
-                <Badge variant="secondary" className="bg-slate-800 text-slate-300 ml-auto">
-                  {sessions.length}
-                </Badge>
-              )}
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Reboot Sessions
+                {sessions && sessions.length > 0 && (
+                  <Badge variant="secondary" className="bg-slate-800 text-slate-300 ml-2">
+                    {sessions.length}
+                  </Badge>
+                )}
+              </CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => syncMutation.mutate()}
+                disabled={syncMutation.isPending}
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+                {syncMutation.isPending ? "Syncing…" : "Sync Sessions"}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {loadingSessions ? (
