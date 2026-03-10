@@ -28,6 +28,8 @@ export default function PlayerProfile() {
     name: '',
     email: '',
     phone: '',
+    heightFeet: '',
+    heightInches: '',
     bats: 'R',
     throws: 'R',
     level: '',
@@ -53,12 +55,17 @@ export default function PlayerProfile() {
 
     if (data) {
       setPlayer(data);
+      const totalInches = (data as any).height_inches;
+      const feet = totalInches ? String(Math.floor(totalInches / 12)) : '';
+      const inches = totalInches ? String(totalInches % 12) : '';
       setFormData({
         name: data.name || '',
         email: data.email || '',
         phone: data.phone || '',
+        heightFeet: feet,
+        heightInches: inches,
         bats: data.handedness?.charAt(0) || 'R',
-        throws: 'R', // Players table doesn't have throws yet
+        throws: 'R',
         level: data.level || '',
         team: data.team || '',
       });
@@ -70,6 +77,10 @@ export default function PlayerProfile() {
     if (!player) return;
     setSaving(true);
 
+    const heightTotal = formData.heightFeet && formData.heightInches !== ''
+      ? parseInt(formData.heightFeet) * 12 + parseInt(formData.heightInches)
+      : null;
+
     const { error } = await supabase
       .from('players')
       .update({
@@ -77,9 +88,10 @@ export default function PlayerProfile() {
         email: formData.email,
         phone: formData.phone,
         handedness: formData.bats,
+        height_inches: heightTotal,
         level: formData.level,
         team: formData.team,
-      })
+      } as any)
       .eq('id', player.id);
 
     if (error) {
@@ -159,6 +171,38 @@ export default function PlayerProfile() {
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Height</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Select
+                  value={formData.heightFeet}
+                  onValueChange={(v) => setFormData({ ...formData, heightFeet: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Feet" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[3, 4, 5, 6, 7].map((ft) => (
+                      <SelectItem key={ft} value={String(ft)}>{ft} ft</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={formData.heightInches}
+                  onValueChange={(v) => setFormData({ ...formData, heightInches: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Inches" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <SelectItem key={i} value={String(i)}>{i} in</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
