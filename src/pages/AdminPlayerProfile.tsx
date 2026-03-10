@@ -116,6 +116,7 @@ export default function AdminPlayerProfile() {
 
   const [showResearchModal, setShowResearchModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
   const [isSendingBetaInvite, setIsSendingBetaInvite] = useState(false);
 
   const handleSendBetaInvite = async () => {
