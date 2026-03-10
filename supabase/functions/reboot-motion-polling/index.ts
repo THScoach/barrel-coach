@@ -568,16 +568,16 @@ function calculate4BScores(swings: SwingData[], athleteMassKg: number | null = n
   const cvValid = n >= 3;
   let brainScore = 50;
   if (cvValid) {
-    const legsC = _to2080(legsCV, _THRESHOLDS.cv.min, _THRESHOLDS.cv.max, true);
-    const torsoC = _to2080(torsoCV, _THRESHOLDS.cv.min, _THRESHOLDS.cv.max, true);
+    const legsC = _to2080(legsCV, th.cv.min, th.cv.max, true);
+    const torsoC = _to2080(torsoCV, th.cv.min, th.cv.max, true);
     brainScore = Math.round((legsC + torsoC) / 2);
   }
 
   let ballScore = 50;
   if (cvValid && hasBatKE) {
-    ballScore = _to2080(outputCV, _THRESHOLDS.cv.min, _THRESHOLDS.cv.max, true);
+    ballScore = _to2080(outputCV, th.cv.min, th.cv.max, true);
   } else if (cvValid) {
-    ballScore = _to2080(armsCV, _THRESHOLDS.cv.min, _THRESHOLDS.cv.max, true);
+    ballScore = _to2080(armsCV, th.cv.min, th.cv.max, true);
   }
 
   const overall = Math.round(
