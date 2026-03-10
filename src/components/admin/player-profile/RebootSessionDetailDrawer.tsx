@@ -1,9 +1,11 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Hash, MapPin, FileText, Video, ExternalLink, Activity } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Calendar, Hash, MapPin, FileText, Video, ExternalLink, Activity, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 interface RebootSession {
   id: string;
