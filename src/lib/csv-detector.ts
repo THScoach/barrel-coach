@@ -400,7 +400,7 @@ export function parseCSV(csvText: string): { headers: string[]; rows: Record<str
   const lines = csvText.trim().split('\n');
   if (lines.length < 2) return { headers: [], rows: [] };
   
-  const headers = parseCSVLine(lines[0]).map(h => h.trim());
+  const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
   const rows: Record<string, any>[] = [];
   
   for (let i = 1; i < lines.length; i++) {
