@@ -248,3 +248,6 @@ verify_jwt = false
 
 [functions.analyze-swing-2d]
 verify_jwt = false
+
+[functions.merge-player-accounts]
+verify_jwt = false

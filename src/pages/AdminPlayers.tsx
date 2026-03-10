@@ -36,12 +36,14 @@ import {
   FileSpreadsheet,
   UserCheck,
   RefreshCw,
+  GitMerge,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminHeader } from "@/components/AdminHeader";
 import { ProfileLinkingManager } from "@/components/admin/ProfileLinkingManager";
 import { RebootPlayerImportModal } from "@/components/admin/RebootPlayerImportModal";
 import { DKCsvImportModal } from "@/components/admin/DKCsvImportModal";
+import { FindDuplicatesModal } from "@/components/admin/FindDuplicatesModal";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -83,6 +85,7 @@ export default function AdminPlayers() {
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const [showRebootImport, setShowRebootImport] = useState(false);
   const [showDKCsvImport, setShowDKCsvImport] = useState(false);
+  const [showFindDuplicates, setShowFindDuplicates] = useState(false);
   const [activatingPlayerId, setActivatingPlayerId] = useState<string | null>(null);
   const [isSyncingDK, setIsSyncingDK] = useState(false);
   const [isLinkingDK, setIsLinkingDK] = useState(false);
@@ -422,6 +425,15 @@ export default function AdminPlayers() {
               <span className="sm:hidden">DK</span>
             </Button>
             <Button
+              variant="outline"
+              onClick={() => setShowFindDuplicates(true)}
+              className="border-slate-600 text-slate-300 hover:bg-slate-800 gap-2"
+            >
+              <GitMerge className="h-4 w-4" />
+              <span className="hidden sm:inline">Find Duplicates</span>
+              <span className="sm:hidden">Dupes</span>
+            </Button>
+            <Button
               onClick={() => navigate("/admin/players/new")}
               className="btn-primary gap-2"
             >
@@ -702,6 +714,12 @@ export default function AdminPlayers() {
       <DKCsvImportModal
         open={showDKCsvImport}
         onOpenChange={setShowDKCsvImport}
+      />
+
+      {/* Find Duplicates Modal */}
+      <FindDuplicatesModal
+        open={showFindDuplicates}
+        onOpenChange={setShowFindDuplicates}
       />
     </div>
   );

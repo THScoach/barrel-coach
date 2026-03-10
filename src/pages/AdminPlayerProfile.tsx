@@ -34,10 +34,11 @@ import { toast } from "sonner";
 import { 
   ArrowLeft, Save, User, Phone, Building, 
   FileText, Plus, Loader2, Sparkles, Settings,
-  MessageSquare, MoreHorizontal, Zap, ChevronDown
+  MessageSquare, MoreHorizontal, Zap, ChevronDown, GitMerge
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { PlayerResearchModal } from "@/components/PlayerResearchModal";
+import { MergePlayerModal } from "@/components/admin/MergePlayerModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileBottomNav } from "@/components/admin/MobileBottomNav";
 import { MobileSegmentedControl } from "@/components/admin/MobileSegmentedControl";
@@ -115,6 +116,7 @@ export default function AdminPlayerProfile() {
 
   const [showResearchModal, setShowResearchModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
   const [isSendingBetaInvite, setIsSendingBetaInvite] = useState(false);
 
   const handleSendBetaInvite = async () => {
@@ -687,6 +689,13 @@ export default function AdminPlayerProfile() {
                 <DropdownMenuItem className="text-slate-300 focus:bg-slate-800 focus:text-white">
                   Archive
                 </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setShowMergeModal(true)}
+                  className="text-slate-300 focus:bg-slate-800 focus:text-white"
+                >
+                  <GitMerge className="h-4 w-4 mr-2" />
+                  Merge With Another Player
+                </DropdownMenuItem>
                 <DropdownMenuItem className="text-red-400 focus:bg-slate-800 focus:text-red-400">
                   Delete
                 </DropdownMenuItem>
@@ -1050,6 +1059,15 @@ export default function AdminPlayerProfile() {
         onPlayerFound={handleResearchData}
         initialName={`${formData.first_name} ${formData.last_name}`.trim()}
       />
+
+      {player?.players_id && (
+        <MergePlayerModal
+          open={showMergeModal}
+          onOpenChange={setShowMergeModal}
+          currentPlayerId={player.players_id}
+          currentPlayerName={getPlayerName()}
+        />
+      )}
     </div>
   );
 }
