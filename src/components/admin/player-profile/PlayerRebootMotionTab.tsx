@@ -347,6 +347,12 @@ export function PlayerRebootMotionTab({
           </CardContent>
         </Card>
       )}
+
+      <RebootSessionDetailDrawer
+        open={!!selectedSession}
+        onOpenChange={(open) => !open && setSelectedSession(null)}
+        session={selectedSession}
+      />
     </div>
   );
 }
