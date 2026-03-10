@@ -59,7 +59,7 @@ export function ConceptSearch({ onVideoSelect }: ConceptSearchProps) {
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const searchVideos = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim() || searchQuery.length < 2) {

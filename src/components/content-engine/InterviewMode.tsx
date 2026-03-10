@@ -69,7 +69,7 @@ export function InterviewMode({ onComplete, onCancel }: InterviewModeProps) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [phase, setPhase] = useState<'intro' | 'recording' | 'review' | 'complete'>('intro');
   const [questionIndex, setQuestionIndex] = useState(0);

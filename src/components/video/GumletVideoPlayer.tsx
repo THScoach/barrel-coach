@@ -61,7 +61,7 @@ export function GumletVideoPlayer({
   const [showControlsOverlay, setShowControlsOverlay] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null);
+  const hideControlsTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Initialize HLS.js for adaptive streaming
   useEffect(() => {

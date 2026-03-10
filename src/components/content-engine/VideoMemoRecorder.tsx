@@ -18,7 +18,7 @@ export function VideoMemoRecorder({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [isRecording, setIsRecording] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);

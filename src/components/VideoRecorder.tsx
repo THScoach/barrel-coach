@@ -21,7 +21,7 @@ export function VideoRecorder({ onVideoRecorded, onCancel }: VideoRecorderProps)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [error, setError] = useState<string | null>(null);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startCamera = useCallback(async () => {
     try {

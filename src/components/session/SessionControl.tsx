@@ -59,8 +59,8 @@ export function SessionControl({ onSwingCaptured, onSessionEnd }: SessionControl
   const streamRef = useRef<MediaStream | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const circularBufferRef = useRef<Blob[]>([]);
-  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const swingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const swingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Initialize camera
   const startCamera = useCallback(async () => {
@@ -200,7 +200,7 @@ export function SessionControl({ onSwingCaptured, onSessionEnd }: SessionControl
     });
     
     // Calculate metrics
-    const metrics = catchingBarrelsService.calculateMetrics(peakAcceleration);
+    const metrics = await catchingBarrelsService.calculateMetrics(peakAcceleration);
     
     // Capture video clip (pre-swing + post-swing buffer)
     let videoUrl: string | null = null;

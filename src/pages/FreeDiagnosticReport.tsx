@@ -294,7 +294,7 @@ export default function FreeDiagnosticReport() {
   const [status, setStatus] = useState<'loading' | 'processing' | 'ready' | 'not_found'>('loading');
 
   useEffect(() => {
-    let pollInterval: NodeJS.Timeout | null = null;
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
 
     async function fetchReport() {
       if (!sessionId) {
