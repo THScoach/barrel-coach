@@ -938,6 +938,11 @@ function calculate4BScores(
     swingCount: swings.length,
   };
 
+  if (athleteMassKg) {
+    rawMetrics.athleteMassKg = Math.round(athleteMassKg * 10) / 10;
+    rawMetrics.massScaleFactor = Math.round((athleteMassKg / BASELINE_MASS_KG) * 100) / 100;
+  }
+
   if (dataQuality.hasIKData) {
     const pelvisVels = swings.map(s => s.pelvisVelocity).filter(v => v > 0);
     const torsoVels = swings.map(s => s.torsoVelocity).filter(v => v > 0);
