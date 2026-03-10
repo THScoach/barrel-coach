@@ -82,7 +82,7 @@ function extractMetrics(csvText: string, fileType: string): ParsedMetrics {
     summaryValues[`avg_${col}`] = Math.round(avg * 1000) / 1000;
   }
 
-  // For momentum files, extract key metrics
+  // For momentum files, extract key metrics + mass_total
   if (fileType === 'momentum') {
     const keyCols = ['total_kinetic_energy', 'bat_kinetic_energy', 'legs_kinetic_energy', 'torso_kinetic_energy'];
     for (const col of keyCols) {
@@ -91,6 +91,15 @@ function extractMetrics(csvText: string, fileType: string): ParsedMetrics {
         if (values.length > 0) {
           peakValues[`peak_${col}`] = Math.round(Math.max(...values) * 1000) / 1000;
         }
+      }
+    }
+
+    // Extract mass_total (kg) from first data row — constant per athlete
+    if (headers.includes('mass_total')) {
+      const massVal = parseFloat(rows[0]?.['mass_total'] || '');
+      if (!isNaN(massVal) && massVal > 0) {
+        summaryValues['mass_total_kg'] = Math.round(massVal * 100) / 100;
+        summaryValues['mass_scale_factor'] = Math.round((massVal / 80) * 100) / 100; // relative to 80 kg baseline
       }
     }
   }

@@ -28,6 +28,7 @@ interface MEDataRow {
   bat_kinetic_energy?: number;
   total_kinetic_energy?: number;
   lowerhalf_kinetic_energy?: number;
+  mass_total?: number;
 }
 
 interface RebootUpload {
@@ -91,21 +92,29 @@ function extractMEMetrics(meData: Json | null | undefined): {
   totalKE: number | null;
   legsToTorsoTransfer: number | null;
   torsoToArmsTransfer: number | null;
+  massTotalKg: number | null;
+  massScaleFactor: number | null;
 } {
-  if (!meData || !Array.isArray(meData)) {
-    return {
-      legsKE: null,
-      torsoKE: null,
-      armsKE: null,
-      batKE: null,
-      totalKE: null,
-      legsToTorsoTransfer: null,
-      torsoToArmsTransfer: null,
-    };
-  }
+  const empty = {
+    legsKE: null, torsoKE: null, armsKE: null, batKE: null, totalKE: null,
+    legsToTorsoTransfer: null, torsoToArmsTransfer: null,
+    massTotalKg: null, massScaleFactor: null,
+  };
+
+  if (!meData || !Array.isArray(meData)) return empty;
 
   const rows = meData as MEDataRow[];
   
+  // Extract mass_total from first row (constant per athlete)
+  let massTotalKg: number | null = null;
+  for (const row of rows) {
+    if (row.mass_total && row.mass_total > 0) {
+      massTotalKg = Math.round(row.mass_total * 10) / 10;
+      break;
+    }
+  }
+  const massScaleFactor = massTotalKg ? Math.round((massTotalKg / 80) * 100) / 100 : null;
+
   // Calculate peak values across all frames
   let maxLegsKE = 0;
   let maxTorsoKE = 0;
@@ -116,7 +125,6 @@ function extractMEMetrics(meData: Json | null | undefined): {
   for (const row of rows) {
     const legsKE = row.legs_kinetic_energy ?? row.lowerhalf_kinetic_energy ?? 0;
     const torsoKE = row.torso_kinetic_energy ?? 0;
-    // Handle both combined arms_kinetic_energy and separate larm/rarm
     const armsKE = row.arms_kinetic_energy || 
       ((row.larm_kinetic_energy ?? 0) + (row.rarm_kinetic_energy ?? 0));
     const batKE = row.bat_kinetic_energy ?? 0;
@@ -129,7 +137,6 @@ function extractMEMetrics(meData: Json | null | undefined): {
     maxTotalKE = Math.max(maxTotalKE, totalKE);
   }
 
-  // Calculate transfer efficiencies
   const legsToTorsoTransfer = maxLegsKE > 0 ? Math.round((maxTorsoKE / maxLegsKE) * 100) : null;
   const torsoToArmsTransfer = maxTorsoKE > 0 ? Math.round((maxArmsKE / maxTorsoKE) * 100) : null;
 
@@ -141,6 +148,8 @@ function extractMEMetrics(meData: Json | null | undefined): {
     totalKE: maxTotalKE > 0 ? Math.round(maxTotalKE) : null,
     legsToTorsoTransfer,
     torsoToArmsTransfer,
+    massTotalKg,
+    massScaleFactor,
   };
 }
 
@@ -463,7 +472,7 @@ export function RebootSessionDetail({
                 </div>
 
                 {/* Support metrics line */}
-                <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+                <div className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
                   <span>
                     Efficiency: <span className="font-medium text-foreground">{Math.round(kineticPotential.efficiency * 100)}%</span>
                   </span>
@@ -473,6 +482,12 @@ export function RebootSessionDetail({
                   <span>
                     Lever: <span className="font-medium text-foreground">{kineticPotential.leverIndex.toFixed(2)}</span>
                   </span>
+                  {meMetrics.massTotalKg && (
+                    <span>
+                      Mass: <span className="font-medium text-foreground">{meMetrics.massTotalKg} kg</span>
+                      <span className="ml-1 opacity-70">({meMetrics.massScaleFactor}×)</span>
+                    </span>
+                  )}
                 </div>
 
                 {/* Coach voice helper text */}
