@@ -670,7 +670,7 @@ export function UnifiedDataUploadModal({
               </div>
               
               <div className="text-sm text-amber-600 dark:text-amber-400 text-center bg-amber-100 dark:bg-amber-900/30 p-2 rounded">
-                ⚠️ Upload both IK and ME files to calculate 4B scores
+                ⚠️ {meData ? 'IK data loaded — scores will calculate on save' : 'Upload a Momentum-Energy (ME) file to calculate 4B scores'}
               </div>
             </div>
           )}
