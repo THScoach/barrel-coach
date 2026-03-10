@@ -830,10 +830,23 @@ function calculate4BScores(
   }
 
   // Process ME file (PRIMARY)
-  const meMetrics = processMEFile(meRows);
+  const meResult = processMEFile(meRows);
+  const meMetrics = meResult.swingMetrics;
+  const csvMassKg = meResult.csvMassKg;
   dataQuality.hasMEData = meMetrics.size > 0;
 
   if (meMetrics.size === 0) {
+    dataQuality.warnings.push('No valid swings found in ME file');
+    return defaultResult;
+  }
+
+  // Determine athlete mass for threshold scaling
+  const athleteMassKg = csvMassKg
+    ?? (playerWeightLbs ? playerWeightLbs / 2.20462 : null);
+  const th = getMassScaledThresholds(athleteMassKg);
+  if (athleteMassKg) {
+    console.log(`[4B-Debug] Mass normalization: ${athleteMassKg.toFixed(1)} kg, scale factor ${(athleteMassKg / BASELINE_MASS_KG).toFixed(2)}`);
+  }
     dataQuality.warnings.push('No valid swings found in ME file');
     return defaultResult;
   }
