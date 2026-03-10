@@ -77,6 +77,10 @@ export default function PlayerProfile() {
     if (!player) return;
     setSaving(true);
 
+    const heightTotal = formData.heightFeet && formData.heightInches !== ''
+      ? parseInt(formData.heightFeet) * 12 + parseInt(formData.heightInches)
+      : null;
+
     const { error } = await supabase
       .from('players')
       .update({
@@ -84,9 +88,10 @@ export default function PlayerProfile() {
         email: formData.email,
         phone: formData.phone,
         handedness: formData.bats,
+        height_inches: heightTotal,
         level: formData.level,
         team: formData.team,
-      })
+      } as any)
       .eq('id', player.id);
 
     if (error) {
