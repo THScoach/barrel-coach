@@ -366,9 +366,15 @@ interface SwingData {
   properSequence: boolean;
 }
 
-function processCSVToSwings(rows: MERow[]): SwingData[] {
+function processCSVToSwings(rows: MERow[]): { swings: SwingData[]; csvMassKg: number | null } {
   const ACTION_WINDOW = { start: -0.5, end: 0.1 };
   const groups = new Map<string, MERow[]>();
+
+  // Extract mass_total for median
+  const massValues = rows.map(r => r.mass_total).filter((m): m is number => m !== undefined && m > 0);
+  const csvMassKg = massValues.length > 0
+    ? massValues.sort((a, b) => a - b)[Math.floor(massValues.length / 2)]
+    : null;
 
   for (const row of rows) {
     const id = row.org_movement_id;
@@ -435,7 +441,7 @@ function processCSVToSwings(rows: MERow[]): SwingData[] {
     });
   }
 
-  return swings;
+  return { swings, csvMassKg };
 }
 
 function detectLeak(swings: SwingData[]): { type: string; caption: string; training: string } {
