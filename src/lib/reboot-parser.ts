@@ -326,8 +326,8 @@ export const THRESHOLDS = {
 };
 
 // Baseline mass (kg) used for threshold normalization.
-// Thresholds above are calibrated for a ~165 lb / 75 kg athlete.
-const BASELINE_MASS_KG = 75;
+// Thresholds above are calibrated for the reference athlete (~80 kg / 176 lbs).
+const BASELINE_MASS_KG = 80;
 
 // Keys in THRESHOLDS that represent absolute kinetic energy (Joules)
 // and should scale linearly with body mass.

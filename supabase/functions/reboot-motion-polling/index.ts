@@ -40,6 +40,7 @@ interface Player {
   reboot_player_id?: string | null;
   name: string;
   motor_profile_sensor: string | null;
+  weight_lbs?: number | null;
 }
 
 interface RebootSession {
@@ -66,6 +67,7 @@ interface MERow {
   arms_kinetic_energy: number;
   bat_kinetic_energy?: number;
   total_kinetic_energy: number;
+  mass_total?: number;
 }
 
 interface SyncResult {
@@ -261,7 +263,7 @@ class RebootClient {
 
       headers.forEach((header, index) => {
         const value = values[index]?.trim();
-        if (header.includes('kinetic_energy') || header.includes('time_from')) {
+        if (header.includes('kinetic_energy') || header.includes('time_from') || header === 'mass_total') {
           row[header] = parseFloat(value) || 0;
         } else {
           row[header] = value;
@@ -300,6 +302,23 @@ const _THRESHOLDS = {
 };
 
 const _WEIGHTS = { body: 0.35, bat: 0.30, brain: 0.20, ball: 0.15 };
+
+// Mass normalization baseline (kg) - reference athlete (~80 kg / 176 lbs)
+const _BASELINE_MASS_KG = 80;
+const _MASS_SCALED_KEYS: (keyof typeof _THRESHOLDS)[] = ['legsKE', 'torsoKE', 'armsKE', 'batKE'];
+
+function _getMassScaledThresholds(athleteMassKg: number | null) {
+  if (!athleteMassKg || athleteMassKg <= 0) return _THRESHOLDS;
+  const factor = Math.min(2.0, Math.max(0.5, athleteMassKg / _BASELINE_MASS_KG));
+  const scaled = { ..._THRESHOLDS };
+  for (const key of _MASS_SCALED_KEYS) {
+    scaled[key] = {
+      min: Math.round(_THRESHOLDS[key].min * factor),
+      max: Math.round(_THRESHOLDS[key].max * factor),
+    };
+  }
+  return scaled;
+}
 
 function _to2080(value: number, min: number, max: number, invert = false): number {
   let n = (value - min) / (max - min);
@@ -347,9 +366,15 @@ interface SwingData {
   properSequence: boolean;
 }
 
-function processCSVToSwings(rows: MERow[]): SwingData[] {
+function processCSVToSwings(rows: MERow[]): { swings: SwingData[]; csvMassKg: number | null } {
   const ACTION_WINDOW = { start: -0.5, end: 0.1 };
   const groups = new Map<string, MERow[]>();
+
+  // Extract mass_total for median
+  const massValues = rows.map(r => r.mass_total).filter((m): m is number => m !== undefined && m > 0);
+  const csvMassKg = massValues.length > 0
+    ? massValues.sort((a, b) => a - b)[Math.floor(massValues.length / 2)]
+    : null;
 
   for (const row of rows) {
     const id = row.org_movement_id;
@@ -416,7 +441,7 @@ function processCSVToSwings(rows: MERow[]): SwingData[] {
     });
   }
 
-  return swings;
+  return { swings, csvMassKg };
 }
 
 function detectLeak(swings: SwingData[]): { type: string; caption: string; training: string } {
@@ -475,7 +500,7 @@ function detectLeak(swings: SwingData[]): { type: string; caption: string; train
   return { type: 'unknown', caption: 'Mixed pattern detected.', training: 'Need more analysis.' };
 }
 
-function calculate4BScores(swings: SwingData[]) {
+function calculate4BScores(swings: SwingData[], athleteMassKg: number | null = null) {
   const n = swings.length;
 
   let dataQuality: string;
@@ -492,6 +517,12 @@ function calculate4BScores(swings: SwingData[]) {
       leak: { type: 'unknown', caption: 'No data.', training: 'Upload swing data.' },
       meta: { swingCount: 0, dataQuality: 'insufficient' },
     };
+  }
+
+  // Mass-normalized thresholds
+  const th = _getMassScaledThresholds(athleteMassKg);
+  if (athleteMassKg) {
+    console.log(`[reboot-polling] Mass normalization: ${athleteMassKg.toFixed(1)} kg, factor ${(athleteMassKg / _BASELINE_MASS_KG).toFixed(2)}`);
   }
 
   const legsKEValues = swings.map(s => s.legsKEPeak);
@@ -513,13 +544,13 @@ function calculate4BScores(swings: SwingData[]) {
   const armsCV = _calcCV(armsKEValues);
   const outputCV = _calcCV(batKEValues);
 
-  const groundFlow = _to2080(legsKEAvg, _THRESHOLDS.legsKE.min, _THRESHOLDS.legsKE.max);
-  const coreFlowE = _to2080(torsoKEAvg, _THRESHOLDS.torsoKE.min, _THRESHOLDS.torsoKE.max);
-  const coreFlowT = _to2080(legsToTorsoEff, _THRESHOLDS.legsToTorsoEff.min, _THRESHOLDS.legsToTorsoEff.max);
+  const groundFlow = _to2080(legsKEAvg, th.legsKE.min, th.legsKE.max);
+  const coreFlowE = _to2080(torsoKEAvg, th.torsoKE.min, th.torsoKE.max);
+  const coreFlowT = _to2080(legsToTorsoEff, th.legsToTorsoEff.min, th.legsToTorsoEff.max);
   const coreFlow = Math.round((coreFlowE + coreFlowT) / 2);
 
-  const upperFlowE = _to2080(armsKEAvg, _THRESHOLDS.armsKE.min, _THRESHOLDS.armsKE.max);
-  const upperFlowT = _to2080(torsoToArmsEff, _THRESHOLDS.torsoToArmsEff.min, _THRESHOLDS.torsoToArmsEff.max);
+  const upperFlowE = _to2080(armsKEAvg, th.armsKE.min, th.armsKE.max);
+  const upperFlowT = _to2080(torsoToArmsEff, th.torsoToArmsEff.min, th.torsoToArmsEff.max);
   const upperFlow = Math.round((upperFlowE + upperFlowT) / 2);
 
   const bodyScore = Math.round((groundFlow + coreFlow) / 2);
@@ -527,8 +558,8 @@ function calculate4BScores(swings: SwingData[]) {
   const hasBatKE = swings.some(s => s.batKEPeak > 10);
   let batScore: number;
   if (hasBatKE) {
-    const batDelivery = _to2080(batKEAvg, _THRESHOLDS.batKE.min, _THRESHOLDS.batKE.max);
-    const batEfficiency = _to2080(totalEff, _THRESHOLDS.totalEff.min, _THRESHOLDS.totalEff.max);
+    const batDelivery = _to2080(batKEAvg, th.batKE.min, th.batKE.max);
+    const batEfficiency = _to2080(totalEff, th.totalEff.min, th.totalEff.max);
     batScore = Math.round((upperFlow + batDelivery + batEfficiency) / 3);
   } else {
     batScore = upperFlow;
@@ -537,16 +568,16 @@ function calculate4BScores(swings: SwingData[]) {
   const cvValid = n >= 3;
   let brainScore = 50;
   if (cvValid) {
-    const legsC = _to2080(legsCV, _THRESHOLDS.cv.min, _THRESHOLDS.cv.max, true);
-    const torsoC = _to2080(torsoCV, _THRESHOLDS.cv.min, _THRESHOLDS.cv.max, true);
+    const legsC = _to2080(legsCV, th.cv.min, th.cv.max, true);
+    const torsoC = _to2080(torsoCV, th.cv.min, th.cv.max, true);
     brainScore = Math.round((legsC + torsoC) / 2);
   }
 
   let ballScore = 50;
   if (cvValid && hasBatKE) {
-    ballScore = _to2080(outputCV, _THRESHOLDS.cv.min, _THRESHOLDS.cv.max, true);
+    ballScore = _to2080(outputCV, th.cv.min, th.cv.max, true);
   } else if (cvValid) {
-    ballScore = _to2080(armsCV, _THRESHOLDS.cv.min, _THRESHOLDS.cv.max, true);
+    ballScore = _to2080(armsCV, th.cv.min, th.cv.max, true);
   }
 
   const overall = Math.round(
@@ -688,15 +719,19 @@ async function syncPlayerSessions(
         }
 
         // Process CSV into swing data
-        const swings = processCSVToSwings(csvRows);
+        const { swings, csvMassKg } = processCSVToSwings(csvRows);
         
         if (swings.length === 0) {
           result.errors.push(`No valid swings in session ${session.id}`);
           continue;
         }
 
-        // Calculate 4B scores
-        const scoreResult = calculate4BScores(swings);
+        // Determine athlete mass: CSV mass_total > player weight_lbs > null
+        const athleteMassKg = csvMassKg
+          ?? (player.weight_lbs ? player.weight_lbs / 2.20462 : null);
+
+        // Calculate 4B scores with mass normalization
+        const scoreResult = calculate4BScores(swings, athleteMassKg);
 
         // 5. Save to sensor_sessions
         const { data: savedSession, error: saveError } = await supabase
@@ -814,7 +849,7 @@ serve(async (req) => {
     // Build query for players
     let query = supabase
       .from('players')
-      .select('id, reboot_athlete_id, reboot_player_id, name, motor_profile_sensor');
+      .select('id, reboot_athlete_id, reboot_player_id, name, motor_profile_sensor, weight_lbs');
 
     if (targetPlayerIds && targetPlayerIds.length > 0) {
       // Filter to specific players
