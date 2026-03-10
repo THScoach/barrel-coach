@@ -61,6 +61,7 @@ interface MERow {
   legs_kinetic_energy: string;
   torso_kinetic_energy: string;
   total_kinetic_energy: string;
+  mass_total?: string;
   [key: string]: string | undefined;
 }
 
