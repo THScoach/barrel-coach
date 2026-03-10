@@ -573,7 +573,23 @@ export interface MESwingMetrics {
   hasBatKE: boolean;
 }
 
-export function processMEFile(rows: MERow[]): Map<string, MESwingMetrics> {
+export interface MEProcessResult {
+  swingMetrics: Map<string, MESwingMetrics>;
+  /** Median mass_total (kg) extracted from the CSV, or null if not present */
+  csvMassKg: number | null;
+}
+
+export function processMEFile(rows: MERow[]): MEProcessResult {
+  // Extract mass_total values from all rows for median calculation
+  const massValues: number[] = [];
+  for (const row of rows) {
+    const m = parseFloat(row.mass_total || '');
+    if (!isNaN(m) && m > 0) massValues.push(m);
+  }
+  const csvMassKg = massValues.length > 0
+    ? percentile(massValues, 50)
+    : null;
+
   // Group by movement_id
   const swingGroups = new Map<string, MERow[]>();
   
@@ -679,7 +695,7 @@ export function processMEFile(rows: MERow[]): Map<string, MESwingMetrics> {
     });
   }
   
-  return swingMetrics;
+  return { swingMetrics, csvMassKg };
 }
 
 // ============================================================================
