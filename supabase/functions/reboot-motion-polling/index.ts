@@ -500,7 +500,7 @@ function detectLeak(swings: SwingData[]): { type: string; caption: string; train
   return { type: 'unknown', caption: 'Mixed pattern detected.', training: 'Need more analysis.' };
 }
 
-function calculate4BScores(swings: SwingData[]) {
+function calculate4BScores(swings: SwingData[], athleteMassKg: number | null = null) {
   const n = swings.length;
 
   let dataQuality: string;
@@ -517,6 +517,12 @@ function calculate4BScores(swings: SwingData[]) {
       leak: { type: 'unknown', caption: 'No data.', training: 'Upload swing data.' },
       meta: { swingCount: 0, dataQuality: 'insufficient' },
     };
+  }
+
+  // Mass-normalized thresholds
+  const th = _getMassScaledThresholds(athleteMassKg);
+  if (athleteMassKg) {
+    console.log(`[reboot-polling] Mass normalization: ${athleteMassKg.toFixed(1)} kg, factor ${(athleteMassKg / _BASELINE_MASS_KG).toFixed(2)}`);
   }
 
   const legsKEValues = swings.map(s => s.legsKEPeak);
@@ -538,13 +544,13 @@ function calculate4BScores(swings: SwingData[]) {
   const armsCV = _calcCV(armsKEValues);
   const outputCV = _calcCV(batKEValues);
 
-  const groundFlow = _to2080(legsKEAvg, _THRESHOLDS.legsKE.min, _THRESHOLDS.legsKE.max);
-  const coreFlowE = _to2080(torsoKEAvg, _THRESHOLDS.torsoKE.min, _THRESHOLDS.torsoKE.max);
-  const coreFlowT = _to2080(legsToTorsoEff, _THRESHOLDS.legsToTorsoEff.min, _THRESHOLDS.legsToTorsoEff.max);
+  const groundFlow = _to2080(legsKEAvg, th.legsKE.min, th.legsKE.max);
+  const coreFlowE = _to2080(torsoKEAvg, th.torsoKE.min, th.torsoKE.max);
+  const coreFlowT = _to2080(legsToTorsoEff, th.legsToTorsoEff.min, th.legsToTorsoEff.max);
   const coreFlow = Math.round((coreFlowE + coreFlowT) / 2);
 
-  const upperFlowE = _to2080(armsKEAvg, _THRESHOLDS.armsKE.min, _THRESHOLDS.armsKE.max);
-  const upperFlowT = _to2080(torsoToArmsEff, _THRESHOLDS.torsoToArmsEff.min, _THRESHOLDS.torsoToArmsEff.max);
+  const upperFlowE = _to2080(armsKEAvg, th.armsKE.min, th.armsKE.max);
+  const upperFlowT = _to2080(torsoToArmsEff, th.torsoToArmsEff.min, th.torsoToArmsEff.max);
   const upperFlow = Math.round((upperFlowE + upperFlowT) / 2);
 
   const bodyScore = Math.round((groundFlow + coreFlow) / 2);
@@ -552,8 +558,8 @@ function calculate4BScores(swings: SwingData[]) {
   const hasBatKE = swings.some(s => s.batKEPeak > 10);
   let batScore: number;
   if (hasBatKE) {
-    const batDelivery = _to2080(batKEAvg, _THRESHOLDS.batKE.min, _THRESHOLDS.batKE.max);
-    const batEfficiency = _to2080(totalEff, _THRESHOLDS.totalEff.min, _THRESHOLDS.totalEff.max);
+    const batDelivery = _to2080(batKEAvg, th.batKE.min, th.batKE.max);
+    const batEfficiency = _to2080(totalEff, th.totalEff.min, th.totalEff.max);
     batScore = Math.round((upperFlow + batDelivery + batEfficiency) / 3);
   } else {
     batScore = upperFlow;
