@@ -377,8 +377,18 @@ function detectFileType(headers: string[]): 'me' | 'ik' | null {
 // ME FILE PROCESSING (PRIMARY - REQUIRED)
 // ============================================================================
 
-function processMEFile(rows: MERow[]): Map<string, MESwingMetrics> {
+function processMEFile(rows: MERow[]): { swingMetrics: Map<string, MESwingMetrics>; csvMassKg: number | null } {
   console.log(`[4B-Debug][ME-Process] Input rows to processMEFile: ${rows.length}`);
+
+  // Extract mass_total for median
+  const massValues: number[] = [];
+  for (const row of rows) {
+    const m = parseFloat(row.mass_total || '');
+    if (!isNaN(m) && m > 0) massValues.push(m);
+  }
+  const csvMassKg = massValues.length > 0 ? percentile(massValues, 50) : null;
+  if (csvMassKg) console.log(`[4B-Debug][ME-Process] CSV mass_total median: ${csvMassKg.toFixed(1)} kg`);
+
   const swingGroups = new Map<string, MERow[]>();
 
   let skippedNoId = 0;
@@ -398,7 +408,7 @@ function processMEFile(rows: MERow[]): Map<string, MESwingMetrics> {
   console.log(`[4B-Debug][ME-Process] Movement IDs: ${movementIds.slice(0, 20).join(', ')}${movementIds.length > 20 ? '...' : ''}`);
   for (const [id, frames] of swingGroups) {
     console.log(`[4B-Debug][ME-Process]   movement "${id}": ${frames.length} frames`);
-    if (movementIds.indexOf(id) >= 5) break; // Only log first 5 in detail
+    if (movementIds.indexOf(id) >= 5) break;
   }
 
   const swingMetrics = new Map<string, MESwingMetrics>();
@@ -484,7 +494,7 @@ function processMEFile(rows: MERow[]): Map<string, MESwingMetrics> {
     }
   }
 
-  return swingMetrics;
+  return { swingMetrics, csvMassKg };
 }
 
 // ============================================================================
