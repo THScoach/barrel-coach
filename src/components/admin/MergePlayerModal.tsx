@@ -65,12 +65,19 @@ export function MergePlayerModal({
         body: { winner_id: selectedWinner.id, loser_id: currentPlayerId },
       });
       if (error) {
-        // Extract message from FunctionsHttpError
-        let msg = error.message || "Merge failed";
+        let msg = "Merge failed";
         try {
-          const body = await (error as any).context?.json?.();
-          if (body?.error) msg = body.error;
-        } catch {}
+          // FunctionsHttpError stores the response in context
+          const resp = (error as any).context;
+          if (resp && typeof resp.json === 'function') {
+            const body = await resp.json();
+            if (body?.error) msg = body.error;
+          } else if (error.message) {
+            msg = error.message;
+          }
+        } catch {
+          if (error.message) msg = error.message;
+        }
         throw new Error(msg);
       }
       if (data?.error) throw new Error(data.error);
