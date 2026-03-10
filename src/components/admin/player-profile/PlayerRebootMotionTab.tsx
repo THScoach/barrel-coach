@@ -119,6 +119,28 @@ export function PlayerRebootMotionTab({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Sync sessions from Reboot for THIS player only
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      if (!playersTableId) throw new Error("No player record");
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.access_token) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase.functions.invoke("sync-reboot-sessions", {
+        body: { player_id: playersTableId },
+        headers: { Authorization: `Bearer ${session.session.access_token}` },
+      });
+      if (error) throw new Error(error.message || "Sync failed");
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || "Sessions synced");
+      queryClient.invalidateQueries({ queryKey: ["reboot-sessions", playersTableId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   // Fetch reboot sessions for this player
   const { data: sessions, isLoading: loadingSessions } = useQuery({
     queryKey: ["reboot-sessions", playersTableId],
