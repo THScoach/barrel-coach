@@ -55,12 +55,17 @@ export default function PlayerProfile() {
 
     if (data) {
       setPlayer(data);
+      const totalInches = (data as any).height_inches;
+      const feet = totalInches ? String(Math.floor(totalInches / 12)) : '';
+      const inches = totalInches ? String(totalInches % 12) : '';
       setFormData({
         name: data.name || '',
         email: data.email || '',
         phone: data.phone || '',
+        heightFeet: feet,
+        heightInches: inches,
         bats: data.handedness?.charAt(0) || 'R',
-        throws: 'R', // Players table doesn't have throws yet
+        throws: 'R',
         level: data.level || '',
         team: data.team || '',
       });
