@@ -290,19 +290,24 @@ export function UnifiedDataUploadModal({
         setIkData(parsedIkData.length > 0 ? parsedIkData : null);
         setMeData(parsedMeData.length > 0 ? parsedMeData : null);
         
-        if (parsedIkData.length > 0 && parsedMeData.length > 0) {
-          // Pass player physical data to calculations
-          const scores = calculateRebootScores(
-            parsedIkData, 
-            parsedMeData,
-            'R', // dominantHand default
-            'hs', // playerLevel default
-            playerPhysicalData.weightLbs,
-            playerPhysicalData.heightInches
-          );
-          setRebootScores(scores);
-        } else if (parsedIkData.length > 0 || parsedMeData.length > 0) {
-          toast.warning("Reboot scoring requires both IK and ME files");
+        if (parsedMeData.length > 0) {
+          try {
+            // ME is primary + required, IK is optional
+            const scores = calculateRebootScores(
+              parsedIkData.length > 0 ? parsedIkData : null, 
+              parsedMeData,
+              'R', // dominantHand default
+              'hs', // playerLevel default
+              playerPhysicalData.weightLbs,
+              playerPhysicalData.heightInches
+            );
+            setRebootScores(scores);
+          } catch (rebootErr) {
+            console.error("Reboot scoring error:", rebootErr);
+            toast.error("Failed to calculate Reboot scores: " + String(rebootErr));
+          }
+        } else if (parsedIkData.length > 0) {
+          toast.warning("Upload a Momentum-Energy (ME) file to calculate 4B scores. IK alone is not sufficient.");
         }
       }
       
