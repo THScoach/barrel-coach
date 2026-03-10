@@ -329,7 +329,12 @@ export function PlayerRebootMotionTab({
                         <Badge variant="outline" className={statusColor(session.status)}>
                           {session.status || "unknown"}
                         </Badge>
-                        {session.movement_type && (
+                        {(session as any).source === "manual_upload" && (
+                          <Badge variant="outline" className="bg-indigo-500/15 text-indigo-400 border-indigo-500/30 text-xs">
+                            Manual Upload
+                          </Badge>
+                        )}
+                        {session.movement_type && (session as any).source !== "manual_upload" && (
                           <Badge variant="outline" className="border-slate-700 text-slate-400 text-xs">
                             {session.movement_type}
                           </Badge>
