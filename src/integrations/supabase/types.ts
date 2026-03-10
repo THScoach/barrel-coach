@@ -3591,12 +3591,16 @@ export type Database = {
           me_file_path: string | null
           movement_type: string | null
           notes: string | null
+          parsed_metrics: Json | null
           player_id: string | null
           processed_at: string | null
+          raw_csv_ik: string | null
+          raw_csv_me: string | null
           reboot_player_id: string | null
           reboot_session_id: string | null
           session_date: string | null
           session_number: number | null
+          source: string | null
           status: string | null
           updated_at: string | null
           video_url: string | null
@@ -3613,12 +3617,16 @@ export type Database = {
           me_file_path?: string | null
           movement_type?: string | null
           notes?: string | null
+          parsed_metrics?: Json | null
           player_id?: string | null
           processed_at?: string | null
+          raw_csv_ik?: string | null
+          raw_csv_me?: string | null
           reboot_player_id?: string | null
           reboot_session_id?: string | null
           session_date?: string | null
           session_number?: number | null
+          source?: string | null
           status?: string | null
           updated_at?: string | null
           video_url?: string | null
@@ -3635,12 +3643,16 @@ export type Database = {
           me_file_path?: string | null
           movement_type?: string | null
           notes?: string | null
+          parsed_metrics?: Json | null
           player_id?: string | null
           processed_at?: string | null
+          raw_csv_ik?: string | null
+          raw_csv_me?: string | null
           reboot_player_id?: string | null
           reboot_session_id?: string | null
           session_date?: string | null
           session_number?: number | null
+          source?: string | null
           status?: string | null
           updated_at?: string | null
           video_url?: string | null
