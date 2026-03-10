@@ -19,6 +19,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
+import { RebootSessionDetailDrawer } from "./RebootSessionDetailDrawer";
 
 interface PlayerRebootMotionTabProps {
   playersTableId?: string | null;
