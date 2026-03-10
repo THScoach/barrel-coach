@@ -424,6 +424,15 @@ export default function AdminPlayers() {
               <span className="sm:hidden">DK</span>
             </Button>
             <Button
+              variant="outline"
+              onClick={() => setShowFindDuplicates(true)}
+              className="border-slate-600 text-slate-300 hover:bg-slate-800 gap-2"
+            >
+              <GitMerge className="h-4 w-4" />
+              <span className="hidden sm:inline">Find Duplicates</span>
+              <span className="sm:hidden">Dupes</span>
+            </Button>
+            <Button
               onClick={() => navigate("/admin/players/new")}
               className="btn-primary gap-2"
             >
