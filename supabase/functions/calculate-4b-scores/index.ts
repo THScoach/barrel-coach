@@ -163,8 +163,8 @@ const KP_SPEED_MULTIPLIER = 2.5;
 const KP_EFFICIENCY_SCALE = 1.4;
 const BASELINE_HEIGHT_INCHES = 68;
 
-// Mass normalization baseline (kg) - thresholds calibrated for ~165 lb / 75 kg
-const BASELINE_MASS_KG = 75;
+// Mass normalization baseline (kg) - thresholds calibrated for reference athlete (~80 kg / 176 lbs)
+const BASELINE_MASS_KG = 80;
 
 // KE threshold keys that scale linearly with body mass
 const MASS_SCALED_KEYS: (keyof typeof THRESHOLDS)[] = [

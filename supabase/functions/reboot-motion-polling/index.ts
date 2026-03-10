@@ -40,6 +40,7 @@ interface Player {
   reboot_player_id?: string | null;
   name: string;
   motor_profile_sensor: string | null;
+  weight_lbs?: number | null;
 }
 
 interface RebootSession {
