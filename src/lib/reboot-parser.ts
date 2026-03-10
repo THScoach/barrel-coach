@@ -1410,9 +1410,9 @@ export function calculate4BScores(
     result.rawMetrics.cvOutput = Math.round(cvOutput * 10) / 10;
     
     const brainComponents = [
-      to2080Scale(cvLegsKE, THRESHOLDS.cvLegsKE.min, THRESHOLDS.cvLegsKE.max, true),
-      to2080Scale(cvTorsoKE, THRESHOLDS.cvTorsoKE.min, THRESHOLDS.cvTorsoKE.max, true),
-      to2080Scale(cvOutput, THRESHOLDS.cvOutput.min, THRESHOLDS.cvOutput.max, true),
+      to2080Scale(cvLegsKE, th.cvLegsKE.min, th.cvLegsKE.max, true),
+      to2080Scale(cvTorsoKE, th.cvTorsoKE.min, th.cvTorsoKE.max, true),
+      to2080Scale(cvOutput, th.cvOutput.min, th.cvOutput.max, true),
     ];
     brainScore = Math.round(avg(brainComponents));
   }
