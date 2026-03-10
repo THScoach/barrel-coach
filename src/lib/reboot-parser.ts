@@ -1427,8 +1427,8 @@ export function calculate4BScores(
     result.rawMetrics.cvBatEfficiency = Math.round(cvBatEff * 10) / 10;
     
     const ballComponents = [
-      to2080Scale(cvTotalKE, THRESHOLDS.cvTotalKE.min, THRESHOLDS.cvTotalKE.max, true),
-      to2080Scale(cvBatEff, THRESHOLDS.cvBatEfficiency.min, THRESHOLDS.cvBatEfficiency.max, true),
+      to2080Scale(cvTotalKE, th.cvTotalKE.min, th.cvTotalKE.max, true),
+      to2080Scale(cvBatEff, th.cvBatEfficiency.min, th.cvBatEfficiency.max, true),
     ];
     ballScore = Math.round(avg(ballComponents));
   }
