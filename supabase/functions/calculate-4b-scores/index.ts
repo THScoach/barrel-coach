@@ -1167,7 +1167,7 @@ Deno.serve(async (req) => {
       const coreFlow = sd?.core_flow ?? 55;
       const upperFlow = sd?.upper_flow ?? 55;
       const swingCount = sd?.swing_count ?? 1;
-      const overallScore = Math.round(brainScore * 0.20 + bodyScore * 0.35 + batScore * 0.30 + ballScore * 0.15);
+      const overallScore = Math.round(bodyScore * 0.45 + brainScore * 0.15 + batScore * 0.25 + ballScore * 0.15);
 
       // Simple leak detection for fallback
       let leakType = 'unknown', leakCaption = '', leakTraining = '';
