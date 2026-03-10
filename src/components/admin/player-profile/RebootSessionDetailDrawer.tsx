@@ -52,6 +52,8 @@ const statusColor = (s: string | null) => {
 };
 
 export function RebootSessionDetailDrawer({ open, onOpenChange, session }: RebootSessionDetailDrawerProps) {
+  const [rawOpen, setRawOpen] = useState(false);
+
   if (!session) return null;
 
   const rebootUrl = session.reboot_session_id
