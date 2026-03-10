@@ -1,9 +1,11 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Hash, MapPin, FileText, Video, ExternalLink, Activity } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Calendar, Hash, MapPin, FileText, Video, ExternalLink, Activity, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 interface RebootSession {
   id: string;
@@ -50,6 +52,8 @@ const statusColor = (s: string | null) => {
 };
 
 export function RebootSessionDetailDrawer({ open, onOpenChange, session }: RebootSessionDetailDrawerProps) {
+  const [rawOpen, setRawOpen] = useState(false);
+
   if (!session) return null;
 
   const rebootUrl = session.reboot_session_id
@@ -177,6 +181,20 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
               </Button>
             </>
           )}
+
+          {/* Raw Data */}
+          <Separator className="bg-slate-700" />
+          <Collapsible open={rawOpen} onOpenChange={setRawOpen}>
+            <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-semibold text-slate-400 uppercase tracking-wider py-1 hover:text-slate-300 transition-colors">
+              Raw Data
+              <ChevronDown className={`h-4 w-4 transition-transform ${rawOpen ? "rotate-180" : ""}`} />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <pre className="text-xs text-slate-400 bg-slate-800/50 rounded-lg p-4 mt-2 overflow-auto max-h-80 whitespace-pre-wrap break-all">
+                {JSON.stringify(session, null, 2)}
+              </pre>
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Metadata */}
           <div className="text-xs text-slate-500 space-y-1 pt-2">
