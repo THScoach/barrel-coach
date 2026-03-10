@@ -263,6 +263,14 @@ export function PlayerRebootMotionTab({
         </CardContent>
       </Card>
 
+      {/* ── MANUAL CSV UPLOAD (only when linked) ── */}
+      {isLinked && (
+        <ManualRebootUpload
+          playersTableId={playersTableId!}
+          playerName={playerName}
+        />
+      )}
+
       {/* ── REBOOT SESSIONS (only when linked) ── */}
       {isLinked && (
         <Card className="bg-slate-900/50 border-slate-800">
