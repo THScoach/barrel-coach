@@ -303,6 +303,23 @@ const _THRESHOLDS = {
 
 const _WEIGHTS = { body: 0.35, bat: 0.30, brain: 0.20, ball: 0.15 };
 
+// Mass normalization baseline (kg) - reference athlete (~80 kg / 176 lbs)
+const _BASELINE_MASS_KG = 80;
+const _MASS_SCALED_KEYS: (keyof typeof _THRESHOLDS)[] = ['legsKE', 'torsoKE', 'armsKE', 'batKE'];
+
+function _getMassScaledThresholds(athleteMassKg: number | null) {
+  if (!athleteMassKg || athleteMassKg <= 0) return _THRESHOLDS;
+  const factor = Math.min(2.0, Math.max(0.5, athleteMassKg / _BASELINE_MASS_KG));
+  const scaled = { ..._THRESHOLDS };
+  for (const key of _MASS_SCALED_KEYS) {
+    scaled[key] = {
+      min: Math.round(_THRESHOLDS[key].min * factor),
+      max: Math.round(_THRESHOLDS[key].max * factor),
+    };
+  }
+  return scaled;
+}
+
 function _to2080(value: number, min: number, max: number, invert = false): number {
   let n = (value - min) / (max - min);
   if (invert) n = 1 - n;
