@@ -847,9 +847,6 @@ function calculate4BScores(
   if (athleteMassKg) {
     console.log(`[4B-Debug] Mass normalization: ${athleteMassKg.toFixed(1)} kg, scale factor ${(athleteMassKg / BASELINE_MASS_KG).toFixed(2)}`);
   }
-    dataQuality.warnings.push('No valid swings found in ME file');
-    return defaultResult;
-  }
 
   // Process IK file (OPTIONAL)
   const ikMetrics = ikRows && ikRows.length > 0
