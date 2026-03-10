@@ -28,6 +28,7 @@ interface MEDataRow {
   bat_kinetic_energy?: number;
   total_kinetic_energy?: number;
   lowerhalf_kinetic_energy?: number;
+  mass_total?: number;
 }
 
 interface RebootUpload {
