@@ -75,7 +75,7 @@ If swing looks powerful with good extension, can go to 50.
 If swing looks weak or cut off, score 40-45.
 
 ### COMPOSITE
-Calculate normally: (Body × 0.30) + (Brain × 0.20) + (Bat × 0.30) + (Ball × 0.20)
+Calculate normally: (Body × 0.45) + (Brain × 0.15) + (Bat × 0.25) + (Ball × 0.15)
 
 ## ANALYSIS APPROACH
 

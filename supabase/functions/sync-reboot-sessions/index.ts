@@ -459,7 +459,7 @@ serve(async (req) => {
     let insertedCount = 0;
     for (let i = 0; i < sessionsToInsert.length; i += 100) {
       const batch = sessionsToInsert.slice(i, i + 100);
-      const { error: insertError } = await supabase.from("reboot_sessions").insert(batch);
+      const { error: insertError } = await supabase.from("reboot_sessions").upsert(batch, { onConflict: 'reboot_session_id,player_id', ignoreDuplicates: true });
       if (insertError) {
         console.error(`[sync] Insert error on batch ${i}:`, insertError);
         throw new Error(`Failed to insert sessions: ${insertError.message}`);

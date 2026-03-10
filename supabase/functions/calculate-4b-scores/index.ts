@@ -152,7 +152,7 @@ const THRESHOLDS = {
   cvBatEfficiency: { min: 10, max: 50 },
 };
 
-const WEIGHTS = { body: 0.35, bat: 0.30, brain: 0.20, ball: 0.15 };
+const WEIGHTS = { body: 0.45, brain: 0.15, bat: 0.25, ball: 0.15 };
 const MIN_SWINGS_FOR_CV = 3;
 
 // Kinetic Potential constants
@@ -1167,7 +1167,7 @@ Deno.serve(async (req) => {
       const coreFlow = sd?.core_flow ?? 55;
       const upperFlow = sd?.upper_flow ?? 55;
       const swingCount = sd?.swing_count ?? 1;
-      const overallScore = Math.round(brainScore * 0.20 + bodyScore * 0.35 + batScore * 0.30 + ballScore * 0.15);
+      const overallScore = Math.round(bodyScore * 0.45 + brainScore * 0.15 + batScore * 0.25 + ballScore * 0.15);
 
       // Simple leak detection for fallback
       let leakType = 'unknown', leakCaption = '', leakTraining = '';
