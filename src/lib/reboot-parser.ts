@@ -325,6 +325,36 @@ export const THRESHOLDS = {
   properSequencePct: { min: 40, max: 100 },
 };
 
+// Baseline mass (kg) used for threshold normalization.
+// Thresholds above are calibrated for a ~165 lb / 75 kg athlete.
+const BASELINE_MASS_KG = 75;
+
+// Keys in THRESHOLDS that represent absolute kinetic energy (Joules)
+// and should scale linearly with body mass.
+const MASS_SCALED_THRESHOLD_KEYS: (keyof typeof THRESHOLDS)[] = [
+  'legsKE', 'legsKEContact', 'torsoKE', 'armsKE', 'batKE', 'torsoKELegacy',
+];
+
+/**
+ * Return a copy of THRESHOLDS with KE-based min/max scaled by
+ * (athleteMassKg / BASELINE_MASS_KG).  Ratio thresholds (percentages, CV)
+ * are left unchanged because they are already mass-agnostic.
+ */
+export function getMassScaledThresholds(athleteMassKg: number | null) {
+  if (!athleteMassKg || athleteMassKg <= 0) return THRESHOLDS;
+  const factor = athleteMassKg / BASELINE_MASS_KG;
+  // Avoid extreme scaling for outlier masses
+  const clampedFactor = clamp(factor, 0.5, 2.0);
+  const scaled = { ...THRESHOLDS };
+  for (const key of MASS_SCALED_THRESHOLD_KEYS) {
+    scaled[key] = {
+      min: Math.round(THRESHOLDS[key].min * clampedFactor),
+      max: Math.round(THRESHOLDS[key].max * clampedFactor),
+    };
+  }
+  return scaled;
+}
+
 export const WEIGHTS = {
   body: 0.35,
   bat: 0.30,
