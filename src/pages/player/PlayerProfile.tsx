@@ -28,6 +28,8 @@ export default function PlayerProfile() {
     name: '',
     email: '',
     phone: '',
+    heightFeet: '',
+    heightInches: '',
     bats: 'R',
     throws: 'R',
     level: '',
