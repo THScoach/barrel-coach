@@ -1,7 +1,8 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Brain, Activity, Zap, Target, TrendingUp, Gauge, AlertTriangle, MessageSquare } from "lucide-react";
+import { Brain, Activity, Zap, Target, TrendingUp, Gauge, AlertTriangle, MessageSquare, Video } from "lucide-react";
+import { useRef, useState } from "react";
 
 interface SessionDetailModalProps {
   open: boolean;
@@ -29,6 +30,8 @@ interface SessionDetailModalProps {
     consistency_grade: string | null;
     weakest_link: string | null;
     reboot_session_id: string | null;
+    video_url?: string | null;
+    frame_rate?: number | null;
     // AI coaching notes
     leak_detected?: string | null;
     leak_evidence?: string | null;
@@ -85,7 +88,17 @@ function MetricRow({ label, value, unit }: { label: string; value: number | stri
 }
 
 export function SessionDetailModal({ open, onOpenChange, session }: SessionDetailModalProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playbackRate, setPlaybackRate] = useState(1);
+
   if (!session) return null;
+
+  const handlePlaybackRate = (rate: number) => {
+    setPlaybackRate(rate);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = rate;
+    }
+  };
 
   const getWeakestLinkDisplay = (link: string | null) => {
     const labels: Record<string, { label: string; color: string }> = {
@@ -121,6 +134,49 @@ export function SessionDetailModal({ open, onOpenChange, session }: SessionDetai
         </DialogHeader>
 
         <div className="space-y-6 mt-4">
+          {/* Video Player */}
+          {session.video_url ? (
+            <div className="rounded-xl overflow-hidden border border-slate-700 bg-black">
+              <video
+                ref={videoRef}
+                src={session.video_url}
+                controls
+                playsInline
+                preload="metadata"
+                className="w-full max-h-[400px] object-contain"
+                onLoadedMetadata={() => {
+                  if (videoRef.current) videoRef.current.playbackRate = playbackRate;
+                }}
+              />
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/80">
+                <span className="text-xs text-slate-400 mr-1">Speed:</span>
+                {[0.1, 0.25, 0.5, 1].map((rate) => (
+                  <button
+                    key={rate}
+                    onClick={() => handlePlaybackRate(rate)}
+                    className={`text-xs px-2 py-0.5 rounded transition-colors ${
+                      playbackRate === rate
+                        ? 'bg-primary/20 text-primary border border-primary/30'
+                        : 'text-slate-400 hover:text-slate-200 border border-slate-700'
+                    }`}
+                  >
+                    {rate}×
+                  </button>
+                ))}
+                {session.frame_rate && (
+                  <span className="text-xs text-slate-500 ml-auto">{session.frame_rate} fps</span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-8 rounded-xl border border-dashed border-slate-700 bg-slate-800/30">
+              <div className="text-center text-slate-500">
+                <Video className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No video available</p>
+              </div>
+            </div>
+          )}
+
           {/* Composite Score */}
           <div className="text-center p-6 bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl border border-slate-700">
             <div className="text-sm text-slate-400 mb-1">Composite Score</div>
