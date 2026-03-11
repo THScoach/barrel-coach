@@ -31,9 +31,19 @@ interface PollStatusRequest {
 }
 
 // Configuration
-const MAX_ATTEMPTS = 60;
-const BASE_DELAY_MS = 60000;   // 1 minute
-const MAX_DELAY_MS = 300000;   // 5 minutes
+const MAX_ATTEMPTS = 60; // ~5 hour window
+
+/**
+ * Backoff schedule:
+ *   Attempt 1  → 1 min
+ *   Attempt 2  → 2 min
+ *   Attempt 3+ → 5 min (capped)
+ */
+function getDelayMs(attempt: number): number {
+  if (attempt <= 1) return 60_000;    // 1 min
+  if (attempt === 2) return 120_000;  // 2 min
+  return 300_000;                     // 5 min
+}
 
 serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -144,9 +154,9 @@ serve(async (req) => {
       });
     }
 
-    // ── Schedule next poll with exponential backoff ──
-    const delay = Math.min(BASE_DELAY_MS * Math.pow(1.2, attempt - 1), MAX_DELAY_MS);
-    console.log(`[poll] Still processing. Next poll in ${Math.round(delay / 1000)}s (attempt ${attempt + 1})`);
+    // ── Schedule next poll with stepped backoff ──
+    const delay = getDelayMs(attempt);
+    console.log(`[poll] Still processing. Next poll in ${delay / 1000}s (attempt ${attempt + 1})`);
 
     await supabase
       .from("reboot_sessions")
