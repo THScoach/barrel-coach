@@ -59,6 +59,14 @@ export function PlayerOverviewTab({
   const [selectedLaunchSession, setSelectedLaunchSession] = useState<any>(null);
   const [latestSession, setLatestSession] = useState<LatestSessionData | null>(null);
   
+  // Player session leak data from player_sessions table
+  const [playerSessionLeak, setPlayerSessionLeak] = useState<{
+    leakType: string | null;
+    leakCaption: string | null;
+    leakTraining: string | null;
+    rawMetrics: Record<string, any> | null;
+  }>({ leakType: null, leakCaption: null, leakTraining: null, rawMetrics: null });
+  
   // Leak and prescription data
   const [leakData, setLeakData] = useState<{
     leakType: string | null;
