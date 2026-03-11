@@ -199,6 +199,7 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
                 {session.movement_type}
               </Badge>
             )}
+            <SessionTypeBadge sessionType={(session as any).session_type} drillName={(session as any).drill_name} />
           </div>
 
           {/* Drill Session Banner */}
