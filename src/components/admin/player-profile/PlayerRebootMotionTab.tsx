@@ -22,6 +22,7 @@ import {
 import { format } from "date-fns";
 import { RebootSessionDetailDrawer } from "./RebootSessionDetailDrawer";
 import { ManualRebootUpload } from "./ManualRebootUpload";
+import { SessionTypeBadge } from "./SessionTypeBadge";
 
 /** Shows Reboot sessions that originated from video uploads (source = 'video_upload') */
 function RebootVideoSessionsStatus({ playersTableId }: { playersTableId: string }) {
