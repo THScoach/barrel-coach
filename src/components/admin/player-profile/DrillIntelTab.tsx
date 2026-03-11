@@ -344,6 +344,11 @@ export function DrillIntelTab({ playersTableId, playerName }: DrillIntelTabProps
               </tbody>
             </table>
           </div>
+          {!analysis.hasBaseline && (
+            <p className="text-xs text-slate-500 mt-3 px-1">
+              No free-swing BP sessions on record. Upload a BP session to enable baseline comparison.
+            </p>
+          )}
         </CardContent>
       </Card>
 
