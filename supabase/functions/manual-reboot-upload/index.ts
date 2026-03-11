@@ -349,8 +349,11 @@ Deno.serve(async (req) => {
       metrics_extracted: parsedMetrics,
       both_files_present: hasIk && hasME,
       scoring: scoringResult?.scores || null,
+      scoring_session_id: scoringResult?.session_id || null,
       message: hasME
-        ? `${fileType.toUpperCase()} file uploaded and processed`
+        ? (scoringResult?.scores
+          ? `${fileType.toUpperCase()} file uploaded and scored successfully`
+          : `${fileType.toUpperCase()} file uploaded — scoring attempted`)
         : `${fileType.toUpperCase()} file uploaded. Upload Momentum-Energy CSV to trigger 4B scoring.`,
     }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
