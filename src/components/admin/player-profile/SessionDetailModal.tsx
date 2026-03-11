@@ -30,6 +30,8 @@ interface SessionDetailModalProps {
     consistency_grade: string | null;
     weakest_link: string | null;
     reboot_session_id: string | null;
+    video_url?: string | null;
+    frame_rate?: number | null;
     // AI coaching notes
     leak_detected?: string | null;
     leak_evidence?: string | null;
