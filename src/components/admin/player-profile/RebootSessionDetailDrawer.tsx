@@ -57,7 +57,46 @@ const statusColor = (s: string | null) => {
   return "bg-red-500/15 text-red-400 border-red-500/30";
 };
 
-function ScoreCard({ label, score, icon: Icon }: { label: string; score: number; icon: any }) {
+function getPlainExplanation(pillar: string, score: number | null | undefined): string | null {
+  if (score == null) return null;
+  const explanations: Record<string, string[]> = {
+    body: [
+      "Your body isn't getting energy to the ball. This is the priority fix.",
+      "Your body is generating power but losing some along the way.",
+      "Your body is working well — small leaks to clean up.",
+      "Your body is generating and transferring energy like a pro.",
+    ],
+    brain: [
+      "Timing is the issue. Your body can't fire if you're early or late.",
+      "Your timing is inconsistent — costing you at-bats.",
+      "Your timing is sharp. Minor rhythm issues to dial in.",
+      "Your timing is elite — you're in sync with every pitch.",
+    ],
+    bat: [
+      "Bat delivery is breaking down. Drills needed here.",
+      "The barrel is getting there but the path needs work.",
+      "Good bat path. Small delivery issues to clean up.",
+      "The barrel is exactly where it needs to be.",
+    ],
+    ball: [
+      "Results aren't there yet. Process work comes first.",
+      "Outcomes are inconsistent — mechanics aren't translating yet.",
+      "Solid outcomes. Mechanics are holding up in games.",
+      "Elite contact quality. The data matches the eye test.",
+    ],
+    overall: [
+      "Priority. Fundamental issues to address first.",
+      "Working. Clear path to improvement.",
+      "Good. College or MiLB level mechanics.",
+      "Elite. MLB-caliber swing mechanics.",
+    ],
+  };
+  const tier = score >= 90 ? 3 : score >= 80 ? 2 : score >= 60 ? 1 : 0;
+  return explanations[pillar]?.[tier] ?? null;
+}
+
+function ScoreCard({ label, score, icon: Icon, pillar }: { label: string; score: number; icon: any; pillar: string }) {
+  const explanation = getPlainExplanation(pillar, score);
   return (
     <div className="bg-slate-800/60 rounded-lg p-3 text-center space-y-1">
       <div className="flex items-center justify-center gap-1.5 text-slate-400">
@@ -66,6 +105,9 @@ function ScoreCard({ label, score, icon: Icon }: { label: string; score: number;
       </div>
       <ScoreBadge score={score} size="md" />
       <p className="text-[10px] text-slate-500">{getScoreGrade(score)}</p>
+      {explanation && (
+        <p className="text-[10px] leading-tight text-slate-400/80 pt-0.5">{explanation}</p>
+      )}
     </div>
   );
 }
