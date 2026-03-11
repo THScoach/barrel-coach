@@ -183,6 +183,11 @@ export function UnifiedDataUploadModal({
           // For launch monitor, row count = swing count
           swingCount = rows.length;
         } else if (detection.csvType === 'reboot-ik' || detection.csvType === 'reboot-me') {
+          // If Reboot files are excluded from this context, skip and notify
+          if (excludeReboot) {
+            toast.info(`${file.name} is a Reboot file — please upload it in the Reboot Motion tab instead.`);
+            continue;
+          }
           // For reboot, rows are frames NOT swings
           frameCount = rows.length;
           // Try to count unique movement IDs if available
