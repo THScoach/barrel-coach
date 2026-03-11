@@ -526,6 +526,20 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
           )}
         </TabsContent>
 
+        {/* ===== DRILL INTEL ===== */}
+        <TabsContent value="drill-intel" className="mt-6">
+          {mappedPlayersId ? (
+            <DrillIntelTab
+              playersTableId={mappedPlayersId}
+              playerName={playerName}
+            />
+          ) : (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </TabsContent>
+
         {/* ===== STABILITY ===== */}
         <TabsContent value="stability" className="mt-6">
           {mappedPlayersId ? (
