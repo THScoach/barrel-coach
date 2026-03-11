@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Calendar, Hash, MapPin, FileText, Video, ExternalLink, Activity, ChevronDown, Zap, Brain, Target } from "lucide-react";
+import { DrillSessionBanner } from "./DrillSessionBanner";
+import { SessionTypeBadge } from "./SessionTypeBadge";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
