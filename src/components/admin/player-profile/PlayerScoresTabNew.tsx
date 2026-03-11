@@ -25,12 +25,16 @@ import {
   Minus,
   Share2,
   Trash2,
+  Zap,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { RebootSessionDetail } from "@/components/RebootSessionDetail";
 import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
 import { PlayerProgressionDashboard } from "./PlayerProgressionDashboard";
+import { KineticSequenceTab } from "./KineticSequenceTab";
+import { StabilityTab } from "./StabilityTab";
 import { SocialPostGenerator } from "../SocialPostGenerator";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +81,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
   // Sync sub-tab with URL
   useEffect(() => {
     const subtab = searchParams.get('subtab');
-    if (subtab === 'progression' || subtab === 'reports') {
+    if (subtab && ['reports', 'progression', 'kinetic', 'stability'].includes(subtab)) {
       setActiveSubTab(subtab);
     }
   }, [searchParams]);
@@ -297,6 +301,20 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
             <LineChart className="h-4 w-4 mr-2" />
             Progression
           </TabsTrigger>
+          <TabsTrigger 
+            value="kinetic" 
+            className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            Kinetic Sequence
+          </TabsTrigger>
+          <TabsTrigger 
+            value="stability" 
+            className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
+          >
+            <Shield className="h-4 w-4 mr-2" />
+            Stability
+          </TabsTrigger>
         </TabsList>
 
         {/* ===== KRS REPORTS TABLE ===== */}
@@ -477,6 +495,34 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
                   handleViewReport(report);
                 }
               }}
+            />
+          ) : (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ===== KINETIC SEQUENCE ===== */}
+        <TabsContent value="kinetic" className="mt-6">
+          {mappedPlayersId ? (
+            <KineticSequenceTab
+              playersTableId={mappedPlayersId}
+              playerName={playerName}
+            />
+          ) : (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ===== STABILITY ===== */}
+        <TabsContent value="stability" className="mt-6">
+          {mappedPlayersId ? (
+            <StabilityTab
+              playersTableId={mappedPlayersId}
+              playerName={playerName}
             />
           ) : (
             <div className="flex items-center justify-center py-16">
