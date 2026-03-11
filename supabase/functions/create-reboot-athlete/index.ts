@@ -39,7 +39,7 @@ serve(async (req) => {
   try {
     await verifyAdmin(req);
 
-    const { name, handedness, height_inches, weight_lbs, level } = await req.json();
+    const { name, handedness, height_inches, weight_lbs, level, birth_date } = await req.json();
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return errorResponse("Name is required", 400);

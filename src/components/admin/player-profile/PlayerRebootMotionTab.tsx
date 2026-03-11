@@ -133,7 +133,7 @@ export function PlayerRebootMotionTab({
       if (!playersTableId) return null;
       const { data, error } = await supabase
         .from("players")
-        .select("reboot_athlete_id, reboot_player_id, name")
+        .select("reboot_athlete_id, reboot_player_id, name, height_inches, weight_lbs, handedness")
         .eq("id", playersTableId)
         .maybeSingle();
       if (error) throw error;
@@ -188,7 +188,12 @@ export function PlayerRebootMotionTab({
       if (!session?.session?.access_token) throw new Error("Not authenticated");
 
       const { data, error } = await supabase.functions.invoke("create-reboot-athlete", {
-        body: { name: playerName || "Unknown" },
+        body: {
+          name: playerName || "Unknown",
+          handedness: playerData?.handedness || null,
+          height_inches: playerData?.height_inches || null,
+          weight_lbs: playerData?.weight_lbs || null,
+        },
         headers: { Authorization: `Bearer ${session.session.access_token}` },
       });
       if (error) throw new Error(error.message || "Failed to register");
