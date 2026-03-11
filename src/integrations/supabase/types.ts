@@ -3585,6 +3585,7 @@ export type Database = {
         Row: {
           completed_at: string | null
           created_at: string | null
+          drill_name: string | null
           error_message: string | null
           exported_at: string | null
           id: string
@@ -3603,6 +3604,7 @@ export type Database = {
           reboot_session_id: string | null
           session_date: string | null
           session_number: number | null
+          session_type: string
           source: string | null
           status: string | null
           updated_at: string | null
@@ -3611,6 +3613,7 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           created_at?: string | null
+          drill_name?: string | null
           error_message?: string | null
           exported_at?: string | null
           id?: string
@@ -3629,6 +3632,7 @@ export type Database = {
           reboot_session_id?: string | null
           session_date?: string | null
           session_number?: number | null
+          session_type?: string
           source?: string | null
           status?: string | null
           updated_at?: string | null
@@ -3637,6 +3641,7 @@ export type Database = {
         Update: {
           completed_at?: string | null
           created_at?: string | null
+          drill_name?: string | null
           error_message?: string | null
           exported_at?: string | null
           id?: string
@@ -3655,6 +3660,7 @@ export type Database = {
           reboot_session_id?: string | null
           session_date?: string | null
           session_number?: number | null
+          session_type?: string
           source?: string | null
           status?: string | null
           updated_at?: string | null
