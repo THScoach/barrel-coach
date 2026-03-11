@@ -88,7 +88,17 @@ function MetricRow({ label, value, unit }: { label: string; value: number | stri
 }
 
 export function SessionDetailModal({ open, onOpenChange, session }: SessionDetailModalProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playbackRate, setPlaybackRate] = useState(1);
+
   if (!session) return null;
+
+  const handlePlaybackRate = (rate: number) => {
+    setPlaybackRate(rate);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = rate;
+    }
+  };
 
   const getWeakestLinkDisplay = (link: string | null) => {
     const labels: Record<string, { label: string; color: string }> = {
