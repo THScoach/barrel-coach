@@ -213,20 +213,27 @@ serve(async (req) => {
       name: body.player_name,
     };
 
-    if (body.birth_date) {
-      rebootPayload.birth_date = body.birth_date;
+    // Use body values first, fall back to DB values
+    const birthDate = body.birth_date || existingPlayer?.birth_date;
+    const heightIn = body.height_inches || existingPlayer?.height_inches;
+    const weightLb = body.weight_lbs || existingPlayer?.weight_lbs;
+    const bats = body.bats || (existingPlayer?.handedness === 'left' ? 'L' : existingPlayer?.handedness === 'switch' ? 'S' : existingPlayer?.handedness === 'right' ? 'R' : null);
+    const throws = body.throws;
+
+    if (birthDate) {
+      rebootPayload.birth_date = birthDate;
     }
-    if (body.height_inches) {
-      rebootPayload.height_in = body.height_inches;
+    if (heightIn) {
+      rebootPayload.height_in = heightIn;
     }
-    if (body.weight_lbs) {
-      rebootPayload.weight_lb = body.weight_lbs;
+    if (weightLb) {
+      rebootPayload.weight_lb = weightLb;
     }
-    if (body.bats) {
-      rebootPayload.bats = body.bats;
+    if (bats) {
+      rebootPayload.bats = bats;
     }
-    if (body.throws) {
-      rebootPayload.throws = body.throws;
+    if (throws) {
+      rebootPayload.throws = throws;
     }
 
     console.log("[reboot-create-player] Creating new player:", rebootPayload);
