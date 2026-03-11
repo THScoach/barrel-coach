@@ -502,6 +502,34 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
             </div>
           )}
         </TabsContent>
+
+        {/* ===== KINETIC SEQUENCE ===== */}
+        <TabsContent value="kinetic" className="mt-6">
+          {mappedPlayersId ? (
+            <KineticSequenceTab
+              playersTableId={mappedPlayersId}
+              playerName={playerName}
+            />
+          ) : (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ===== STABILITY ===== */}
+        <TabsContent value="stability" className="mt-6">
+          {mappedPlayersId ? (
+            <StabilityTab
+              playersTableId={mappedPlayersId}
+              playerName={playerName}
+            />
+          ) : (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
 
       {/* ===== MODALS ===== */}
