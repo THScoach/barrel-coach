@@ -47,6 +47,7 @@ interface UnifiedDataUploadModalProps {
   playerName: string;
   onSuccess: () => void;
   linkVerified?: boolean; // If true, playerId is already verified as valid players.id
+  excludeReboot?: boolean; // If true, Reboot IK/ME files are rejected (upload lives in Reboot Motion tab)
 }
 
 // Helper to parse height string like "5'9"" to inches
