@@ -136,10 +136,11 @@ export function DrillIntelTab({ playersTableId, playerName }: DrillIntelTabProps
 
     // Baseline: last 5 BP sessions before or including all time
     const baselineSessions = bpSessions.slice(-5);
+    const hasBaseline = baselineSessions.length > 0;
     const baselineAvgs: Record<MetricKey, number | null> = {} as any;
-    const baselineBeat = mostCommon(baselineSessions.map(s => s.metrics.beat));
+    const baselineBeat = hasBaseline ? mostCommon(baselineSessions.map(s => s.metrics.beat)) : null;
     METRIC_KEYS.forEach(key => {
-      baselineAvgs[key] = avg(baselineSessions.map(s => s.metrics[key] as number | null));
+      baselineAvgs[key] = hasBaseline ? avg(baselineSessions.map(s => s.metrics[key] as number | null)) : null;
     });
 
     // Latest drill session
@@ -150,17 +151,19 @@ export function DrillIntelTab({ playersTableId, playerName }: DrillIntelTabProps
     });
     const drillBeat = latestDrill.metrics.beat;
 
-    // Count improvements
+    // Count improvements — only if baseline exists
     let improvements = 0;
-    METRIC_KEYS.forEach(key => {
-      const b = baselineAvgs[key];
-      const d = drillAvgs[key];
-      if (b === null || d === null) return;
-      const config = METRIC_CONFIG[key];
-      if (config.higherIsBetter ? d > b : d < b) improvements++;
-    });
-
-    const constraintStatus = improvements >= 3 ? 'working' : improvements >= 1 ? 'partial' : 'not_firing';
+    let constraintStatus: 'working' | 'partial' | 'not_firing' | 'no_baseline' = 'no_baseline';
+    if (hasBaseline) {
+      METRIC_KEYS.forEach(key => {
+        const b = baselineAvgs[key];
+        const d = drillAvgs[key];
+        if (b === null || d === null) return;
+        const config = METRIC_CONFIG[key];
+        if (config.higherIsBetter ? d > b : d < b) improvements++;
+      });
+      constraintStatus = improvements >= 3 ? 'working' : improvements >= 1 ? 'partial' : 'not_firing';
+    }
 
     // Transfer: post-drill BP sessions
     const latestDrillDate = latestDrill.sessionDate.getTime();
