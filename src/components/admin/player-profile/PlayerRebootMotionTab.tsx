@@ -133,7 +133,7 @@ export function PlayerRebootMotionTab({
       if (!playersTableId) return null;
       const { data, error } = await supabase
         .from("players")
-        .select("reboot_athlete_id, reboot_player_id, name")
+        .select("reboot_athlete_id, reboot_player_id, name, height_inches, weight_lbs, birth_date, handedness, bats, throws")
         .eq("id", playersTableId)
         .maybeSingle();
       if (error) throw error;
