@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +19,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getGrade } from "@/lib/reboot-parser";
 import { Json } from "@/integrations/supabase/types";
+import { DrillSessionBanner } from "./admin/player-profile/DrillSessionBanner";
 
 interface MEDataRow {
   legs_kinetic_energy?: number;
@@ -54,6 +56,7 @@ interface RebootUpload {
   ik_file_uploaded: boolean;
   me_file_uploaded: boolean;
   me_data?: Json | null;
+  reboot_session_id?: string | null;
 }
 
 interface RebootSessionDetailProps {
@@ -164,6 +167,22 @@ export function RebootSessionDetail({
     heightInches: number | null;
     weightLbs: number | null;
   } | null>(null);
+
+  // Fetch session_type from linked reboot_sessions
+  const { data: linkedRebootSession } = useQuery({
+    queryKey: ["reboot-session-type", session?.reboot_session_id],
+    queryFn: async () => {
+      if (!session?.reboot_session_id) return null;
+      const { data } = await supabase
+        .from("reboot_sessions")
+        .select("session_type, drill_name")
+        .eq("reboot_session_id", session.reboot_session_id)
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: open && !!session?.reboot_session_id,
+  });
 
   // Fetch player physical data for Kinetic Potential calculations
   useEffect(() => {
@@ -332,6 +351,12 @@ export function RebootSessionDetail({
         </DialogHeader>
         
         <div className="space-y-6">
+          {/* Drill Session Banner */}
+          <DrillSessionBanner 
+            sessionType={linkedRebootSession?.session_type} 
+            drillName={linkedRebootSession?.drill_name} 
+          />
+
           {/* Main Scores */}
           <div className="grid grid-cols-4 gap-3">
             {[

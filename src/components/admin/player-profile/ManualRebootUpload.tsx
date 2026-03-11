@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Upload, FileText, X, Loader2, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { SessionTypePicker, type SessionType } from "./SessionTypePicker";
 
 interface ManualRebootUploadProps {
   playersTableId: string;
@@ -18,6 +19,8 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
   const [meFile, setMeFile] = useState<File | null>(null);
   const [ikFile, setIkFile] = useState<File | null>(null);
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split("T")[0]);
+  const [sessionType, setSessionType] = useState<SessionType>('bp');
+  const [drillName, setDrillName] = useState('');
   const meInputRef = useRef<HTMLInputElement>(null);
   const ikInputRef = useRef<HTMLInputElement>(null);
   const [lastResult, setLastResult] = useState<{
@@ -32,6 +35,9 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
     formData.append("player_id", playersTableId);
     formData.append("file_type", fileType);
     formData.append("session_date", sessionDate);
+    formData.append("session_type", sessionType);
+    if (drillName.trim()) formData.append("drill_name", drillName.trim());
+    formData.append("file", file);
     formData.append("file", file);
 
     const { data, error } = await supabase.functions.invoke("manual-reboot-upload", {
@@ -46,6 +52,7 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
   const uploadMutation = useMutation({
     mutationFn: async () => {
       if (!meFile && !ikFile) throw new Error("Select at least one CSV file");
+      if (sessionType === 'drill' && !drillName.trim()) throw new Error("Drill name is required for drill sessions");
 
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.access_token) throw new Error("Not authenticated");
@@ -167,6 +174,14 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
             className="w-[170px] h-9 bg-slate-800 border-slate-700 text-white text-sm"
           />
         </div>
+
+        {/* Session Type */}
+        <SessionTypePicker
+          sessionType={sessionType}
+          drillName={drillName}
+          onSessionTypeChange={setSessionType}
+          onDrillNameChange={setDrillName}
+        />
 
         {/* Two file slots side by side */}
         <div className="flex flex-wrap gap-4">
