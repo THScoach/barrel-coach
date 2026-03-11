@@ -168,34 +168,56 @@ async function fetchRebootPlayers(): Promise<any[]> {
   return allPlayers;
 }
 
-// Convert height string to inches (e.g., "6 ft 0 in" -> 72)
-function parseHeight(heightStr: string | null | undefined): number | null {
-  if (!heightStr) return null;
+// Convert height to inches - handles: "6 ft 0 in", "6'4\"", 76 (already inches), "76", "6-4"
+function parseHeight(heightVal: string | number | null | undefined): number | null {
+  if (heightVal == null) return null;
   
-  const match = heightStr.match(/(\d+)\s*ft\s*(\d+)\s*in/i);
-  if (match) {
-    return parseInt(match[1]) * 12 + parseInt(match[2]);
+  // If it's already a number, assume inches if > 12, else feet
+  if (typeof heightVal === 'number') {
+    return heightVal > 12 ? Math.round(heightVal) : heightVal * 12;
   }
   
-  // Try just feet
-  const feetMatch = heightStr.match(/(\d+)\s*ft/i);
-  if (feetMatch) {
-    return parseInt(feetMatch[1]) * 12;
-  }
+  const str = String(heightVal).trim();
+  if (!str) return null;
+
+  // "6 ft 0 in" or "6ft 4in"
+  const ftInMatch = str.match(/(\d+)\s*(?:ft|')\s*(\d+)\s*(?:in|")?/i);
+  if (ftInMatch) return parseInt(ftInMatch[1]) * 12 + parseInt(ftInMatch[2]);
+  
+  // "6-4" or "6.4" (feet-inches)
+  const dashMatch = str.match(/^(\d+)[-.](\d+)$/);
+  if (dashMatch) return parseInt(dashMatch[1]) * 12 + parseInt(dashMatch[2]);
+  
+  // Just feet: "6 ft"
+  const feetMatch = str.match(/(\d+)\s*ft/i);
+  if (feetMatch) return parseInt(feetMatch[1]) * 12;
+  
+  // Pure number string - assume inches if > 12
+  const num = parseFloat(str);
+  if (!isNaN(num)) return num > 12 ? Math.round(num) : num * 12;
   
   return null;
 }
 
-// Convert weight string to number (e.g., "205 lbs" -> 205)
-function parseWeight(weightStr: string | null | undefined): number | null {
-  if (!weightStr) return null;
+// Convert weight to number - handles: "205 lbs", "205", 205
+function parseWeight(weightVal: string | number | null | undefined): number | null {
+  if (weightVal == null) return null;
+  if (typeof weightVal === 'number') return Math.round(weightVal);
   
-  const match = weightStr.match(/(\d+)/);
-  if (match) {
-    return parseInt(match[1]);
-  }
-  
-  return null;
+  const match = String(weightVal).match(/(\d+)/);
+  return match ? parseInt(match[1]) : null;
+}
+
+// Parse birth date from various formats
+function parseBirthDate(dateVal: string | null | undefined): string | null {
+  if (!dateVal) return null;
+  const str = String(dateVal).trim();
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.split('T')[0];
+  // MM/DD/YYYY
+  const mdyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdyMatch) return `${mdyMatch[3]}-${mdyMatch[1].padStart(2,'0')}-${mdyMatch[2].padStart(2,'0')}`;
+  return str.split('T')[0]; // best effort
 }
 
 // Main handler
