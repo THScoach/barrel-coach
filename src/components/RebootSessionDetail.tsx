@@ -351,6 +351,12 @@ export function RebootSessionDetail({
         </DialogHeader>
         
         <div className="space-y-6">
+          {/* Drill Session Banner */}
+          <DrillSessionBanner 
+            sessionType={linkedRebootSession?.session_type} 
+            drillName={linkedRebootSession?.drill_name} 
+          />
+
           {/* Main Scores */}
           <div className="grid grid-cols-4 gap-3">
             {[
