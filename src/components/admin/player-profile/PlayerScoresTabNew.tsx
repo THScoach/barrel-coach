@@ -33,6 +33,8 @@ import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { RebootSessionDetail } from "@/components/RebootSessionDetail";
 import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
 import { PlayerProgressionDashboard } from "./PlayerProgressionDashboard";
+import { KineticSequenceTab } from "./KineticSequenceTab";
+import { StabilityTab } from "./StabilityTab";
 import { SocialPostGenerator } from "../SocialPostGenerator";
 import { cn } from "@/lib/utils";
 
