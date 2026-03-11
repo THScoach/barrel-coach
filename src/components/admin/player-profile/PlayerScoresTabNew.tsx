@@ -25,6 +25,8 @@ import {
   Minus,
   Share2,
   Trash2,
+  Zap,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
