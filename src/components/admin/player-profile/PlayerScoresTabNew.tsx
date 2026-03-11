@@ -310,6 +310,13 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
             Kinetic Sequence
           </TabsTrigger>
           <TabsTrigger 
+            value="drill-intel" 
+            className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
+          >
+            <Beaker className="h-4 w-4 mr-2" />
+            Drill Intel
+          </TabsTrigger>
+          <TabsTrigger 
             value="stability" 
             className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
           >
