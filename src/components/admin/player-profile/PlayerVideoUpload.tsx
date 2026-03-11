@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,8 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Upload, Video, Loader2, CheckCircle, XCircle, Clock, Plus, Send } from "lucide-react";
+import { Upload, Video, Loader2, CheckCircle, XCircle, Clock, Plus, Send, AlertCircle, Activity } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface PlayerVideoUploadProps {
@@ -138,9 +139,30 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
   const [frameRate, setFrameRate] = useState("240");
   const [isProcessing, setIsProcessing] = useState(false);
   const [batchSession, setBatchSession] = useState<BatchSession | null>(null);
+  const [run2D, setRun2D] = useState(true);
+  const [sendToReboot, setSendToReboot] = useState(true);
+  const [rebootPlayerId, setRebootPlayerId] = useState<string | null>(null);
+  const [rebootAthleteId, setRebootAthleteId] = useState<string | null>(null);
+  const [loadingRebootStatus, setLoadingRebootStatus] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const processingRef = useRef(false);
+
+  // Fetch player's Reboot link status
+  useEffect(() => {
+    async function fetchRebootStatus() {
+      setLoadingRebootStatus(true);
+      const { data } = await supabase
+        .from("players")
+        .select("reboot_player_id, reboot_athlete_id")
+        .eq("id", playerId)
+        .maybeSingle();
+      setRebootPlayerId(data?.reboot_player_id || null);
+      setRebootAthleteId(data?.reboot_athlete_id || null);
+      setLoadingRebootStatus(false);
+    }
+    fetchRebootStatus();
+  }, [playerId]);
 
   const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -233,13 +255,12 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
     const { id, file } = item;
     
     try {
-      // Step 1: Extract frames
+      // Step 1: Extract frames (needed for 2D analysis)
       updateQueueItem(id, { status: "uploading", progress: 10, swingIndex });
-      const frames = await extractFramesFromVideo(file, 6);
+      const frames = run2D ? await extractFramesFromVideo(file, 6) : [];
       updateQueueItem(id, { progress: 30 });
 
       // Step 2: Upload to storage
-      const timestamp = Date.now();
       const safeFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const storagePath = `${playerId}/${batchId}/swing${swingIndex}_${safeFilename}`;
 
@@ -255,41 +276,72 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
         .from("swing-videos")
         .getPublicUrl(storagePath);
 
-      // Step 4: Call analyze function with batch session context
-      updateQueueItem(id, { status: "analyzing", progress: 60 });
-      
-      const { data: analysisResult, error: analysisError } = await supabase.functions.invoke(
-        "analyze-video-2d",
-        { 
-          body: { 
-            player_id: playerId,
-            video_url: urlData.publicUrl,
-            video_filename: file.name,
-            video_storage_path: storagePath,
-            context: `${sessionType} - Swing ${swingIndex}`,
-            frame_rate: parseInt(frameRate),
-            is_paid_user: false,
-            frames,
-            batch_session_id: batchId,
-            swing_index: swingIndex,
-          } 
-        }
-      );
+      const videoUrl = urlData.publicUrl;
 
-      if (analysisError || !analysisResult?.success) {
-        throw new Error(analysisResult?.error || analysisError?.message || "Analysis failed");
+      // Step 4a: Send to Reboot Motion (fire-and-forget, non-blocking)
+      if (sendToReboot && rebootPlayerId) {
+        supabase.functions.invoke("upload-to-reboot", {
+          body: {
+            player_id: playerId,
+            video_url: videoUrl,
+            filename: file.name,
+            frame_rate: Number(frameRate),
+          },
+        }).then(({ data, error }) => {
+          if (error) {
+            console.error("[Reboot] Upload failed:", error);
+            toast.error(`Reboot upload failed for ${file.name}`);
+          } else {
+            console.log("[Reboot] Sent successfully:", data);
+            toast.success("Sent to Reboot Motion — results in 24-48hrs", { icon: "🦴" });
+            queryClient.invalidateQueries({ queryKey: ["reboot-sessions", playerId] });
+          }
+        });
       }
 
-      updateQueueItem(id, { swingSessionId: analysisResult.session_id, progress: 70 });
+      // Step 4b: Run 2D analysis if checked
+      if (run2D) {
+        updateQueueItem(id, { status: "analyzing", progress: 60 });
+        
+        const { data: analysisResult, error: analysisError } = await supabase.functions.invoke(
+          "analyze-video-2d",
+          { 
+            body: { 
+              player_id: playerId,
+              video_url: videoUrl,
+              video_filename: file.name,
+              video_storage_path: storagePath,
+              context: `${sessionType} - Swing ${swingIndex}`,
+              frame_rate: parseInt(frameRate),
+              is_paid_user: false,
+              frames,
+              batch_session_id: batchId,
+              swing_index: swingIndex,
+            } 
+          }
+        );
 
-      // Step 5: Poll for completion
-      const result = await pollForCompletion(analysisResult.session_id);
-      
-      updateQueueItem(id, { 
-        status: "complete", 
-        progress: 100, 
-        result 
-      });
+        if (analysisError || !analysisResult?.success) {
+          throw new Error(analysisResult?.error || analysisError?.message || "Analysis failed");
+        }
+
+        updateQueueItem(id, { swingSessionId: analysisResult.session_id, progress: 70 });
+
+        // Step 5: Poll for completion
+        const result = await pollForCompletion(analysisResult.session_id);
+        
+        updateQueueItem(id, { 
+          status: "complete", 
+          progress: 100, 
+          result 
+        });
+      } else {
+        // No 2D analysis — mark complete after upload + Reboot send
+        updateQueueItem(id, { 
+          status: "complete", 
+          progress: 100,
+        });
+      }
 
       // Refresh queries
       queryClient.invalidateQueries({ queryKey: ['player-2d-sessions', playerId] });
@@ -469,7 +521,17 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
       <CardHeader>
         <CardTitle className="text-white flex items-center gap-2">
           <Upload className="h-5 w-5" />
-          Upload Swing Videos (2D Analysis)
+          Upload Swing Videos
+          <div className="flex items-center gap-1.5 ml-auto">
+            {run2D && (
+              <span className="text-xs font-normal bg-blue-500/15 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full">2D</span>
+            )}
+            {sendToReboot && rebootPlayerId && (
+              <span className="text-xs font-normal bg-purple-500/15 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Activity className="h-3 w-3" /> 3D
+              </span>
+            )}
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -516,7 +578,63 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
           </div>
         </div>
 
-        {/* File Input / Drop Zone */}
+        {/* Analysis Options */}
+        <div className="space-y-3 bg-slate-800/40 rounded-lg p-4 border border-slate-700/50">
+          <Label className="text-slate-300 text-sm font-medium">Analysis Options</Label>
+          
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="run-2d"
+              checked={run2D}
+              onCheckedChange={(checked) => setRun2D(!!checked)}
+              className="mt-0.5 border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+            />
+            <label htmlFor="run-2d" className="cursor-pointer">
+              <span className="text-sm text-white font-medium">2D Analysis</span>
+              <p className="text-xs text-slate-400 mt-0.5">Gemini vision analysis — results in ~2 min</p>
+            </label>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="send-reboot"
+              checked={sendToReboot}
+              onCheckedChange={(checked) => setSendToReboot(!!checked)}
+              className="mt-0.5 border-slate-600 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
+            />
+            <label htmlFor="send-reboot" className="cursor-pointer">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-white font-medium">Send to Reboot Motion</span>
+                {!loadingRebootStatus && rebootPlayerId && (
+                  <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                    <CheckCircle className="h-3 w-3" /> Linked
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">3D biomechanical analysis — results in 24–48 hrs</p>
+            </label>
+          </div>
+
+          {/* Warning if Reboot checked but not linked */}
+          {sendToReboot && !loadingRebootStatus && !rebootPlayerId && (
+            <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/20">
+              <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs text-amber-300 font-medium">No Reboot athlete linked</p>
+                <p className="text-xs text-amber-400/70 mt-0.5">
+                  Link a Reboot athlete ID first (Reboot Motion tab). 2D analysis will still run.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!run2D && !sendToReboot && (
+            <div className="flex items-start gap-2 p-2.5 rounded-md bg-red-500/10 border border-red-500/20">
+              <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-red-300">Select at least one analysis type.</p>
+            </div>
+          )}
+        </div>
         <div 
           className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
             queue.length > 0 
@@ -657,7 +775,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
           <div className="flex gap-2 pt-2">
             <Button
               onClick={startProcessing}
-              disabled={isProcessing || queue.filter(i => i.status === "queued").length === 0}
+              disabled={isProcessing || queue.filter(i => i.status === "queued").length === 0 || (!run2D && !sendToReboot)}
               className="flex-1 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
             >
               {isProcessing ? (
@@ -668,7 +786,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
               ) : (
                 <>
                   <Send className="h-4 w-4 mr-2" />
-                  Start Analysis ({queue.filter(i => i.status === "queued").length} pending)
+                  Upload & Process ({queue.filter(i => i.status === "queued").length} pending)
                 </>
               )}
             </Button>
