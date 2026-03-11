@@ -261,6 +261,7 @@ export function DrillIntelTab({ playersTableId, playerName }: DrillIntelTabProps
     working: { label: 'WORKING', className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
     partial: { label: 'PARTIAL', className: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
     not_firing: { label: 'NOT FIRING', className: 'bg-red-500/15 text-red-400 border-red-500/30' },
+    no_baseline: { label: 'NO BASELINE', className: 'bg-slate-500/15 text-slate-400 border-slate-500/30' },
   };
 
   const transferConfig = {
