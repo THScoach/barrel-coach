@@ -190,10 +190,9 @@ export function PlayerRebootMotionTab({
       const { data, error } = await supabase.functions.invoke("create-reboot-athlete", {
         body: {
           name: playerName || "Unknown",
-          handedness: (playerData as any)?.handedness || (playerData as any)?.bats || null,
-          height_inches: (playerData as any)?.height_inches || null,
-          weight_lbs: (playerData as any)?.weight_lbs || null,
-          birth_date: (playerData as any)?.birth_date || null,
+          handedness: playerData?.handedness || null,
+          height_inches: playerData?.height_inches || null,
+          weight_lbs: playerData?.weight_lbs || null,
         },
         headers: { Authorization: `Bearer ${session.session.access_token}` },
       });
