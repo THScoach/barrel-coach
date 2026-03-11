@@ -354,9 +354,10 @@ export function PlayerOverviewTab({
           batScore={scorecardData.fourBScores.bat}
           ballScore={scorecardData.fourBScores.ball}
           weakestLink={scorecardData.fourBScores.weakestLink}
-          onCategoryClick={(category) => {
-            toast.info(`${category.toUpperCase()} details coming soon`);
-          }}
+          leakType={playerSessionLeak.leakType}
+          leakCaption={playerSessionLeak.leakCaption}
+          leakTraining={playerSessionLeak.leakTraining}
+          rawMetrics={playerSessionLeak.rawMetrics}
         />
       ) : (
         <Card className="bg-[#111113] border-[#1a1a1c]">
