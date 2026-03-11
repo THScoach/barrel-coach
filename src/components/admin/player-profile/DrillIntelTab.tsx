@@ -136,10 +136,11 @@ export function DrillIntelTab({ playersTableId, playerName }: DrillIntelTabProps
 
     // Baseline: last 5 BP sessions before or including all time
     const baselineSessions = bpSessions.slice(-5);
+    const hasBaseline = baselineSessions.length > 0;
     const baselineAvgs: Record<MetricKey, number | null> = {} as any;
-    const baselineBeat = mostCommon(baselineSessions.map(s => s.metrics.beat));
+    const baselineBeat = hasBaseline ? mostCommon(baselineSessions.map(s => s.metrics.beat)) : null;
     METRIC_KEYS.forEach(key => {
-      baselineAvgs[key] = avg(baselineSessions.map(s => s.metrics[key] as number | null));
+      baselineAvgs[key] = hasBaseline ? avg(baselineSessions.map(s => s.metrics[key] as number | null)) : null;
     });
 
     // Latest drill session
@@ -150,17 +151,19 @@ export function DrillIntelTab({ playersTableId, playerName }: DrillIntelTabProps
     });
     const drillBeat = latestDrill.metrics.beat;
 
-    // Count improvements
+    // Count improvements — only if baseline exists
     let improvements = 0;
-    METRIC_KEYS.forEach(key => {
-      const b = baselineAvgs[key];
-      const d = drillAvgs[key];
-      if (b === null || d === null) return;
-      const config = METRIC_CONFIG[key];
-      if (config.higherIsBetter ? d > b : d < b) improvements++;
-    });
-
-    const constraintStatus = improvements >= 3 ? 'working' : improvements >= 1 ? 'partial' : 'not_firing';
+    let constraintStatus: 'working' | 'partial' | 'not_firing' | 'no_baseline' = 'no_baseline';
+    if (hasBaseline) {
+      METRIC_KEYS.forEach(key => {
+        const b = baselineAvgs[key];
+        const d = drillAvgs[key];
+        if (b === null || d === null) return;
+        const config = METRIC_CONFIG[key];
+        if (config.higherIsBetter ? d > b : d < b) improvements++;
+      });
+      constraintStatus = improvements >= 3 ? 'working' : improvements >= 1 ? 'partial' : 'not_firing';
+    }
 
     // Transfer: post-drill BP sessions
     const latestDrillDate = latestDrill.sessionDate.getTime();
@@ -210,6 +213,7 @@ export function DrillIntelTab({ playersTableId, playerName }: DrillIntelTabProps
 
     return {
       constraintStatus,
+      hasBaseline,
       improvements,
       baselineAvgs,
       baselineBeat,
@@ -257,6 +261,7 @@ export function DrillIntelTab({ playersTableId, playerName }: DrillIntelTabProps
     working: { label: 'WORKING', className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
     partial: { label: 'PARTIAL', className: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
     not_firing: { label: 'NOT FIRING', className: 'bg-red-500/15 text-red-400 border-red-500/30' },
+    no_baseline: { label: 'NO BASELINE', className: 'bg-slate-500/15 text-slate-400 border-slate-500/30' },
   };
 
   const transferConfig = {
@@ -339,6 +344,11 @@ export function DrillIntelTab({ playersTableId, playerName }: DrillIntelTabProps
               </tbody>
             </table>
           </div>
+          {!analysis.hasBaseline && (
+            <p className="text-xs text-slate-500 mt-3 px-1">
+              No free-swing BP sessions on record. Upload a BP session to enable baseline comparison.
+            </p>
+          )}
         </CardContent>
       </Card>
 
