@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { 
   FileText, 
+  Beaker,
   LineChart, 
   Loader2,
   ExternalLink,
@@ -33,6 +34,7 @@ import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { RebootSessionDetail } from "@/components/RebootSessionDetail";
 import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
 import { PlayerProgressionDashboard } from "./PlayerProgressionDashboard";
+import { DrillIntelTab } from "./DrillIntelTab";
 import { KineticSequenceTab } from "./KineticSequenceTab";
 import { StabilityTab } from "./StabilityTab";
 import { SocialPostGenerator } from "../SocialPostGenerator";
@@ -81,7 +83,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
   // Sync sub-tab with URL
   useEffect(() => {
     const subtab = searchParams.get('subtab');
-    if (subtab && ['reports', 'progression', 'kinetic', 'stability'].includes(subtab)) {
+    if (subtab && ['reports', 'progression', 'kinetic', 'stability', 'drill-intel'].includes(subtab)) {
       setActiveSubTab(subtab);
     }
   }, [searchParams]);
@@ -309,6 +311,13 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
             Kinetic Sequence
           </TabsTrigger>
           <TabsTrigger 
+            value="drill-intel" 
+            className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
+          >
+            <Beaker className="h-4 w-4 mr-2" />
+            Drill Intel
+          </TabsTrigger>
+          <TabsTrigger 
             value="stability" 
             className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
           >
@@ -507,6 +516,20 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
         <TabsContent value="kinetic" className="mt-6">
           {mappedPlayersId ? (
             <KineticSequenceTab
+              playersTableId={mappedPlayersId}
+              playerName={playerName}
+            />
+          ) : (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ===== DRILL INTEL ===== */}
+        <TabsContent value="drill-intel" className="mt-6">
+          {mappedPlayersId ? (
+            <DrillIntelTab
               playersTableId={mappedPlayersId}
               playerName={playerName}
             />
