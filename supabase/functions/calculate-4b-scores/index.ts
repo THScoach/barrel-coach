@@ -29,6 +29,8 @@ interface Calculate4BRequest {
   session_id?: string;
   download_urls?: Record<string, string[]>;
   movement_url_map?: Record<string, MovementUrlEntry[]>;
+  raw_csv_me?: string;
+  raw_csv_ik?: string;
   session_data?: {
     brain_score?: number;
     body_score?: number;
