@@ -5,13 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, FileText, X, Loader2, CheckCircle, AlertCircle, Info } from "lucide-react";
 
@@ -22,10 +15,11 @@ interface ManualRebootUploadProps {
 
 export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootUploadProps) {
   const queryClient = useQueryClient();
-  const [file, setFile] = useState<File | null>(null);
-  const [fileType, setFileType] = useState<"ik" | "momentum">("momentum");
+  const [meFile, setMeFile] = useState<File | null>(null);
+  const [ikFile, setIkFile] = useState<File | null>(null);
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split("T")[0]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const meInputRef = useRef<HTMLInputElement>(null);
+  const ikInputRef = useRef<HTMLInputElement>(null);
   const [lastResult, setLastResult] = useState<{
     success: boolean;
     message: string;
@@ -33,26 +27,41 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
     bothPresent?: boolean;
   } | null>(null);
 
+  const uploadSingleFile = async (file: File, fileType: "momentum" | "ik", accessToken: string) => {
+    const formData = new FormData();
+    formData.append("player_id", playersTableId);
+    formData.append("file_type", fileType);
+    formData.append("session_date", sessionDate);
+    formData.append("file", file);
+
+    const { data, error } = await supabase.functions.invoke("manual-reboot-upload", {
+      body: formData,
+    });
+
+    if (error) throw new Error(error.message || `Upload failed (${fileType})`);
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
   const uploadMutation = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error("Select a CSV file first");
+      if (!meFile && !ikFile) throw new Error("Select at least one CSV file");
 
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.access_token) throw new Error("Not authenticated");
+      const token = session.session.access_token;
 
-      const formData = new FormData();
-      formData.append("player_id", playersTableId);
-      formData.append("file_type", fileType);
-      formData.append("session_date", sessionDate);
-      formData.append("file", file);
+      let lastData: any = null;
 
-      const { data, error } = await supabase.functions.invoke("manual-reboot-upload", {
-        body: formData,
-      });
+      // Upload IK first (if present) so ME triggers scoring with both files available
+      if (ikFile) {
+        lastData = await uploadSingleFile(ikFile, "ik", token);
+      }
+      if (meFile) {
+        lastData = await uploadSingleFile(meFile, "momentum", token);
+      }
 
-      if (error) throw new Error(error.message || "Upload failed");
-      if (data?.error) throw new Error(data.error);
-      return data;
+      return lastData;
     },
     onSuccess: (data) => {
       setLastResult({
@@ -69,8 +78,10 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
         toast.success(data.message);
       }
 
-      setFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setMeFile(null);
+      setIkFile(null);
+      if (meInputRef.current) meInputRef.current.value = "";
+      if (ikInputRef.current) ikInputRef.current.value = "";
       queryClient.invalidateQueries({ queryKey: ["reboot-sessions", playersTableId] });
     },
     onError: (e: Error) => {
@@ -78,6 +89,61 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
       toast.error(e.message);
     },
   });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, setter: (f: File | null) => void) => {
+    const f = e.target.files?.[0];
+    if (f && !f.name.endsWith(".csv")) {
+      toast.error("Please select a CSV file");
+      return;
+    }
+    setter(f || null);
+    setLastResult(null);
+  };
+
+  const FileSlot = ({
+    label,
+    file,
+    onClear,
+    onSelect,
+  }: {
+    label: string;
+    file: File | null;
+    onClear: () => void;
+    onSelect: () => void;
+  }) => (
+    <div className="flex-1 min-w-[200px]">
+      <label className="text-xs text-slate-400 mb-1 block">{label}</label>
+      {file ? (
+        <div className="flex items-center gap-2">
+          <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 gap-1.5 max-w-full">
+            <FileText className="h-3 w-3 shrink-0" />
+            <span className="truncate">{file.name}</span>
+            <span className="text-emerald-500/60 shrink-0">
+              ({(file.size / 1024).toFixed(0)} KB)
+            </span>
+          </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClear}
+            className="h-6 w-6 p-0 text-slate-500 hover:text-red-400 shrink-0"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onSelect}
+          className="border-slate-700 text-slate-300 hover:bg-slate-800 border-dashed"
+        >
+          <Upload className="h-3.5 w-3.5 mr-1.5" />
+          Select CSV
+        </Button>
+      )}
+    </div>
+  );
 
   return (
     <Card className="bg-slate-900/50 border-slate-800">
@@ -91,98 +157,49 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Row 1: File Type + Date */}
-        <div className="flex flex-wrap gap-3">
-          <div className="w-[180px]">
-            <label className="text-xs text-slate-400 mb-1 block">File Type</label>
-            <Select value={fileType} onValueChange={(v) => setFileType(v as "ik" | "momentum")}>
-              <SelectTrigger className="h-9 bg-slate-800 border-slate-700 text-white text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="momentum">Momentum-Energy</SelectItem>
-                <SelectItem value="ik">Inverse Kinematics</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs text-slate-400 mb-1 block">Session Date</label>
-            <Input
-              type="date"
-              value={sessionDate}
-              onChange={(e) => setSessionDate(e.target.value)}
-              className="w-[170px] h-9 bg-slate-800 border-slate-700 text-white text-sm"
-            />
-          </div>
+        {/* Session Date */}
+        <div>
+          <label className="text-xs text-slate-400 mb-1 block">Session Date</label>
+          <Input
+            type="date"
+            value={sessionDate}
+            onChange={(e) => setSessionDate(e.target.value)}
+            className="w-[170px] h-9 bg-slate-800 border-slate-700 text-white text-sm"
+          />
         </div>
 
-        {/* File selection */}
-        <div>
-          <label className="text-xs text-slate-400 mb-1 block">
-            {fileType === "momentum" ? "Momentum-Energy CSV" : "Inverse-Kinematics CSV"}
-          </label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f && !f.name.endsWith(".csv")) {
-                toast.error("Please select a CSV file");
-                return;
-              }
-              setFile(f || null);
-              setLastResult(null);
-            }}
-            className="hidden"
+        {/* Two file slots side by side */}
+        <div className="flex flex-wrap gap-4">
+          <input ref={meInputRef} type="file" accept=".csv" onChange={(e) => handleFileSelect(e, setMeFile)} className="hidden" />
+          <input ref={ikInputRef} type="file" accept=".csv" onChange={(e) => handleFileSelect(e, setIkFile)} className="hidden" />
+
+          <FileSlot
+            label="Momentum-Energy CSV"
+            file={meFile}
+            onClear={() => { setMeFile(null); if (meInputRef.current) meInputRef.current.value = ""; }}
+            onSelect={() => meInputRef.current?.click()}
           />
-          {file ? (
-            <div className="flex items-center gap-2">
-              <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 gap-1.5">
-                <FileText className="h-3 w-3" />
-                {file.name}
-                <span className="text-emerald-500/60">
-                  ({(file.size / 1024).toFixed(0)} KB)
-                </span>
-              </Badge>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setFile(null);
-                  if (fileInputRef.current) fileInputRef.current.value = "";
-                }}
-                className="h-6 w-6 p-0 text-slate-500 hover:text-red-400"
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              className="border-slate-700 text-slate-300 hover:bg-slate-800 border-dashed"
-            >
-              <Upload className="h-3.5 w-3.5 mr-1.5" />
-              Select {fileType === "momentum" ? "ME" : "IK"} CSV
-            </Button>
-          )}
+          <FileSlot
+            label="Inverse-Kinematics CSV"
+            file={ikFile}
+            onClear={() => { setIkFile(null); if (ikInputRef.current) ikInputRef.current.value = ""; }}
+            onSelect={() => ikInputRef.current?.click()}
+          />
         </div>
 
         {/* Info note */}
         <div className="flex items-start gap-2 text-xs text-slate-500 bg-slate-800/40 rounded-lg p-3">
           <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
           <span>
-            Upload files one at a time. If both ME and IK files are uploaded for the same date,
-            they'll be combined automatically. 4B scoring triggers when the Momentum-Energy file is present.
+            Upload both ME and IK files together, or one at a time. Files for the same date are
+            combined automatically. 4B scoring triggers when the Momentum-Energy file is present.
           </span>
         </div>
 
         {/* Upload button */}
         <Button
           onClick={() => uploadMutation.mutate()}
-          disabled={!file || uploadMutation.isPending}
+          disabled={(!meFile && !ikFile) || uploadMutation.isPending}
           className="bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-700 hover:to-indigo-600"
         >
           {uploadMutation.isPending ? (
@@ -193,7 +210,7 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
           ) : (
             <>
               <Upload className="h-4 w-4 mr-2" />
-              Upload & Process
+              Upload & Process{meFile && ikFile ? " (2 files)" : ""}
             </>
           )}
         </Button>
