@@ -526,7 +526,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
             {run2D && (
               <span className="text-xs font-normal bg-blue-500/15 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full">2D</span>
             )}
-            {sendToReboot && rebootPlayerId && (
+            {sendToReboot && (rebootPlayerId || rebootAthleteId) && (
               <span className="text-xs font-normal bg-purple-500/15 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
                 <Activity className="h-3 w-3" /> 3D
               </span>
