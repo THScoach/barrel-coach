@@ -521,7 +521,17 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
       <CardHeader>
         <CardTitle className="text-white flex items-center gap-2">
           <Upload className="h-5 w-5" />
-          Upload Swing Videos (2D Analysis)
+          Upload Swing Videos
+          <div className="flex items-center gap-1.5 ml-auto">
+            {run2D && (
+              <span className="text-xs font-normal bg-blue-500/15 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full">2D</span>
+            )}
+            {sendToReboot && rebootPlayerId && (
+              <span className="text-xs font-normal bg-purple-500/15 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Activity className="h-3 w-3" /> 3D
+              </span>
+            )}
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
