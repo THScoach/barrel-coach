@@ -926,7 +926,7 @@ function calculate4BScores(
   const avgTorsoToArms = avg(torsoToArmsTransfers);
 
   // Raw metrics
-  const rawMetrics: Record<string, number> = {
+  const rawMetrics: Record<string, any> = {
     avgLegsKE: Math.round(avgLegsKE * 10) / 10,
     avgTorsoKE: Math.round(avgTorsoKE * 10) / 10,
     avgArmsKE: Math.round(avgArmsKE * 10) / 10,
@@ -942,6 +942,41 @@ function calculate4BScores(
     rawMetrics.massScaleFactor = Math.round((athleteMassKg / BASELINE_MASS_KG) * 100) / 100;
   }
 
+  // ========== KINETIC CHAIN GAINS ==========
+  const pelvis_torso_gain = avgLegsKE > 0 ? Math.round((avgTorsoKE / avgLegsKE) * 100) / 100 : 0;
+  const torso_arm_gain = avgTorsoKE > 0 ? Math.round((avgArmsKE / avgTorsoKE) * 100) / 100 : 0;
+  const arm_bat_gain = avgArmsKE > 0 ? Math.round((avgBatKE / avgArmsKE) * 100) / 100 : 0;
+  rawMetrics.pelvis_torso_gain = pelvis_torso_gain;
+  rawMetrics.torso_arm_gain = torso_arm_gain;
+  rawMetrics.arm_bat_gain = arm_bat_gain;
+
+  // Energy flow labels (Strong >= 1.3, OK >= 1.0, Losing < 1.0)
+  const flowLabel = (gain: number) => gain >= 1.3 ? 'STRONG' : gain >= 1.0 ? 'OK' : 'LOSING';
+  rawMetrics.energy_flow = {
+    hip_to_body: flowLabel(pelvis_torso_gain),
+    body_to_arms: flowLabel(torso_arm_gain),
+    arms_to_barrel: flowLabel(arm_bat_gain),
+  };
+
+  // ========== TIMING / SEQUENCE METRICS ==========
+  // Derive cascade/brake timing from ME peak times
+  const legsKEPeakTimes = swings.map(s => s.legsKEPeakTime);
+  const armsKEPeakTimes = swings.map(s => s.armsKEPeakTime);
+  const avgLegsKEPeakTime = avg(legsKEPeakTimes);
+  const avgArmsKEPeakTime = avg(armsKEPeakTimes);
+  const ke_cascade_ms = Math.round(Math.abs(avgArmsKEPeakTime - avgLegsKEPeakTime) * 10) / 10;
+  rawMetrics.ke_cascade_ms = ke_cascade_ms;
+
+  // Brake efficiency: how well legs decelerate before arms peak
+  // (ratio of legs KE at arms-peak-time vs legs KE peak — lower = better braking)
+  const brakeEfficiencies = swings.map(s => {
+    if (s.legsKE <= 0) return 0;
+    // Approximate: if legs peaked before arms, good braking
+    return s.legsKEPeakTime < s.armsKEPeakTime ? 1.0 : 0.5;
+  });
+  rawMetrics.brake_efficiency = Math.round(avg(brakeEfficiencies) * 100) / 100;
+
+  // ========== IK-DEPENDENT METRICS ==========
   if (dataQuality.hasIKData) {
     const pelvisVels = swings.map(s => s.pelvisVelocity).filter(v => v > 0);
     const torsoVels = swings.map(s => s.torsoVelocity).filter(v => v > 0);
@@ -949,7 +984,96 @@ function calculate4BScores(
     rawMetrics.avgPelvisVelocity = Math.round(avg(pelvisVels) * 10) / 10;
     rawMetrics.avgTorsoVelocity = Math.round(avg(torsoVels) * 10) / 10;
     rawMetrics.avgXFactor = Math.round(avg(xFactors) * 10) / 10;
+
+    // Pelvis-torso gap (ms between pelvis peak and torso peak rotational velocity)
+    const gaps = swings.map(s => s.torsoPeakTime - s.pelvisPeakTime).filter(g => g !== 0);
+    rawMetrics.pelvis_torso_gap_ms = gaps.length ? Math.round(avg(gaps) * 10) / 10 : null;
+
+    // ke_brake_ms: time from legs KE peak to pelvis peak rotation (ground brake)
+    const brakeTimes = swings.map(s => Math.abs(s.pelvisPeakTime - s.legsKEPeakTime));
+    rawMetrics.ke_brake_ms = Math.round(avg(brakeTimes) * 10) / 10;
+
+    // Window timing & space (from IK contact data)
+    const timingScores = swings.map(s => {
+      // Timing: how close pelvis fires before torso (ideal ~20-40ms gap)
+      const gap = s.torsoPeakTime - s.pelvisPeakTime;
+      if (gap >= 15 && gap <= 45) return 80;
+      if (gap >= 5 && gap <= 60) return 60;
+      return 40;
+    });
+    const spaceScores = swings.map(s => {
+      // Space: x-factor separation quality
+      if (s.xFactor >= 45 && s.xFactor <= 65) return 80;
+      if (s.xFactor >= 30 && s.xFactor <= 80) return 60;
+      return 40;
+    });
+    rawMetrics.window_timing = Math.round(avg(timingScores));
+    rawMetrics.window_space = Math.round(avg(spaceScores));
+    rawMetrics.swing_window_score = Math.round((rawMetrics.window_timing + rawMetrics.window_space) / 2);
   }
+
+  // ========== VARIABILITY / STABILITY METRICS ==========
+  rawMetrics.trunk_variability_cv = Math.round(calculateCV(torsoKEs) * 10) / 10;
+  rawMetrics.arm_variability_cv = Math.round(calculateCV(armsKEs) * 10) / 10;
+
+  // Platform score: consistency of ground force production
+  const platformScore = to2080Scale(calculateCV(legsKEs), th.cvLegsKE.min, th.cvLegsKE.max, true);
+  rawMetrics.platform_score = platformScore;
+
+  // ========== BEAT PATTERN (rhythm string) ==========
+  // Derived from kinetic chain timing order
+  const sequenceCorrectPct = swings.filter(s => s.legsKEPeakTime <= s.armsKEPeakTime).length / swings.length;
+  let beat = '';
+  if (sequenceCorrectPct >= 0.8) beat = 'LEGS → TORSO → ARMS → BAT';
+  else if (sequenceCorrectPct >= 0.5) beat = 'LEGS → ARMS (torso skipping)';
+  else beat = 'ARMS → LEGS (reversed)';
+  rawMetrics.beat = beat;
+
+  // ========== STORY (narrative summary) ==========
+  const storyBase = avgLegsKE > (th.legsKE.min + th.legsKE.max) / 2
+    ? 'Strong ground force production'
+    : 'Needs more ground force';
+  const storyRhythm = sequenceCorrectPct >= 0.7
+    ? 'Good kinetic sequence timing'
+    : 'Timing sequence needs work';
+  const storyBarrel = avgBatEff > 35
+    ? 'Energy reaching the barrel'
+    : 'Energy not reaching the barrel efficiently';
+  rawMetrics.story = { base: storyBase, rhythm: storyRhythm, barrel: storyBarrel };
+
+  // ========== ARCHETYPE ==========
+  // Classify swing archetype from metrics patterns
+  let archetype = 'Balanced';
+  if (pelvis_torso_gain < 0.8 && torso_arm_gain > 1.3) archetype = 'Arm Dominant';
+  else if (avgLegsKE > (th.legsKE.max * 0.7) && arm_bat_gain > 1.5) archetype = 'Slingshotter';
+  else if (sequenceCorrectPct < 0.4) archetype = 'Spinner';
+  else if (pelvis_torso_gain > 1.4 && torso_arm_gain > 1.2) archetype = 'Whipper';
+  else if (avgLegsKE < th.legsKE.min * 1.2) archetype = 'Glider';
+  rawMetrics.archetype = archetype;
+
+  // ========== ROOT CAUSE ==========
+  // Derive primary issue from leak + scores
+  let rootIssue = 'None detected';
+  let rootWhat = 'Swing is functioning well';
+  let rootBuild = 'Continue current training';
+  if (avgBatEff < 25) {
+    rootIssue = 'Energy delivery';
+    rootWhat = 'Energy is being created but not reaching the barrel';
+    rootBuild = 'Focus on bat delivery and hand path drills';
+  } else if (sequenceCorrectPct < 0.5) {
+    rootIssue = 'Timing collapse';
+    rootWhat = 'Arms are firing before legs finish';
+    rootBuild = 'Sequence drills: let the legs lead';
+  } else if (avgLegsKE < th.legsKE.min * 1.3) {
+    rootIssue = 'Weak platform';
+    rootWhat = 'Not generating enough ground force';
+    rootBuild = 'Lower half loading and drive drills';
+  } else if (calculateCV(legsKEs) > 30) {
+    rootIssue = 'Unstable axis';
+    rootWhat = 'Ground force production is inconsistent';
+    rootBuild = 'Balance and stability work';
+  }
+  rawMetrics.root_cause = { issue: rootIssue, what: rootWhat, build: rootBuild };
 
   // ========== GROUND FLOW (mass-normalized) ==========
   const groundFlowScore = to2080Scale(avgLegsKE, th.legsKE.min, th.legsKE.max);
