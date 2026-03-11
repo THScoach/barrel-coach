@@ -538,7 +538,63 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
           </div>
         </div>
 
-        {/* File Input / Drop Zone */}
+        {/* Analysis Options */}
+        <div className="space-y-3 bg-slate-800/40 rounded-lg p-4 border border-slate-700/50">
+          <Label className="text-slate-300 text-sm font-medium">Analysis Options</Label>
+          
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="run-2d"
+              checked={run2D}
+              onCheckedChange={(checked) => setRun2D(!!checked)}
+              className="mt-0.5 border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+            />
+            <label htmlFor="run-2d" className="cursor-pointer">
+              <span className="text-sm text-white font-medium">2D Analysis</span>
+              <p className="text-xs text-slate-400 mt-0.5">Gemini vision analysis — results in ~2 min</p>
+            </label>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="send-reboot"
+              checked={sendToReboot}
+              onCheckedChange={(checked) => setSendToReboot(!!checked)}
+              className="mt-0.5 border-slate-600 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
+            />
+            <label htmlFor="send-reboot" className="cursor-pointer">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-white font-medium">Send to Reboot Motion</span>
+                {!loadingRebootStatus && rebootPlayerId && (
+                  <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                    <CheckCircle className="h-3 w-3" /> Linked
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">3D biomechanical analysis — results in 24–48 hrs</p>
+            </label>
+          </div>
+
+          {/* Warning if Reboot checked but not linked */}
+          {sendToReboot && !loadingRebootStatus && !rebootPlayerId && (
+            <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/20">
+              <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs text-amber-300 font-medium">No Reboot athlete linked</p>
+                <p className="text-xs text-amber-400/70 mt-0.5">
+                  Link a Reboot athlete ID first (Reboot Motion tab). 2D analysis will still run.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!run2D && !sendToReboot && (
+            <div className="flex items-start gap-2 p-2.5 rounded-md bg-red-500/10 border border-red-500/20">
+              <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-red-300">Select at least one analysis type.</p>
+            </div>
+          )}
+        </div>
         <div 
           className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
             queue.length > 0 
