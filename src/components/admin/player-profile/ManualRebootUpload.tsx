@@ -52,6 +52,7 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
   const uploadMutation = useMutation({
     mutationFn: async () => {
       if (!meFile && !ikFile) throw new Error("Select at least one CSV file");
+      if (sessionType === 'drill' && !drillName.trim()) throw new Error("Drill name is required for drill sessions");
 
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.access_token) throw new Error("Not authenticated");
