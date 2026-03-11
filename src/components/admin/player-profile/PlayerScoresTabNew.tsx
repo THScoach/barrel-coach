@@ -82,7 +82,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
   // Sync sub-tab with URL
   useEffect(() => {
     const subtab = searchParams.get('subtab');
-    if (subtab && ['reports', 'progression', 'kinetic', 'stability'].includes(subtab)) {
+    if (subtab && ['reports', 'progression', 'kinetic', 'stability', 'drill-intel'].includes(subtab)) {
       setActiveSubTab(subtab);
     }
   }, [searchParams]);
