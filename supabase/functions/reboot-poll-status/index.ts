@@ -1,9 +1,11 @@
 /**
  * Reboot Poll Status Edge Function
- * Polls Reboot Motion for session processing status
- * When complete, triggers data export and notifies player via ClawdBot
+ * Polls Reboot Motion for session processing status using /data_export
+ * as the completion signal (the /mocap_session endpoint doesn't exist).
  *
- * This function re-invokes itself with exponential backoff until processing completes
+ * Logic: attempt a metadata /data_export call.
+ *   - If download_urls are returned → session is complete → trigger reboot-export-data
+ *   - If empty/error → still processing → schedule retry with backoff
  *
  * POST /functions/v1/reboot-poll-status
  * Body: {
@@ -28,21 +30,12 @@ interface PollStatusRequest {
   attempt: number;
 }
 
-interface SessionStatusResponse {
-  id: string;
-  status: string;
-  movement_type: string;
-  session_date: string;
-  processing_status?: string;
-}
-
 // Configuration
-const MAX_ATTEMPTS = 60; // Max polling attempts
-const BASE_DELAY_MS = 60000; // 1 minute base delay
-const MAX_DELAY_MS = 300000; // 5 minute max delay
+const MAX_ATTEMPTS = 60;
+const BASE_DELAY_MS = 60000;   // 1 minute
+const MAX_DELAY_MS = 300000;   // 5 minutes
 
 serve(async (req) => {
-  // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
@@ -54,43 +47,47 @@ serve(async (req) => {
     }
 
     const attempt = body.attempt || 1;
-    console.log(`[reboot-poll-status] Polling session ${body.session_id}, attempt ${attempt}`);
+    console.log(`[poll] Attempt ${attempt} for session ${body.session_id}, player ${body.player_id}`);
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check session status in Reboot
-    const statusResponse = await rebootFetch(`/mocap_session/${body.session_id}`);
+    // ── Look up org_player_id from player record ──
+    const { data: player, error: playerError } = await supabase
+      .from("players")
+      .select("reboot_player_id, reboot_athlete_id, name, phone")
+      .eq("id", body.player_id)
+      .single();
 
-    if (!statusResponse.ok) {
-      const errorText = await statusResponse.text();
-      throw new Error(`Failed to get session status: ${errorText}`);
+    if (playerError || !player) {
+      return errorResponse(`Player not found: ${body.player_id}`, 404);
     }
 
-    const sessionData = await statusResponse.json();
-    console.log(`[reboot-poll-status] Full session response:`, JSON.stringify(sessionData, null, 2));
-    
-    const status = (sessionData.status || sessionData.processing_status || "").toLowerCase();
-    console.log(`[reboot-poll-status] Parsed status: ${status}`);
+    const orgPlayerId = player.reboot_player_id || player.reboot_athlete_id;
+    if (!orgPlayerId) {
+      return errorResponse("Player has no Reboot org_player_id configured.", 400);
+    }
 
-    // Update our local record
+    // ── Completion check: try /data_export with metadata ──
+    const isComplete = await checkSessionComplete(body.session_id, orgPlayerId);
+
+    // Update last_polled_at regardless
     await supabase
       .from("reboot_sessions")
-      .update({
-        status: status,
-        last_polled_at: new Date().toISOString(),
-      })
+      .update({ last_polled_at: new Date().toISOString() })
       .eq("reboot_session_id", body.session_id);
 
-    // Check if processing is complete
-    if (status === "complete" || status === "ready" || status === "done" || status === "processed") {
-      console.log("[reboot-poll-status] Processing complete! Triggering export...");
+    if (isComplete) {
+      console.log(`[poll] ✅ Session ${body.session_id} is COMPLETE — triggering export+scoring`);
 
-      // Trigger data export
+      await supabase
+        .from("reboot_sessions")
+        .update({ status: "exporting" })
+        .eq("reboot_session_id", body.session_id);
+
+      // Trigger reboot-export-data (which handles CSV download + 4B scoring)
       const exportUrl = `${supabaseUrl}/functions/v1/reboot-export-data`;
-
       const exportResponse = await fetch(exportUrl, {
         method: "POST",
         headers: {
@@ -107,60 +104,55 @@ serve(async (req) => {
       let exportResult = null;
       if (exportResponse.ok) {
         exportResult = await exportResponse.json();
-        console.log("[reboot-poll-status] Export completed");
+        console.log("[poll] Export + scoring pipeline complete");
       } else {
-        console.error("[reboot-poll-status] Export failed:", await exportResponse.text());
+        const errText = await exportResponse.text();
+        console.error(`[poll] Export failed: ${errText.substring(0, 500)}`);
+
+        await supabase
+          .from("reboot_sessions")
+          .update({ status: "error", error_message: `Export failed: ${errText.substring(0, 200)}` })
+          .eq("reboot_session_id", body.session_id);
       }
 
-      // Notify player via ClawdBot
-      await notifyPlayer(supabase, supabaseUrl, supabaseServiceKey, body.player_id, body.session_id, exportResult);
+      // Notify player via SMS
+      await notifyPlayer(supabase, supabaseUrl, supabaseServiceKey, body.player_id, player, exportResult);
 
       return jsonResponse({
         success: true,
         session_id: body.session_id,
         status: "complete",
-        message: "Processing complete. Data exported and player notified.",
+        message: "Processing complete. Export + scoring triggered.",
         export_result: exportResult,
       });
     }
 
-    // Check if failed
-    if (status === "error" || status === "failed") {
-      console.error("[reboot-poll-status] Processing failed");
-
-      // Notify player of failure
-      await notifyPlayerError(supabase, supabaseUrl, supabaseServiceKey, body.player_id, body.session_id);
-
-      return jsonResponse({
-        success: false,
-        session_id: body.session_id,
-        status: "failed",
-        message: "Video processing failed in Reboot Motion",
-      });
-    }
-
-    // Still processing - schedule next poll
+    // ── Still processing — check if we've hit max attempts ──
     if (attempt >= MAX_ATTEMPTS) {
-      console.error("[reboot-poll-status] Max polling attempts reached");
+      console.error(`[poll] Max attempts (${MAX_ATTEMPTS}) reached for session ${body.session_id}`);
 
       await supabase
         .from("reboot_sessions")
-        .update({ status: "timeout" })
+        .update({ status: "timeout", error_message: "Polling timeout after max attempts" })
         .eq("reboot_session_id", body.session_id);
 
       return jsonResponse({
         success: false,
         session_id: body.session_id,
         status: "timeout",
-        message: "Polling timeout - processing took too long",
+        message: "Polling timeout — processing took too long",
       });
     }
 
-    // Calculate delay with exponential backoff (capped at MAX_DELAY_MS)
+    // ── Schedule next poll with exponential backoff ──
     const delay = Math.min(BASE_DELAY_MS * Math.pow(1.2, attempt - 1), MAX_DELAY_MS);
-    console.log(`[reboot-poll-status] Still processing. Next poll in ${delay / 1000}s`);
+    console.log(`[poll] Still processing. Next poll in ${Math.round(delay / 1000)}s (attempt ${attempt + 1})`);
 
-    // Schedule next poll using setTimeout
+    await supabase
+      .from("reboot_sessions")
+      .update({ status: "processing" })
+      .eq("reboot_session_id", body.session_id);
+
     setTimeout(async () => {
       try {
         await fetch(`${supabaseUrl}/functions/v1/reboot-poll-status`, {
@@ -176,7 +168,7 @@ serve(async (req) => {
           }),
         });
       } catch (err) {
-        console.error("[reboot-poll-status] Failed to schedule next poll:", err);
+        console.error("[poll] Failed to schedule next poll:", err);
       }
     }, delay);
 
@@ -184,44 +176,74 @@ serve(async (req) => {
       success: true,
       session_id: body.session_id,
       status: "processing",
-      attempt: attempt,
+      attempt,
       next_poll_in_ms: delay,
       message: "Still processing. Polling will continue.",
     });
 
   } catch (error) {
-    console.error("[reboot-poll-status] Error:", error);
+    console.error("[poll] Error:", error);
     return errorResponse(error instanceof Error ? error.message : "Unknown error");
   }
 });
 
-/**
- * Notify player that their analysis is ready via ClawdBot
- */
+// ============================================================================
+// Check if Reboot has finished processing by probing /data_export
+// ============================================================================
+async function checkSessionComplete(sessionId: string, orgPlayerId: string): Promise<boolean> {
+  try {
+    const payload = {
+      session_id: sessionId,
+      org_player_id: orgPlayerId,
+      movement_type_id: 1,
+      data_type: "metadata",
+      data_format: "csv",
+      aggregate: true,
+    };
+
+    console.log(`[poll] Probing /data_export for session ${sessionId}...`);
+    const res = await rebootFetch("/data_export", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.log(`[poll] /data_export returned ${res.status}: ${errText.substring(0, 200)}`);
+      return false;
+    }
+
+    const data = await res.json();
+    const urls = data.download_urls || [];
+    console.log(`[poll] /data_export returned ${urls.length} download URL(s)`);
+
+    return urls.length > 0;
+  } catch (err) {
+    console.error("[poll] Error probing /data_export:", err);
+    return false;
+  }
+}
+
+// ============================================================================
+// Notify player that their analysis is ready
+// ============================================================================
 async function notifyPlayer(
   supabase: any,
   supabaseUrl: string,
   supabaseServiceKey: string,
   playerId: string,
-  sessionId: string,
+  player: { name: string | null; phone: string | null },
   exportResult: any
 ) {
   try {
-    // Get player phone number
-    const { data: player } = await supabase
-      .from("players")
-      .select("phone, name")
-      .eq("id", playerId)
-      .single();
-
     if (!player?.phone) {
-      console.log("[reboot-poll-status] No phone number for player, skipping notification");
+      console.log("[poll] No phone number for player, skipping notification");
       return;
     }
 
-    // Get analysis results summary
+    const firstName = player.name?.split(" ")[0] || "there";
     const analysisResult = exportResult?.analysis_result;
-    let message = `🎯 Hey ${player.name?.split(" ")[0] || "there"}! Your 3D swing analysis is ready!\n\n`;
+    let message = `🎯 Hey ${firstName}! Your 3D swing analysis is ready!\n\n`;
 
     if (analysisResult) {
       if (analysisResult.composite_score) {
@@ -238,10 +260,7 @@ async function notifyPlayer(
 
     message += `\nReply "details" for a full breakdown or "compare" to see how you stack up against the pros!`;
 
-    // Send via send-sms function
-    const smsUrl = `${supabaseUrl}/functions/v1/send-sms`;
-
-    await fetch(smsUrl, {
+    await fetch(`${supabaseUrl}/functions/v1/send-sms`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${supabaseServiceKey}`,
@@ -249,71 +268,13 @@ async function notifyPlayer(
       },
       body: JSON.stringify({
         to: player.phone,
-        message: message,
+        message,
         player_id: playerId,
       }),
     });
 
-    console.log("[reboot-poll-status] Player notified via SMS");
+    console.log("[poll] Player notified via SMS");
   } catch (err) {
-    console.error("[reboot-poll-status] Failed to notify player:", err);
-  }
-}
-
-/**
- * Notify player that processing failed
- */
-async function notifyPlayerError(
-  supabase: any,
-  supabaseUrl: string,
-  supabaseServiceKey: string,
-  playerId: string,
-  sessionId: string
-) {
-  try {
-    const { data: player } = await supabase
-      .from("players")
-      .select("phone, name")
-      .eq("id", playerId)
-      .single();
-
-    if (!player?.phone) return;
-
-    const message = `Hey ${player.name?.split(" ")[0] || "there"}, there was an issue processing your swing video. ` +
-      `Coach Rick has been notified and will follow up. ` +
-      `In the meantime, try sending another video and make sure it's well-lit with a clear view of your full swing!`;
-
-    const smsUrl = `${supabaseUrl}/functions/v1/send-sms`;
-
-    await fetch(smsUrl, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${supabaseServiceKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: player.phone,
-        message: message,
-        player_id: playerId,
-      }),
-    });
-
-    // Also notify Coach Rick
-    const coachPhone = Deno.env.get("COACH_RICK_PHONE");
-    if (coachPhone) {
-      await fetch(smsUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${supabaseServiceKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          to: coachPhone,
-          message: `⚠️ Video processing failed for ${player.name} (session: ${sessionId}). Check Reboot dashboard.`,
-        }),
-      });
-    }
-  } catch (err) {
-    console.error("[reboot-poll-status] Failed to send error notification:", err);
+    console.error("[poll] Failed to notify player:", err);
   }
 }
