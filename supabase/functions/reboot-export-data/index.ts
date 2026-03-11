@@ -173,35 +173,47 @@ serve(async (req) => {
     }
 
     // ========================================================================
-    // Step 4: Trigger 4B analysis with all per-movement URLs
+    // Step 4: Download CSVs and pass raw text to calculate-4b-scores
     // ========================================================================
     let analysisResult = null;
     if (triggerAnalysis) {
       try {
-        const totalUrls = Object.values(exportUrls).flat().length;
-        console.log(`[export] Triggering 4B analysis with ${totalUrls} total URLs across ${movementIds.length} movements...`);
+        // Download ME CSV content from presigned URLs
+        const meUrls = exportUrls["momentum-energy"] || [];
+        const ikUrls = exportUrls["inverse-kinematics"] || [];
 
-        const analysisUrl = `${supabaseUrl}/functions/v1/calculate-4b-scores`;
-        const analysisResponse = await fetch(analysisUrl, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${supabaseServiceKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            player_id: body.player_id,
-            session_id: body.session_id,
-            download_urls: exportUrls,
-            movement_url_map: exportUrlMovementMap,
-          }),
-        });
+        console.log(`[export] Downloading ${meUrls.length} ME CSV(s) and ${ikUrls.length} IK CSV(s)...`);
 
-        if (analysisResponse.ok) {
-          analysisResult = await analysisResponse.json();
-          console.log("[export] 4B analysis complete");
+        const rawMeCsv = await downloadAndConcatCsvs(meUrls);
+        const rawIkCsv = await downloadAndConcatCsvs(ikUrls);
+
+        console.log(`[export] ME CSV: ${rawMeCsv.length} chars, IK CSV: ${rawIkCsv.length} chars`);
+
+        if (!rawMeCsv) {
+          console.error("[export] No ME CSV content downloaded — cannot score");
         } else {
-          const errText = await analysisResponse.text();
-          console.error("[export] Analysis failed:", errText);
+          const analysisUrl = `${supabaseUrl}/functions/v1/calculate-4b-scores`;
+          const analysisResponse = await fetch(analysisUrl, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${supabaseServiceKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              player_id: body.player_id,
+              session_id: body.session_id,
+              raw_csv_me: rawMeCsv,
+              raw_csv_ik: rawIkCsv || undefined,
+            }),
+          });
+
+          if (analysisResponse.ok) {
+            analysisResult = await analysisResponse.json();
+            console.log("[export] 4B analysis complete");
+          } else {
+            const errText = await analysisResponse.text();
+            console.error("[export] Analysis failed:", errText);
+          }
         }
       } catch (err) {
         console.error("[export] Error during analysis:", err);

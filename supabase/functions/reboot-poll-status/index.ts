@@ -154,9 +154,9 @@ serve(async (req) => {
       });
     }
 
-    // ── Schedule next poll with exponential backoff ──
-    const delay = Math.min(BASE_DELAY_MS * Math.pow(1.2, attempt - 1), MAX_DELAY_MS);
-    console.log(`[poll] Still processing. Next poll in ${Math.round(delay / 1000)}s (attempt ${attempt + 1})`);
+    // ── Schedule next poll with stepped backoff ──
+    const delay = getDelayMs(attempt);
+    console.log(`[poll] Still processing. Next poll in ${delay / 1000}s (attempt ${attempt + 1})`);
 
     await supabase
       .from("reboot_sessions")
