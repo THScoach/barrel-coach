@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Upload, FileText, X, Loader2, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { SessionTypePicker, type SessionType } from "./SessionTypePicker";
 
 interface ManualRebootUploadProps {
   playersTableId: string;
@@ -18,6 +19,8 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
   const [meFile, setMeFile] = useState<File | null>(null);
   const [ikFile, setIkFile] = useState<File | null>(null);
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split("T")[0]);
+  const [sessionType, setSessionType] = useState<SessionType>('bp');
+  const [drillName, setDrillName] = useState('');
   const meInputRef = useRef<HTMLInputElement>(null);
   const ikInputRef = useRef<HTMLInputElement>(null);
   const [lastResult, setLastResult] = useState<{
