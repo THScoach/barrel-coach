@@ -255,13 +255,12 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
     const { id, file } = item;
     
     try {
-      // Step 1: Extract frames
+      // Step 1: Extract frames (needed for 2D analysis)
       updateQueueItem(id, { status: "uploading", progress: 10, swingIndex });
-      const frames = await extractFramesFromVideo(file, 6);
+      const frames = run2D ? await extractFramesFromVideo(file, 6) : [];
       updateQueueItem(id, { progress: 30 });
 
       // Step 2: Upload to storage
-      const timestamp = Date.now();
       const safeFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const storagePath = `${playerId}/${batchId}/swing${swingIndex}_${safeFilename}`;
 
@@ -277,41 +276,72 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
         .from("swing-videos")
         .getPublicUrl(storagePath);
 
-      // Step 4: Call analyze function with batch session context
-      updateQueueItem(id, { status: "analyzing", progress: 60 });
-      
-      const { data: analysisResult, error: analysisError } = await supabase.functions.invoke(
-        "analyze-video-2d",
-        { 
-          body: { 
-            player_id: playerId,
-            video_url: urlData.publicUrl,
-            video_filename: file.name,
-            video_storage_path: storagePath,
-            context: `${sessionType} - Swing ${swingIndex}`,
-            frame_rate: parseInt(frameRate),
-            is_paid_user: false,
-            frames,
-            batch_session_id: batchId,
-            swing_index: swingIndex,
-          } 
-        }
-      );
+      const videoUrl = urlData.publicUrl;
 
-      if (analysisError || !analysisResult?.success) {
-        throw new Error(analysisResult?.error || analysisError?.message || "Analysis failed");
+      // Step 4a: Send to Reboot Motion (fire-and-forget, non-blocking)
+      if (sendToReboot && rebootPlayerId) {
+        supabase.functions.invoke("upload-to-reboot", {
+          body: {
+            player_id: playerId,
+            video_url: videoUrl,
+            filename: file.name,
+            frame_rate: Number(frameRate),
+          },
+        }).then(({ data, error }) => {
+          if (error) {
+            console.error("[Reboot] Upload failed:", error);
+            toast.error(`Reboot upload failed for ${file.name}`);
+          } else {
+            console.log("[Reboot] Sent successfully:", data);
+            toast.success("Sent to Reboot Motion — results in 24-48hrs", { icon: "🦴" });
+            queryClient.invalidateQueries({ queryKey: ["reboot-sessions", playerId] });
+          }
+        });
       }
 
-      updateQueueItem(id, { swingSessionId: analysisResult.session_id, progress: 70 });
+      // Step 4b: Run 2D analysis if checked
+      if (run2D) {
+        updateQueueItem(id, { status: "analyzing", progress: 60 });
+        
+        const { data: analysisResult, error: analysisError } = await supabase.functions.invoke(
+          "analyze-video-2d",
+          { 
+            body: { 
+              player_id: playerId,
+              video_url: videoUrl,
+              video_filename: file.name,
+              video_storage_path: storagePath,
+              context: `${sessionType} - Swing ${swingIndex}`,
+              frame_rate: parseInt(frameRate),
+              is_paid_user: false,
+              frames,
+              batch_session_id: batchId,
+              swing_index: swingIndex,
+            } 
+          }
+        );
 
-      // Step 5: Poll for completion
-      const result = await pollForCompletion(analysisResult.session_id);
-      
-      updateQueueItem(id, { 
-        status: "complete", 
-        progress: 100, 
-        result 
-      });
+        if (analysisError || !analysisResult?.success) {
+          throw new Error(analysisResult?.error || analysisError?.message || "Analysis failed");
+        }
+
+        updateQueueItem(id, { swingSessionId: analysisResult.session_id, progress: 70 });
+
+        // Step 5: Poll for completion
+        const result = await pollForCompletion(analysisResult.session_id);
+        
+        updateQueueItem(id, { 
+          status: "complete", 
+          progress: 100, 
+          result 
+        });
+      } else {
+        // No 2D analysis — mark complete after upload + Reboot send
+        updateQueueItem(id, { 
+          status: "complete", 
+          progress: 100,
+        });
+      }
 
       // Refresh queries
       queryClient.invalidateQueries({ queryKey: ['player-2d-sessions', playerId] });
