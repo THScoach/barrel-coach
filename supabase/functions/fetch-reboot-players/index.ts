@@ -408,15 +408,17 @@ serve(async (req) => {
         const bats = player.bats || player.hitting_hand || player.hittingHand || player.hits || player.bat_side || player.batSide || null;
         
         // Always store org_player_id as reboot_athlete_id (this is what data_export needs)
-        const playerData = {
+        const birthDate = parseBirthDate(player.birth_date || player.birthDate || player.dob || player.date_of_birth);
+        const playerData: Record<string, any> = {
           name: fullName,
           reboot_athlete_id: rebootId,
-          height_inches: parseHeight(player.height || player.height_display),
-          weight_lbs: parseWeight(player.weight || player.weight_display),
+          height_inches: parseHeight(player.height || player.height_display || player.height_in),
+          weight_lbs: parseWeight(player.weight || player.weight_display || player.weight_lb),
           handedness: bats,
           level: player.level || player.skill_level || player.skillLevel || null,
           team: player.team || player.organization || player.org_name || player.orgName || null,
         };
+        if (birthDate) playerData.birth_date = birthDate;
 
         if (existingPlayer) {
           const { error: updateError } = await supabase
