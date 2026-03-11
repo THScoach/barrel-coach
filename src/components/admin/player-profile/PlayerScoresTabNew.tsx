@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { 
   FileText, 
+  Beaker,
   LineChart, 
   Loader2,
   ExternalLink,
