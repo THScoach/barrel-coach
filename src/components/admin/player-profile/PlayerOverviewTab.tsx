@@ -378,12 +378,13 @@ export function PlayerOverviewTab({
         </Card>
       )}
 
-      {/* ===== LEAK DETECTION CARD (from dk-4b-inverse) ===== */}
-      {(detailedLeaks.length > 0 || !scorecardLoading) && (
+      {/* ===== LEAK DETECTION CARD (from player_sessions) ===== */}
+      {!scorecardLoading && (
         <LeakDetectionCard
           leaks={detailedLeaks}
           weakestCategory={scorecardData?.fourBScores.weakestLink}
           isLoading={scorecardLoading}
+          playerSessionLeak={playerSessionLeak}
         />
       )}
 
