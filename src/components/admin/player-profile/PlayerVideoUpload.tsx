@@ -279,7 +279,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
       const videoUrl = urlData.publicUrl;
 
       // Step 4a: Send to Reboot Motion (fire-and-forget, non-blocking)
-      if (sendToReboot && rebootPlayerId) {
+      if (sendToReboot && (rebootPlayerId || rebootAthleteId)) {
         supabase.functions.invoke("upload-to-reboot", {
           body: {
             player_id: playerId,
@@ -526,7 +526,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
             {run2D && (
               <span className="text-xs font-normal bg-blue-500/15 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full">2D</span>
             )}
-            {sendToReboot && rebootPlayerId && (
+            {sendToReboot && (rebootPlayerId || rebootAthleteId) && (
               <span className="text-xs font-normal bg-purple-500/15 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
                 <Activity className="h-3 w-3" /> 3D
               </span>
@@ -605,7 +605,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
             <label htmlFor="send-reboot" className="cursor-pointer">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-white font-medium">Send to Reboot Motion</span>
-                {!loadingRebootStatus && rebootPlayerId && (
+                {!loadingRebootStatus && (rebootPlayerId || rebootAthleteId) && (
                   <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
                     <CheckCircle className="h-3 w-3" /> Linked
                   </span>
@@ -616,7 +616,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
           </div>
 
           {/* Warning if Reboot checked but not linked */}
-          {sendToReboot && !loadingRebootStatus && !rebootPlayerId && (
+          {sendToReboot && !loadingRebootStatus && !rebootPlayerId && !rebootAthleteId && (
             <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/20">
               <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
               <div>
