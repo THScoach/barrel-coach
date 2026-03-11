@@ -130,6 +130,7 @@ export function LeakDetectionCard({
   leaks,
   weakestCategory,
   isLoading = false,
+  playerSessionLeak,
 }: LeakDetectionCardProps) {
   if (isLoading) {
     return (
@@ -145,7 +146,11 @@ export function LeakDetectionCard({
     );
   }
 
-  if (!leaks || leaks.length === 0) {
+  // Check player_sessions leak_type first
+  const sessionLeakType = playerSessionLeak?.leakType;
+  const hasSessionLeak = sessionLeakType && sessionLeakType !== 'clean_transfer' && sessionLeakType !== 'unknown';
+
+  if (!hasSessionLeak && (!leaks || leaks.length === 0)) {
     return (
       <Card className="bg-[#0A0A0B] border-[#1a1a1c] border-l-4 border-l-emerald-500">
         <CardHeader className="pb-3">
@@ -158,8 +163,61 @@ export function LeakDetectionCard({
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 mb-3">
             <Target className="h-6 w-6 text-emerald-400" />
           </div>
-          <p className="text-emerald-400 font-medium">No Kinetic Leaks Detected</p>
+          <p className="text-emerald-400 font-medium">No Leaks Detected</p>
           <p className="text-slate-500 text-sm mt-1">Energy transfer is optimal across all categories</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // If we have a session leak from player_sessions, show it prominently
+  if (hasSessionLeak) {
+    const displayName = leakTypeDisplayNames[sessionLeakType] || sessionLeakType.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+    return (
+      <Card className="bg-[#0A0A0B] border-[#1a1a1c] border-l-4 border-l-[#DC2626] overflow-hidden relative"
+        style={{ boxShadow: '0 0 40px rgba(220, 38, 38, 0.2), inset 0 0 60px rgba(220, 38, 38, 0.03)' }}>
+        <div className="absolute top-0 left-0 right-0 h-20 pointer-events-none"
+          style={{ background: 'linear-gradient(180deg, rgba(220, 38, 38, 0.1), transparent)' }} />
+        <CardHeader className="pb-3 relative">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#DC2626]">
+              <AlertTriangle className="h-4 w-4" />
+              LEAK DETECTED
+            </CardTitle>
+            <Badge className="bg-[#DC2626]/20 text-[#DC2626] text-xs font-bold">
+              ENERGY LEAK
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 relative">
+          <div className="p-4 rounded-lg bg-[#111113] border border-[#DC2626]/40">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-[#DC2626]/10">
+                <Flame className="h-5 w-5 text-[#DC2626]" />
+              </div>
+              <div>
+                <p className="text-base font-semibold text-white">{displayName}</p>
+                {playerSessionLeak?.leakCaption && (
+                  <p className="text-sm text-slate-400 mt-1 leading-relaxed">{playerSessionLeak.leakCaption}</p>
+                )}
+              </div>
+            </div>
+            {playerSessionLeak?.leakTraining && (
+              <div className="bg-[#DC2626]/5 border border-[#DC2626]/15 rounded-lg p-3 mt-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-[#DC2626] mb-1">Coaching Cue</p>
+                <p className="text-sm text-slate-300 leading-relaxed">{playerSessionLeak.leakTraining}</p>
+              </div>
+            )}
+          </div>
+
+          {weakestCategory && (
+            <div className="flex items-center gap-3 p-3 bg-[#111113] rounded-lg border border-[#1a1a1c]">
+              <span className="text-xs text-slate-500 uppercase tracking-wide">Weakest Link:</span>
+              <Badge className="bg-[#DC2626]/20 text-[#DC2626] border-[#DC2626]/30 font-bold">
+                {weakestCategory.toUpperCase()}
+              </Badge>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
