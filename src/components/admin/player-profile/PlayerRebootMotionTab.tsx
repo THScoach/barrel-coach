@@ -437,7 +437,8 @@ export function PlayerRebootMotionTab({
                             Manual Upload
                           </Badge>
                         )}
-                        {session.movement_type && (session as any).source !== "manual_upload" && (
+                        <SessionTypeBadge sessionType={(session as any).session_type} drillName={(session as any).drill_name} />
+                        {session.movement_type && (session as any).source !== "manual_upload" && !(session as any).session_type && (
                           <Badge variant="outline" className="border-slate-700 text-slate-400 text-xs">
                             {session.movement_type}
                           </Badge>

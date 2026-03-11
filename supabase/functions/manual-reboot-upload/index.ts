@@ -268,6 +268,8 @@ Deno.serve(async (req) => {
         status: 'uploaded',
         source: 'manual_upload',
         movement_type: 'baseball-hitting',
+        session_type: sessionType,
+        drill_name: drillNameParam || null,
         notes: 'Manual CSV upload',
         parsed_metrics: { [fileType]: parsedMetrics },
       };
