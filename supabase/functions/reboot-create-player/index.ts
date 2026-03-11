@@ -143,7 +143,7 @@ serve(async (req) => {
     // ============================================================
     const { data: existingPlayer, error: fetchError } = await supabase
       .from("players")
-      .select("reboot_player_id, reboot_athlete_id")
+      .select("reboot_player_id, reboot_athlete_id, height_inches, weight_lbs, handedness, birth_date")
       .eq("id", body.player_id)
       .single();
 
