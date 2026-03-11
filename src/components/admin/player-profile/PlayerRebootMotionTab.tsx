@@ -265,6 +265,11 @@ export function PlayerRebootMotionTab({
         </CardContent>
       </Card>
 
+      {/* ── VIDEO-UPLOAD REBOOT SESSIONS ── */}
+      {isLinked && (
+        <RebootVideoSessionsStatus playersTableId={playersTableId!} />
+      )}
+
       {/* ── MANUAL CSV UPLOAD (only when linked) ── */}
       {isLinked && (
         <ManualRebootUpload
