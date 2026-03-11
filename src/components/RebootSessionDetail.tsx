@@ -56,6 +56,7 @@ interface RebootUpload {
   ik_file_uploaded: boolean;
   me_file_uploaded: boolean;
   me_data?: Json | null;
+  reboot_session_id?: string | null;
 }
 
 interface RebootSessionDetailProps {
