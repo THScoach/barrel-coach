@@ -69,10 +69,11 @@ serve(async (req) => {
       throw new Error(`Failed to get session status: ${errorText}`);
     }
 
-    const sessionData: SessionStatusResponse = await statusResponse.json();
+    const sessionData = await statusResponse.json();
+    console.log(`[reboot-poll-status] Full session response:`, JSON.stringify(sessionData, null, 2));
+    
     const status = (sessionData.status || sessionData.processing_status || "").toLowerCase();
-
-    console.log(`[reboot-poll-status] Session status: ${status}`);
+    console.log(`[reboot-poll-status] Parsed status: ${status}`);
 
     // Update our local record
     await supabase
