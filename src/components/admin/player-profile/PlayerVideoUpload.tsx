@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,8 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Upload, Video, Loader2, CheckCircle, XCircle, Clock, Plus, Send } from "lucide-react";
+import { Upload, Video, Loader2, CheckCircle, XCircle, Clock, Plus, Send, AlertCircle, Activity } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface PlayerVideoUploadProps {
