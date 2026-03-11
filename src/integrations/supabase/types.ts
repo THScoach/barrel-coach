@@ -3157,6 +3157,7 @@ export type Database = {
           bbref_id: string | null
           beta_expires_at: string | null
           beta_notes: string | null
+          birth_date: string | null
           can_login: boolean | null
           coaching_notes: Json | null
           contact_type: string | null
@@ -3227,6 +3228,7 @@ export type Database = {
           bbref_id?: string | null
           beta_expires_at?: string | null
           beta_notes?: string | null
+          birth_date?: string | null
           can_login?: boolean | null
           coaching_notes?: Json | null
           contact_type?: string | null
@@ -3297,6 +3299,7 @@ export type Database = {
           bbref_id?: string | null
           beta_expires_at?: string | null
           beta_notes?: string | null
+          birth_date?: string | null
           can_login?: boolean | null
           coaching_notes?: Json | null
           contact_type?: string | null
