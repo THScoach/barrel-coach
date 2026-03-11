@@ -152,7 +152,9 @@ Deno.serve(async (req) => {
     const fileType = formData.get('file_type') as string; // "ik" | "momentum"
     const file = formData.get('file') as File | null;
     const sessionDate = (formData.get('session_date') as string) || new Date().toISOString().split('T')[0];
-    const sessionIdOverride = formData.get('session_id') as string | null; // attach to existing session
+    const sessionIdOverride = formData.get('session_id') as string | null;
+    const sessionType = (formData.get('session_type') as string) || 'bp';
+    const drillNameParam = formData.get('drill_name') as string | null;
 
     if (!playerId || !fileType || !file) {
       return new Response(JSON.stringify({ error: 'player_id, file_type, and file are required' }), {
