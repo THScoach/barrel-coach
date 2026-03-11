@@ -605,7 +605,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
             <label htmlFor="send-reboot" className="cursor-pointer">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-white font-medium">Send to Reboot Motion</span>
-                {!loadingRebootStatus && rebootPlayerId && (
+                {!loadingRebootStatus && (rebootPlayerId || rebootAthleteId) && (
                   <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
                     <CheckCircle className="h-3 w-3" /> Linked
                   </span>
