@@ -92,20 +92,30 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
         if (data) return data;
       }
 
-      // Fallback: match by player_id + closest date
+      // Fallback: match by player_id + session date
       if (session.session_date) {
+        const dateStr = session.session_date.split("T")[0];
         const { data } = await supabase
           .from("player_sessions")
           .select("*")
           .eq("player_id", session.player_id)
-          .gte("session_date", session.session_date + "T00:00:00")
-          .lte("session_date", session.session_date + "T23:59:59")
+          .gte("session_date", dateStr + "T00:00:00")
+          .lte("session_date", dateStr + "T23:59:59")
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        return data;
+        if (data) return data;
       }
-      return null;
+
+      // Last fallback: most recent player_session for this player
+      const { data } = await supabase
+        .from("player_sessions")
+        .select("*")
+        .eq("player_id", session.player_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
     },
     enabled: open && !!session?.player_id,
   });
