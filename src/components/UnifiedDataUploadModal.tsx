@@ -84,7 +84,8 @@ export function UnifiedDataUploadModal({
   playerId, // This MUST be players.id (not player_profiles.id)
   playerName,
   onSuccess,
-  linkVerified = false
+  linkVerified = false,
+  excludeReboot = false
 }: UnifiedDataUploadModalProps) {
   const [detectedFiles, setDetectedFiles] = useState<DetectedFile[]>([]);
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
