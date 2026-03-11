@@ -279,7 +279,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
       const videoUrl = urlData.publicUrl;
 
       // Step 4a: Send to Reboot Motion (fire-and-forget, non-blocking)
-      if (sendToReboot && rebootPlayerId) {
+      if (sendToReboot && (rebootPlayerId || rebootAthleteId)) {
         supabase.functions.invoke("upload-to-reboot", {
           body: {
             player_id: playerId,
