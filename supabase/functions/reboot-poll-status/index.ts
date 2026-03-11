@@ -154,41 +154,37 @@ serve(async (req) => {
       });
     }
 
-    // ── Schedule next poll with stepped backoff ──
-    const delay = getDelayMs(attempt);
-    console.log(`[poll] Still processing. Next poll in ${delay / 1000}s (attempt ${attempt + 1})`);
+    // ── Fire next poll immediately (fire-and-forget, no await) ──
+    // setTimeout doesn't work in Deno edge functions — the process
+    // terminates after returning the Response. Instead we fire the
+    // next invocation without awaiting it, then return immediately.
+    console.log(`[poll] Still processing. Firing next poll (attempt ${attempt + 1}) immediately.`);
 
     await supabase
       .from("reboot_sessions")
       .update({ status: "processing" })
       .eq("reboot_session_id", body.session_id);
 
-    setTimeout(async () => {
-      try {
-        await fetch(`${supabaseUrl}/functions/v1/reboot-poll-status`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${supabaseServiceKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            session_id: body.session_id,
-            player_id: body.player_id,
-            attempt: attempt + 1,
-          }),
-        });
-      } catch (err) {
-        console.error("[poll] Failed to schedule next poll:", err);
-      }
-    }, delay);
+    // Fire-and-forget: do NOT await this fetch
+    fetch(`${supabaseUrl}/functions/v1/reboot-poll-status`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${supabaseServiceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        session_id: body.session_id,
+        player_id: body.player_id,
+        attempt: attempt + 1,
+      }),
+    }).catch(err => console.error("[poll] Failed to schedule next poll:", err));
 
     return jsonResponse({
       success: true,
       session_id: body.session_id,
       status: "processing",
       attempt,
-      next_poll_in_ms: delay,
-      message: "Still processing. Polling will continue.",
+      message: "Still processing. Next poll fired.",
     });
 
   } catch (error) {
