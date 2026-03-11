@@ -616,7 +616,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
           </div>
 
           {/* Warning if Reboot checked but not linked */}
-          {sendToReboot && !loadingRebootStatus && !rebootPlayerId && (
+          {sendToReboot && !loadingRebootStatus && !rebootPlayerId && !rebootAthleteId && (
             <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/20">
               <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
               <div>
