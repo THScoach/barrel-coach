@@ -35,6 +35,9 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
     formData.append("player_id", playersTableId);
     formData.append("file_type", fileType);
     formData.append("session_date", sessionDate);
+    formData.append("session_type", sessionType);
+    if (drillName.trim()) formData.append("drill_name", drillName.trim());
+    formData.append("file", file);
     formData.append("file", file);
 
     const { data, error } = await supabase.functions.invoke("manual-reboot-upload", {
