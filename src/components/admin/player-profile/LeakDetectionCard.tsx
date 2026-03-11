@@ -35,7 +35,21 @@ interface LeakDetectionCardProps {
   leaks: Leak[];
   weakestCategory?: string | null;
   isLoading?: boolean;
+  playerSessionLeak?: {
+    leakType: string | null;
+    leakCaption: string | null;
+    leakTraining: string | null;
+    rawMetrics: Record<string, any> | null;
+  };
 }
+
+const leakTypeDisplayNames: Record<string, string> = {
+  no_bat_delivery: "Energy Not Reaching Barrel",
+  early_leak: "Early Energy Loss",
+  trunk_stall: "Trunk Stalling",
+  arm_dominant: "Arm Dominant",
+  clean_transfer: "No Leaks Detected",
+};
 
 const categoryConfig: Record<string, {
   label: string;
