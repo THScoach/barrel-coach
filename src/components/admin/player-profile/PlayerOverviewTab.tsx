@@ -132,6 +132,31 @@ export function PlayerOverviewTab({
     }
   };
 
+  // Load player_sessions leak data
+  useEffect(() => {
+    if (mappedPlayersId) {
+      loadPlayerSessionLeak();
+    }
+  }, [mappedPlayersId]);
+
+  const loadPlayerSessionLeak = async () => {
+    const { data } = await supabase
+      .from('player_sessions')
+      .select('leak_type, leak_caption, leak_training, raw_metrics')
+      .eq('player_id', mappedPlayersId!)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      setPlayerSessionLeak({
+        leakType: data.leak_type,
+        leakCaption: data.leak_caption,
+        leakTraining: data.leak_training,
+        rawMetrics: data.raw_metrics as Record<string, any> | null,
+      });
+    }
+  };
+
   // Load latest session and leak data
   useEffect(() => {
     if (mappedPlayersId) {
