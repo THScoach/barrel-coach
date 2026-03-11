@@ -107,8 +107,8 @@ export function DrillIntelTab({ playersTableId, playerName }: DrillIntelTabProps
 
     const { data: rebootSessions } = await supabase
       .from('reboot_sessions')
-      .select('id, session_type, drill_name, session_date')
-      .in('id', rebootIds);
+      .select('id, reboot_session_id, session_type, drill_name, session_date')
+      .in('reboot_session_id', rebootIds);
 
     const rebootMap = new Map((rebootSessions || []).map(rs => [rs.id, rs]));
 
