@@ -1,7 +1,8 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Brain, Activity, Zap, Target, TrendingUp, Gauge, AlertTriangle, MessageSquare } from "lucide-react";
+import { Brain, Activity, Zap, Target, TrendingUp, Gauge, AlertTriangle, MessageSquare, Video } from "lucide-react";
+import { useRef, useState } from "react";
 
 interface SessionDetailModalProps {
   open: boolean;
