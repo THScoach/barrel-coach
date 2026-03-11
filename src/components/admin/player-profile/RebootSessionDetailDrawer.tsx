@@ -209,11 +209,18 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
                     <ScoreBadge score={playerSession.overall_score} size="lg" showGrade />
                   </div>
                 </div>
+                {playerSession.overall_score != null && (
+                  <p className="text-xs text-slate-400 text-center -mt-1">
+                    {getPlainExplanation("overall", playerSession.overall_score)}
+                  </p>
+                )}
                 <div className="grid grid-cols-4 gap-2">
-                  <ScoreCard label="Body" score={playerSession.body_score} icon={Activity} />
-                  <ScoreCard label="Brain" score={playerSession.brain_score} icon={Brain} />
-                  <ScoreCard label="Bat" score={playerSession.bat_score} icon={Zap} />
-                  <ScoreCard label="Ball" score={playerSession.ball_score} icon={Target} />
+                  <ScoreCard label="Body" score={playerSession.body_score} icon={Activity} pillar="body" />
+                  <ScoreCard label="Brain" score={playerSession.brain_score} icon={Brain} pillar="brain" />
+                  <ScoreCard label="Bat" score={playerSession.bat_score} icon={Zap} pillar="bat" />
+                  {playerSession.ball_score != null && (
+                    <ScoreCard label="Ball" score={playerSession.ball_score} icon={Target} pillar="ball" />
+                  )}
                 </div>
                 {playerSession.leak_type && playerSession.leak_type !== 'unknown' && playerSession.leak_type !== 'clean_transfer' && (
                   <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
