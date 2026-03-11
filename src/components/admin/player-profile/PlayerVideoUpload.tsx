@@ -765,7 +765,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
           <div className="flex gap-2 pt-2">
             <Button
               onClick={startProcessing}
-              disabled={isProcessing || queue.filter(i => i.status === "queued").length === 0}
+              disabled={isProcessing || queue.filter(i => i.status === "queued").length === 0 || (!run2D && !sendToReboot)}
               className="flex-1 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
             >
               {isProcessing ? (
@@ -776,7 +776,7 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
               ) : (
                 <>
                   <Send className="h-4 w-4 mr-2" />
-                  Start Analysis ({queue.filter(i => i.status === "queued").length} pending)
+                  Upload & Process ({queue.filter(i => i.status === "queued").length} pending)
                 </>
               )}
             </Button>
