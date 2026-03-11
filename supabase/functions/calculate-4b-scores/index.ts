@@ -29,6 +29,8 @@ interface Calculate4BRequest {
   session_id?: string;
   download_urls?: Record<string, string[]>;
   movement_url_map?: Record<string, MovementUrlEntry[]>;
+  raw_csv_me?: string;
+  raw_csv_ik?: string;
   session_data?: {
     brain_score?: number;
     body_score?: number;
@@ -1104,8 +1106,32 @@ Deno.serve(async (req) => {
 
     let scores: ReturnType<typeof calculate4BScores>;
 
-    // If download_urls provided, stream and parse CSVs
-    if (body.download_urls && Object.keys(body.download_urls).length > 0) {
+    // Priority 1: raw CSV text passed directly (from manual-reboot-upload)
+    const hasRawCsv = body.raw_csv_me && body.raw_csv_me.trim().length > 10;
+
+    if (hasRawCsv) {
+      console.log("[4B-Engine] Using raw CSV text passed directly (no URL streaming needed)");
+
+      const meRows = parseCsvToRows(body.raw_csv_me!, 'raw-momentum-energy') as MERow[];
+      console.log(`[4B-Engine] Raw ME CSV: parsed ${meRows.length} rows`);
+
+      let ikRows: IKRow[] | null = null;
+      if (body.raw_csv_ik && body.raw_csv_ik.trim().length > 10) {
+        ikRows = parseCsvToRows(body.raw_csv_ik, 'raw-inverse-kinematics') as IKRow[];
+        console.log(`[4B-Engine] Raw IK CSV: parsed ${ikRows.length} rows`);
+      }
+
+      scores = calculate4BScores(
+        ikRows, meRows, dominantHand, playerLevel,
+        playerWeightLbs, playerHeightInches
+      );
+
+      console.log(`[4B-Engine] RAW CSV RESULTS: Brain=${scores.brain} Body=${scores.body} ` +
+        `Bat=${scores.bat} Ball=${scores.ball} Overall=${scores.catchBarrelScore} ` +
+        `Swings=${scores.swingCount} Leak=${scores.leak.type}`);
+
+    } else if (body.download_urls && Object.keys(body.download_urls).length > 0) {
+      // Priority 2: download_urls (streaming from signed URLs)
       console.log("[4B-Engine] Streaming CSV data from download URLs...");
 
       let meRows: MERow[] = [];

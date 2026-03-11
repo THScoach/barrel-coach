@@ -289,59 +289,55 @@ Deno.serve(async (req) => {
       console.log(`[manual-reboot-upload] Created new session ${sessionRecord.id}`);
     }
 
-    // Auto-trigger 4B scoring if both files are present
+    // Auto-trigger 4B scoring if ME data is present
     let scoringResult = null;
-    const hasIk = !!(sessionRecord as Record<string, unknown>).ik_file_path;
-    const hasME = !!(sessionRecord as Record<string, unknown>).me_file_path;
+    const hasIk = !!(sessionRecord as Record<string, unknown>).raw_csv_ik;
+    const hasME = !!(sessionRecord as Record<string, unknown>).raw_csv_me;
 
     if (hasME) {
-      console.log(`[manual-reboot-upload] ME file present (IK: ${hasIk}), triggering 4B scoring...`);
+      console.log(`[manual-reboot-upload] ME data present (IK: ${hasIk}), triggering 4B scoring...`);
 
-      // Generate signed URLs
-      const meStoragePath = (sessionRecord as Record<string, unknown>).me_file_path as string;
-      const { data: meUrl } = await supabase.storage
-        .from('reboot-uploads')
-        .createSignedUrl(meStoragePath, 3600);
+      // Update status to processing
+      await supabase.from('reboot_sessions').update({ status: 'processing' }).eq('id', sessionRecord.id);
 
-      const downloadUrls: Record<string, string[]> = {
-        'momentum-energy': [meUrl?.signedUrl || ''],
-        'inverse-kinematics': [],
+      // Pass raw CSV text directly — no fragile signed URL round-trip
+      const scoringPayload: Record<string, unknown> = {
+        player_id: playerId,
+        session_id: (sessionRecord as Record<string, unknown>).reboot_session_id,
+        raw_csv_me: (sessionRecord as Record<string, unknown>).raw_csv_me,
       };
 
       if (hasIk) {
-        const ikStoragePath = (sessionRecord as Record<string, unknown>).ik_file_path as string;
-        const { data: ikUrl } = await supabase.storage
-          .from('reboot-uploads')
-          .createSignedUrl(ikStoragePath, 3600);
-        downloadUrls['inverse-kinematics'] = [ikUrl?.signedUrl || ''];
+        scoringPayload.raw_csv_ik = (sessionRecord as Record<string, unknown>).raw_csv_ik;
       }
 
-      // Update status
-      await supabase.from('reboot_sessions').update({ status: 'processing' }).eq('id', sessionRecord.id);
+      try {
+        const analysisResponse = await fetch(`${supabaseUrl}/functions/v1/calculate-4b-scores`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify(scoringPayload),
+        });
 
-      const analysisResponse = await fetch(`${supabaseUrl}/functions/v1/calculate-4b-scores`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${serviceKey}`,
-        },
-        body: JSON.stringify({
-          player_id: playerId,
-          session_id: (sessionRecord as Record<string, unknown>).reboot_session_id,
-          download_urls: downloadUrls,
-        }),
-      });
+        scoringResult = await analysisResponse.json();
+        console.log('[manual-reboot-upload] 4B result:', JSON.stringify(scoringResult).slice(0, 500));
 
-      scoringResult = await analysisResponse.json();
-      console.log('[manual-reboot-upload] 4B result:', JSON.stringify(scoringResult).slice(0, 300));
-
-      if (analysisResponse.ok && !scoringResult.error) {
+        if (analysisResponse.ok && !scoringResult.error) {
+          await supabase.from('reboot_sessions')
+            .update({ status: 'scored', processed_at: new Date().toISOString() })
+            .eq('id', sessionRecord.id);
+        } else {
+          console.error('[manual-reboot-upload] Scoring failed:', scoringResult.error);
+          await supabase.from('reboot_sessions')
+            .update({ status: 'error', error_message: scoringResult.error || 'Scoring failed' })
+            .eq('id', sessionRecord.id);
+        }
+      } catch (scoringError) {
+        console.error('[manual-reboot-upload] Scoring call error:', scoringError);
         await supabase.from('reboot_sessions')
-          .update({ status: 'completed', processed_at: new Date().toISOString() })
-          .eq('id', sessionRecord.id);
-      } else {
-        await supabase.from('reboot_sessions')
-          .update({ status: 'error', error_message: scoringResult.error || 'Processing failed' })
+          .update({ status: 'error', error_message: `Scoring error: ${String(scoringError)}` })
           .eq('id', sessionRecord.id);
       }
     }
@@ -353,8 +349,11 @@ Deno.serve(async (req) => {
       metrics_extracted: parsedMetrics,
       both_files_present: hasIk && hasME,
       scoring: scoringResult?.scores || null,
+      scoring_session_id: scoringResult?.session_id || null,
       message: hasME
-        ? `${fileType.toUpperCase()} file uploaded and processed`
+        ? (scoringResult?.scores
+          ? `${fileType.toUpperCase()} file uploaded and scored successfully`
+          : `${fileType.toUpperCase()} file uploaded — scoring attempted`)
         : `${fileType.toUpperCase()} file uploaded. Upload Momentum-Energy CSV to trigger 4B scoring.`,
     }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
