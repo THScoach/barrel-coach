@@ -17,10 +17,101 @@ import {
   Hash,
   ChevronRight,
   RefreshCw,
+  Video,
 } from "lucide-react";
 import { format } from "date-fns";
 import { RebootSessionDetailDrawer } from "./RebootSessionDetailDrawer";
 import { ManualRebootUpload } from "./ManualRebootUpload";
+
+/** Shows Reboot sessions that originated from video uploads (source = 'video_upload') */
+function RebootVideoSessionsStatus({ playersTableId }: { playersTableId: string }) {
+  const { data: videoSessions, isLoading } = useQuery({
+    queryKey: ["reboot-video-sessions", playersTableId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reboot_sessions")
+        .select("id, session_date, status, reboot_session_id, created_at, notes")
+        .eq("player_id", playersTableId)
+        .in("source", ["video_upload", "auto"])
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!playersTableId,
+    refetchInterval: 30000, // Auto-refresh every 30s for in-progress sessions
+  });
+
+  if (isLoading || !videoSessions || videoSessions.length === 0) return null;
+
+  const statusColor = (s: string | null) => {
+    if (s === "scored") return "bg-teal-500/15 text-teal-400 border-teal-500/30";
+    if (s === "completed") return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+    if (s === "processing" || s === "exported" || s === "uploaded") return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+    return "bg-slate-700/50 text-slate-400 border-slate-600";
+  };
+
+  const inProgress = videoSessions.filter(s => 
+    ["uploaded", "processing", "exported", "ready_for_processing"].includes(s.status || "")
+  );
+  const completed = videoSessions.filter(s => 
+    ["completed", "scored"].includes(s.status || "")
+  );
+
+  return (
+    <Card className="bg-slate-900/50 border-slate-800">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm uppercase tracking-wider text-slate-400 flex items-center gap-2">
+          <Video className="h-4 w-4" />
+          Video Upload → 3D Analysis
+          {inProgress.length > 0 && (
+            <Badge variant="secondary" className="bg-amber-500/15 text-amber-400 border-amber-500/30 ml-2">
+              {inProgress.length} in progress
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {videoSessions.length === 0 ? (
+          <p className="text-xs text-slate-500 text-center py-4">
+            No video-to-Reboot sessions yet. Upload swing videos with the "Send to Reboot" option.
+          </p>
+        ) : (
+          <div className="divide-y divide-slate-800">
+            {videoSessions.map((session) => (
+              <div
+                key={session.id}
+                className="flex items-center gap-3 py-2.5"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-white flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                      {session.session_date
+                        ? format(new Date(session.session_date), "MMM d, yyyy")
+                        : session.created_at
+                          ? format(new Date(session.created_at), "MMM d, yyyy h:mm a")
+                          : "Pending"}
+                    </span>
+                    <Badge variant="outline" className={statusColor(session.status)}>
+                      {session.status || "unknown"}
+                    </Badge>
+                  </div>
+                  {session.reboot_session_id && (
+                    <span className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                      <Hash className="h-3 w-3" />
+                      {session.reboot_session_id}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 interface PlayerRebootMotionTabProps {
   playersTableId?: string | null;
