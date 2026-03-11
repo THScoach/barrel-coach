@@ -175,6 +175,14 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
           />
         </div>
 
+        {/* Session Type */}
+        <SessionTypePicker
+          sessionType={sessionType}
+          drillName={drillName}
+          onSessionTypeChange={setSessionType}
+          onDrillNameChange={setDrillName}
+        />
+
         {/* Two file slots side by side */}
         <div className="flex flex-wrap gap-4">
           <input ref={meInputRef} type="file" accept=".csv" onChange={(e) => handleFileSelect(e, setMeFile)} className="hidden" />
