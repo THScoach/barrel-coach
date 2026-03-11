@@ -167,6 +167,22 @@ export function RebootSessionDetail({
     weightLbs: number | null;
   } | null>(null);
 
+  // Fetch session_type from linked reboot_sessions
+  const { data: linkedRebootSession } = useQuery({
+    queryKey: ["reboot-session-type", session?.reboot_session_id],
+    queryFn: async () => {
+      if (!session?.reboot_session_id) return null;
+      const { data } = await supabase
+        .from("reboot_sessions")
+        .select("session_type, drill_name")
+        .eq("reboot_session_id", session.reboot_session_id)
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: open && !!session?.reboot_session_id,
+  });
+
   // Fetch player physical data for Kinetic Potential calculations
   useEffect(() => {
     async function fetchPlayerData() {
