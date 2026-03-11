@@ -213,6 +213,7 @@ export function DrillIntelTab({ playersTableId, playerName }: DrillIntelTabProps
 
     return {
       constraintStatus,
+      hasBaseline,
       improvements,
       baselineAvgs,
       baselineBeat,
