@@ -1286,10 +1286,12 @@ Deno.serve(async (req) => {
       };
     }
 
-    // Build session record
-    const sessionRecord = {
+    // Build session record — include reboot_session_id for linkage
+    const sessionRecord: Record<string, unknown> = {
       player_id: body.player_id,
       session_date: new Date().toISOString(),
+      session_source: 'manual',
+      reboot_session_id: body.session_id || null,
       brain_score: scores.brain,
       body_score: scores.body,
       bat_score: scores.bat,
@@ -1313,12 +1315,48 @@ Deno.serve(async (req) => {
       kinetic_potential: scores.kineticPotential,
     };
 
-    // Insert into player_sessions
-    const { data: insertedSession, error: insertError } = await supabase
-      .from('player_sessions')
-      .insert(sessionRecord)
-      .select()
-      .single();
+    // Upsert into player_sessions — deduplicate by (player_id, reboot_session_id)
+    let insertedSession: any;
+    let insertError: any;
+
+    if (body.session_id) {
+      // Check if a player_session already exists for this reboot session
+      const { data: existing } = await supabase
+        .from('player_sessions')
+        .select('id')
+        .eq('player_id', body.player_id)
+        .eq('reboot_session_id', body.session_id)
+        .maybeSingle();
+
+      if (existing) {
+        // Update existing record instead of creating duplicate
+        const { data, error } = await supabase
+          .from('player_sessions')
+          .update(sessionRecord)
+          .eq('id', existing.id)
+          .select()
+          .single();
+        insertedSession = data;
+        insertError = error;
+        console.log(`[4B-Engine] Updated existing player_session ${existing.id}`);
+      } else {
+        const { data, error } = await supabase
+          .from('player_sessions')
+          .insert(sessionRecord)
+          .select()
+          .single();
+        insertedSession = data;
+        insertError = error;
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('player_sessions')
+        .insert(sessionRecord)
+        .select()
+        .single();
+      insertedSession = data;
+      insertError = error;
+    }
 
     if (insertError) {
       console.error('[4B-Engine] Insert error:', insertError);
@@ -1330,18 +1368,18 @@ Deno.serve(async (req) => {
 
     console.log(`[4B-Engine] Session saved: ${insertedSession.id}`);
 
-    // Update reboot_sessions status to "completed"
+    // Update reboot_sessions status to "scored" (not "completed")
     if (body.session_id) {
       const { error: updateError } = await supabase
         .from('reboot_sessions')
-        .update({ status: 'completed' })
+        .update({ status: 'scored', processed_at: new Date().toISOString() })
         .eq('reboot_session_id', body.session_id)
         .eq('player_id', body.player_id);
 
       if (updateError) {
         console.warn('[4B-Engine] Could not update reboot_sessions status:', updateError);
       } else {
-        console.log(`[4B-Engine] Marked reboot_session ${body.session_id} as completed`);
+        console.log(`[4B-Engine] Marked reboot_session ${body.session_id} as scored`);
       }
     }
 
