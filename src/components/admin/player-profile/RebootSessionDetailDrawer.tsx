@@ -201,6 +201,9 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
             )}
           </div>
 
+          {/* Drill Session Banner */}
+          <DrillSessionBanner sessionType={(session as any).session_type} drillName={(session as any).drill_name} />
+
           {/* 4BKRS Score Card */}
           {hasScores && (
             <>
