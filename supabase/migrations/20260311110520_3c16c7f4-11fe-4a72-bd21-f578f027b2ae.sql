@@ -1,0 +1,2 @@
+ALTER TABLE public.reboot_sessions DROP CONSTRAINT reboot_sessions_status_check;
+ALTER TABLE public.reboot_sessions ADD CONSTRAINT reboot_sessions_status_check CHECK (status = ANY (ARRAY['pending', 'processing', 'completed', 'error', 'uploaded', 'ready_for_processing']));
