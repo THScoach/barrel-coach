@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getGrade } from "@/lib/reboot-parser";
 import { Json } from "@/integrations/supabase/types";
+import { DrillSessionBanner } from "./admin/player-profile/DrillSessionBanner";
 
 interface MEDataRow {
   legs_kinetic_energy?: number;
