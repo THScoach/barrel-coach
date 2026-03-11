@@ -493,6 +493,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
         playerId={mappedPlayersId || ''}
         playerName={playerName}
         onSuccess={loadReports}
+        excludeReboot={true}
       />
 
       <RebootSessionDetail

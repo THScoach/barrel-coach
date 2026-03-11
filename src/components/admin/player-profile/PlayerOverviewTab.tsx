@@ -383,6 +383,7 @@ export function PlayerOverviewTab({
         onOpenChange={setUploadModalOpen}
         playerId={mappedPlayersId || ''}
         playerName={playerName}
+        excludeReboot={true}
         onSuccess={() => {
           refreshScorecard();
           loadLatestSession();

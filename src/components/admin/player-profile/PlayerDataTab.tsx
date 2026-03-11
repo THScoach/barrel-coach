@@ -551,6 +551,7 @@ export function PlayerDataTab({ playerId, playerName }: PlayerDataTabProps) {
           playerId={playersTableId}
           playerName={playerName}
           linkVerified={true}
+          excludeReboot={true}
           onSuccess={() => {
             loadSessions(playersTableId);
             refreshScorecard();
