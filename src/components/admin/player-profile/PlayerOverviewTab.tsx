@@ -59,6 +59,14 @@ export function PlayerOverviewTab({
   const [selectedLaunchSession, setSelectedLaunchSession] = useState<any>(null);
   const [latestSession, setLatestSession] = useState<LatestSessionData | null>(null);
   
+  // Player session leak data from player_sessions table
+  const [playerSessionLeak, setPlayerSessionLeak] = useState<{
+    leakType: string | null;
+    leakCaption: string | null;
+    leakTraining: string | null;
+    rawMetrics: Record<string, any> | null;
+  }>({ leakType: null, leakCaption: null, leakTraining: null, rawMetrics: null });
+  
   // Leak and prescription data
   const [leakData, setLeakData] = useState<{
     leakType: string | null;
@@ -121,6 +129,31 @@ export function PlayerOverviewTab({
       }
     } catch (error) {
       console.error('[PlayerOverviewTab] Error resolving players_id:', error);
+    }
+  };
+
+  // Load player_sessions leak data
+  useEffect(() => {
+    if (mappedPlayersId) {
+      loadPlayerSessionLeak();
+    }
+  }, [mappedPlayersId]);
+
+  const loadPlayerSessionLeak = async () => {
+    const { data } = await supabase
+      .from('player_sessions')
+      .select('leak_type, leak_caption, leak_training, raw_metrics')
+      .eq('player_id', mappedPlayersId!)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      setPlayerSessionLeak({
+        leakType: data.leak_type,
+        leakCaption: data.leak_caption,
+        leakTraining: data.leak_training,
+        rawMetrics: data.raw_metrics as Record<string, any> | null,
+      });
     }
   };
 
@@ -321,9 +354,10 @@ export function PlayerOverviewTab({
           batScore={scorecardData.fourBScores.bat}
           ballScore={scorecardData.fourBScores.ball}
           weakestLink={scorecardData.fourBScores.weakestLink}
-          onCategoryClick={(category) => {
-            toast.info(`${category.toUpperCase()} details coming soon`);
-          }}
+          leakType={playerSessionLeak.leakType}
+          leakCaption={playerSessionLeak.leakCaption}
+          leakTraining={playerSessionLeak.leakTraining}
+          rawMetrics={playerSessionLeak.rawMetrics}
         />
       ) : (
         <Card className="bg-[#111113] border-[#1a1a1c]">
@@ -344,12 +378,13 @@ export function PlayerOverviewTab({
         </Card>
       )}
 
-      {/* ===== LEAK DETECTION CARD (from dk-4b-inverse) ===== */}
-      {(detailedLeaks.length > 0 || !scorecardLoading) && (
+      {/* ===== LEAK DETECTION CARD (from player_sessions) ===== */}
+      {!scorecardLoading && (
         <LeakDetectionCard
           leaks={detailedLeaks}
           weakestCategory={scorecardData?.fourBScores.weakestLink}
           isLoading={scorecardLoading}
+          playerSessionLeak={playerSessionLeak}
         />
       )}
 

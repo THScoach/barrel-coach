@@ -8,24 +8,17 @@ interface ScoreBadgeProps {
 }
 
 export function getScoreColor(score: number): string {
-  if (score >= 70) return "bg-teal-500 text-white"; // Plus-Plus
-  if (score >= 60) return "bg-teal-400 text-slate-900"; // Plus
-  if (score >= 55) return "bg-blue-500 text-white"; // Above Avg
-  if (score >= 50) return "bg-slate-500 text-white"; // Average
-  if (score >= 45) return "bg-orange-500 text-white"; // Below Avg
-  if (score >= 30) return "bg-red-400 text-white"; // Fringe
-  return "bg-red-600 text-white"; // Poor
+  if (score >= 90) return "bg-teal-500 text-white";
+  if (score >= 80) return "bg-teal-400 text-slate-900";
+  if (score >= 60) return "bg-blue-500 text-white";
+  return "bg-red-600 text-white";
 }
 
 export function getScoreGrade(score: number): string {
-  if (score >= 70) return "Plus-Plus";
-  if (score >= 60) return "Plus";
-  if (score >= 55) return "Above Avg";
-  if (score >= 50) return "Average";
-  if (score >= 45) return "Below Avg";
-  if (score >= 40) return "Fringe Avg";
-  if (score >= 30) return "Fringe";
-  return "Poor";
+  if (score >= 90) return "Elite";
+  if (score >= 80) return "Good";
+  if (score >= 60) return "Working";
+  return "Priority";
 }
 
 export function ScoreBadge({ score, size = "md", showGrade = false, className }: ScoreBadgeProps) {
