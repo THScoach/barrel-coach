@@ -188,7 +188,13 @@ export function PlayerRebootMotionTab({
       if (!session?.session?.access_token) throw new Error("Not authenticated");
 
       const { data, error } = await supabase.functions.invoke("create-reboot-athlete", {
-        body: { name: playerName || "Unknown" },
+        body: {
+          name: playerName || "Unknown",
+          handedness: (playerData as any)?.handedness || (playerData as any)?.bats || null,
+          height_inches: (playerData as any)?.height_inches || null,
+          weight_lbs: (playerData as any)?.weight_lbs || null,
+          birth_date: (playerData as any)?.birth_date || null,
+        },
         headers: { Authorization: `Bearer ${session.session.access_token}` },
       });
       if (error) throw new Error(error.message || "Failed to register");
