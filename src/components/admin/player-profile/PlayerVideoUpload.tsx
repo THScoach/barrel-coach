@@ -139,9 +139,30 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
   const [frameRate, setFrameRate] = useState("240");
   const [isProcessing, setIsProcessing] = useState(false);
   const [batchSession, setBatchSession] = useState<BatchSession | null>(null);
+  const [run2D, setRun2D] = useState(true);
+  const [sendToReboot, setSendToReboot] = useState(true);
+  const [rebootPlayerId, setRebootPlayerId] = useState<string | null>(null);
+  const [rebootAthleteId, setRebootAthleteId] = useState<string | null>(null);
+  const [loadingRebootStatus, setLoadingRebootStatus] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const processingRef = useRef(false);
+
+  // Fetch player's Reboot link status
+  useEffect(() => {
+    async function fetchRebootStatus() {
+      setLoadingRebootStatus(true);
+      const { data } = await supabase
+        .from("players")
+        .select("reboot_player_id, reboot_athlete_id")
+        .eq("id", playerId)
+        .maybeSingle();
+      setRebootPlayerId(data?.reboot_player_id || null);
+      setRebootAthleteId(data?.reboot_athlete_id || null);
+      setLoadingRebootStatus(false);
+    }
+    fetchRebootStatus();
+  }, [playerId]);
 
   const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
