@@ -301,6 +301,12 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
         } else {
           await supabase.from('reboot_uploads').delete().eq('id', report.id);
         }
+      } else if (report.type === '4b_engine') {
+        const rebootSessionId = report.rawData.reboot_session_id;
+        await supabase.from('player_sessions').delete().eq('id', report.id);
+        if (rebootSessionId) {
+          await supabase.from('reboot_sessions').delete().eq('reboot_session_id', rebootSessionId);
+        }
       } else if (report.type === 'video_2d') {
         await supabase.from('video_2d_sessions').delete().eq('id', report.id);
       }
