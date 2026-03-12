@@ -530,7 +530,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
                           >
                           <ExternalLink className="h-4 w-4" />
                           </Button>
-                          {(report.type === 'reboot' || report.type === 'video_2d') && 
+                          {(report.type === 'reboot' || report.type === 'video_2d' || report.type === '4b_engine') && 
                            (report.compositeScore === null || report.processingStatus === 'failed') && (
                             <Button
                               variant="ghost"
