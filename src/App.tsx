@@ -170,6 +170,7 @@ const App = () => (
             <Route path="/player/coach-chat" element={<CoachChat />} />
             <Route path="/player/swings" element={<PlayerSwings />} />
             <Route path="/player/swings/:sessionId" element={<PlayerSwingDetail />} />
+            <Route path="/player/progression" element={<PlayerProgression />} />
 
             {/* RickBot */}
             <Route path="/rick" element={<ProtectedAdminRoute><Rick /></ProtectedAdminRoute>} />
