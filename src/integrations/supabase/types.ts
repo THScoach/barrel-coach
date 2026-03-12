@@ -2856,9 +2856,12 @@ export type Database = {
           body_score: number | null
           brain_grade: string | null
           brain_score: number | null
+          coaching_summary: string | null
           core_flow: number | null
           created_at: string
+          creation_score: number | null
           data_quality: string | null
+          flags: Json | null
           ground_flow: number | null
           id: string
           kinetic_potential: Json | null
@@ -2871,11 +2874,20 @@ export type Database = {
           projections: Json | null
           raw_metrics: Json | null
           reboot_session_id: string | null
+          scored_at: string | null
+          scoring_version: string | null
+          sequence_order: string | null
           session_date: string
           session_source: string | null
           swing_count: number | null
+          tempo_ratio: number | null
+          timing_gap_pct: number | null
+          transfer_ratio: number | null
+          transfer_score: number | null
           updated_at: string
           upper_flow: number | null
+          weakest_link: string | null
+          x_factor_max: number | null
         }
         Insert: {
           ball_grade?: string | null
@@ -2886,9 +2898,12 @@ export type Database = {
           body_score?: number | null
           brain_grade?: string | null
           brain_score?: number | null
+          coaching_summary?: string | null
           core_flow?: number | null
           created_at?: string
+          creation_score?: number | null
           data_quality?: string | null
+          flags?: Json | null
           ground_flow?: number | null
           id?: string
           kinetic_potential?: Json | null
@@ -2901,11 +2916,20 @@ export type Database = {
           projections?: Json | null
           raw_metrics?: Json | null
           reboot_session_id?: string | null
+          scored_at?: string | null
+          scoring_version?: string | null
+          sequence_order?: string | null
           session_date?: string
           session_source?: string | null
           swing_count?: number | null
+          tempo_ratio?: number | null
+          timing_gap_pct?: number | null
+          transfer_ratio?: number | null
+          transfer_score?: number | null
           updated_at?: string
           upper_flow?: number | null
+          weakest_link?: string | null
+          x_factor_max?: number | null
         }
         Update: {
           ball_grade?: string | null
@@ -2916,9 +2940,12 @@ export type Database = {
           body_score?: number | null
           brain_grade?: string | null
           brain_score?: number | null
+          coaching_summary?: string | null
           core_flow?: number | null
           created_at?: string
+          creation_score?: number | null
           data_quality?: string | null
+          flags?: Json | null
           ground_flow?: number | null
           id?: string
           kinetic_potential?: Json | null
@@ -2931,11 +2958,20 @@ export type Database = {
           projections?: Json | null
           raw_metrics?: Json | null
           reboot_session_id?: string | null
+          scored_at?: string | null
+          scoring_version?: string | null
+          sequence_order?: string | null
           session_date?: string
           session_source?: string | null
           swing_count?: number | null
+          tempo_ratio?: number | null
+          timing_gap_pct?: number | null
+          transfer_ratio?: number | null
+          transfer_score?: number | null
           updated_at?: string
           upper_flow?: number | null
+          weakest_link?: string | null
+          x_factor_max?: number | null
         }
         Relationships: [
           {
