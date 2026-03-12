@@ -473,6 +473,9 @@ export function PlayerRebootMotionTab({
         onOpenChange={(open) => !open && setSelectedSession(null)}
         session={selectedSession}
       />
+
+      {/* Rescore Panel */}
+      {playersTableId && <AdminRescorePanel playerId={playersTableId} />}
     </div>
   );
 }
