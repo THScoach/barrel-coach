@@ -504,7 +504,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {report.type === 'reboot' && (
+                          {(report.type === 'reboot' || report.type === '4b_engine') && (
                             <Button
                               variant="ghost"
                               size="sm"
