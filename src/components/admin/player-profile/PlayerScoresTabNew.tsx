@@ -48,7 +48,7 @@ interface PlayerScoresTabNewProps {
 
 interface KRSReport {
   id: string;
-  type: 'reboot' | 'analyzer' | 'hittrax' | 'video_2d';
+  type: 'reboot' | 'analyzer' | 'hittrax' | 'video_2d' | '4b_engine';
   typeName: string;
   processingStatus?: string;
   date: Date;
@@ -127,7 +127,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
     
     setLoading(true);
     
-    const [rebootRes, sessionsRes, launchRes, video2dRes] = await Promise.all([
+    const [rebootRes, sessionsRes, launchRes, video2dRes, playerSessionsRes] = await Promise.all([
       supabase
         .from('reboot_uploads')
         .select('*')
@@ -148,6 +148,11 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
         .select('id, session_date, composite_score, body_score, brain_score, bat_score, ball_score, leak_detected, motor_profile, processing_status, created_at')
         .eq('player_id', mappedPlayersId)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('player_sessions')
+        .select('*')
+        .eq('player_id', mappedPlayersId)
+        .order('session_date', { ascending: false }),
     ]);
 
     const formatLeakTitle = (s: string | null) => {
@@ -155,20 +160,58 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
       return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     };
 
+    // Build a set of reboot_session_ids already covered by reboot_uploads (with scores)
+    const rebootUploadSessionIds = new Set(
+      (rebootRes.data || [])
+        .filter(s => s.reboot_session_id)
+        .map(s => s.reboot_session_id)
+    );
+
+    // Filter player_sessions to only include ones NOT already in reboot_uploads
+    const uniquePlayerSessions = (playerSessionsRes.data || []).filter(
+      ps => !rebootUploadSessionIds.has(ps.reboot_session_id)
+    );
+
     const allReports: KRSReport[] = [
-      ...(rebootRes.data || []).map(s => ({
-        id: s.id,
-        type: 'reboot' as const,
-        typeName: s.ik_file_uploaded && s.me_file_uploaded ? 'Reboot IK+ME' : s.ik_file_uploaded ? 'Reboot IK' : 'Reboot ME',
-        date: new Date(s.created_at || new Date()),
-        compositeScore: s.composite_score,
-        mainLeak: s.weakest_link,
+      // Reboot uploads - merge scores from player_sessions if available
+      ...(rebootRes.data || []).map(s => {
+        // Find matching player_session to get 4B scores
+        const matchingPs = (playerSessionsRes.data || []).find(
+          ps => ps.reboot_session_id === s.reboot_session_id
+        );
+        const usePs = matchingPs && matchingPs.overall_score != null;
+        
+        return {
+          id: s.id,
+          type: 'reboot' as const,
+          typeName: s.ik_file_uploaded && s.me_file_uploaded ? 'Reboot IK+ME' : s.ik_file_uploaded ? 'Reboot IK' : 'Reboot ME',
+          date: new Date(s.created_at || new Date()),
+          compositeScore: usePs ? matchingPs.overall_score : s.composite_score,
+          mainLeak: usePs ? formatLeakTitle(matchingPs.leak_type) : s.weakest_link,
+          scores: {
+            brain: (usePs ? matchingPs.brain_score : s.brain_score) ?? undefined,
+            body: (usePs ? matchingPs.body_score : s.body_score) ?? undefined,
+            bat: (usePs ? matchingPs.bat_score : s.bat_score) ?? undefined,
+            ball: (usePs ? matchingPs.ball_score : undefined) ?? undefined,
+          },
+          rawData: usePs ? { ...s, player_session: matchingPs } : s,
+        };
+      }),
+      // 4B Engine sessions not covered by reboot_uploads
+      ...uniquePlayerSessions.map(ps => ({
+        id: ps.id,
+        type: '4b_engine' as const,
+        typeName: '4B Engine',
+        date: new Date(ps.session_date || ps.created_at || new Date()),
+        compositeScore: ps.overall_score,
+        mainLeak: formatLeakTitle(ps.leak_type),
         scores: {
-          brain: s.brain_score ?? undefined,
-          body: s.body_score ?? undefined,
-          bat: s.bat_score ?? undefined,
+          brain: ps.brain_score ?? undefined,
+          body: ps.body_score ?? undefined,
+          bat: ps.bat_score ?? undefined,
+          ball: ps.ball_score ?? undefined,
         },
-        rawData: s,
+        rawData: ps,
       })),
       ...(sessionsRes.data || []).map(s => ({
         id: s.id,
@@ -223,8 +266,21 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
   const handleViewReport = (report: KRSReport) => {
     if (report.type === 'video_2d') {
       navigate(`/report/${report.id}`);
-    } else if (report.type === 'reboot') {
-      setSelectedRebootSession(report.rawData);
+    } else if (report.type === 'reboot' || report.type === '4b_engine') {
+      // For 4b_engine sessions, wrap in reboot_uploads-like format for the detail drawer
+      const sessionData = report.type === '4b_engine' 
+        ? { 
+            ...report.rawData, 
+            reboot_session_id: report.rawData.reboot_session_id,
+            composite_score: report.rawData.overall_score,
+            brain_score: report.rawData.brain_score,
+            body_score: report.rawData.body_score,
+            bat_score: report.rawData.bat_score,
+            ball_score: report.rawData.ball_score,
+            weakest_link: report.rawData.leak_type,
+          }
+        : report.rawData;
+      setSelectedRebootSession(sessionData);
     } else if (report.type === 'hittrax') {
       setSelectedLaunchSession(report.rawData);
     } else {
@@ -244,6 +300,12 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
           await supabase.from('reboot_sessions').delete().eq('reboot_session_id', rebootSessionId);
         } else {
           await supabase.from('reboot_uploads').delete().eq('id', report.id);
+        }
+      } else if (report.type === '4b_engine') {
+        const rebootSessionId = report.rawData.reboot_session_id;
+        await supabase.from('player_sessions').delete().eq('id', report.id);
+        if (rebootSessionId) {
+          await supabase.from('reboot_sessions').delete().eq('reboot_session_id', rebootSessionId);
         }
       } else if (report.type === 'video_2d') {
         await supabase.from('video_2d_sessions').delete().eq('id', report.id);
@@ -392,6 +454,8 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
                           "text-xs",
                           report.type === 'video_2d' 
                             ? "border-blue-500/50 text-blue-400" 
+                            : report.type === '4b_engine'
+                            ? "border-indigo-500/50 text-indigo-400"
                             : "border-slate-700 text-slate-300"
                         )}>
                           {report.typeName}
@@ -440,7 +504,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {report.type === 'reboot' && (
+                          {(report.type === 'reboot' || report.type === '4b_engine') && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -466,7 +530,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
                           >
                           <ExternalLink className="h-4 w-4" />
                           </Button>
-                          {(report.type === 'reboot' || report.type === 'video_2d') && 
+                          {(report.type === 'reboot' || report.type === 'video_2d' || report.type === '4b_engine') && 
                            (report.compositeScore === null || report.processingStatus === 'failed') && (
                             <Button
                               variant="ghost"
