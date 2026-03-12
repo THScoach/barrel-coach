@@ -48,7 +48,7 @@ interface PlayerScoresTabNewProps {
 
 interface KRSReport {
   id: string;
-  type: 'reboot' | 'analyzer' | 'hittrax' | 'video_2d';
+  type: 'reboot' | 'analyzer' | 'hittrax' | 'video_2d' | '4b_engine';
   typeName: string;
   processingStatus?: string;
   date: Date;
