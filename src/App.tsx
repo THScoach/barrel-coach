@@ -96,6 +96,7 @@ import PlayerNewSession from "./pages/player/PlayerNewSession";
 import CoachChat from "./pages/player/CoachChat";
 import PlayerSwings from "./pages/player/PlayerSwings";
 import PlayerSwingDetail from "./pages/player/PlayerSwingDetail";
+import PlayerProgression from "./pages/player/PlayerProgression";
 
 // RickBot
 import Rick from "./pages/Rick";
@@ -169,6 +170,7 @@ const App = () => (
             <Route path="/player/coach-chat" element={<CoachChat />} />
             <Route path="/player/swings" element={<PlayerSwings />} />
             <Route path="/player/swings/:sessionId" element={<PlayerSwingDetail />} />
+            <Route path="/player/progression" element={<PlayerProgression />} />
 
             {/* RickBot */}
             <Route path="/rick" element={<ProtectedAdminRoute><Rick /></ProtectedAdminRoute>} />

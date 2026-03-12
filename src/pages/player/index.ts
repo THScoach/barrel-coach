@@ -6,3 +6,4 @@ export { default as PlayerMessages } from './PlayerMessages';
 export { default as PlayerProfile } from './PlayerProfile';
 export { default as PlayerNewSession } from './PlayerNewSession';
 export { default as PlayerWeeklyCheckin } from './PlayerWeeklyCheckin';
+export { default as PlayerProgression } from './PlayerProgression';
