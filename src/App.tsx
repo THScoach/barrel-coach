@@ -96,6 +96,7 @@ import PlayerNewSession from "./pages/player/PlayerNewSession";
 import CoachChat from "./pages/player/CoachChat";
 import PlayerSwings from "./pages/player/PlayerSwings";
 import PlayerSwingDetail from "./pages/player/PlayerSwingDetail";
+import PlayerProgression from "./pages/player/PlayerProgression";
 
 // RickBot
 import Rick from "./pages/Rick";
