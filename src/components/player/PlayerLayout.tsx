@@ -39,7 +39,8 @@ export function PlayerLayout() {
   // Dashboard now contains all 4B performance data
   const navItems = [
     { to: '/player', icon: Home, label: 'Dashboard', end: true },
-    { to: '/player/swings', icon: Activity, label: 'Swing Data', end: false },
+    { to: '/player/progression', icon: Activity, label: 'Progress', end: false },
+    { to: '/player/swings', icon: Activity, label: 'Swings', end: false },
     { to: '/player/data', icon: Database, label: 'My Data', end: false },
     { to: '/player/coach-chat', icon: Bot, label: 'Ask Rick', end: false },
     { to: '/player/messages', icon: MessageSquare, label: 'Coach', end: false },
