@@ -266,8 +266,21 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
   const handleViewReport = (report: KRSReport) => {
     if (report.type === 'video_2d') {
       navigate(`/report/${report.id}`);
-    } else if (report.type === 'reboot') {
-      setSelectedRebootSession(report.rawData);
+    } else if (report.type === 'reboot' || report.type === '4b_engine') {
+      // For 4b_engine sessions, wrap in reboot_uploads-like format for the detail drawer
+      const sessionData = report.type === '4b_engine' 
+        ? { 
+            ...report.rawData, 
+            reboot_session_id: report.rawData.reboot_session_id,
+            composite_score: report.rawData.overall_score,
+            brain_score: report.rawData.brain_score,
+            body_score: report.rawData.body_score,
+            bat_score: report.rawData.bat_score,
+            ball_score: report.rawData.ball_score,
+            weakest_link: report.rawData.leak_type,
+          }
+        : report.rawData;
+      setSelectedRebootSession(sessionData);
     } else if (report.type === 'hittrax') {
       setSelectedLaunchSession(report.rawData);
     } else {
