@@ -127,7 +127,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
     
     setLoading(true);
     
-    const [rebootRes, sessionsRes, launchRes, video2dRes] = await Promise.all([
+    const [rebootRes, sessionsRes, launchRes, video2dRes, playerSessionsRes] = await Promise.all([
       supabase
         .from('reboot_uploads')
         .select('*')
@@ -148,6 +148,11 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
         .select('id, session_date, composite_score, body_score, brain_score, bat_score, ball_score, leak_detected, motor_profile, processing_status, created_at')
         .eq('player_id', mappedPlayersId)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('player_sessions')
+        .select('*')
+        .eq('player_id', mappedPlayersId)
+        .order('session_date', { ascending: false }),
     ]);
 
     const formatLeakTitle = (s: string | null) => {
@@ -155,20 +160,58 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
       return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     };
 
+    // Build a set of reboot_session_ids already covered by reboot_uploads (with scores)
+    const rebootUploadSessionIds = new Set(
+      (rebootRes.data || [])
+        .filter(s => s.reboot_session_id)
+        .map(s => s.reboot_session_id)
+    );
+
+    // Filter player_sessions to only include ones NOT already in reboot_uploads
+    const uniquePlayerSessions = (playerSessionsRes.data || []).filter(
+      ps => !rebootUploadSessionIds.has(ps.reboot_session_id)
+    );
+
     const allReports: KRSReport[] = [
-      ...(rebootRes.data || []).map(s => ({
-        id: s.id,
-        type: 'reboot' as const,
-        typeName: s.ik_file_uploaded && s.me_file_uploaded ? 'Reboot IK+ME' : s.ik_file_uploaded ? 'Reboot IK' : 'Reboot ME',
-        date: new Date(s.created_at || new Date()),
-        compositeScore: s.composite_score,
-        mainLeak: s.weakest_link,
+      // Reboot uploads - merge scores from player_sessions if available
+      ...(rebootRes.data || []).map(s => {
+        // Find matching player_session to get 4B scores
+        const matchingPs = (playerSessionsRes.data || []).find(
+          ps => ps.reboot_session_id === s.reboot_session_id
+        );
+        const usePs = matchingPs && matchingPs.overall_score != null;
+        
+        return {
+          id: s.id,
+          type: 'reboot' as const,
+          typeName: s.ik_file_uploaded && s.me_file_uploaded ? 'Reboot IK+ME' : s.ik_file_uploaded ? 'Reboot IK' : 'Reboot ME',
+          date: new Date(s.created_at || new Date()),
+          compositeScore: usePs ? matchingPs.overall_score : s.composite_score,
+          mainLeak: usePs ? formatLeakTitle(matchingPs.leak_type) : s.weakest_link,
+          scores: {
+            brain: (usePs ? matchingPs.brain_score : s.brain_score) ?? undefined,
+            body: (usePs ? matchingPs.body_score : s.body_score) ?? undefined,
+            bat: (usePs ? matchingPs.bat_score : s.bat_score) ?? undefined,
+            ball: (usePs ? matchingPs.ball_score : undefined) ?? undefined,
+          },
+          rawData: usePs ? { ...s, player_session: matchingPs } : s,
+        };
+      }),
+      // 4B Engine sessions not covered by reboot_uploads
+      ...uniquePlayerSessions.map(ps => ({
+        id: ps.id,
+        type: '4b_engine' as const,
+        typeName: '4B Engine',
+        date: new Date(ps.session_date || ps.created_at || new Date()),
+        compositeScore: ps.overall_score,
+        mainLeak: formatLeakTitle(ps.leak_type),
         scores: {
-          brain: s.brain_score ?? undefined,
-          body: s.body_score ?? undefined,
-          bat: s.bat_score ?? undefined,
+          brain: ps.brain_score ?? undefined,
+          body: ps.body_score ?? undefined,
+          bat: ps.bat_score ?? undefined,
+          ball: ps.ball_score ?? undefined,
         },
-        rawData: s,
+        rawData: ps,
       })),
       ...(sessionsRes.data || []).map(s => ({
         id: s.id,
