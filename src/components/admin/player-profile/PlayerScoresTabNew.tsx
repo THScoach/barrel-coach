@@ -448,6 +448,8 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
                           "text-xs",
                           report.type === 'video_2d' 
                             ? "border-blue-500/50 text-blue-400" 
+                            : report.type === '4b_engine'
+                            ? "border-indigo-500/50 text-indigo-400"
                             : "border-slate-700 text-slate-300"
                         )}>
                           {report.typeName}
