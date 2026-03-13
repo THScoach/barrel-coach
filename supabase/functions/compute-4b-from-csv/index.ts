@@ -69,6 +69,7 @@ interface ScoreCalculationInput {
   pelvis_omega_peak: number;
   trunk_omega_peak: number;
   arm_omega_peak: number;
+  arm_omega_source?: string;
   bat_omega_from_ke?: number | null;
   measured_bat_speed_mph?: number | null;
   measured_ev_mph?: number | null;
