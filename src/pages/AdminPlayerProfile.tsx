@@ -37,6 +37,7 @@ import {
   MessageSquare, MoreHorizontal, Zap, ChevronDown, GitMerge
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
+import { CoachRickChat } from "@/components/dashboard/CoachRickChat";
 import { PlayerResearchModal } from "@/components/PlayerResearchModal";
 import { MergePlayerModal } from "@/components/admin/MergePlayerModal";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -826,6 +827,16 @@ export default function AdminPlayerProfile() {
               />
             </TabsContent>
           </Tabs>
+        )}
+
+        {/* Coach Rick AI Chat - player-aware */}
+        {!isNew && player?.players_id && (
+          <div className="mt-6">
+            <CoachRickChat 
+              playerId={player.players_id} 
+              playerName={getPlayerName()}
+            />
+          </div>
         )}
 
         {/* Mobile FAB */}
