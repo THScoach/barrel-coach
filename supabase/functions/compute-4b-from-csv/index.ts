@@ -287,26 +287,37 @@ function parseRebootCSV(
   const torsoOmega  = peakAngularVelocity5Frame(ikRows, 'torso_rot');
 
   // --- Arm omega: best available IK segment ---
-  // Hierarchy: right_elbow > rhand rotation > torso fallback
+  // ALWAYS compute hand position speed (most distal = most accurate for estimation)
+  // Then also check IK rotation columns and use the MAX across all candidates
   let armOmega = { peak: 0, peakIdx: 0 };
-  for (const col of ['right_elbow', 'relbow_rot', 'rhand_rot', 'lhand_rot']) {
+
+  // Candidate 1: Hand position speed → angular velocity proxy (preferred)
+  const hasRhand = ikRows.some(r => r['rhand_x'] != null && r['rhand_x'] !== 0);
+  const handPrefix = hasRhand ? 'rhand' : 'lhand';
+  const handSpeed = peak3DSpeed(ikRows, `${handPrefix}_x`, `${handPrefix}_y`, `${handPrefix}_z`, 25);
+  if (handSpeed.speed_ms > 0) {
+    // Convert hand linear speed to angular velocity using arm length
+    // Cap at 2000 deg/s for hand-level (higher than body segment cap of 1200)
+    const handOmega = Math.min((handSpeed.speed_ms / 0.55) * RAD_TO_DEG, 2000);
+    if (handOmega > armOmega.peak) {
+      armOmega = { peak: handOmega, peakIdx: handSpeed.peakIdx };
+      console.log(`[CSV→Score] arm_omega from hand speed: ${handOmega.toFixed(1)} deg/s (${(handSpeed.speed_ms * 2.23694).toFixed(1)} mph)`);
+    }
+  }
+
+  // Candidate 2: IK rotation columns (elbow, hand rotation)
+  for (const col of ['rhand_rot', 'lhand_rot', 'right_elbow', 'relbow_rot']) {
     const candidate = peakAngularVelocity5Frame(ikRows, col);
     if (candidate.peak > armOmega.peak) {
       armOmega = candidate;
-      console.log(`[CSV→Score] arm_omega from ${col}: ${candidate.peak.toFixed(1)} deg/s`);
+      console.log(`[CSV→Score] arm_omega from ${col}: ${candidate.peak.toFixed(1)} deg/s (overrides hand speed)`);
     }
   }
-  // Fallback: derive from hand position speed if no rotation columns
+
+  // Fallback: torso × 1.3 if nothing worked
   if (armOmega.peak === 0) {
-    // Use hand speed → arm omega proxy (existing logic)
-    const hasRhand = ikRows.some(r => r['rhand_x'] != null && r['rhand_x'] !== 0);
-    const handPrefix = hasRhand ? 'rhand' : 'lhand';
-    const handSpeed = peak3DSpeed(ikRows, `${handPrefix}_x`, `${handPrefix}_y`, `${handPrefix}_z`, 25);
-    armOmega.peak = handSpeed.speed_ms > 0
-      ? Math.min((handSpeed.speed_ms / 0.55) * RAD_TO_DEG, 1200)
-      : torsoOmega.peak * 1.3;
-    armOmega.peakIdx = handSpeed.peakIdx;
-    console.log(`[CSV→Score] arm_omega from hand speed fallback: ${armOmega.peak.toFixed(1)} deg/s`);
+    armOmega.peak = torsoOmega.peak * 1.3;
+    console.log(`[CSV→Score] arm_omega from torso fallback: ${armOmega.peak.toFixed(1)} deg/s`);
   }
 
   // --- Bat omega from KE inversion (NEW) ---
