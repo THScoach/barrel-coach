@@ -364,23 +364,47 @@ function parseRebootCSV(
   const torsoOmegaFull  = peakAngularVelocity5Frame(ikRows, 'torso_rot');
 
   // --- Contact frame detection ---
-  // Try time_from_max_hand column first (most accurate)
+  // Strategy 1: use time_from_max_hand from ME rows (most accurate — this column exists in ME, not IK)
   let contactFrameIdx = -1;
-  const tfmhCol = ikRows.map(r => r['time_from_max_hand'] ?? r['time_from_contact'] ?? null);
-  const hasTfmh = tfmhCol.some(v => v !== null);
-  if (hasTfmh) {
+  let meContactIdx = -1;
+  const meTfmh = meRows.map(r => r['time_from_max_hand'] ?? r['time_from_contact'] ?? null);
+  const hasMeTfmh = meTfmh.some(v => v !== null);
+  if (hasMeTfmh) {
     let minAbs = Infinity;
-    for (let i = 0; i < tfmhCol.length; i++) {
-      if (tfmhCol[i] === null) continue;
-      const absVal = Math.abs(tfmhCol[i]!);
+    for (let i = 0; i < meTfmh.length; i++) {
+      if (meTfmh[i] === null) continue;
+      const absVal = Math.abs(meTfmh[i]!);
       if (absVal < minAbs) {
         minAbs = absVal;
-        contactFrameIdx = i;
+        meContactIdx = i;
       }
     }
-    console.log(`[CSV→Score] Contact frame from time_from_max_hand: frame ${contactFrameIdx} (value=${tfmhCol[contactFrameIdx]?.toFixed(4)})`);
+    // ME and IK rows may have different lengths; map ME contact time to IK frame index
+    // ME time_from_max_hand at contact ≈ 0; use the ME frame ratio to estimate IK contact frame
+    if (meContactIdx >= 0 && meRows.length > 1 && ikRows.length > 1) {
+      const meRatio = meContactIdx / (meRows.length - 1);
+      contactFrameIdx = Math.round(meRatio * (ikRows.length - 1));
+      console.log(`[CSV→Score] Contact frame from ME time_from_max_hand: ME_frame=${meContactIdx}/${meRows.length}, IK_frame=${contactFrameIdx}/${ikRows.length} (tfmh=${meTfmh[meContactIdx]?.toFixed(4)})`);
+    }
   }
-  // Fallback to peak hand speed
+  // Strategy 2: try IK time_from_max_hand column
+  if (contactFrameIdx < 0) {
+    const ikTfmh = ikRows.map(r => r['time_from_max_hand'] ?? r['time_from_contact'] ?? null);
+    const hasIkTfmh = ikTfmh.some(v => v !== null);
+    if (hasIkTfmh) {
+      let minAbs = Infinity;
+      for (let i = 0; i < ikTfmh.length; i++) {
+        if (ikTfmh[i] === null) continue;
+        const absVal = Math.abs(ikTfmh[i]!);
+        if (absVal < minAbs) {
+          minAbs = absVal;
+          contactFrameIdx = i;
+        }
+      }
+      console.log(`[CSV→Score] Contact frame from IK time_from_max_hand: frame ${contactFrameIdx} (value=${ikTfmh[contactFrameIdx]?.toFixed(4)})`);
+    }
+  }
+  // Strategy 3: fallback to peak hand speed
   if (contactFrameIdx < 0) {
     contactFrameIdx = findContactFrameIndex(ikRows, pelvisOmegaFull.peakIdx);
   }
@@ -397,6 +421,41 @@ function parseRebootCSV(
   // --- Pelvis/trunk omega times as time-from-contact (ms) ---
   const pelvis_omega_time = (pelvisOmega.peakIdx - contactFrameIdx) * MS_PER_FRAME;
   const trunk_omega_time  = (torsoOmega.peakIdx - contactFrameIdx) * MS_PER_FRAME;
+
+  // --- Timing from ME peaks (more reliable if available) ---
+  // Use ME time_from_max_hand to find pelvis/trunk KE peak times directly
+  let pelvisTimeFromContact = pelvis_omega_time;
+  let trunkTimeFromContact = trunk_omega_time;
+  if (hasMeTfmh && meRows.length > 0) {
+    // Find pelvis KE peak time from ME data
+    let peakLegsKE = 0;
+    let peakLegsTime = 0;
+    let peakTorsoKE = 0;
+    let peakTorsoTime = 0;
+    for (const row of meRows) {
+      const tfmh = row['time_from_max_hand'] ?? row['time_from_contact'];
+      if (tfmh == null) continue;
+      // Only consider delivery window: -0.600 to +0.050
+      if (tfmh < -0.600 || tfmh > 0.050) continue;
+      const legsKE = row['legs_kinetic_energy'] ?? row['lowerbody_ke'] ?? 0;
+      const torsoKE = row['torso_kinetic_energy'] ?? row['upperbody_ke'] ?? 0;
+      if (legsKE > peakLegsKE) {
+        peakLegsKE = legsKE;
+        peakLegsTime = tfmh;
+      }
+      if (torsoKE > peakTorsoKE) {
+        peakTorsoKE = torsoKE;
+        peakTorsoTime = tfmh;
+      }
+    }
+    if (peakLegsKE > 0) pelvisTimeFromContact = peakLegsTime * 1000; // convert s → ms
+    if (peakTorsoKE > 0) trunkTimeFromContact = peakTorsoTime * 1000;
+    console.log(`[CSV→Score] ME-based timing: pelvisKE_peak_time=${pelvisTimeFromContact.toFixed(1)}ms, torsoKE_peak_time=${trunkTimeFromContact.toFixed(1)}ms (legsKE=${peakLegsKE.toFixed(1)}, torsoKE=${peakTorsoKE.toFixed(1)})`);
+  }
+
+  // Override pelvis/trunk omega times with ME-based values when available
+  const final_pelvis_omega_time = hasMeTfmh ? pelvisTimeFromContact : pelvis_omega_time;
+  const final_trunk_omega_time = hasMeTfmh ? trunkTimeFromContact : trunk_omega_time;
 
   console.log(`[CSV→Score] TIMING: { contactFrameIndex: ${contactFrameIdx}, pelvis_omega_time_ms: ${pelvis_omega_time.toFixed(1)}, trunk_omega_time_ms: ${trunk_omega_time.toFixed(1)}, timingGapPct: ${(Math.abs(pelvis_omega_time - trunk_omega_time) / 200 * 100).toFixed(1)} }`);
 
