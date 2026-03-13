@@ -316,6 +316,12 @@ function predictExitVelocity(
   const collisionEff = 0.70 + 0.20 * Math.min(1, Math.max(0, transferEfficiency));
   const ev = 1.2 * predictedBatSpeed * collisionEff + 0.2 * pitchSpeed;
 
+  console.log(
+    `[4B-Score] predictExitVelocity: transferEfficiency=${transferEfficiency.toFixed(3)}, ` +
+    `collisionEff=${collisionEff.toFixed(3)}, batSpeed=${predictedBatSpeed.toFixed(1)}, ` +
+    `pitchSpeed=${pitchSpeed}, EV=${ev.toFixed(1)} mph`
+  );
+
   return {
     exit_velocity_mph: Math.round(ev * 10) / 10,
     source: 'predicted',
