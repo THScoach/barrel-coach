@@ -78,6 +78,12 @@ verify_jwt = false
 [functions.calculate-4b-scores]
 verify_jwt = false
 
+[functions.backfill-4b-scores]
+verify_jwt = false
+
+[functions.compute-4b-from-csv]
+verify_jwt = false
+
 [functions.reboot-polling-sync]
 verify_jwt = false
 
