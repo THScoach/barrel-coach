@@ -195,8 +195,8 @@ function computeTransferEfficiency(input: ScoreCalculationInput): number {
   const timingScore = Math.max(0, 1 - timingGapPct / 50);
 
   console.log(
-    `[4B-Score] transferEff DEBUG: { peakPelvisTime_ms: ${peakPelvisTimeMs.toFixed(1)}, ` +
-    `peakTrunkTime_ms: ${peakTrunkTimeMs.toFixed(1)}, totalSwingDuration_ms: ${totalSwingDurationMs.toFixed(1)}, ` +
+    `[4B-Score] transferEff DEBUG: { pelvis_omega_time_ms: ${input.pelvis_omega_time.toFixed(1)}, ` +
+    `trunk_omega_time_ms: ${input.trunk_omega_time.toFixed(1)}, timingGapMs: ${timingGapMs.toFixed(1)}, ` +
     `timingGapPct: ${timingGapPct.toFixed(1)} }`
   );
   console.log(
