@@ -69,6 +69,7 @@ interface ScoreCalculationInput {
   pelvis_omega_peak: number;
   trunk_omega_peak: number;
   arm_omega_peak: number;
+  arm_omega_source?: string;
   bat_omega_from_ke?: number | null;
   measured_bat_speed_mph?: number | null;
   measured_ev_mph?: number | null;
@@ -515,6 +516,7 @@ function parseRebootCSV(
     pelvis_omega_peak: pelvisOmega.peak,
     trunk_omega_peak: torsoOmega.peak,
     arm_omega_peak: armOmega.peak,
+    arm_omega_source: armSourceColumn,
     bat_omega_from_ke,
     measured_bat_speed_mph: context.measured_bat_speed_mph ?? null,
     measured_ev_mph: context.measured_ev_mph ?? null,

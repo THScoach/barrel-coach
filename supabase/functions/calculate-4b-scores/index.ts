@@ -60,6 +60,7 @@ interface ScoreCalculationInput {
   pelvis_omega_peak: number;        // deg/s
   trunk_omega_peak: number;         // deg/s
   arm_omega_peak: number;           // deg/s — most distal IK segment (hand > arm > torso)
+  arm_omega_source?: string;        // source column name (e.g. 'left_elbow', 'rhand_rot')
 
   // Three-tier bat speed inputs (use highest available)
   measured_bat_speed_mph?: number | null;  // Hawk-Eye or DK sensor — TIER 1
@@ -276,8 +277,13 @@ function predictBatSpeed(
   // ── TIER 3: ESTIMATION (arm IK derivative — lowest confidence) ─────────
   const armSpeed = input.arm_omega_peak * OMEGA_TO_MPH;
 
-  // Chain multiplier: 1.15–1.50 based on transfer efficiency
-  const chainMultiplier = 1.15 + 0.35 * Math.max(0, Math.min(1, transferEfficiency));
+  // Source-aware chain multiplier:
+  // Segment-level sources (shoulder/elbow) produce lower omega than hand/wrist
+  const segmentSources = ['right_shoulder_rot', 'right_elbow', 'left_elbow', 'rshoulder_rot', 'relbow_rot', 'lelbow_rot', 'torso_fallback'];
+  const isSegmentLevel = !input.arm_omega_source || segmentSources.includes(input.arm_omega_source);
+  const chainMultiplier = isSegmentLevel
+    ? 1.80 + 0.40 * Math.max(0, Math.min(1, transferEfficiency))   // 1.80–2.20 for segment
+    : 1.15 + 0.35 * Math.max(0, Math.min(1, transferEfficiency));  // 1.15–1.50 for hand/wrist
 
   // FIX 4: √ scaling, range 0.80–1.15
   const massFactor = Math.max(0.80, Math.min(1.15, Math.sqrt(massKg / 80)));
@@ -289,6 +295,8 @@ function predictBatSpeed(
     : 0.85;
 
   const estimated = armSpeed * chainMultiplier * massFactor * trBonus;
+
+  console.log(`[4B-Score] estimation: { arm_omega: ${input.arm_omega_peak.toFixed(1)}, source_column: "${input.arm_omega_source ?? 'unknown'}", chainMultiplier: ${chainMultiplier.toFixed(3)}, bat_speed_mph: ${(Math.round(estimated * 10) / 10)} }`);
 
   return {
     bat_speed_mph: Math.round(estimated * 10) / 10,
