@@ -405,7 +405,7 @@ function calculateBrain(input: ScoreCalculationInput): number {
 
   const correctOrder =
     input.pelvis_omega_time < input.trunk_omega_time &&
-    input.trunk_omega_time  < (input.pelvis_omega_time + totalSwingMs * 0.5);
+    input.trunk_omega_time  < (input.pelvis_omega_time + 200 * 0.5);
   const rhythmScore = correctOrder ? 85 : 45;
 
   return Math.round(clamp(
