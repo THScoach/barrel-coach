@@ -193,6 +193,32 @@ function parseCsvRows(csvText: string): Record<string, number>[] {
   return rows;
 }
 
+// ---------------------------------------------------------------------------
+// ANGULAR MOMENTUM → ANGULAR VELOCITY CONVERSION
+// ---------------------------------------------------------------------------
+
+/**
+ * Estimated moments of inertia (kg·m²) for Reboot Motion body segments.
+ * Used to convert angular momentum (kg·m²/s) to angular velocity (rad/s).
+ * These are population averages; real MOI would need anthropometry.
+ */
+const SEGMENT_MOI: Record<string, number> = {
+  pelvis: 0.12,    // Lower torso / pelvis
+  torso:  0.30,    // Upper torso
+  arms:   0.08,    // Combined arms
+  rarm:   0.04,    // Single arm
+  bat:    0.035,   // ~33" 30oz bat
+};
+
+/**
+ * Convert angular momentum magnitude (kg·m²/s) to angular velocity (deg/s).
+ * ω (deg/s) = (L / I) × (180/π)
+ */
+function angMomToOmegaDegS(angMomMag: number, moi: number): number {
+  if (moi <= 0) return 0;
+  return (angMomMag / moi) * (180 / Math.PI);
+}
+
 function parseRebootCSV(
   ikRows: Record<string, number>[],
   meRows: Record<string, number>[],
@@ -205,14 +231,36 @@ function parseRebootCSV(
     hard_hit_rate?: number;
   }
 ): ScoreCalculationInput {
-  const pelvis_omega_peak = Math.max(...meRows.map(r => Math.abs(r['lowertorso_angular_momentum_mag'] ?? 0)));
-  const trunk_omega_peak  = Math.max(...meRows.map(r => Math.abs(r['torso_angular_momentum_mag'] ?? 0)));
-  const arm_omega_peak    = trunk_omega_peak * 1.3;
-  const bat_omega_peak    = arm_omega_peak   * 1.15;
+  // --- Extract peak angular momentum magnitudes from ME data ---
+  const pelvisAngMomPeak = Math.max(...meRows.map(r => Math.abs(r['lowertorso_angular_momentum_mag'] ?? 0)));
+  const torsoAngMomPeak  = Math.max(...meRows.map(r => Math.abs(r['torso_angular_momentum_mag'] ?? 0)));
+  const batAngMomPeak    = Math.max(...meRows.map(r => Math.abs(r['bat_angular_momentum_mag'] ?? 0)));
+  const armsAngMomPeak   = Math.max(...meRows.map(r => Math.abs(
+    r['arms_angular_momentum_mag'] ?? r['rarm_angular_momentum_mag'] ?? 0
+  )));
 
-  const pelvisIdx = meRows.findIndex(r => Math.abs(r['lowertorso_angular_momentum_mag'] ?? 0) === pelvis_omega_peak);
-  const trunkIdx  = meRows.findIndex(r => Math.abs(r['torso_angular_momentum_mag'] ?? 0) === trunk_omega_peak);
+  // --- Convert to angular velocity (deg/s) via estimated MOI ---
+  const pelvis_omega_peak = angMomToOmegaDegS(pelvisAngMomPeak, SEGMENT_MOI.pelvis);
+  const trunk_omega_peak  = angMomToOmegaDegS(torsoAngMomPeak, SEGMENT_MOI.torso);
 
+  // Arms: use combined arms column, fall back to single arm, fall back to trunk * 1.3
+  const arm_omega_peak = armsAngMomPeak > 0
+    ? angMomToOmegaDegS(armsAngMomPeak, armsAngMomPeak === (Math.max(...meRows.map(r => Math.abs(r['arms_angular_momentum_mag'] ?? 0)))) ? SEGMENT_MOI.arms : SEGMENT_MOI.rarm)
+    : trunk_omega_peak * 1.3;
+
+  // Bat: use bat column, fall back to arm * 1.15
+  const bat_omega_peak = batAngMomPeak > 0
+    ? angMomToOmegaDegS(batAngMomPeak, SEGMENT_MOI.bat)
+    : arm_omega_peak * 1.15;
+
+  console.log(`[CSV→Score] Angular momentum peaks: pelvis=${pelvisAngMomPeak.toFixed(3)}, torso=${torsoAngMomPeak.toFixed(3)}, arms=${armsAngMomPeak.toFixed(3)}, bat=${batAngMomPeak.toFixed(3)}`);
+  console.log(`[CSV→Score] Converted ω (deg/s): pelvis=${pelvis_omega_peak.toFixed(1)}, trunk=${trunk_omega_peak.toFixed(1)}, arm=${arm_omega_peak.toFixed(1)}, bat=${bat_omega_peak.toFixed(1)}`);
+
+  // --- Peak frame indices for timing ---
+  const pelvisIdx = meRows.findIndex(r => Math.abs(r['lowertorso_angular_momentum_mag'] ?? 0) === pelvisAngMomPeak);
+  const trunkIdx  = meRows.findIndex(r => Math.abs(r['torso_angular_momentum_mag'] ?? 0) === torsoAngMomPeak);
+
+  // --- Hip-shoulder separation from IK data ---
   const xFactorPeaks = ikRows.map(r => {
     const torsoRot  = r['torso_rot']  ?? 0;
     const pelvisRot = r['pelvis_rot'] ?? 0;
@@ -220,8 +268,10 @@ function parseRebootCSV(
   });
   const hip_shoulder_sep_max_deg = Math.max(...xFactorPeaks);
 
+  // --- Transfer ratio ---
   const transfer_ratio = pelvis_omega_peak > 0 ? trunk_omega_peak / pelvis_omega_peak : 1;
 
+  // --- Timing ---
   const FPS = 240;
   const MS_PER_FRAME = 1000 / FPS;
   const pelvis_omega_time = pelvisIdx * MS_PER_FRAME;
@@ -229,6 +279,9 @@ function parseRebootCSV(
 
   const load_duration_ms   = pelvisIdx * MS_PER_FRAME;
   const launch_duration_ms = (meRows.length - pelvisIdx) * MS_PER_FRAME;
+
+  // --- Optional: extract mass from ME if masstotal column exists ---
+  const massTotal = meRows[0]?.['masstotal'] ?? undefined;
 
   return {
     source: 'reboot_csv',
@@ -250,6 +303,7 @@ function parseRebootCSV(
     hard_hit_rate:       context.hard_hit_rate,
     player_level:        context.player_level,
     motor_profile:       context.motor_profile,
+    mass_total_kg:       massTotal,
   };
 }
 
