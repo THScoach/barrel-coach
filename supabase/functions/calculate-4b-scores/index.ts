@@ -539,7 +539,7 @@ function computeScoringResult(input: ScoreCalculationInput): ScoringResult {
     mode,
     version:          'v2',
     body, brain, bat,
-    ball:             hasActualOutcome ? ball : null, // null in result for DB compat, but BAT was still modulated
+    ball,             // Always populated (from actual or predicted EV)
     rating, color,
     creation, transfer,
     transfer_ratio:    Math.round(input.transfer_ratio * 1000) / 1000,
