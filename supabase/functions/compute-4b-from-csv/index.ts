@@ -363,13 +363,13 @@ function parseRebootCSV(
   const torsoOmega  = peakAngularVelocity5Frame(ikRows, 'torso_rot');
 
   // --- Arm omega: delivery-windowed max of 5-frame centred diff ---
-  // Step 1: Find contact frame (time_from_max_hand ≈ 0)
-  const contactFrame = findContactFrameIndex(ikRows);
-  const deliveryStart = contactFrame != null ? Math.max(0, contactFrame - 144) : 0; // -600ms
-  const deliveryEnd = contactFrame != null ? Math.min(ikRows.length - 1, contactFrame + 12) : ikRows.length - 1; // +50ms
+  // Step 1: Find contact frame from peak hand speed
+  const contactFrame = findContactFrameIndex(ikRows, pelvisOmega.peakIdx);
+  const deliveryStart = Math.max(0, contactFrame - 144); // -600ms at 240fps
+  const deliveryEnd = Math.min(ikRows.length - 1, contactFrame + 12); // +50ms
   const MAX_ARM_OMEGA_DEGS = 2200;
 
-  console.log(`[CSV→Score] delivery window: contactFrame=${contactFrame ?? 'unknown'}, range=[${deliveryStart}, ${deliveryEnd}] (${deliveryEnd - deliveryStart + 1} frames)`);
+  console.log(`[CSV→Score] delivery window: contactFrame=${contactFrame}, range=[${deliveryStart}, ${deliveryEnd}] (${deliveryEnd - deliveryStart + 1} frames)`);
 
   let armOmega = { peak: 0, peakIdx: 0 };
   let armSourceColumn = 'none';
