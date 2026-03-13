@@ -419,45 +419,12 @@ function parseRebootCSV(
   const torsoOmega  = windowedPeakAngularVelocity(ikRows, 'torso_rot', deliveryStart, deliveryEnd, 1200);
 
   // --- Pelvis/trunk omega times as time-from-contact (ms) ---
-  const pelvis_omega_time = (pelvisOmega.peakIdx - contactFrameIdx) * MS_PER_FRAME;
-  const trunk_omega_time  = (torsoOmega.peakIdx - contactFrameIdx) * MS_PER_FRAME;
+  // peakIdx is within the delivery window; subtract contactFrameIdx to get relative ms
+  const final_pelvis_omega_time = (pelvisOmega.peakIdx - contactFrameIdx) * MS_PER_FRAME;
+  const final_trunk_omega_time  = (torsoOmega.peakIdx - contactFrameIdx) * MS_PER_FRAME;
+  const timingGapPct = Math.abs(final_pelvis_omega_time - final_trunk_omega_time) / 200 * 100;
 
-  // --- Timing from ME peaks (more reliable if available) ---
-  // Use ME time_from_max_hand to find pelvis/trunk KE peak times directly
-  let pelvisTimeFromContact = pelvis_omega_time;
-  let trunkTimeFromContact = trunk_omega_time;
-  if (hasMeTfmh && meRows.length > 0) {
-    // Find pelvis KE peak time from ME data
-    let peakLegsKE = 0;
-    let peakLegsTime = 0;
-    let peakTorsoKE = 0;
-    let peakTorsoTime = 0;
-    for (const row of meRows) {
-      const tfmh = row['time_from_max_hand'] ?? row['time_from_contact'];
-      if (tfmh == null) continue;
-      // Only consider delivery window: -0.600 to +0.050
-      if (tfmh < -0.600 || tfmh > 0.050) continue;
-      const legsKE = row['legs_kinetic_energy'] ?? row['lowerbody_ke'] ?? 0;
-      const torsoKE = row['torso_kinetic_energy'] ?? row['upperbody_ke'] ?? 0;
-      if (legsKE > peakLegsKE) {
-        peakLegsKE = legsKE;
-        peakLegsTime = tfmh;
-      }
-      if (torsoKE > peakTorsoKE) {
-        peakTorsoKE = torsoKE;
-        peakTorsoTime = tfmh;
-      }
-    }
-    if (peakLegsKE > 0) pelvisTimeFromContact = peakLegsTime * 1000; // convert s → ms
-    if (peakTorsoKE > 0) trunkTimeFromContact = peakTorsoTime * 1000;
-    console.log(`[CSV→Score] ME-based timing: pelvisKE_peak_time=${pelvisTimeFromContact.toFixed(1)}ms, torsoKE_peak_time=${trunkTimeFromContact.toFixed(1)}ms (legsKE=${peakLegsKE.toFixed(1)}, torsoKE=${peakTorsoKE.toFixed(1)})`);
-  }
-
-  // Override pelvis/trunk omega times with ME-based values when available
-  const final_pelvis_omega_time = hasMeTfmh ? pelvisTimeFromContact : pelvis_omega_time;
-  const final_trunk_omega_time = hasMeTfmh ? trunkTimeFromContact : trunk_omega_time;
-
-  console.log(`[CSV→Score] TIMING: { contactFrameIndex: ${contactFrameIdx}, pelvis_omega_time_ms: ${final_pelvis_omega_time.toFixed(1)}, trunk_omega_time_ms: ${final_trunk_omega_time.toFixed(1)}, timingGapPct: ${(Math.abs(final_pelvis_omega_time - final_trunk_omega_time) / 200 * 100).toFixed(1)} }`);
+  console.log(`[CSV→Score] TIMING: { contactFrameIndex: ${contactFrameIdx}, pelvis_omega_time_ms: ${final_pelvis_omega_time.toFixed(1)}, trunk_omega_time_ms: ${final_trunk_omega_time.toFixed(1)}, timingGapPct: ${timingGapPct.toFixed(1)} }`);
 
   // --- Arm omega: delivery-windowed max of 5-frame centred diff ---
   const MAX_ARM_OMEGA_DEGS = 2200;
