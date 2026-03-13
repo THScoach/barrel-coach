@@ -69,6 +69,7 @@ interface ScoreCalculationInput {
   hard_hit_rate?: number;
   player_level: PlayerLevel;
   motor_profile?: string;
+  mass_total_kg?: number;
 }
 
 interface ScoringResult {
