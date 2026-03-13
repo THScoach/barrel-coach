@@ -187,15 +187,11 @@ function computeTransferEfficiency(input: ScoreCalculationInput): number {
   // the full capture. A better proxy: the span from the earliest peak to contact.
   // Since times are relative to max-hand (≈ contact), the earliest peak marks
   // roughly foot-plant. Use that as the denominator.
-  const peakPelvisTimeMs = Math.abs(input.pelvis_omega_time);
-  const peakTrunkTimeMs  = Math.abs(input.trunk_omega_time);
-  const timingGapMs = Math.abs(peakPelvisTimeMs - peakTrunkTimeMs);
+  const timingGapMs = Math.abs(input.pelvis_omega_time - input.trunk_omega_time);
 
-  // totalSwingDuration = from earliest segment peak to contact (time 0)
-  // This gives us the foot-plant-to-contact window
-  const totalSwingDurationMs = Math.max(peakPelvisTimeMs, peakTrunkTimeMs, 1);
-
-  const timingGapPct = (timingGapMs / totalSwingDurationMs) * 100;
+  // Fixed 200ms denominator = typical full delivery duration (foot-plant to contact)
+  const DELIVERY_DURATION_MS = 200;
+  const timingGapPct = (timingGapMs / DELIVERY_DURATION_MS) * 100;
   const timingScore = Math.max(0, 1 - timingGapPct / 50);
 
   console.log(
