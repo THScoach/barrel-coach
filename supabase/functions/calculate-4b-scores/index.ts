@@ -366,9 +366,8 @@ function calculateBody(input: ScoreCalculationInput): { body: number; creation: 
     transferRatioScore = lerp(tr, TRANSFER_RATIO_ELITE.max, 2.5, 90, 20);
   }
 
-  const totalSwingMs = input.load_duration_ms + input.launch_duration_ms;
   const timingGapMs  = input.trunk_omega_time - input.pelvis_omega_time;
-  const timingGapPct = totalSwingMs > 0 ? (timingGapMs / totalSwingMs) * 100 : 0;
+  const timingGapPct = (timingGapMs / 200) * 100;
   let timingScore: number;
   if (timingGapPct >= TIMING_GAP_ELITE.min && timingGapPct <= TIMING_GAP_ELITE.max) {
     timingScore = 95;
