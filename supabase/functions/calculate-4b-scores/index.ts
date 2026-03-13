@@ -187,20 +187,16 @@ function computeTransferEfficiency(input: ScoreCalculationInput): number {
   // the full capture. A better proxy: the span from the earliest peak to contact.
   // Since times are relative to max-hand (≈ contact), the earliest peak marks
   // roughly foot-plant. Use that as the denominator.
-  const peakPelvisTimeMs = Math.abs(input.pelvis_omega_time);
-  const peakTrunkTimeMs  = Math.abs(input.trunk_omega_time);
-  const timingGapMs = Math.abs(peakPelvisTimeMs - peakTrunkTimeMs);
+  const timingGapMs = Math.abs(input.pelvis_omega_time - input.trunk_omega_time);
 
-  // totalSwingDuration = from earliest segment peak to contact (time 0)
-  // This gives us the foot-plant-to-contact window
-  const totalSwingDurationMs = Math.max(peakPelvisTimeMs, peakTrunkTimeMs, 1);
-
-  const timingGapPct = (timingGapMs / totalSwingDurationMs) * 100;
+  // Fixed 200ms denominator = typical full delivery duration (foot-plant to contact)
+  const DELIVERY_DURATION_MS = 200;
+  const timingGapPct = (timingGapMs / DELIVERY_DURATION_MS) * 100;
   const timingScore = Math.max(0, 1 - timingGapPct / 50);
 
   console.log(
-    `[4B-Score] transferEff DEBUG: { peakPelvisTime_ms: ${peakPelvisTimeMs.toFixed(1)}, ` +
-    `peakTrunkTime_ms: ${peakTrunkTimeMs.toFixed(1)}, totalSwingDuration_ms: ${totalSwingDurationMs.toFixed(1)}, ` +
+    `[4B-Score] transferEff DEBUG: { pelvis_omega_time_ms: ${input.pelvis_omega_time.toFixed(1)}, ` +
+    `trunk_omega_time_ms: ${input.trunk_omega_time.toFixed(1)}, timingGapMs: ${timingGapMs.toFixed(1)}, ` +
     `timingGapPct: ${timingGapPct.toFixed(1)} }`
   );
   console.log(
@@ -370,9 +366,8 @@ function calculateBody(input: ScoreCalculationInput): { body: number; creation: 
     transferRatioScore = lerp(tr, TRANSFER_RATIO_ELITE.max, 2.5, 90, 20);
   }
 
-  const totalSwingMs = input.load_duration_ms + input.launch_duration_ms;
   const timingGapMs  = input.trunk_omega_time - input.pelvis_omega_time;
-  const timingGapPct = totalSwingMs > 0 ? (timingGapMs / totalSwingMs) * 100 : 0;
+  const timingGapPct = (timingGapMs / 200) * 100;
   let timingScore: number;
   if (timingGapPct >= TIMING_GAP_ELITE.min && timingGapPct <= TIMING_GAP_ELITE.max) {
     timingScore = 95;
@@ -401,9 +396,8 @@ function calculateBrain(input: ScoreCalculationInput): number {
   const tempoRatio = input.load_duration_ms / Math.max(input.launch_duration_ms, 1);
   const tempoScore = lerp(Math.abs(tempoRatio - 2.0), 0.2, 1.0, 100, 20);
 
-  const totalSwingMs  = input.load_duration_ms + input.launch_duration_ms;
   const timingGapMs   = input.trunk_omega_time - input.pelvis_omega_time;
-  const timingGapPct  = totalSwingMs > 0 ? (timingGapMs / totalSwingMs) * 100 : 0;
+  const timingGapPct  = (timingGapMs / 200) * 100;
   const seqScore = (timingGapPct >= 14 && timingGapPct <= 18) ? 95
     : timingGapPct >= 10 && timingGapPct < 14 ? 75
     : timingGapPct > 18  && timingGapPct <= 22 ? 70
@@ -411,7 +405,7 @@ function calculateBrain(input: ScoreCalculationInput): number {
 
   const correctOrder =
     input.pelvis_omega_time < input.trunk_omega_time &&
-    input.trunk_omega_time  < (input.pelvis_omega_time + totalSwingMs * 0.5);
+    input.trunk_omega_time  < (input.pelvis_omega_time + 200 * 0.5);
   const rhythmScore = correctOrder ? 85 : 45;
 
   return Math.round(clamp(
