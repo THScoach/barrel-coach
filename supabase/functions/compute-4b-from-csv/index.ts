@@ -457,7 +457,7 @@ function parseRebootCSV(
   const final_pelvis_omega_time = hasMeTfmh ? pelvisTimeFromContact : pelvis_omega_time;
   const final_trunk_omega_time = hasMeTfmh ? trunkTimeFromContact : trunk_omega_time;
 
-  console.log(`[CSV→Score] TIMING: { contactFrameIndex: ${contactFrameIdx}, pelvis_omega_time_ms: ${pelvis_omega_time.toFixed(1)}, trunk_omega_time_ms: ${trunk_omega_time.toFixed(1)}, timingGapPct: ${(Math.abs(pelvis_omega_time - trunk_omega_time) / 200 * 100).toFixed(1)} }`);
+  console.log(`[CSV→Score] TIMING: { contactFrameIndex: ${contactFrameIdx}, pelvis_omega_time_ms: ${final_pelvis_omega_time.toFixed(1)}, trunk_omega_time_ms: ${final_trunk_omega_time.toFixed(1)}, timingGapPct: ${(Math.abs(final_pelvis_omega_time - final_trunk_omega_time) / 200 * 100).toFixed(1)} }`);
 
   // --- Arm omega: delivery-windowed max of 5-frame centred diff ---
   const MAX_ARM_OMEGA_DEGS = 2200;
