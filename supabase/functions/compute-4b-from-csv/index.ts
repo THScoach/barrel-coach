@@ -253,51 +253,58 @@ function peakAngularVelocity5Frame(
   return { peak, peakIdx };
 }
 
-/** Maximum arm omega cap (elbow/shoulder segment ceiling) */
-const MAX_ARM_OMEGA_DEGS = 2200;
+/**
+ * Find the contact frame index (frame where time_from_max_hand ≈ 0).
+ * Falls back to the frame with the smallest absolute time_from_max_hand value.
+ * If the column doesn't exist, returns null.
+ */
+function findContactFrameIndex(rows: Record<string, number>[]): number | null {
+  const timeCol = 'time_from_max_hand';
+  const hasCol = rows.some(r => r[timeCol] != null);
+  if (!hasCol) return null;
+
+  let bestIdx = 0;
+  let bestAbs = Infinity;
+  for (let i = 0; i < rows.length; i++) {
+    const t = rows[i][timeCol];
+    if (t == null) continue;
+    const absT = Math.abs(t);
+    if (absT < bestAbs) {
+      bestAbs = absT;
+      bestIdx = i;
+    }
+  }
+  return bestIdx;
+}
 
 /**
- * Compute 95th-percentile angular velocity across all frames in the delivery window
- * for a given IK column. This filters out noise spikes that inflate the raw max.
+ * Compute peak angular velocity within a delivery window using 5-frame centred diff.
+ * Window defined by [startFrame, endFrame]. Max within window, capped at maxOmega.
  */
-function p95AngularVelocity5Frame(
+function windowedPeakAngularVelocity(
   rows: Record<string, number>[],
   columnName: string,
-): { rawPeak: number; p95: number; peakIdx: number } {
+  startFrame: number,
+  endFrame: number,
+  maxOmegaDegS: number
+): { peak: number; peakIdx: number } {
   const angles = rows.map(r => r[columnName] ?? 0);
   const dt4 = 4 / FPS;
-  const omegas: number[] = [];
-  let rawPeak = 0;
-  let rawPeakIdx = 0;
+  let peak = 0;
+  let peakIdx = 0;
 
-  for (let i = 2; i < angles.length - 2; i++) {
+  const lo = Math.max(2, startFrame);
+  const hi = Math.min(angles.length - 3, endFrame);
+
+  for (let i = lo; i <= hi; i++) {
     const omega = Math.abs((angles[i + 2] - angles[i - 2]) / dt4) * RAD_TO_DEG;
-    omegas.push(omega);
-    if (omega > rawPeak) {
-      rawPeak = omega;
-      rawPeakIdx = i;
+    if (omega > peak && omega <= maxOmegaDegS) {
+      peak = omega;
+      peakIdx = i;
     }
   }
 
-  if (omegas.length === 0) return { rawPeak: 0, p95: 0, peakIdx: 0 };
-
-  // Sort ascending, take 95th percentile
-  const sorted = [...omegas].sort((a, b) => a - b);
-  const p95Idx = Math.floor(sorted.length * 0.95);
-  const p95 = sorted[Math.min(p95Idx, sorted.length - 1)];
-
-  // peakIdx = frame index where value is closest to p95
-  let bestDiff = Infinity;
-  let bestIdx = rawPeakIdx;
-  for (let i = 0; i < omegas.length; i++) {
-    const diff = Math.abs(omegas[i] - p95);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      bestIdx = i + 2; // offset for the 2-frame stencil
-    }
-  }
-
-  return { rawPeak, p95, peakIdx: bestIdx };
+  return { peak, peakIdx };
 }
 
 // ---------------------------------------------------------------------------
