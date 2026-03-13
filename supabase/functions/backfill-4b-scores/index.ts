@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
           }
 
           // Validate CSV data
-          if (!session.raw_csv_me || session.raw_csv_me.trim().length < 50) {
+          if (!session.raw_csv_me || session.raw_csv_me.trim().length < 50 || !session.raw_csv_ik || session.raw_csv_ik.trim().length < 50) {
             skipped++;
             return;
           }
