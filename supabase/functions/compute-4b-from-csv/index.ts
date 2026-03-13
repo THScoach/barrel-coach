@@ -126,8 +126,72 @@ function detectFootPlantFrame(ikRows: Record<string, number>[]): number | undefi
 }
 
 // ---------------------------------------------------------------------------
-// CSV → ScoreCalculationInput NORMALIZER
+// CSV PARSING + NORMALIZATION
 // ---------------------------------------------------------------------------
+
+function splitCsvLine(line: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current.trim());
+  return values;
+}
+
+function parseCsvRows(csvText: string): Record<string, number>[] {
+  const lines = csvText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length < 2) return [];
+
+  const headers = splitCsvLine(lines[0]).map((header) => header.toLowerCase());
+  const rows: Record<string, number>[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitCsvLine(lines[i]);
+    const row: Record<string, number> = {};
+
+    headers.forEach((header, index) => {
+      if (!header) return;
+      const raw = cols[index];
+      if (raw == null || raw === '') return;
+      const value = Number(raw);
+      if (Number.isFinite(value)) {
+        row[header] = value;
+      }
+    });
+
+    if (Object.keys(row).length > 0) {
+      rows.push(row);
+    }
+  }
+
+  return rows;
+}
 
 function parseRebootCSV(
   ikRows: Record<string, number>[],
