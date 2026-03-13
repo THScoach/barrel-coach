@@ -221,17 +221,19 @@ function extractBatOmegaFromKE(meRows: Record<string, number>[]): number | null 
 }
 
 // ---------------------------------------------------------------------------
-// ARM OMEGA FROM IK — 5-FRAME CENTRED FINITE DIFFERENCE (replaces single-frame)
+// ANGULAR VELOCITY — 5-FRAME CENTRED FINITE DIFFERENCE
 // ---------------------------------------------------------------------------
 
 /**
  * Compute peak angular velocity from IK joint angle timeseries
  * using 5-frame centred finite difference (2-frame stencil each side).
- * This eliminates noise spikes that plagued the old single-frame delta.
+ *
+ * @param maxOmegaDegS  physical cap — use 1200 for pelvis/torso, 3000 for arm/hand
  */
 function peakAngularVelocity5Frame(
   rows: Record<string, number>[],
-  columnName: string
+  columnName: string,
+  maxOmegaDegS = 1200
 ): { peak: number; peakIdx: number } {
   const angles = rows.map(r => r[columnName] ?? 0);
   let peak = 0;
@@ -242,7 +244,7 @@ function peakAngularVelocity5Frame(
 
   for (let i = 2; i < angles.length - 2; i++) {
     const omega = Math.abs((angles[i + 2] - angles[i - 2]) / dt4) * RAD_TO_DEG;
-    if (omega > peak && omega <= 1200) { // physical cap for body segments
+    if (omega > peak && omega <= maxOmegaDegS) {
       peak = omega;
       peakIdx = i;
     }
