@@ -537,6 +537,8 @@ serve(async (req: Request) => {
         actual_bat_speed_mph: result.actual_bat_speed_mph,
         actual_exit_velocity_mph: result.actual_exit_velocity_mph,
         actual_entry_bucket: result.actual_entry_bucket,
+        bat_speed_source: result.bat_speed_path,
+        bat_speed_confidence: result.bat_speed_confidence,
         scoring_timestamp: result.scoring_timestamp,
         scored_at: new Date().toISOString(),
       };
