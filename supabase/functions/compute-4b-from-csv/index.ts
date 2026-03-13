@@ -45,6 +45,9 @@ async function computeScoringResult(input: ScoreCalculationInput): Promise<Scori
 
 type ScoreSource   = 'reboot_csv' | 'sensor' | 'manual';
 type PlayerLevel   = 'youth' | 'high_school' | 'college' | 'pro';
+type ScoringMode   = 'full' | 'training';
+type ScoringVersion = 'v1_legacy' | 'v2';
+type FourBRating   = 'Elite' | 'Good' | 'Working' | 'Priority';
 
 interface ScoreCalculationInput {
   source: ScoreSource;
@@ -66,6 +69,31 @@ interface ScoreCalculationInput {
   hard_hit_rate?: number;
   player_level: PlayerLevel;
   motor_profile?: string;
+}
+
+interface ScoringResult {
+  score_4bkrs: number;
+  mode: ScoringMode;
+  version: ScoringVersion;
+  body: number;
+  brain: number;
+  bat: number;
+  ball: number | null;
+  rating: FourBRating;
+  color: string;
+  creation: number;
+  transfer: number;
+  transfer_ratio: number;
+  timing_gap_pct: number;
+  bat_speed_mph: number | null;
+  exit_velocity_mph: number | null;
+  predicted_bat_speed_mph?: number | null;
+  predicted_exit_velocity_mph?: number | null;
+  predicted_entry_bucket?: string | null;
+  actual_bat_speed_mph?: number | null;
+  actual_exit_velocity_mph?: number | null;
+  actual_entry_bucket?: string | null;
+  scoring_timestamp: string;
 }
 
 // ---------------------------------------------------------------------------
