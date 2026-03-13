@@ -450,15 +450,16 @@ function parseRebootCSV(
     }
   }
 
-  // Also try hand position speed → angular velocity proxy (within window)
+  // Also try hand position speed → angular velocity proxy (WITHIN delivery window only)
   const hasRhand = ikRows.some(r => r['rhand_x'] != null && r['rhand_x'] !== 0);
   const handPrefix = hasRhand ? 'rhand' : 'lhand';
-  const handSpeed = peak3DSpeed(ikRows, `${handPrefix}_x`, `${handPrefix}_y`, `${handPrefix}_z`, 25);
+  const windowedRows = ikRows.slice(deliveryStart, deliveryEnd + 1);
+  const handSpeed = peak3DSpeed(windowedRows, `${handPrefix}_x`, `${handPrefix}_y`, `${handPrefix}_z`, 25);
   if (handSpeed.speed_ms > 0) {
     const handOmega = Math.min((handSpeed.speed_ms / 0.55) * RAD_TO_DEG, MAX_ARM_OMEGA_DEGS);
-    console.log(`[CSV→Score] arm_omega candidate hand_speed: ${handOmega.toFixed(1)} deg/s (${(handSpeed.speed_ms * 2.23694).toFixed(1)} mph)`);
+    console.log(`[CSV→Score] arm_omega candidate hand_speed (windowed): ${handOmega.toFixed(1)} deg/s (${(handSpeed.speed_ms * 2.23694).toFixed(1)} mph)`);
     if (handOmega > armOmega.peak) {
-      armOmega = { peak: handOmega, peakIdx: handSpeed.peakIdx };
+      armOmega = { peak: handOmega, peakIdx: deliveryStart + handSpeed.peakIdx };
       armSourceColumn = 'hand_speed';
     }
   }
