@@ -4,17 +4,40 @@
  * CSV PARSER ONLY — no scoring math lives here.
  *
  * Responsibility: parse Reboot Motion IK + ME CSV data,
- * normalize to ScoreCalculationInput, then call computeScoringResult
- * from the shared calculate-4b-scores module.
+ * normalize to ScoreCalculationInput, then call the deployed
+ * calculate-4b-scores edge function via HTTP.
  *
  * Formula lives in ONE place: calculate-4b-scores/index.ts
+ * This function calls it over HTTP (edge functions are bundled independently).
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Import shared formula — the ONLY place scoring math lives
-import { computeScoringResult } from '../calculate-4b-scores/index.ts';
+// ---------------------------------------------------------------------------
+// SCORING ENGINE CALLER (delegates to calculate-4b-scores via HTTP)
+// ---------------------------------------------------------------------------
+
+async function computeScoringResult(input: ScoreCalculationInput): Promise<ScoringResult> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/calculate-4b-scores`, {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Scoring engine returned ${response.status}: ${errText.substring(0, 300)}`);
+  }
+
+  return await response.json() as ScoringResult;
+}
 
 // ---------------------------------------------------------------------------
 // TYPES (inlined — edge functions cannot import from src/)
@@ -22,6 +45,9 @@ import { computeScoringResult } from '../calculate-4b-scores/index.ts';
 
 type ScoreSource   = 'reboot_csv' | 'sensor' | 'manual';
 type PlayerLevel   = 'youth' | 'high_school' | 'college' | 'pro';
+type ScoringMode   = 'full' | 'training';
+type ScoringVersion = 'v1_legacy' | 'v2';
+type FourBRating   = 'Elite' | 'Good' | 'Working' | 'Priority';
 
 interface ScoreCalculationInput {
   source: ScoreSource;
@@ -43,6 +69,31 @@ interface ScoreCalculationInput {
   hard_hit_rate?: number;
   player_level: PlayerLevel;
   motor_profile?: string;
+}
+
+interface ScoringResult {
+  score_4bkrs: number;
+  mode: ScoringMode;
+  version: ScoringVersion;
+  body: number;
+  brain: number;
+  bat: number;
+  ball: number | null;
+  rating: FourBRating;
+  color: string;
+  creation: number;
+  transfer: number;
+  transfer_ratio: number;
+  timing_gap_pct: number;
+  bat_speed_mph: number | null;
+  exit_velocity_mph: number | null;
+  predicted_bat_speed_mph?: number | null;
+  predicted_exit_velocity_mph?: number | null;
+  predicted_entry_bucket?: string | null;
+  actual_bat_speed_mph?: number | null;
+  actual_exit_velocity_mph?: number | null;
+  actual_entry_bucket?: string | null;
+  scoring_timestamp: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,8 +227,8 @@ serve(async (req: Request) => {
       { player_level, motor_profile, exit_velocity_mph, launch_angle_deg, spray_angle_deg, hard_hit_rate }
     );
 
-    // 2. Score — single call to shared engine (NO formula here)
-    const result = computeScoringResult(input);
+    // 2. Score — HTTP call to shared engine (NO formula here)
+    const result = await computeScoringResult(input);
 
     // 3. Persist to player_sessions if session context provided
     if (session_id && player_id) {
