@@ -74,12 +74,19 @@ const statusColor = (s: string | null) => {
 // ─── Prediction Tile ─────────────────────────────────────────────────────────
 
 function PredictionTileCard({ tile }: { tile: PredictionTile }) {
+  const isEstimation = tile.value.startsWith('~');
   return (
-    <div className="flex-1 min-w-0 bg-slate-800/60 border border-slate-700/40 rounded-xl p-4 text-center space-y-1.5">
+    <div className={`flex-1 min-w-0 border rounded-xl p-4 text-center space-y-1.5 ${
+      isEstimation 
+        ? 'bg-slate-800/30 border-slate-700/30' 
+        : 'bg-slate-800/60 border-slate-700/40'
+    }`}>
       <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider truncate">
         {tile.label}
       </p>
-      <p className={`text-2xl font-black tracking-tight ${tile.available ? 'text-white' : 'text-slate-500'}`}>
+      <p className={`text-2xl font-black tracking-tight ${
+        isEstimation ? 'text-slate-400' : tile.available ? 'text-white' : 'text-slate-500'
+      }`}>
         {tile.value}
       </p>
       <p className="text-[10px] leading-snug text-slate-500">
