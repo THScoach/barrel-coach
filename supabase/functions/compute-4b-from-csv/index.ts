@@ -243,9 +243,11 @@ function parseRebootCSV(
   const pelvis_omega_peak = angMomToOmegaDegS(pelvisAngMomPeak, SEGMENT_MOI.pelvis);
   const trunk_omega_peak  = angMomToOmegaDegS(torsoAngMomPeak, SEGMENT_MOI.torso);
 
-  // Arms: use combined arms column, fall back to single arm, fall back to trunk * 1.3
+  // Arms: use combined arms column if available, otherwise single arm, otherwise derive from trunk
+  const usedCombinedArms = Math.max(...meRows.map(r => Math.abs(r['arms_angular_momentum_mag'] ?? 0))) > 0;
+  const armMoi = usedCombinedArms ? SEGMENT_MOI.arms : SEGMENT_MOI.rarm;
   const arm_omega_peak = armsAngMomPeak > 0
-    ? angMomToOmegaDegS(armsAngMomPeak, armsAngMomPeak === (Math.max(...meRows.map(r => Math.abs(r['arms_angular_momentum_mag'] ?? 0)))) ? SEGMENT_MOI.arms : SEGMENT_MOI.rarm)
+    ? angMomToOmegaDegS(armsAngMomPeak, armMoi)
     : trunk_omega_peak * 1.3;
 
   // Bat: use bat column, fall back to arm * 1.15
