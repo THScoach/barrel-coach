@@ -511,8 +511,9 @@ function computeScoringResult(input: ScoreCalculationInput): ScoringResult {
   const { bat, bat_speed_mph, predicted_bat_speed_mph } = calculateBat(input, input.player_level, transferEfficiency, predictedBatSpeedMph);
   const { ball, usedPrediction } = calculateBall(input, input.player_level, predictedExitVeloMph, transferEfficiency);
 
-  // BALL is now always a number. Mode is 'full' when we have actual outcome data,
-  // 'training' when we used predictions. This preserves the composite weight distinction.
+  // BALL is always computed (from actual or predicted EV).
+  // Mode determines composite weights: training mode uses BALL weight = 0,
+  // but BALL is still stored for diagnostics.
   const hasActualOutcome = input.exit_velocity_mph != null;
   const mode: ScoringMode = hasActualOutcome ? 'full' : 'training';
   const w = WEIGHTS[mode];
