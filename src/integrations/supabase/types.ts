@@ -2848,10 +2848,14 @@ export type Database = {
       }
       player_sessions: {
         Row: {
+          actual_bat_speed_mph: number | null
+          actual_entry_bucket: string | null
+          actual_exit_velocity_mph: number | null
           ball_grade: string | null
           ball_score: number | null
           bat_grade: string | null
           bat_score: number | null
+          bat_speed_mph: number | null
           body_grade: string | null
           body_score: number | null
           brain_grade: string | null
@@ -2861,6 +2865,7 @@ export type Database = {
           created_at: string
           creation_score: number | null
           data_quality: string | null
+          exit_velocity_mph: number | null
           flags: Json | null
           ground_flow: number | null
           id: string
@@ -2871,10 +2876,18 @@ export type Database = {
           overall_grade: string | null
           overall_score: number | null
           player_id: string
+          predicted_bat_speed_mph: number | null
+          predicted_entry_bucket: string | null
+          predicted_exit_velocity_mph: number | null
           projections: Json | null
+          rating: string | null
+          rating_color: string | null
           raw_metrics: Json | null
           reboot_session_id: string | null
+          score_4bkrs: number | null
           scored_at: string | null
+          scoring_mode: string | null
+          scoring_timestamp: string | null
           scoring_version: string | null
           sequence_order: string | null
           session_date: string
@@ -2890,10 +2903,14 @@ export type Database = {
           x_factor_max: number | null
         }
         Insert: {
+          actual_bat_speed_mph?: number | null
+          actual_entry_bucket?: string | null
+          actual_exit_velocity_mph?: number | null
           ball_grade?: string | null
           ball_score?: number | null
           bat_grade?: string | null
           bat_score?: number | null
+          bat_speed_mph?: number | null
           body_grade?: string | null
           body_score?: number | null
           brain_grade?: string | null
@@ -2903,6 +2920,7 @@ export type Database = {
           created_at?: string
           creation_score?: number | null
           data_quality?: string | null
+          exit_velocity_mph?: number | null
           flags?: Json | null
           ground_flow?: number | null
           id?: string
@@ -2913,10 +2931,18 @@ export type Database = {
           overall_grade?: string | null
           overall_score?: number | null
           player_id: string
+          predicted_bat_speed_mph?: number | null
+          predicted_entry_bucket?: string | null
+          predicted_exit_velocity_mph?: number | null
           projections?: Json | null
+          rating?: string | null
+          rating_color?: string | null
           raw_metrics?: Json | null
           reboot_session_id?: string | null
+          score_4bkrs?: number | null
           scored_at?: string | null
+          scoring_mode?: string | null
+          scoring_timestamp?: string | null
           scoring_version?: string | null
           sequence_order?: string | null
           session_date?: string
@@ -2932,10 +2958,14 @@ export type Database = {
           x_factor_max?: number | null
         }
         Update: {
+          actual_bat_speed_mph?: number | null
+          actual_entry_bucket?: string | null
+          actual_exit_velocity_mph?: number | null
           ball_grade?: string | null
           ball_score?: number | null
           bat_grade?: string | null
           bat_score?: number | null
+          bat_speed_mph?: number | null
           body_grade?: string | null
           body_score?: number | null
           brain_grade?: string | null
@@ -2945,6 +2975,7 @@ export type Database = {
           created_at?: string
           creation_score?: number | null
           data_quality?: string | null
+          exit_velocity_mph?: number | null
           flags?: Json | null
           ground_flow?: number | null
           id?: string
@@ -2955,10 +2986,18 @@ export type Database = {
           overall_grade?: string | null
           overall_score?: number | null
           player_id?: string
+          predicted_bat_speed_mph?: number | null
+          predicted_entry_bucket?: string | null
+          predicted_exit_velocity_mph?: number | null
           projections?: Json | null
+          rating?: string | null
+          rating_color?: string | null
           raw_metrics?: Json | null
           reboot_session_id?: string | null
+          score_4bkrs?: number | null
           scored_at?: string | null
+          scoring_mode?: string | null
+          scoring_timestamp?: string | null
           scoring_version?: string | null
           sequence_order?: string | null
           session_date?: string
@@ -6888,6 +6927,48 @@ export type Database = {
           status: string | null
         }
         Relationships: []
+      }
+      sessions_pending_v2_scoring: {
+        Row: {
+          created_at: string | null
+          current_score: number | null
+          player_id: string | null
+          scoring_timestamp: string | null
+          scoring_version: string | null
+          session_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_score?: number | null
+          player_id?: string | null
+          scoring_timestamp?: string | null
+          scoring_version?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_score?: number | null
+          player_id?: string | null
+          scoring_timestamp?: string | null
+          scoring_version?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       unified_sessions: {
         Row: {
