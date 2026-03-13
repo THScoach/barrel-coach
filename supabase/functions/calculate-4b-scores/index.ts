@@ -296,6 +296,8 @@ function predictBatSpeed(
 
   const estimated = armSpeed * chainMultiplier * massFactor * trBonus;
 
+  console.log(`[4B-Score] estimation: { arm_omega: ${input.arm_omega_peak.toFixed(1)}, source_column: "${input.arm_omega_source ?? 'unknown'}", chainMultiplier: ${chainMultiplier.toFixed(3)}, bat_speed_mph: ${(Math.round(estimated * 10) / 10)} }`);
+
   return {
     bat_speed_mph: Math.round(estimated * 10) / 10,
     path: 'estimation',
