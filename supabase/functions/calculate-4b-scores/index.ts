@@ -178,25 +178,37 @@ function toColor(rating: FourBRating): string {
 
 function computeTransferEfficiency(input: ScoreCalculationInput): number {
   // ── Sequence score: did pelvis peak BEFORE trunk? ──────────────────────
-  // Correct proximal-to-distal sequence = 1.0, broken = 0.0
   const sequenceScore = input.pelvis_omega_time < input.trunk_omega_time ? 1.0 : 0.0;
 
-  // ── Timing score: how close is the P→T timing gap to ideal? ───────────
-  // timingGapPct comes from the scoring engine's own calculation
-  // 0% gap from ideal = 1.0, 50%+ gap = 0.0
-  const timingGapMs = Math.abs(input.trunk_omega_time - input.pelvis_omega_time);
-  const pelvisMs = Math.max(1, input.pelvis_omega_time);
-  const timingGapPct = (timingGapMs / pelvisMs) * 100;
+  // ── Timing score: gap as % of swing duration (foot-plant to contact) ──
+  // pelvis_omega_time and trunk_omega_time are ms-from-contact (negative = before contact)
+  // totalSwingDuration = foot-plant-to-contact window ≈ 150–250ms for pro
+  // We approximate this as load_duration + launch_duration, but those may be
+  // the full capture. A better proxy: the span from the earliest peak to contact.
+  // Since times are relative to max-hand (≈ contact), the earliest peak marks
+  // roughly foot-plant. Use that as the denominator.
+  const peakPelvisTimeMs = Math.abs(input.pelvis_omega_time);
+  const peakTrunkTimeMs  = Math.abs(input.trunk_omega_time);
+  const timingGapMs = Math.abs(peakPelvisTimeMs - peakTrunkTimeMs);
+
+  // totalSwingDuration = from earliest segment peak to contact (time 0)
+  // This gives us the foot-plant-to-contact window
+  const totalSwingDurationMs = Math.max(peakPelvisTimeMs, peakTrunkTimeMs, 1);
+
+  const timingGapPct = (timingGapMs / totalSwingDurationMs) * 100;
   const timingScore = Math.max(0, 1 - timingGapPct / 50);
 
-  // ── Composite: 50/50 blend ─────────────────────────────────────────────
-  const transferEfficiency = 0.5 * sequenceScore + 0.5 * timingScore;
-
   console.log(
-    `[4B-Score] transferEfficiency=${transferEfficiency.toFixed(3)} ` +
+    `[4B-Score] transferEff DEBUG: { peakPelvisTime_ms: ${peakPelvisTimeMs.toFixed(1)}, ` +
+    `peakTrunkTime_ms: ${peakTrunkTimeMs.toFixed(1)}, totalSwingDuration_ms: ${totalSwingDurationMs.toFixed(1)}, ` +
+    `timingGapPct: ${timingGapPct.toFixed(1)} }`
+  );
+  console.log(
+    `[4B-Score] transferEfficiency=${(0.5 * sequenceScore + 0.5 * timingScore).toFixed(3)} ` +
     `(sequenceScore=${sequenceScore}, timingGapPct=${timingGapPct.toFixed(1)}%, timingScore=${timingScore.toFixed(3)})`
   );
 
+  const transferEfficiency = 0.5 * sequenceScore + 0.5 * timingScore;
   return Math.max(0, Math.min(1, transferEfficiency));
 }
 
