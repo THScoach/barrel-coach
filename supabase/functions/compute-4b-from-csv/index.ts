@@ -126,8 +126,72 @@ function detectFootPlantFrame(ikRows: Record<string, number>[]): number | undefi
 }
 
 // ---------------------------------------------------------------------------
-// CSV → ScoreCalculationInput NORMALIZER
+// CSV PARSING + NORMALIZATION
 // ---------------------------------------------------------------------------
+
+function splitCsvLine(line: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current.trim());
+  return values;
+}
+
+function parseCsvRows(csvText: string): Record<string, number>[] {
+  const lines = csvText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length < 2) return [];
+
+  const headers = splitCsvLine(lines[0]).map((header) => header.toLowerCase());
+  const rows: Record<string, number>[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitCsvLine(lines[i]);
+    const row: Record<string, number> = {};
+
+    headers.forEach((header, index) => {
+      if (!header) return;
+      const raw = cols[index];
+      if (raw == null || raw === '') return;
+      const value = Number(raw);
+      if (Number.isFinite(value)) {
+        row[header] = value;
+      }
+    });
+
+    if (Object.keys(row).length > 0) {
+      rows.push(row);
+    }
+  }
+
+  return rows;
+}
 
 function parseRebootCSV(
   ikRows: Record<string, number>[],
@@ -203,6 +267,8 @@ serve(async (req: Request) => {
     const {
       ik_csv_rows,
       me_csv_rows,
+      raw_csv_ik,
+      raw_csv_me,
       player_level = 'pro',
       motor_profile,
       exit_velocity_mph,
@@ -211,20 +277,45 @@ serve(async (req: Request) => {
       hard_hit_rate,
       session_id,
       player_id,
+      session_date,
     } = body;
 
-    if (!ik_csv_rows || !me_csv_rows) {
+    const ikRows: Record<string, number>[] = Array.isArray(ik_csv_rows)
+      ? ik_csv_rows
+      : typeof raw_csv_ik === 'string'
+        ? parseCsvRows(raw_csv_ik)
+        : [];
+
+    const meRows: Record<string, number>[] = Array.isArray(me_csv_rows)
+      ? me_csv_rows
+      : typeof raw_csv_me === 'string'
+        ? parseCsvRows(raw_csv_me)
+        : [];
+
+    if (ikRows.length === 0 || meRows.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'ik_csv_rows and me_csv_rows are required' }),
+        JSON.stringify({ error: 'Provide either ik_csv_rows/me_csv_rows arrays or raw_csv_ik/raw_csv_me strings' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const normalizedPlayerLevel: PlayerLevel =
+      player_level === 'youth' || player_level === 'high_school' || player_level === 'college' || player_level === 'pro'
+        ? player_level
+        : 'pro';
+
     // 1. Normalize CSV → ScoreCalculationInput
     const input: ScoreCalculationInput = parseRebootCSV(
-      ik_csv_rows,
-      me_csv_rows,
-      { player_level, motor_profile, exit_velocity_mph, launch_angle_deg, spray_angle_deg, hard_hit_rate }
+      ikRows,
+      meRows,
+      {
+        player_level: normalizedPlayerLevel,
+        motor_profile,
+        exit_velocity_mph,
+        launch_angle_deg,
+        spray_angle_deg,
+        hard_hit_rate,
+      }
     );
 
     // 2. Score — HTTP call to shared engine (NO formula here)
@@ -237,37 +328,63 @@ serve(async (req: Request) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
       );
 
-      const { error: upsertError } = await supabase
-        .from('player_sessions')
-        .upsert({
-          id:                          session_id,
-          player_id,
-          score_4bkrs:                 result.score_4bkrs,
-          scoring_mode:                result.mode,
-          scoring_version:             result.version,
-          body_score:                  result.body,
-          brain_score:                 result.brain,
-          bat_score:                   result.bat,
-          ball_score:                  result.ball,
-          creation_score:              result.creation,
-          transfer_score:              result.transfer,
-          rating:                      result.rating,
-          rating_color:                result.color,
-          transfer_ratio:              result.transfer_ratio,
-          timing_gap_pct:              result.timing_gap_pct,
-          bat_speed_mph:               result.bat_speed_mph,
-          exit_velocity_mph:           result.exit_velocity_mph,
-          predicted_bat_speed_mph:     result.predicted_bat_speed_mph,
-          predicted_exit_velocity_mph: result.predicted_exit_velocity_mph,
-          predicted_entry_bucket:      result.predicted_entry_bucket,
-          actual_bat_speed_mph:        result.actual_bat_speed_mph,
-          actual_exit_velocity_mph:    result.actual_exit_velocity_mph,
-          actual_entry_bucket:         result.actual_entry_bucket,
-          scoring_timestamp:           result.scoring_timestamp,
-        });
+      const sessionPayload = {
+        player_id,
+        reboot_session_id: session_id,
+        session_date: session_date ?? new Date().toISOString(),
+        score_4bkrs: result.score_4bkrs,
+        scoring_mode: result.mode,
+        scoring_version: result.version,
+        body_score: result.body,
+        brain_score: result.brain,
+        bat_score: result.bat,
+        ball_score: result.ball,
+        creation_score: result.creation,
+        transfer_score: result.transfer,
+        rating: result.rating,
+        rating_color: result.color,
+        transfer_ratio: result.transfer_ratio,
+        timing_gap_pct: result.timing_gap_pct,
+        bat_speed_mph: result.bat_speed_mph,
+        exit_velocity_mph: result.exit_velocity_mph,
+        predicted_bat_speed_mph: result.predicted_bat_speed_mph,
+        predicted_exit_velocity_mph: result.predicted_exit_velocity_mph,
+        predicted_entry_bucket: result.predicted_entry_bucket,
+        actual_bat_speed_mph: result.actual_bat_speed_mph,
+        actual_exit_velocity_mph: result.actual_exit_velocity_mph,
+        actual_entry_bucket: result.actual_entry_bucket,
+        scoring_timestamp: result.scoring_timestamp,
+        scored_at: new Date().toISOString(),
+      };
 
-      if (upsertError) {
-        console.error('[compute-4b-from-csv] DB upsert error:', upsertError);
+      const { data: existingSession, error: fetchSessionError } = await supabase
+        .from('player_sessions')
+        .select('id')
+        .eq('player_id', player_id)
+        .eq('reboot_session_id', session_id)
+        .maybeSingle();
+
+      if (fetchSessionError) {
+        console.error('[compute-4b-from-csv] Failed to find existing player_session:', fetchSessionError);
+      }
+
+      if (existingSession?.id) {
+        const { error: updateError } = await supabase
+          .from('player_sessions')
+          .update(sessionPayload)
+          .eq('id', existingSession.id);
+
+        if (updateError) {
+          console.error('[compute-4b-from-csv] DB update error:', updateError);
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('player_sessions')
+          .insert(sessionPayload);
+
+        if (insertError) {
+          console.error('[compute-4b-from-csv] DB insert error:', insertError);
+        }
       }
     }
 
