@@ -84,25 +84,21 @@ Deno.serve(async (req) => {
             return;
           }
 
-          // Call calculate-4b-scores edge function
-          const calcUrl = `${supabaseUrl}/functions/v1/calculate-4b-scores`;
-          const calcBody: Record<string, unknown> = {
-            player_id: session.player_id,
-            session_id: session.reboot_session_id || session.id,
-            raw_csv_me: session.raw_csv_me,
-          };
-
-          if (session.raw_csv_ik && session.raw_csv_ik.trim().length > 50) {
-            calcBody.raw_csv_ik = session.raw_csv_ik;
-          }
-
-          const response = await fetch(calcUrl, {
+          // Call compute-4b-from-csv edge function (CSV parsing + scoring)
+          const computeUrl = `${supabaseUrl}/functions/v1/compute-4b-from-csv`;
+          const response = await fetch(computeUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${supabaseKey}`,
             },
-            body: JSON.stringify(calcBody),
+            body: JSON.stringify({
+              player_id: session.player_id,
+              session_id: session.reboot_session_id || session.id,
+              session_date: session.session_date,
+              raw_csv_me: session.raw_csv_me,
+              raw_csv_ik: session.raw_csv_ik,
+            }),
           });
 
           if (!response.ok) {
@@ -112,45 +108,8 @@ Deno.serve(async (req) => {
 
           const result = await response.json();
 
-          // Update scored_at and scoring_version on the player_session
-          if (result.session_id) {
-            // Extract additional metrics from raw_metrics for the new columns
-            const rawMetrics = result.raw_metrics || {};
-            
-            const updateData: Record<string, unknown> = {
-              scored_at: new Date().toISOString(),
-              scoring_version: SCORING_VERSION,
-              weakest_link: result.leak?.type || null,
-              coaching_summary: result.leak?.caption || null,
-              transfer_ratio: rawMetrics.pelvis_torso_gain || rawMetrics.torso_arm_gain || null,
-              x_factor_max: rawMetrics.avgXFactor || null,
-              creation_score: result.components?.groundFlow || null,
-              transfer_score: result.components?.coreFlow || null,
-              sequence_order: rawMetrics.beat || null,
-              flags: result.data_quality?.warnings || [],
-            };
-
-            // Calculate timing_gap_pct from raw metrics
-            if (rawMetrics.pelvis_torso_gap_ms !== undefined && rawMetrics.pelvis_torso_gap_ms !== null) {
-              updateData.timing_gap_pct = rawMetrics.pelvis_torso_gap_ms;
-            }
-
-            await supabase
-              .from('player_sessions')
-              .update(updateData)
-              .eq('id', result.session_id);
-
-            // Also update session_date if it was wrong
-            if (session.session_date) {
-              await supabase
-                .from('player_sessions')
-                .update({ session_date: session.session_date })
-                .eq('id', result.session_id);
-            }
-          }
-
           processed++;
-          console.log(`[Backfill] ✓ Session ${session.reboot_session_id || session.id} scored: Brain=${result.scores?.brain} Body=${result.scores?.body} Bat=${result.scores?.bat} Ball=${result.scores?.ball}`);
+          console.log(`[Backfill] ✓ Session ${session.reboot_session_id || session.id} scored: Brain=${result.brain} Body=${result.body} Bat=${result.bat} Ball=${result.ball}`);
 
         } catch (err) {
           failed++;
