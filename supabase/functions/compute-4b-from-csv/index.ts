@@ -195,29 +195,88 @@ function parseCsvRows(csvText: string): Record<string, number>[] {
 }
 
 // ---------------------------------------------------------------------------
-// ANGULAR MOMENTUM → ANGULAR VELOCITY CONVERSION
+// IK-BASED ANGULAR VELOCITY + BAT SPEED COMPUTATION
 // ---------------------------------------------------------------------------
 
-/**
- * Estimated moments of inertia (kg·m²) for Reboot Motion body segments.
- * Used to convert angular momentum (kg·m²/s) to angular velocity (rad/s).
- * These are population averages; real MOI would need anthropometry.
- */
-const SEGMENT_MOI: Record<string, number> = {
-  pelvis: 0.12,    // Lower torso / pelvis
-  torso:  0.30,    // Upper torso
-  arms:   0.08,    // Combined arms
-  rarm:   0.04,    // Single arm
-  bat:    0.035,   // ~33" 30oz bat
-};
+const FPS = 240;
+const MS_PER_FRAME = 1000 / FPS;
+const RAD_TO_DEG = 180 / Math.PI;
+const M_S_TO_MPH = 2.23694;
 
 /**
- * Convert angular momentum magnitude (kg·m²/s) to angular velocity (deg/s).
- * ω (deg/s) = (L / I) × (180/π)
+ * Compute peak angular velocity (deg/s) from a joint angle timeseries (in radians).
+ * Uses central difference: ω[i] = (θ[i+1] - θ[i-1]) / (2 × Δt)
  */
-function angMomToOmegaDegS(angMomMag: number, moi: number): number {
-  if (moi <= 0) return 0;
-  return (angMomMag / moi) * (180 / Math.PI);
+function peakAngularVelocity(
+  rows: Record<string, number>[],
+  columnName: string
+): { peak: number; peakIdx: number } {
+  let peak = 0;
+  let peakIdx = 0;
+
+  for (let i = 1; i < rows.length - 1; i++) {
+    const prev = rows[i - 1]?.[columnName] ?? 0;
+    const next = rows[i + 1]?.[columnName] ?? 0;
+    const dt = 2 / FPS; // central difference
+    const omega = Math.abs((next - prev) / dt) * RAD_TO_DEG; // rad/s → deg/s
+    if (omega > peak) {
+      peak = omega;
+      peakIdx = i;
+    }
+  }
+
+  return { peak, peakIdx };
+}
+
+/**
+ * Compute bat speed (mph) from bat head 3D position (bhead_x/y/z) in IK data.
+ * v = √(Δx² + Δy² + Δz²) / Δt, then convert m/s → mph.
+ */
+function peakBatSpeed(ikRows: Record<string, number>[]): { speed_mph: number; peakIdx: number } {
+  let peak = 0;
+  let peakIdx = 0;
+  const dt = 1 / FPS;
+
+  for (let i = 1; i < ikRows.length; i++) {
+    const dx = (ikRows[i]?.['bhead_x'] ?? 0) - (ikRows[i - 1]?.['bhead_x'] ?? 0);
+    const dy = (ikRows[i]?.['bhead_y'] ?? 0) - (ikRows[i - 1]?.['bhead_y'] ?? 0);
+    const dz = (ikRows[i]?.['bhead_z'] ?? 0) - (ikRows[i - 1]?.['bhead_z'] ?? 0);
+    const speed_ms = Math.sqrt(dx * dx + dy * dy + dz * dz) / dt;
+    const speed_mph = speed_ms * M_S_TO_MPH;
+    if (speed_mph > peak) {
+      peak = speed_mph;
+      peakIdx = i;
+    }
+  }
+
+  return { speed_mph: Math.round(peak * 10) / 10, peakIdx };
+}
+
+/**
+ * Compute arm angular velocity proxy from hand position derivatives (hand speed).
+ * Uses rhand or lhand position to compute peak angular velocity at ~forearm length.
+ */
+function peakHandSpeed(ikRows: Record<string, number>[]): number {
+  let peak = 0;
+  const dt = 1 / FPS;
+
+  // Try rhand first, then lhand
+  const xCol = ikRows[0]?.['rhand_x'] != null ? 'rhand_x' : 'lhand_x';
+  const yCol = ikRows[0]?.['rhand_y'] != null ? 'rhand_y' : 'lhand_y';
+  const zCol = ikRows[0]?.['rhand_z'] != null ? 'rhand_z' : 'lhand_z';
+
+  for (let i = 1; i < ikRows.length; i++) {
+    const dx = (ikRows[i]?.[xCol] ?? 0) - (ikRows[i - 1]?.[xCol] ?? 0);
+    const dy = (ikRows[i]?.[yCol] ?? 0) - (ikRows[i - 1]?.[yCol] ?? 0);
+    const dz = (ikRows[i]?.[zCol] ?? 0) - (ikRows[i - 1]?.[zCol] ?? 0);
+    const speed_ms = Math.sqrt(dx * dx + dy * dy + dz * dz) / dt;
+    if (speed_ms > peak) peak = speed_ms;
+  }
+
+  // Convert hand speed (m/s) to arm angular velocity proxy (deg/s)
+  // Effective arm length ≈ 0.55m → ω = v / r
+  const armLength = 0.55;
+  return (peak / armLength) * RAD_TO_DEG;
 }
 
 function parseRebootCSV(
@@ -232,56 +291,44 @@ function parseRebootCSV(
     hard_hit_rate?: number;
   }
 ): ScoreCalculationInput {
-  // --- Extract peak angular momentum magnitudes from ME data ---
-  const pelvisAngMomPeak = Math.max(...meRows.map(r => Math.abs(r['lowertorso_angular_momentum_mag'] ?? 0)));
-  const torsoAngMomPeak  = Math.max(...meRows.map(r => Math.abs(r['torso_angular_momentum_mag'] ?? 0)));
-  const batAngMomPeak    = Math.max(...meRows.map(r => Math.abs(r['bat_angular_momentum_mag'] ?? 0)));
-  const armsAngMomPeak   = Math.max(...meRows.map(r => Math.abs(
-    r['arms_angular_momentum_mag'] ?? r['rarm_angular_momentum_mag'] ?? 0
-  )));
+  // --- Angular velocities from IK joint angle derivatives ---
+  const pelvisOmega = peakAngularVelocity(ikRows, 'pelvis_rot');
+  const torsoOmega  = peakAngularVelocity(ikRows, 'torso_rot');
 
-  // --- Convert to angular velocity (deg/s) via estimated MOI ---
-  const pelvis_omega_peak = angMomToOmegaDegS(pelvisAngMomPeak, SEGMENT_MOI.pelvis);
-  const trunk_omega_peak  = angMomToOmegaDegS(torsoAngMomPeak, SEGMENT_MOI.torso);
+  const pelvis_omega_peak = pelvisOmega.peak;
+  const trunk_omega_peak  = torsoOmega.peak;
 
-  // Arms: use combined arms column if available, otherwise single arm, otherwise derive from trunk
-  const usedCombinedArms = Math.max(...meRows.map(r => Math.abs(r['arms_angular_momentum_mag'] ?? 0))) > 0;
-  const armMoi = usedCombinedArms ? SEGMENT_MOI.arms : SEGMENT_MOI.rarm;
-  const arm_omega_peak = armsAngMomPeak > 0
-    ? angMomToOmegaDegS(armsAngMomPeak, armMoi)
-    : trunk_omega_peak * 1.3;
+  // Arm angular velocity from hand speed
+  const arm_omega_peak = peakHandSpeed(ikRows);
 
-  // Bat: use bat column, fall back to arm * 1.15
-  const bat_omega_peak = batAngMomPeak > 0
-    ? angMomToOmegaDegS(batAngMomPeak, SEGMENT_MOI.bat)
-    : arm_omega_peak * 1.15;
+  // Bat angular velocity from bat head linear speed ÷ bat length (~0.84m)
+  const batSpeed = peakBatSpeed(ikRows);
+  const bat_omega_peak = (batSpeed.speed_mph / M_S_TO_MPH) / 0.84 * RAD_TO_DEG;
 
-  console.log(`[CSV→Score] Angular momentum peaks: pelvis=${pelvisAngMomPeak.toFixed(3)}, torso=${torsoAngMomPeak.toFixed(3)}, arms=${armsAngMomPeak.toFixed(3)}, bat=${batAngMomPeak.toFixed(3)}`);
-  console.log(`[CSV→Score] Converted ω (deg/s): pelvis=${pelvis_omega_peak.toFixed(1)}, trunk=${trunk_omega_peak.toFixed(1)}, arm=${arm_omega_peak.toFixed(1)}, bat=${bat_omega_peak.toFixed(1)}`);
+  console.log(`[CSV→Score] IK-derived ω (deg/s): pelvis=${pelvis_omega_peak.toFixed(1)}, trunk=${trunk_omega_peak.toFixed(1)}, arm=${arm_omega_peak.toFixed(1)}, bat_ω=${bat_omega_peak.toFixed(1)}`);
+  console.log(`[CSV→Score] Bat head peak speed: ${batSpeed.speed_mph} mph`);
 
-  // --- Peak frame indices for timing ---
-  const pelvisIdx = meRows.findIndex(r => Math.abs(r['lowertorso_angular_momentum_mag'] ?? 0) === pelvisAngMomPeak);
-  const trunkIdx  = meRows.findIndex(r => Math.abs(r['torso_angular_momentum_mag'] ?? 0) === torsoAngMomPeak);
+  // --- Peak frame indices for timing (use IK-derived peaks) ---
+  const pelvisIdx = pelvisOmega.peakIdx;
+  const trunkIdx  = torsoOmega.peakIdx;
 
   // --- Hip-shoulder separation from IK data ---
   const xFactorPeaks = ikRows.map(r => {
     const torsoRot  = r['torso_rot']  ?? 0;
     const pelvisRot = r['pelvis_rot'] ?? 0;
-    return Math.abs((torsoRot - pelvisRot) * (180 / Math.PI));
+    return Math.abs((torsoRot - pelvisRot) * RAD_TO_DEG);
   });
   const hip_shoulder_sep_max_deg = Math.max(...xFactorPeaks);
 
-  // --- Transfer ratio ---
+  // --- Transfer ratio (trunk/pelvis angular velocity) ---
   const transfer_ratio = pelvis_omega_peak > 0 ? trunk_omega_peak / pelvis_omega_peak : 1;
 
   // --- Timing ---
-  const FPS = 240;
-  const MS_PER_FRAME = 1000 / FPS;
   const pelvis_omega_time = pelvisIdx * MS_PER_FRAME;
   const trunk_omega_time  = trunkIdx  * MS_PER_FRAME;
 
   const load_duration_ms   = pelvisIdx * MS_PER_FRAME;
-  const launch_duration_ms = (meRows.length - pelvisIdx) * MS_PER_FRAME;
+  const launch_duration_ms = Math.max(1, (ikRows.length - pelvisIdx) * MS_PER_FRAME);
 
   // --- Optional: extract mass from ME if masstotal column exists ---
   const massTotal = meRows[0]?.['masstotal'] ?? undefined;
