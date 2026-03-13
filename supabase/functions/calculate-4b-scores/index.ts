@@ -119,9 +119,9 @@ const DEFAULT_MASS_KG: Record<PlayerLevel, number> = {
 
 /** Estimated pitch speed for predicted EV formula */
 const EST_PITCH_SPEED_MPH: Record<PlayerLevel, number> = {
-  youth: 55,
+  youth: 50,
   high_school: 75,
-  college: 85,
+  college: 82,
   pro: 90,
 };
 
@@ -256,45 +256,52 @@ function predictBatSpeed(
   transferEfficiency: number
 ): number {
   const massKg = input.mass_total_kg ?? DEFAULT_MASS_KG[input.player_level] ?? 80;
-  const CONV = 0.02732; // (π/180) * 0.70m * 2.23694 m/s→mph
+  const CONV = (Math.PI / 180) * 0.70 * 2.23694; // 0.02732
 
-  const hasBatTracking = input.bat_omega_peak != null && input.bat_omega_peak > 0;
+  const hasBatTracking = input.bat_omega_peak != null && input.bat_omega_peak > 100;
 
   if (hasBatTracking) {
     // ── DIRECT PATH ──
-    const massMod = Math.min(1.01, Math.max(0.95, Math.sqrt(massKg / 80)));
-    const speed = input.bat_omega_peak! * CONV * massMod;
-    return Math.round(speed * 10) / 10;
+    // bat_omega already reflects full chain transfer — no chain modifiers.
+    const directBatSpeed = input.bat_omega_peak! * CONV;
+    // Mass: √ scaling, meaningful but non-dominant
+    // 45kg youth → 0.95×  |  80kg baseline → 1.00×  |  120kg → 1.01×
+    const massMod = 0.95 + 0.05 * Math.min(1.2, Math.sqrt(massKg / 80));
+    return Math.round(directBatSpeed * massMod * 10) / 10;
   }
 
   // ── ESTIMATION PATH ──
-  const massFactor = Math.min(1.15, Math.max(0.80, Math.sqrt(massKg / 80)));
+  // No bat head data — infer from most-distal segment omega (arm/hand).
+  const armSpeed = input.arm_omega_peak * CONV;
 
-  // Chain multiplier: arm→bat gain (~1.15–1.25 for a good swing)
-  const chainMultiplier = 1.20;
-  const baseBatSpeed = input.arm_omega_peak * CONV * chainMultiplier;
+  // Chain multiplier: how much kinetic chain amplifies distal speed
+  // Range 1.15–1.50 based on transfer efficiency
+  const chainMultiplier = 1.15 + 0.35 * Math.max(0, Math.min(1, transferEfficiency));
 
-  // Transfer ratio quality bonus
+  // Mass factor via √ scaling: range 0.80–1.15
+  const massFactor = Math.max(0.80, Math.min(1.15, Math.sqrt(massKg / 80)));
+
+  // Transfer ratio bonus: reward functioning chain, penalise dysfunction
   const tr = input.transfer_ratio;
-  const trBonus = (tr >= 1.4 && tr <= 1.9) ? 1.0
-    : (tr >= 1.1 && tr <= 2.2) ? 0.92
-    : 0.80;
+  const trBonus = (tr >= 1.3 && tr <= 2.0) ? 1.00
+    : (tr >= 1.0 && tr <= 2.5) ? 0.95
+    : 0.85;
 
-  return Math.round(baseBatSpeed * massFactor * trBonus * 10) / 10;
+  return Math.round(armSpeed * chainMultiplier * massFactor * trBonus * 10) / 10;
 }
 
 /**
  * Predict exit velocity using the Nathan (2003) collision model:
- *   EV = 1.2 × v_bat × collisionEff + 0.2 × v_pitch
- * where collisionEff = 0.70 + 0.20 × min(1, transferEfficiency)
+ *   EV = 1.2 × batSpeed × collisionEff + 0.2 × pitchSpeed
+ * where collisionEff = 0.70 + 0.20 × min(1, max(0, transferEfficiency))
  */
 function predictExitVelocity(
   predictedBatSpeed: number,
   transferEfficiency: number,
   playerLevel: PlayerLevel
 ): number {
-  const pitchSpeed = EST_PITCH_SPEED_MPH[playerLevel] ?? 80;
-  const collisionEff = 0.70 + 0.20 * Math.min(1, transferEfficiency);
+  const pitchSpeed = EST_PITCH_SPEED_MPH[playerLevel] ?? 90;
+  const collisionEff = 0.70 + 0.20 * Math.min(1, Math.max(0, transferEfficiency));
   const ev = 1.2 * predictedBatSpeed * collisionEff + 0.2 * pitchSpeed;
   return Math.round(ev * 10) / 10;
 }
