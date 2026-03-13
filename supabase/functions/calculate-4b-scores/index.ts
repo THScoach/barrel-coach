@@ -177,43 +177,27 @@ function toColor(rating: FourBRating): string {
 // ---------------------------------------------------------------------------
 
 function computeTransferEfficiency(input: ScoreCalculationInput): number {
-  // Ideal path: real energy data from ME
-  if (input.bat_energy_j != null && input.total_body_energy_j != null && input.total_body_energy_j > 0) {
-    return Math.min(1, Math.max(0, input.bat_energy_j / input.total_body_energy_j));
-  }
+  // ── Sequence score: did pelvis peak BEFORE trunk? ──────────────────────
+  // Correct proximal-to-distal sequence = 1.0, broken = 0.0
+  const sequenceScore = input.pelvis_omega_time < input.trunk_omega_time ? 1.0 : 0.0;
 
-  // Proxy path: angular velocity chain ratios
-  const trunkOmega  = Math.max(input.trunk_omega_peak, 1);
-  const armOmega    = Math.max(input.arm_omega_peak, 1);
-  const batOmega    = input.bat_omega_from_ke ?? input.bat_omega_peak ?? armOmega * 0.9;
+  // ── Timing score: how close is the P→T timing gap to ideal? ───────────
+  // timingGapPct comes from the scoring engine's own calculation
+  // 0% gap from ideal = 1.0, 50%+ gap = 0.0
+  const timingGapMs = Math.abs(input.trunk_omega_time - input.pelvis_omega_time);
+  const pelvisMs = Math.max(1, input.pelvis_omega_time);
+  const timingGapPct = (timingGapMs / pelvisMs) * 100;
+  const timingScore = Math.max(0, 1 - timingGapPct / 50);
 
-  const armToTrunk = armOmega / trunkOmega;
-  const armToTrunkScore = armToTrunk > 1.0
-    ? Math.min(1, (armToTrunk - 1.0) / 0.6)
-    : armToTrunk * 0.3;
+  // ── Composite: 50/50 blend ─────────────────────────────────────────────
+  const transferEfficiency = 0.5 * sequenceScore + 0.5 * timingScore;
 
-  const batToArm = batOmega / armOmega;
-  const batToArmScore = batToArm > 1.0
-    ? Math.min(1, (batToArm - 1.0) / 0.3 * 0.5 + 0.5)
-    : batToArm * 0.4;
-
-  const tr = input.transfer_ratio;
-  const trNorm = (tr >= TRANSFER_RATIO_ELITE.min && tr <= TRANSFER_RATIO_ELITE.max)
-    ? 1.0
-    : tr < TRANSFER_RATIO_ELITE.min
-      ? Math.max(0, Math.min(1, (tr - 0.8) / (TRANSFER_RATIO_ELITE.min - 0.8)))
-      : Math.max(0, Math.min(1, 1 - (tr - TRANSFER_RATIO_ELITE.max) / (2.5 - TRANSFER_RATIO_ELITE.max)));
-
-  const sequencingBonus = input.pelvis_omega_time < input.trunk_omega_time ? 1.0 : 0.5;
-
-  const raw = (
-    armToTrunkScore * 0.30 +
-    batToArmScore   * 0.30 +
-    trNorm          * 0.25 +
-    sequencingBonus * 0.15
+  console.log(
+    `[4B-Score] transferEfficiency=${transferEfficiency.toFixed(3)} ` +
+    `(sequenceScore=${sequenceScore}, timingGapPct=${timingGapPct.toFixed(1)}%, timingScore=${timingScore.toFixed(3)})`
   );
 
-  return Math.max(0, Math.min(1, raw));
+  return Math.max(0, Math.min(1, transferEfficiency));
 }
 
 // ---------------------------------------------------------------------------
@@ -331,6 +315,12 @@ function predictExitVelocity(
   const pitchSpeed = EST_PITCH_SPEED_MPH[playerLevel] ?? 90;
   const collisionEff = 0.70 + 0.20 * Math.min(1, Math.max(0, transferEfficiency));
   const ev = 1.2 * predictedBatSpeed * collisionEff + 0.2 * pitchSpeed;
+
+  console.log(
+    `[4B-Score] predictExitVelocity: transferEfficiency=${transferEfficiency.toFixed(3)}, ` +
+    `collisionEff=${collisionEff.toFixed(3)}, batSpeed=${predictedBatSpeed.toFixed(1)}, ` +
+    `pitchSpeed=${pitchSpeed}, EV=${ev.toFixed(1)} mph`
+  );
 
   return {
     exit_velocity_mph: Math.round(ev * 10) / 10,
