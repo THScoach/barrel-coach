@@ -254,49 +254,47 @@ function peakAngularVelocity5Frame(
 }
 
 /**
- * Find the contact frame index (frame where time_from_max_hand ≈ 0).
- * Checks multiple possible column name variants (headers are lowercased).
- * Falls back to null if no time column exists.
+ * Find the contact frame index.
+ * Strategy: find the frame of peak hand speed (proxy for max-hand / contact).
+ * If hand position columns aren't available, use peak pelvis omega as anchor.
  */
-function findContactFrameIndex(rows: Record<string, number>[]): number | null {
-  const candidates = [
-    'time_from_max_hand', 'timefrommax_hand', 'time_from_max_hand_speed',
-    'timefrommax_handspeed', 'time_from_maxhand', 'time',
+function findContactFrameIndex(
+  rows: Record<string, number>[],
+  pelvisPeakIdx: number
+): number {
+  // Try to find peak hand speed from position data
+  const handCols = [
+    { x: 'rhand_x', y: 'rhand_y', z: 'rhand_z' },
+    { x: 'lhand_x', y: 'lhand_y', z: 'lhand_z' },
   ];
 
-  // Log available columns that contain 'time' for debugging
-  const sampleRow = rows[0] ?? {};
-  const timeCols = Object.keys(sampleRow).filter(k => k.includes('time') || k.includes('frame'));
-  console.log(`[CSV→Score] Available time/frame columns: ${timeCols.join(', ') || 'NONE'}`);
+  let bestSpeed = 0;
+  let contactIdx = pelvisPeakIdx; // fallback
 
-  let timeCol: string | null = null;
-  for (const c of candidates) {
-    if (rows.some(r => r[c] != null)) {
-      timeCol = c;
-      break;
+  for (const { x, y, z } of handCols) {
+    const hasData = rows.some(r => r[x] != null && r[x] !== 0);
+    if (!hasData) continue;
+
+    const dt = 1 / FPS;
+    for (let i = 1; i < rows.length; i++) {
+      const dx = (rows[i]?.[x] ?? 0) - (rows[i - 1]?.[x] ?? 0);
+      const dy = (rows[i]?.[y] ?? 0) - (rows[i - 1]?.[y] ?? 0);
+      const dz = (rows[i]?.[z] ?? 0) - (rows[i - 1]?.[z] ?? 0);
+      const speed = Math.sqrt(dx * dx + dy * dy + dz * dz) / dt;
+      if (speed > bestSpeed) {
+        bestSpeed = speed;
+        contactIdx = i;
+      }
     }
   }
 
-  if (!timeCol) {
-    console.warn(`[CSV→Score] No time_from_max_hand column found — cannot determine contact frame`);
-    return null;
+  if (bestSpeed > 0) {
+    console.log(`[CSV→Score] Contact frame from peak hand speed: frame ${contactIdx} (speed=${(bestSpeed * 2.23694).toFixed(1)} mph)`);
+  } else {
+    console.log(`[CSV→Score] No hand position data — using pelvis peak frame ${pelvisPeakIdx} as contact proxy`);
   }
 
-  console.log(`[CSV→Score] Using time column: "${timeCol}"`);
-
-  let bestIdx = 0;
-  let bestAbs = Infinity;
-  for (let i = 0; i < rows.length; i++) {
-    const t = rows[i][timeCol];
-    if (t == null) continue;
-    const absT = Math.abs(t);
-    if (absT < bestAbs) {
-      bestAbs = absT;
-      bestIdx = i;
-    }
-  }
-  console.log(`[CSV→Score] Contact frame index: ${bestIdx} (${timeCol}=${rows[bestIdx]?.[timeCol]})`);
-  return bestIdx;
+  return contactIdx;
 }
 
 /**
