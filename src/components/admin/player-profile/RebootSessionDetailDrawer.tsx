@@ -2,7 +2,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Calendar, Hash, MapPin, FileText, Video, ExternalLink, Activity, ChevronDown, Zap, Brain, Target } from "lucide-react";
+import {
+  Calendar, MapPin, Video, ExternalLink, Activity,
+  ChevronDown, Zap, Brain, Target, TrendingUp,
+  ArrowRight, Dumbbell, Eye, Gauge
+} from "lucide-react";
 import { DrillSessionBanner } from "./DrillSessionBanner";
 import { SessionTypeBadge } from "./SessionTypeBadge";
 import { format } from "date-fns";
@@ -10,7 +14,15 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ScoreBadge, getScoreGrade } from "@/components/ui/ScoreBadge";
+import { ScoreBadge } from "@/components/ui/ScoreBadge";
+import {
+  buildCoachingReport,
+  type CoachingReportData,
+  type PillarQuestion,
+  type PredictionTile,
+  type ActualVsPredicted,
+  type SessionScoreData,
+} from "@/lib/coachingReport";
 
 interface RebootSession {
   id: string;
@@ -59,71 +71,96 @@ const statusColor = (s: string | null) => {
   return "bg-red-500/15 text-red-400 border-red-500/30";
 };
 
-function getPlainExplanation(pillar: string, score: number | null | undefined): string | null {
-  if (score == null) return null;
-  const explanations: Record<string, string[]> = {
-    body: [
-      "Your body isn't getting energy to the ball. This is the priority fix.",
-      "Your body is generating power but losing some along the way.",
-      "Your body is working well — small leaks to clean up.",
-      "Your body is generating and transferring energy like a pro.",
-    ],
-    brain: [
-      "Timing is the issue. Your body can't fire if you're early or late.",
-      "Your timing is inconsistent — costing you at-bats.",
-      "Your timing is sharp. Minor rhythm issues to dial in.",
-      "Your timing is elite — you're in sync with every pitch.",
-    ],
-    bat: [
-      "Bat delivery is breaking down. Drills needed here.",
-      "The barrel is getting there but the path needs work.",
-      "Good bat path. Small delivery issues to clean up.",
-      "The barrel is exactly where it needs to be.",
-    ],
-    ball: [
-      "Results aren't there yet. Process work comes first.",
-      "Outcomes are inconsistent — mechanics aren't translating yet.",
-      "Solid outcomes. Mechanics are holding up in games.",
-      "Elite contact quality. The data matches the eye test.",
-    ],
-    overall: [
-      "Priority. Fundamental issues to address first.",
-      "Working. Clear path to improvement.",
-      "Good. College or MiLB level mechanics.",
-      "Elite. MLB-caliber swing mechanics.",
-    ],
-  };
-  const tier = score >= 90 ? 3 : score >= 80 ? 2 : score >= 60 ? 1 : 0;
-  return explanations[pillar]?.[tier] ?? null;
-}
+// ─── Prediction Tile ─────────────────────────────────────────────────────────
 
-function ScoreCard({ label, score, icon: Icon, pillar }: { label: string; score: number; icon: any; pillar: string }) {
-  const explanation = getPlainExplanation(pillar, score);
+function PredictionTileCard({ tile }: { tile: PredictionTile }) {
   return (
-    <div className="bg-slate-800/60 rounded-lg p-3 text-center space-y-1">
-      <div className="flex items-center justify-center gap-1.5 text-slate-400">
-        <Icon className="h-3.5 w-3.5" />
-        <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
-      </div>
-      <ScoreBadge score={score} size="md" />
-      <p className="text-[10px] text-slate-500">{getScoreGrade(score)}</p>
-      {explanation && (
-        <p className="text-[10px] leading-tight text-slate-400/80 pt-0.5">{explanation}</p>
-      )}
+    <div className="flex-1 min-w-0 bg-slate-800/60 border border-slate-700/40 rounded-xl p-4 text-center space-y-1.5">
+      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider truncate">
+        {tile.label}
+      </p>
+      <p className={`text-2xl font-black tracking-tight ${tile.available ? 'text-white' : 'text-slate-500'}`}>
+        {tile.value}
+      </p>
+      <p className="text-[10px] leading-snug text-slate-500">
+        {tile.subLabel}
+      </p>
     </div>
   );
 }
 
+// ─── Actual vs Predicted Row ─────────────────────────────────────────────────
+
+function ActualRow({ item }: { item: ActualVsPredicted }) {
+  const gapColor = item.gap > 0 ? 'text-orange-400' : item.gap < 0 ? 'text-teal-400' : 'text-slate-400';
+  return (
+    <div className="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
+      <div className="flex items-center gap-2">
+        <Gauge className="h-3.5 w-3.5 text-slate-500" />
+        <span className="text-sm text-slate-300 font-medium">{item.metric}</span>
+      </div>
+      <div className="flex items-center gap-3 text-sm">
+        <span className="text-white font-bold">{item.actual} {item.unit}</span>
+        <span className="text-slate-500 text-xs">(Body says ~{Math.round(item.predicted)})</span>
+        {item.gap !== 0 && (
+          <span className={`text-xs font-semibold ${gapColor}`}>
+            {item.gap > 0 ? `+${item.gap} left` : `${item.gap} over`}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Pillar Question Card ────────────────────────────────────────────────────
+
+const PILLAR_ICONS: Record<string, any> = {
+  BRAIN: Brain,
+  BODY: Activity,
+  BAT: Zap,
+  BALL: Target,
+};
+
+function PillarQuestionCard({ data }: { data: PillarQuestion }) {
+  const Icon = PILLAR_ICONS[data.pillar] ?? Activity;
+  return (
+    <div
+      className="bg-slate-800/50 rounded-xl p-3 space-y-1.5"
+      style={{ borderLeft: `3px solid ${data.color}` }}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <Icon className="h-3.5 w-3.5" style={{ color: data.color }} />
+          <span className="text-xs font-semibold text-slate-300">{data.question}</span>
+        </div>
+        {data.score != null && (
+          <ScoreBadge score={data.score} size="sm" />
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <Badge
+          variant="outline"
+          className="text-[10px] py-0 px-1.5"
+          style={{ borderColor: data.color, color: data.color }}
+        >
+          {data.label}
+        </Badge>
+      </div>
+      <p className="text-[11px] leading-snug text-slate-400">{data.explanation}</p>
+    </div>
+  );
+}
+
+// ─── Main Drawer ─────────────────────────────────────────────────────────────
+
 export function RebootSessionDetailDrawer({ open, onOpenChange, session }: RebootSessionDetailDrawerProps) {
   const [rawOpen, setRawOpen] = useState(false);
 
-  // Fetch linked player_session scores
   const { data: playerSession } = useQuery({
     queryKey: ["player-session-scores", session?.player_id, session?.reboot_session_id],
     queryFn: async () => {
       if (!session?.player_id) return null;
 
-      // Try by reboot_session_id first
       if (session.reboot_session_id) {
         const { data } = await supabase
           .from("player_sessions")
@@ -136,7 +173,6 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
         if (data) return data;
       }
 
-      // Fallback: match by player_id + session date
       if (session.session_date) {
         const dateStr = session.session_date.split("T")[0];
         const { data } = await supabase
@@ -151,7 +187,6 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
         if (data) return data;
       }
 
-      // Last fallback: most recent player_session for this player
       const { data } = await supabase
         .from("player_sessions")
         .select("*")
@@ -170,20 +205,25 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
     ? `https://app.rebootmotion.com/sessions/${session.reboot_session_id}`
     : null;
 
-  const hasScores = playerSession?.overall_score != null;
+  const hasScores = playerSession?.overall_score != null || playerSession?.score_4bkrs != null;
+
+  // Build the coaching report from session data
+  const report: CoachingReportData | null = hasScores && playerSession
+    ? buildCoachingReport(playerSession as unknown as SessionScoreData)
+    : null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="bg-slate-900 border-slate-700 w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader className="pb-4">
+      <SheetContent side="right" className="bg-slate-900 border-slate-700 w-full sm:max-w-xl overflow-y-auto">
+        <SheetHeader className="pb-3">
           <SheetTitle className="text-white flex items-center gap-2">
             <Activity className="h-5 w-5 text-purple-400" />
-            Reboot Session
+            Session Report
           </SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-6">
-          {/* Header info */}
+        <div className="space-y-5">
+          {/* ── Header badges ── */}
           <div className="flex flex-wrap items-center gap-2">
             {session.session_date && (
               <Badge variant="outline" className="border-slate-700 text-slate-300 gap-1.5">
@@ -202,79 +242,157 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
             <SessionTypeBadge sessionType={(session as any).session_type} drillName={(session as any).drill_name} />
           </div>
 
-          {/* Drill Session Banner */}
           <DrillSessionBanner sessionType={(session as any).session_type} drillName={(session as any).drill_name} />
 
-          {/* 4BKRS Score Card */}
-          {hasScores && (
-            <>
-              <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">4BKRS Score</h3>
-                  <div className="flex items-center gap-2">
-                    <ScoreBadge score={playerSession.overall_score} size="lg" showGrade />
-                  </div>
-                </div>
-                {playerSession.overall_score != null && (
-                  <p className="text-xs text-slate-400 text-center -mt-1">
-                    {getPlainExplanation("overall", playerSession.overall_score)}
-                  </p>
-                )}
-                <div className="grid grid-cols-4 gap-2">
-                  <ScoreCard label="Body" score={playerSession.body_score} icon={Activity} pillar="body" />
-                  <ScoreCard label="Brain" score={playerSession.brain_score} icon={Brain} pillar="brain" />
-                  <ScoreCard label="Bat" score={playerSession.bat_score} icon={Zap} pillar="bat" />
-                  {playerSession.ball_score != null && (
-                    <ScoreCard label="Ball" score={playerSession.ball_score} icon={Target} pillar="ball" />
+          {/* ── Overall Score Header ── */}
+          {report && (
+            <div className="flex items-center justify-between bg-slate-800/40 border border-slate-700/50 rounded-xl px-4 py-3">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Score</p>
+                <p className="text-lg font-bold text-white">{report.overallRating}</p>
+              </div>
+              <ScoreBadge score={report.overallScore} size="lg" showGrade />
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {/*  SECTION 1: "What your body can do" — Predictions              */}
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {report && (
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-purple-400" />
+                <h3 className="text-sm font-bold text-slate-200">What your body can do</h3>
+              </div>
+              <div className="flex gap-2">
+                {report.predictions.map((tile, i) => (
+                  <PredictionTileCard key={i} tile={tile} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {/*  SECTION 2: "What actually happened" — Actuals + gap           */}
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {report && (
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2">
+                <Gauge className="h-4 w-4 text-blue-400" />
+                <h3 className="text-sm font-bold text-slate-200">What actually happened today</h3>
+              </div>
+              {report.hasActuals ? (
+                <div className="space-y-2">
+                  {report.actuals.map((item, i) => (
+                    <ActualRow key={i} item={item} />
+                  ))}
+                  {report.gapSummary && (
+                    <p className="text-xs text-slate-400 italic px-1">{report.gapSummary}</p>
                   )}
                 </div>
-                {playerSession.leak_type && playerSession.leak_type !== 'unknown' && playerSession.leak_type !== 'clean_transfer' && (
-                  <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
-                    <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-1">Energy Leak</p>
-                    <p className="text-sm text-orange-300">{playerSession.leak_caption || playerSession.leak_type.replace(/_/g, ' ')}</p>
-                    {playerSession.leak_training && (
-                      <p className="text-xs text-orange-400/70 mt-1">{playerSession.leak_training}</p>
-                    )}
+              ) : (
+                <div className="bg-slate-800/30 border border-dashed border-slate-700/50 rounded-xl p-4">
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    {report.noActualsMessage}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {/*  SECTION 3: 4 Pillars as simple questions                     */}
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {report && (
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-teal-400" />
+                <h3 className="text-sm font-bold text-slate-200">The 4 B's</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {report.pillarQuestions.map((pq) => (
+                  <PillarQuestionCard key={pq.pillar} data={pq} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {/*  SECTION 4: "What to train next" — Coaching                   */}
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {report && (
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2">
+                <Dumbbell className="h-4 w-4 text-orange-400" />
+                <h3 className="text-sm font-bold text-slate-200">What to train next</h3>
+              </div>
+              <div className="bg-orange-500/5 border border-orange-500/20 rounded-xl p-4 space-y-3">
+                <p className="text-sm font-bold text-orange-300">{report.coaching.title}</p>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  {report.coaching.explanation}
+                </p>
+                {report.coaching.drills.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {report.coaching.drills.map((drill, i) => (
+                      <div
+                        key={i}
+                        className="bg-slate-800/80 border border-orange-500/20 rounded-lg px-3 py-2 text-xs"
+                      >
+                        <span className="text-orange-300 font-semibold">{drill.name}</span>
+                        <span className="text-slate-500 ml-1.5">– {drill.prescription}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
-                {playerSession.swing_count && (
-                  <p className="text-xs text-slate-500 text-right">{playerSession.swing_count} swings analyzed</p>
-                )}
               </div>
-            </>
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {/*  FOOTER: "If this improves…" Projection                       */}
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {report && report.projection.evGain > 0 && (
+            <div className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 rounded-xl p-4">
+              <div className="flex items-start gap-2">
+                <TrendingUp className="h-4 w-4 text-purple-400 mt-0.5 shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-purple-300 uppercase tracking-wider">If this improves…</p>
+                  <p className="text-sm text-slate-300 leading-relaxed">{report.projection.text}</p>
+                </div>
+              </div>
+            </div>
           )}
 
           <Separator className="bg-slate-700" />
 
-          {/* Key details */}
-          <div>
-            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Session Details</h3>
-            <div className="bg-slate-800/50 rounded-lg p-4 space-y-0">
-              <MetricRow label="Session Number" value={session.session_number} />
-              <MetricRow label="Movement Type" value={session.movement_type} />
-              <MetricRow label="Location" value={session.location} />
-              <MetricRow
-                label="Completed At"
-                value={session.completed_at ? format(new Date(session.completed_at), "MMM d, yyyy h:mm a") : null}
-              />
-              <MetricRow
-                label="Exported At"
-                value={session.exported_at ? format(new Date(session.exported_at), "MMM d, yyyy h:mm a") : null}
-              />
-              <MetricRow
-                label="Processed At"
-                value={session.processed_at ? format(new Date(session.processed_at), "MMM d, yyyy h:mm a") : null}
-              />
-            </div>
-          </div>
+          {/* ── Session Details (collapsed) ── */}
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-semibold text-slate-400 uppercase tracking-wider py-1 hover:text-slate-300 transition-colors">
+              Session Details
+              <ChevronDown className="h-4 w-4" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="bg-slate-800/50 rounded-lg p-4 space-y-0 mt-2">
+                <MetricRow label="Session Number" value={session.session_number} />
+                <MetricRow label="Movement Type" value={session.movement_type} />
+                <MetricRow label="Location" value={session.location} />
+                <MetricRow
+                  label="Completed At"
+                  value={session.completed_at ? format(new Date(session.completed_at), "MMM d, yyyy h:mm a") : null}
+                />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
-          {/* Files */}
+          {/* ── Files ── */}
           {(session.ik_file_path || session.me_file_path || session.video_url) && (
-            <>
-              <Separator className="bg-slate-700" />
-              <div>
-                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Files</h3>
-                <div className="bg-slate-800/50 rounded-lg p-4 space-y-0">
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-semibold text-slate-400 uppercase tracking-wider py-1 hover:text-slate-300 transition-colors">
+                Files
+                <ChevronDown className="h-4 w-4" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="bg-slate-800/50 rounded-lg p-4 space-y-0 mt-2">
                   <MetricRow label="IK File" value={session.ik_file_path} />
                   <MetricRow label="ME File" value={session.me_file_path} />
                   {session.video_url && (
@@ -293,52 +411,42 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
                     </div>
                   )}
                 </div>
-              </div>
-            </>
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           {/* Notes */}
           {session.notes && (
-            <>
-              <Separator className="bg-slate-700" />
-              <div>
-                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Notes</h3>
-                <p className="text-slate-300 text-sm bg-slate-800/50 rounded-lg p-4">{session.notes}</p>
-              </div>
-            </>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">Notes</h3>
+              <p className="text-slate-300 text-sm bg-slate-800/50 rounded-lg p-4">{session.notes}</p>
+            </div>
           )}
 
           {/* Error */}
           {session.error_message && (
-            <>
-              <Separator className="bg-slate-700" />
-              <div>
-                <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3">Error</h3>
-                <p className="text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-                  {session.error_message}
-                </p>
-              </div>
-            </>
+            <div>
+              <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-2">Error</h3>
+              <p className="text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                {session.error_message}
+              </p>
+            </div>
           )}
 
           {/* View in Reboot */}
           {rebootUrl && (
-            <>
-              <Separator className="bg-slate-700" />
-              <Button
-                asChild
-                className="w-full bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-700 hover:to-indigo-600"
-              >
-                <a href={rebootUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View in Reboot Motion
-                </a>
-              </Button>
-            </>
+            <Button
+              asChild
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-700 hover:to-indigo-600"
+            >
+              <a href={rebootUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                View in Reboot Motion
+              </a>
+            </Button>
           )}
 
           {/* Raw Data */}
-          <Separator className="bg-slate-700" />
           <Collapsible open={rawOpen} onOpenChange={setRawOpen}>
             <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-semibold text-slate-400 uppercase tracking-wider py-1 hover:text-slate-300 transition-colors">
               Raw Data
@@ -346,7 +454,7 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
             </CollapsibleTrigger>
             <CollapsibleContent>
               <pre className="text-xs text-slate-400 bg-slate-800/50 rounded-lg p-4 mt-2 overflow-auto max-h-80 whitespace-pre-wrap break-all">
-                {JSON.stringify(session, null, 2)}
+                {JSON.stringify({ session, scores: playerSession }, null, 2)}
               </pre>
             </CollapsibleContent>
           </Collapsible>
@@ -355,7 +463,6 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
           <div className="text-xs text-slate-500 space-y-1 pt-2">
             <div>ID: {session.id}</div>
             {session.reboot_session_id && <div>Reboot Session: {session.reboot_session_id}</div>}
-            {session.reboot_player_id && <div>Reboot Player: {session.reboot_player_id}</div>}
             {session.created_at && <div>Created: {format(new Date(session.created_at), "MMM d, yyyy h:mm a")}</div>}
           </div>
         </div>
