@@ -440,26 +440,27 @@ Priority Area: ${lowestPillar || "Unknown"}`;
       { role: "user" as const, content: message },
     ];
 
-    console.log("Calling Claude API with", claudeMessages.length, "messages");
+    console.log("Calling Lovable AI with", claudeMessages.length, "messages");
 
-    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        "x-api-key": anthropicApiKey,
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${lovableApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "google/gemini-2.5-flash",
         max_tokens: 400,
-        system: systemPrompt,
-        messages: claudeMessages,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...claudeMessages,
+        ],
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("Claude API error:", aiResponse.status, errorText);
+      console.error("Lovable AI error:", aiResponse.status, errorText);
 
       if (aiResponse.status === 429) {
         return new Response(
@@ -467,11 +468,17 @@ Priority Area: ${lowestPillar || "Unknown"}`;
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      throw new Error(`Claude API error: ${aiResponse.status}`);
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "AI credits exhausted. Please add funds in your Lovable workspace settings." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      throw new Error(`Lovable AI error: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
-    const assistantMessage = aiData.content?.[0]?.text || "Sorry, I couldn't process that. Try again!";
+    const assistantMessage = aiData.choices?.[0]?.message?.content || "Sorry, I couldn't process that. Try again!";
 
     // ── 7. Save Messages ────────────────────────────────────────────────
 
