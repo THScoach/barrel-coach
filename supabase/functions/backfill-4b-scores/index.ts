@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
               session_date: session.session_date,
               raw_csv_me: session.raw_csv_me,
               raw_csv_ik: session.raw_csv_ik,
+              measured_bat_speed_mph: session.measured_bat_speed_mph,
             }),
           });
 
