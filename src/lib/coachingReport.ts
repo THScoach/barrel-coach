@@ -97,6 +97,8 @@ export interface SessionScoreData {
   creation_score: number | null;
   transfer_score: number | null;
   score_4bkrs: number | null;
+  bat_speed_source: string | null;
+  bat_speed_confidence: string | null;
 }
 
 // ---------------------------------------------------------------------------
