@@ -829,6 +829,16 @@ export default function AdminPlayerProfile() {
           </Tabs>
         )}
 
+        {/* Coach Rick AI Chat - player-aware */}
+        {!isNew && player?.players_id && (
+          <div className="mt-6">
+            <CoachRickChat 
+              playerId={player.players_id} 
+              playerName={getPlayerName()}
+            />
+          </div>
+        )}
+
         {/* Mobile FAB */}
         {isMobile && (
           <FloatingActionButton 
