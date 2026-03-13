@@ -4,17 +4,40 @@
  * CSV PARSER ONLY — no scoring math lives here.
  *
  * Responsibility: parse Reboot Motion IK + ME CSV data,
- * normalize to ScoreCalculationInput, then call computeScoringResult
- * from the shared calculate-4b-scores module.
+ * normalize to ScoreCalculationInput, then call the deployed
+ * calculate-4b-scores edge function via HTTP.
  *
  * Formula lives in ONE place: calculate-4b-scores/index.ts
+ * This function calls it over HTTP (edge functions are bundled independently).
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Import shared formula — the ONLY place scoring math lives
-import { computeScoringResult } from '../calculate-4b-scores/index.ts';
+// ---------------------------------------------------------------------------
+// SCORING ENGINE CALLER (delegates to calculate-4b-scores via HTTP)
+// ---------------------------------------------------------------------------
+
+async function computeScoringResult(input: ScoreCalculationInput): Promise<ScoringResult> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/calculate-4b-scores`, {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Scoring engine returned ${response.status}: ${errText.substring(0, 300)}`);
+  }
+
+  return await response.json() as ScoringResult;
+}
 
 // ---------------------------------------------------------------------------
 // TYPES (inlined — edge functions cannot import from src/)
