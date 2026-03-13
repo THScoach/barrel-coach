@@ -415,9 +415,12 @@ function parseRebootCSV(
   const deliveryEnd = Math.min(ikRows.length - 1, contactFrameIdx + 12); // 12 frames = 50ms
   console.log(`[CSV→Score] delivery window: contactFrame=${contactFrameIdx}, range=[${deliveryStart}, ${deliveryEnd}] (${deliveryEnd - deliveryStart + 1} frames)`);
 
-  // --- Pelvis & trunk peaks WITHIN delivery window ---
+  // --- Pelvis peak WITHIN delivery window (unchanged) ---
   const pelvisOmega = windowedPeakAngularVelocity(ikRows, 'pelvis_rot', deliveryStart, deliveryEnd, 1200);
-  const torsoOmega  = windowedPeakAngularVelocity(ikRows, 'torso_rot', deliveryStart, deliveryEnd, 1200);
+
+  // --- Trunk peak PRE-CONTACT only: [contact-600ms, contact-2 frames] ---
+  const trunkWindowEnd = Math.min(ikRows.length - 1, contactFrameIdx - 2);
+  const torsoOmega  = windowedPeakAngularVelocity(ikRows, 'torso_rot', deliveryStart, trunkWindowEnd, 1200);
 
   // --- Pelvis/trunk omega times as time-from-contact (ms) ---
   // peakIdx is within the delivery window; subtract contactFrameIdx to get relative ms
