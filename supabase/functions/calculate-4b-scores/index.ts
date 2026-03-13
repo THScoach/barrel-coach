@@ -396,9 +396,8 @@ function calculateBrain(input: ScoreCalculationInput): number {
   const tempoRatio = input.load_duration_ms / Math.max(input.launch_duration_ms, 1);
   const tempoScore = lerp(Math.abs(tempoRatio - 2.0), 0.2, 1.0, 100, 20);
 
-  const totalSwingMs  = input.load_duration_ms + input.launch_duration_ms;
   const timingGapMs   = input.trunk_omega_time - input.pelvis_omega_time;
-  const timingGapPct  = totalSwingMs > 0 ? (timingGapMs / totalSwingMs) * 100 : 0;
+  const timingGapPct  = (timingGapMs / 200) * 100;
   const seqScore = (timingGapPct >= 14 && timingGapPct <= 18) ? 95
     : timingGapPct >= 10 && timingGapPct < 14 ? 75
     : timingGapPct > 18  && timingGapPct <= 22 ? 70
