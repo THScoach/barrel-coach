@@ -255,13 +255,34 @@ function peakAngularVelocity5Frame(
 
 /**
  * Find the contact frame index (frame where time_from_max_hand ≈ 0).
- * Falls back to the frame with the smallest absolute time_from_max_hand value.
- * If the column doesn't exist, returns null.
+ * Checks multiple possible column name variants (headers are lowercased).
+ * Falls back to null if no time column exists.
  */
 function findContactFrameIndex(rows: Record<string, number>[]): number | null {
-  const timeCol = 'time_from_max_hand';
-  const hasCol = rows.some(r => r[timeCol] != null);
-  if (!hasCol) return null;
+  const candidates = [
+    'time_from_max_hand', 'timefrommax_hand', 'time_from_max_hand_speed',
+    'timefrommax_handspeed', 'time_from_maxhand', 'time',
+  ];
+
+  // Log available columns that contain 'time' for debugging
+  const sampleRow = rows[0] ?? {};
+  const timeCols = Object.keys(sampleRow).filter(k => k.includes('time') || k.includes('frame'));
+  console.log(`[CSV→Score] Available time/frame columns: ${timeCols.join(', ') || 'NONE'}`);
+
+  let timeCol: string | null = null;
+  for (const c of candidates) {
+    if (rows.some(r => r[c] != null)) {
+      timeCol = c;
+      break;
+    }
+  }
+
+  if (!timeCol) {
+    console.warn(`[CSV→Score] No time_from_max_hand column found — cannot determine contact frame`);
+    return null;
+  }
+
+  console.log(`[CSV→Score] Using time column: "${timeCol}"`);
 
   let bestIdx = 0;
   let bestAbs = Infinity;
@@ -274,6 +295,7 @@ function findContactFrameIndex(rows: Record<string, number>[]): number | null {
       bestIdx = i;
     }
   }
+  console.log(`[CSV→Score] Contact frame index: ${bestIdx} (${timeCol}=${rows[bestIdx]?.[timeCol]})`);
   return bestIdx;
 }
 
