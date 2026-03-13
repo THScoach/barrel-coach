@@ -119,9 +119,9 @@ const DEFAULT_MASS_KG: Record<PlayerLevel, number> = {
 
 /** Estimated pitch speed for predicted EV formula */
 const EST_PITCH_SPEED_MPH: Record<PlayerLevel, number> = {
-  youth: 55,
+  youth: 50,
   high_school: 75,
-  college: 85,
+  college: 82,
   pro: 90,
 };
 
