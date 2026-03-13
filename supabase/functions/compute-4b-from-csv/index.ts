@@ -253,6 +253,53 @@ function peakAngularVelocity5Frame(
   return { peak, peakIdx };
 }
 
+/** Maximum arm omega cap (elbow/shoulder segment ceiling) */
+const MAX_ARM_OMEGA_DEGS = 2200;
+
+/**
+ * Compute 95th-percentile angular velocity across all frames in the delivery window
+ * for a given IK column. This filters out noise spikes that inflate the raw max.
+ */
+function p95AngularVelocity5Frame(
+  rows: Record<string, number>[],
+  columnName: string,
+): { rawPeak: number; p95: number; peakIdx: number } {
+  const angles = rows.map(r => r[columnName] ?? 0);
+  const dt4 = 4 / FPS;
+  const omegas: number[] = [];
+  let rawPeak = 0;
+  let rawPeakIdx = 0;
+
+  for (let i = 2; i < angles.length - 2; i++) {
+    const omega = Math.abs((angles[i + 2] - angles[i - 2]) / dt4) * RAD_TO_DEG;
+    omegas.push(omega);
+    if (omega > rawPeak) {
+      rawPeak = omega;
+      rawPeakIdx = i;
+    }
+  }
+
+  if (omegas.length === 0) return { rawPeak: 0, p95: 0, peakIdx: 0 };
+
+  // Sort ascending, take 95th percentile
+  const sorted = [...omegas].sort((a, b) => a - b);
+  const p95Idx = Math.floor(sorted.length * 0.95);
+  const p95 = sorted[Math.min(p95Idx, sorted.length - 1)];
+
+  // peakIdx = frame index where value is closest to p95
+  let bestDiff = Infinity;
+  let bestIdx = rawPeakIdx;
+  for (let i = 0; i < omegas.length; i++) {
+    const diff = Math.abs(omegas[i] - p95);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestIdx = i + 2; // offset for the 2-frame stencil
+    }
+  }
+
+  return { rawPeak, p95, peakIdx: bestIdx };
+}
+
 // ---------------------------------------------------------------------------
 // MASS EXTRACTION
 // ---------------------------------------------------------------------------
@@ -288,10 +335,10 @@ function parseRebootCSV(
   const pelvisOmega = peakAngularVelocity5Frame(ikRows, 'pelvis_rot');
   const torsoOmega  = peakAngularVelocity5Frame(ikRows, 'torso_rot');
 
-  // --- Arm omega: 5-frame centred diff across distal IK segments ---
-  // Cap at 3000 deg/s for arm/hand (NOT the 1200 body-segment cap)
-  // Check right_shoulder_rot, right_elbow, left_elbow independently, take max
+  // --- Arm omega: 95th-percentile of 5-frame centred diff across distal IK segments ---
+  // Use p95 instead of raw max to filter noise spikes, then hard-cap at 2200 deg/s
   let armOmega = { peak: 0, peakIdx: 0 };
+  let armSourceColumn = 'none';
 
   const armCandidateColumns = [
     'right_shoulder_rot', 'right_elbow', 'left_elbow',
@@ -300,14 +347,14 @@ function parseRebootCSV(
   ];
 
   for (const col of armCandidateColumns) {
-    // Check column exists with non-zero data
     const hasData = ikRows.some(r => r[col] != null && r[col] !== 0);
     if (!hasData) continue;
 
-    const candidate = peakAngularVelocity5Frame(ikRows, col, 3000);
-    console.log(`[CSV→Score] arm_omega candidate ${col}: ${candidate.peak.toFixed(1)} deg/s at frame ${candidate.peakIdx}`);
-    if (candidate.peak > armOmega.peak) {
-      armOmega = candidate;
+    const result = p95AngularVelocity5Frame(ikRows, col);
+    console.log(`[CSV→Score] arm_omega candidate ${col}: raw_peak=${result.rawPeak.toFixed(1)}, p95=${result.p95.toFixed(1)} deg/s at frame ${result.peakIdx}`);
+    if (result.p95 > armOmega.peak) {
+      armOmega = { peak: result.p95, peakIdx: result.peakIdx };
+      armSourceColumn = col;
     }
   }
 
@@ -316,39 +363,26 @@ function parseRebootCSV(
   const handPrefix = hasRhand ? 'rhand' : 'lhand';
   const handSpeed = peak3DSpeed(ikRows, `${handPrefix}_x`, `${handPrefix}_y`, `${handPrefix}_z`, 25);
   if (handSpeed.speed_ms > 0) {
-    const handOmega = Math.min((handSpeed.speed_ms / 0.55) * RAD_TO_DEG, 3000);
+    const handOmega = Math.min((handSpeed.speed_ms / 0.55) * RAD_TO_DEG, MAX_ARM_OMEGA_DEGS);
     console.log(`[CSV→Score] arm_omega candidate hand_speed: ${handOmega.toFixed(1)} deg/s (${(handSpeed.speed_ms * 2.23694).toFixed(1)} mph)`);
     if (handOmega > armOmega.peak) {
       armOmega = { peak: handOmega, peakIdx: handSpeed.peakIdx };
+      armSourceColumn = 'hand_speed';
     }
   }
 
-  // Diagnostic: if arm_omega is still low, log raw angle values for debugging
-  if (armOmega.peak < 1000) {
-    console.warn(`[CSV→Score] ⚠️ arm_omega_peak=${armOmega.peak.toFixed(1)} deg/s — below 1000, dumping diagnostics`);
-    // Log available columns
-    const sampleRow = ikRows[0] ?? {};
-    const availableCols = Object.keys(sampleRow).filter(k =>
-      k.includes('shoulder') || k.includes('elbow') || k.includes('hand') || k.includes('wrist')
-    );
-    console.log(`[CSV→Score] Available arm IK columns: ${availableCols.join(', ') || 'NONE'}`);
-
-    // Log top 5 raw angle values for right_shoulder_rot
-    for (const diagCol of ['right_shoulder_rot', 'rshoulder_rot', 'right_elbow', 'relbow_rot']) {
-      const vals = ikRows.map(r => r[diagCol]).filter(v => v != null && v !== 0);
-      if (vals.length > 0) {
-        const sorted = [...vals].sort((a, b) => Math.abs(b) - Math.abs(a));
-        console.log(`[CSV→Score] Top 5 raw ${diagCol} values: ${sorted.slice(0, 5).map(v => v.toFixed(4)).join(', ')}`);
-      }
-    }
-  }
-
-  // Fallback: torso × 1.5 if nothing worked (pro torso ~700 → arm ~1050)
+  // Fallback: torso × 1.5 if nothing worked
   if (armOmega.peak === 0) {
     armOmega.peak = torsoOmega.peak * 1.5;
+    armSourceColumn = 'torso_fallback';
     console.log(`[CSV→Score] arm_omega from torso fallback: ${armOmega.peak.toFixed(1)} deg/s`);
   }
 
+  // Hard cap at MAX_ARM_OMEGA_DEGS (2200 deg/s)
+  const rawArmPeak = armOmega.peak;
+  armOmega.peak = Math.min(armOmega.peak, MAX_ARM_OMEGA_DEGS);
+
+  console.log(`[CSV→Score] arm_omega FINAL: { raw_peak_degs: ${rawArmPeak.toFixed(1)}, p95_degs: ${armOmega.peak.toFixed(1)}, clamped_degs: ${armOmega.peak.toFixed(1)}, source_column: "${armSourceColumn}" }`);
   console.log(`[CSV→Score] ✅ FINAL arm_omega_peak=${armOmega.peak.toFixed(1)} deg/s (entering predictBatSpeed)`);
 
   // --- Bat omega from KE inversion (NEW) ---
