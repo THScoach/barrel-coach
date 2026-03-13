@@ -227,8 +227,8 @@ serve(async (req: Request) => {
       { player_level, motor_profile, exit_velocity_mph, launch_angle_deg, spray_angle_deg, hard_hit_rate }
     );
 
-    // 2. Score — single call to shared engine (NO formula here)
-    const result = computeScoringResult(input);
+    // 2. Score — HTTP call to shared engine (NO formula here)
+    const result = await computeScoringResult(input);
 
     // 3. Persist to player_sessions if session context provided
     if (session_id && player_id) {
