@@ -237,39 +237,56 @@ function computeTransferEfficiency(input: ScoreCalculationInput): number {
  *   - transfer_efficiency: how much of that KE reaches the barrel
  *   - transfer_ratio: kinematic chain quality
  */
+/**
+ * Predict bat speed from kinematics and mass.
+ *
+ * Two paths:
+ *   DIRECT  — bat_omega_peak exists (IK tracked bat head)
+ *             Conversion: omega_deg_s * 0.02732 (0.70m radius, deg→rad→mph)
+ *             Mass scaling: √(mass/80), clamped [0.95, 1.01]
+ *             No transfer modifiers — the tracked speed IS the speed.
+ *
+ *   ESTIMATION — no bat tracking, use arm_omega as proxy
+ *             Chain multiplier estimates bat gain from arm speed.
+ *             Mass scaling: √(mass/80), clamped [0.80, 1.15]
+ *             Transfer ratio quality bonus applied.
+ */
 function predictBatSpeed(
   input: ScoreCalculationInput,
   transferEfficiency: number
 ): number {
   const massKg = input.mass_total_kg ?? DEFAULT_MASS_KG[input.player_level] ?? 80;
+  const CONV = 0.02732; // (π/180) * 0.70m * 2.23694 m/s→mph
 
-  // Base from bat omega (or arm omega proxy)
-  const omega = input.bat_omega_peak ?? (input.arm_omega_peak * 1.1);
-  const baseBatSpeed = omega * 0.0236; // existing conversion factor
+  const hasBatTracking = input.bat_omega_peak != null && input.bat_omega_peak > 0;
 
-  // Mass factor: normalized around reference mass (80kg)
-  // More mass = more potential energy, but diminishing returns
-  const massFactor = 0.85 + 0.15 * Math.min(1.3, massKg / 80);
+  if (hasBatTracking) {
+    // ── DIRECT PATH ──
+    const massMod = Math.min(1.01, Math.max(0.95, Math.sqrt(massKg / 80)));
+    const speed = input.bat_omega_peak! * CONV * massMod;
+    return Math.round(speed * 10) / 10;
+  }
 
-  // Transfer modifier: poor transfer_efficiency significantly reduces predicted bat speed
-  // Efficiency 0.3 → 0.55 multiplier; 0.8 → 1.0 multiplier
-  const transferMod = 0.4 + 0.6 * Math.min(1, transferEfficiency / 0.8);
+  // ── ESTIMATION PATH ──
+  const massFactor = Math.min(1.15, Math.max(0.80, Math.sqrt(massKg / 80)));
+
+  // Chain multiplier: arm→bat gain (~1.15–1.25 for a good swing)
+  const chainMultiplier = 1.20;
+  const baseBatSpeed = input.arm_omega_peak * CONV * chainMultiplier;
 
   // Transfer ratio quality bonus
   const tr = input.transfer_ratio;
-  const trBonus = (tr >= 1.4 && tr <= 1.9) ? 1.0 : (tr >= 1.1 && tr <= 2.2) ? 0.92 : 0.80;
+  const trBonus = (tr >= 1.4 && tr <= 1.9) ? 1.0
+    : (tr >= 1.1 && tr <= 2.2) ? 0.92
+    : 0.80;
 
-  return Math.round(baseBatSpeed * massFactor * transferMod * trBonus * 10) / 10;
+  return Math.round(baseBatSpeed * massFactor * trBonus * 10) / 10;
 }
 
 /**
- * Predict exit velocity from predicted bat speed + transfer efficiency.
- *
- * Simple collision model:
- *   EV ≈ q × bat_speed + (1 + q) × pitch_speed × efficiency_modifier
- * where q ≈ 0.2 (coefficient of restitution proxy)
- * 
- * Transfer modifier: poor efficiency = less barrel energy at contact = lower EV
+ * Predict exit velocity using the Nathan (2003) collision model:
+ *   EV = 1.2 × v_bat × collisionEff + 0.2 × v_pitch
+ * where collisionEff = 0.70 + 0.20 × min(1, transferEfficiency)
  */
 function predictExitVelocity(
   predictedBatSpeed: number,
@@ -277,22 +294,9 @@ function predictExitVelocity(
   playerLevel: PlayerLevel
 ): number {
   const pitchSpeed = EST_PITCH_SPEED_MPH[playerLevel] ?? 80;
-
-  // Bat-ball collision factor
-  const q = 0.20; // COR proxy for wood/composite bat
-  const baseEV = q * predictedBatSpeed + (1 + q) * pitchSpeed * 0.22;
-
-  // Primary driver: bat speed contribution (dominant factor in EV)
-  const batContribution = predictedBatSpeed * 1.15;
-
-  // Blend: collision physics + direct bat speed correlation
-  const rawEV = batContribution * 0.7 + baseEV * 0.3;
-
-  // Transfer efficiency penalty: poor transfer = weak contact
-  // eff 0.3 → 0.6 mult; eff 0.8 → 1.0 mult
-  const effMod = 0.45 + 0.55 * Math.min(1, transferEfficiency / 0.8);
-
-  return Math.round(rawEV * effMod * 10) / 10;
+  const collisionEff = 0.70 + 0.20 * Math.min(1, transferEfficiency);
+  const ev = 1.2 * predictedBatSpeed * collisionEff + 0.2 * pitchSpeed;
+  return Math.round(ev * 10) / 10;
 }
 
 // ---------------------------------------------------------------------------
