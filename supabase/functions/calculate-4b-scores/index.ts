@@ -5,7 +5,7 @@
  * All paths (Reboot CSV, DK sensor, manual) funnel here.
  * Returns ScoringResult — no other shape is allowed.
  *
- * Formula (v2.1):
+ * Formula (v2.2):
  *   Full mode     : score_4bkrs = Body×0.45 + Brain×0.15 + Bat×0.25 + Ball×0.15
  *   Training mode : score_4bkrs = Body×0.55 + Brain×0.15 + Bat×0.30
  *
@@ -13,13 +13,16 @@
  * Brain = Tempo×0.40 + Sequence Timing×0.35 + Rhythm×0.25
  * Bat   = (Bat Speed×0.30 + Acceleration×0.25 + Lag×0.25 + Attack Angle×0.20) × transferFactor
  * Ball  = Exit Velo×0.40 + Launch Angle×0.25 + Spray×0.20 + Hard Hit×0.15
- *         (uses predicted EV when measured EV is missing)
  *
- * v2.1 additions:
- *   - transfer_efficiency (0–1): energy reaching the barrel
- *   - BAT is modulated by transfer_efficiency (poor transfer caps score)
- *   - BALL uses predicted_exit_velocity_mph when no measured EV
- *   - predicted_bat_speed_mph incorporates mass + transfer_efficiency
+ * v2.2 bat speed + exit velo corrections:
+ *   FIX 1: Conversion constant 0.0236 → 0.02732
+ *   FIX 2: Three-tier path: measured → KE-direct → estimation
+ *   FIX 3: No chain modifiers on direct/measured paths
+ *   FIX 4: Mass factor √(mass/80), clamped per path
+ *   FIX 5: Nathan (2003) collision model for EV
+ *   NEW:   bat_omega derived from bat_rot_energy KE inversion (I_BAT = 0.048)
+ *   NEW:   MAX_BAT_OMEGA cap at 2800 deg/s
+ *   NEW:   Hawk-Eye / DK measured bat speed as highest-priority path
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
@@ -56,8 +59,12 @@ interface ScoreCalculationInput {
   source: ScoreSource;
   pelvis_omega_peak: number;        // deg/s
   trunk_omega_peak: number;         // deg/s
-  arm_omega_peak: number;           // deg/s
-  bat_omega_peak?: number;          // deg/s — optional for sensor path
+  arm_omega_peak: number;           // deg/s — most distal IK segment (hand > arm > torso)
+
+  // Three-tier bat speed inputs (use highest available)
+  measured_bat_speed_mph?: number | null;  // Hawk-Eye or DK sensor — TIER 1
+  bat_omega_from_ke?: number | null;       // From bat_rot_energy KE inversion — TIER 2
+  bat_omega_peak?: number;                 // Legacy field (treated as bat_omega_from_ke)
 
   pelvis_omega_time: number;        // ms from FFC
   trunk_omega_time: number;         // ms from FFC
@@ -69,7 +76,8 @@ interface ScoreCalculationInput {
   launch_duration_ms: number;
   transfer_ratio: number;
 
-  exit_velocity_mph?: number;
+  exit_velocity_mph?: number;       // Measured EV (Hawk-Eye / launch monitor)
+  measured_ev_mph?: number | null;  // Alias for exit_velocity_mph
   launch_angle_deg?: number;
   spray_angle_deg?: number;
   hard_hit_rate?: number;
@@ -77,7 +85,7 @@ interface ScoreCalculationInput {
   player_level: PlayerLevel;
   motor_profile?: string;
 
-  // Optional ME-derived fields for future plug-in
+  // ME-derived fields
   mass_total_kg?: number;           // total body mass from ME
   bat_energy_j?: number;            // KE at barrel from ME
   total_body_energy_j?: number;     // sum of all segment KE from ME
@@ -91,11 +99,13 @@ interface ScoringResult extends FourBScores {
   actual_exit_velocity_mph?: number | null;
   actual_entry_bucket?: string | null;
   transfer_efficiency?: number | null;
+  bat_speed_path?: string | null;
+  bat_speed_confidence?: string | null;
   scoring_timestamp: string;
 }
 
 // ---------------------------------------------------------------------------
-// CONSTANTS  (do not change without updating KRS_CALCULATION_LOGIC.md)
+// CONSTANTS
 // ---------------------------------------------------------------------------
 
 const WEIGHTS = {
@@ -109,6 +119,16 @@ const RATING_COLORS = { elite: '#4ecdc4', good: '#4ecdc4', working: '#ffa500', p
 const TRANSFER_RATIO_ELITE = { min: 1.5, max: 1.8 } as const;
 const TIMING_GAP_ELITE = { min: 14, max: 18 } as const;
 
+/** v_mph = ω_deg/s × OMEGA_TO_MPH
+ *  FIX 1: (π/180) × 0.70m lever × 2.23694 mph/(m/s) = 0.02732 */
+const OMEGA_TO_MPH = (Math.PI / 180) * 0.70 * 2.23694; // 0.02732
+
+/** Moment of inertia for standard wood bat (32oz) about knob: 0.048 kg·m² */
+const I_BAT_KGM2 = 0.048;
+
+/** Cap bat omega at 2800 deg/s ≈ 76.5 mph */
+const MAX_BAT_OMEGA_DEGS = 2800;
+
 /** Default body mass (kg) when ME masstotal not available */
 const DEFAULT_MASS_KG: Record<PlayerLevel, number> = {
   youth: 45,
@@ -117,9 +137,10 @@ const DEFAULT_MASS_KG: Record<PlayerLevel, number> = {
   pro: 90,
 };
 
-/** Estimated pitch speed for predicted EV formula */
-const EST_PITCH_SPEED_MPH: Record<PlayerLevel, number> = {
+/** Estimated pitch speed for Nathan collision model */
+const EST_PITCH_SPEED_MPH: Record<string, number> = {
   youth: 50,
+  middle_school: 60,
   high_school: 75,
   college: 82,
   pro: 90,
@@ -155,23 +176,6 @@ function toColor(rating: FourBRating): string {
 // STEP 1: TRANSFER EFFICIENCY (0–1)
 // ---------------------------------------------------------------------------
 
-/**
- * Compute transfer_efficiency — how much body energy reaches the barrel.
- *
- * Ideal path (when bat_energy and total_body_energy are provided from ME):
- *   transfer_efficiency = bat_energy / total_body_energy
- *
- * Proxy path (angular velocity ratios — current default):
- *   Uses the kinematic chain ratios to approximate energy transfer.
- *   A well-sequenced swing where each segment accelerates the next
- *   should show: pelvis < trunk < arm < bat omega peaks in the right ratios.
- *
- *   Key signals:
- *   - arm_to_trunk ratio: is the arm gaining speed from the torso?
- *   - bat_to_arm ratio: is the bat gaining speed from the hands?
- *   - transfer_ratio (trunk/pelvis): is energy moving up the chain?
- *   - timing: proper sequencing (pelvis peaks before trunk)
- */
 function computeTransferEfficiency(input: ScoreCalculationInput): number {
   // Ideal path: real energy data from ME
   if (input.bat_energy_j != null && input.total_body_energy_j != null && input.total_body_energy_j > 0) {
@@ -181,39 +185,27 @@ function computeTransferEfficiency(input: ScoreCalculationInput): number {
   // Proxy path: angular velocity chain ratios
   const trunkOmega  = Math.max(input.trunk_omega_peak, 1);
   const armOmega    = Math.max(input.arm_omega_peak, 1);
-  const batOmega    = input.bat_omega_peak ?? armOmega * 0.9; // conservative if missing
+  const batOmega    = input.bat_omega_from_ke ?? input.bat_omega_peak ?? armOmega * 0.9;
 
-  // Arm-to-trunk gain: ideal ~1.2–1.6 (arm should be faster than trunk)
   const armToTrunk = armOmega / trunkOmega;
   const armToTrunkScore = armToTrunk > 1.0
-    ? Math.min(1, (armToTrunk - 1.0) / 0.6)  // 1.0→0, 1.6→1
-    : armToTrunk * 0.3;                        // below 1.0 = very poor
+    ? Math.min(1, (armToTrunk - 1.0) / 0.6)
+    : armToTrunk * 0.3;
 
-  // Bat-to-arm gain: ideal > 1.0 (bat should outpace arm/hands)
   const batToArm = batOmega / armOmega;
   const batToArmScore = batToArm > 1.0
-    ? Math.min(1, (batToArm - 1.0) / 0.3 * 0.5 + 0.5)  // 1.0→0.5, 1.3→1.0
-    : batToArm * 0.4;                                      // below 1.0 = energy lost
+    ? Math.min(1, (batToArm - 1.0) / 0.3 * 0.5 + 0.5)
+    : batToArm * 0.4;
 
-  // Transfer ratio (trunk/pelvis): ideal 1.5–1.8
   const tr = input.transfer_ratio;
-  const trScore = (tr >= TRANSFER_RATIO_ELITE.min && tr <= TRANSFER_RATIO_ELITE.max)
-    ? 1.0
-    : tr < TRANSFER_RATIO_ELITE.min
-      ? lerp(tr, 0.8, TRANSFER_RATIO_ELITE.min, 0.2, 0.9) / 100 * 100 // normalize
-      : lerp(tr, TRANSFER_RATIO_ELITE.max, 2.5, 0.9, 0.3) / 100 * 100;
-
-  // Normalize trScore to 0-1 (lerp returns 0-100 range)
   const trNorm = (tr >= TRANSFER_RATIO_ELITE.min && tr <= TRANSFER_RATIO_ELITE.max)
     ? 1.0
     : tr < TRANSFER_RATIO_ELITE.min
       ? Math.max(0, Math.min(1, (tr - 0.8) / (TRANSFER_RATIO_ELITE.min - 0.8)))
       : Math.max(0, Math.min(1, 1 - (tr - TRANSFER_RATIO_ELITE.max) / (2.5 - TRANSFER_RATIO_ELITE.max)));
 
-  // Sequencing penalty: pelvis must peak before trunk
   const sequencingBonus = input.pelvis_omega_time < input.trunk_omega_time ? 1.0 : 0.5;
 
-  // Weighted combination
   const raw = (
     armToTrunkScore * 0.30 +
     batToArmScore   * 0.30 +
@@ -225,85 +217,126 @@ function computeTransferEfficiency(input: ScoreCalculationInput): number {
 }
 
 // ---------------------------------------------------------------------------
-// STEP 2: PREDICTED BAT SPEED & PREDICTED EXIT VELOCITY
+// STEP 2: BAT SPEED PREDICTION — THREE-TIER PATH
 // ---------------------------------------------------------------------------
 
-/**
- * Predict bat speed from kinematics, mass, and transfer efficiency.
- * 
- * Base: angular velocity conversion (existing logic)
- * Modifiers:
- *   - mass factor: heavier players have more potential KE
- *   - transfer_efficiency: how much of that KE reaches the barrel
- *   - transfer_ratio: kinematic chain quality
- */
-/**
- * Predict bat speed from kinematics and mass.
- *
- * Two paths:
- *   DIRECT  — bat_omega_peak exists (IK tracked bat head)
- *             Conversion: omega_deg_s * 0.02732 (0.70m radius, deg→rad→mph)
- *             Mass scaling: √(mass/80), clamped [0.95, 1.01]
- *             No transfer modifiers — the tracked speed IS the speed.
- *
- *   ESTIMATION — no bat tracking, use arm_omega as proxy
- *             Chain multiplier estimates bat gain from arm speed.
- *             Mass scaling: √(mass/80), clamped [0.80, 1.15]
- *             Transfer ratio quality bonus applied.
- */
+interface BatSpeedResult {
+  bat_speed_mph: number;
+  path: 'measured' | 'ke_direct' | 'estimation';
+  confidence: 'high' | 'medium' | 'low';
+  mass_mod: number;
+  warning?: string;
+}
+
+/** Sanity check: does the predicted mph fall in plausible range for player level? */
+function batSpeedSane(mph: number, playerLevel: string): boolean {
+  const ranges: Record<string, [number, number]> = {
+    youth:        [25, 55],
+    high_school:  [40, 75],
+    college:      [50, 82],
+    pro:          [40, 90],
+  };
+  const [lo, hi] = ranges[playerLevel] ?? ranges.pro;
+  return mph >= lo && mph <= hi;
+}
+
 function predictBatSpeed(
   input: ScoreCalculationInput,
   transferEfficiency: number
-): number {
+): BatSpeedResult {
   const massKg = input.mass_total_kg ?? DEFAULT_MASS_KG[input.player_level] ?? 80;
-  const CONV = (Math.PI / 180) * 0.70 * 2.23694; // 0.02732
 
-  const hasBatTracking = input.bat_omega_peak != null && input.bat_omega_peak > 100;
-
-  if (hasBatTracking) {
-    // ── DIRECT PATH ──
-    // bat_omega already reflects full chain transfer — no chain modifiers.
-    const directBatSpeed = input.bat_omega_peak! * CONV;
-    // Mass: √ scaling, meaningful but non-dominant
-    // 45kg youth → 0.95×  |  80kg baseline → 1.00×  |  120kg → 1.01×
+  // ── TIER 1: MEASURED (Hawk-Eye or DK sensor) ───────────────────────────
+  const measuredBs = input.measured_bat_speed_mph;
+  if (measuredBs != null && measuredBs > 0) {
     const massMod = 0.95 + 0.05 * Math.min(1.2, Math.sqrt(massKg / 80));
-    return Math.round(directBatSpeed * massMod * 10) / 10;
+    return {
+      bat_speed_mph: Math.round(measuredBs * massMod * 10) / 10,
+      path: 'measured',
+      confidence: 'high',
+      mass_mod: Math.round(massMod * 1000) / 1000,
+    };
   }
 
-  // ── ESTIMATION PATH ──
-  // No bat head data — infer from most-distal segment omega (arm/hand).
-  const armSpeed = input.arm_omega_peak * CONV;
+  // ── TIER 2: KE DIRECT (bat_rot_energy → omega via I_BAT) ──────────────
+  const batOmegaKE = input.bat_omega_from_ke ?? input.bat_omega_peak;
+  if (batOmegaKE != null && batOmegaKE > 100) {
+    const cappedOmega = Math.min(batOmegaKE, MAX_BAT_OMEGA_DEGS);
+    const mph = cappedOmega * OMEGA_TO_MPH;
 
-  // Chain multiplier: how much kinetic chain amplifies distal speed
-  // Range 1.15–1.50 based on transfer efficiency
+    if (batSpeedSane(mph, input.player_level)) {
+      // FIX 3: No chain modifiers — bat KE already reflects full transfer
+      // FIX 4: √ scaling, range 0.95–1.01
+      const massMod = 0.95 + 0.05 * Math.min(1.2, Math.sqrt(massKg / 80));
+      return {
+        bat_speed_mph: Math.round(mph * massMod * 10) / 10,
+        path: 'ke_direct',
+        confidence: 'medium',
+        mass_mod: Math.round(massMod * 1000) / 1000,
+      };
+    }
+
+    console.warn(
+      `[bat-speed] bat_omega=${batOmegaKE} → ${Math.round(mph * 10) / 10} mph outside sane range for ${input.player_level}. Falling to estimation.`
+    );
+  }
+
+  // ── TIER 3: ESTIMATION (arm IK derivative — lowest confidence) ─────────
+  const armSpeed = input.arm_omega_peak * OMEGA_TO_MPH;
+
+  // Chain multiplier: 1.15–1.50 based on transfer efficiency
   const chainMultiplier = 1.15 + 0.35 * Math.max(0, Math.min(1, transferEfficiency));
 
-  // Mass factor via √ scaling: range 0.80–1.15
+  // FIX 4: √ scaling, range 0.80–1.15
   const massFactor = Math.max(0.80, Math.min(1.15, Math.sqrt(massKg / 80)));
 
-  // Transfer ratio bonus: reward functioning chain, penalise dysfunction
+  // Transfer ratio bonus
   const tr = input.transfer_ratio;
   const trBonus = (tr >= 1.3 && tr <= 2.0) ? 1.00
     : (tr >= 1.0 && tr <= 2.5) ? 0.95
     : 0.85;
 
-  return Math.round(armSpeed * chainMultiplier * massFactor * trBonus * 10) / 10;
+  const estimated = armSpeed * chainMultiplier * massFactor * trBonus;
+
+  return {
+    bat_speed_mph: Math.round(estimated * 10) / 10,
+    path: 'estimation',
+    confidence: 'low',
+    mass_mod: Math.round(massFactor * 1000) / 1000,
+    warning: 'No sensor data. Estimated from IK arm velocity — expect ±10 mph uncertainty.',
+  };
 }
 
-/**
- * Predict exit velocity using the Nathan (2003) collision model:
- *   EV = 1.2 × batSpeed × collisionEff + 0.2 × pitchSpeed
- * where collisionEff = 0.70 + 0.20 × min(1, max(0, transferEfficiency))
- */
+// ---------------------------------------------------------------------------
+// STEP 3: EXIT VELOCITY — Nathan (2003) collision model
+// ---------------------------------------------------------------------------
+
+interface ExitVeloResult {
+  exit_velocity_mph: number;
+  source: 'measured' | 'predicted';
+  collision_efficiency?: number;
+}
+
 function predictExitVelocity(
   predictedBatSpeed: number,
   transferEfficiency: number,
-  playerLevel: PlayerLevel
-): number {
+  playerLevel: string,
+  measuredEV?: number | null
+): ExitVeloResult {
+  // Ground truth if available
+  if (measuredEV != null && measuredEV > 0) {
+    return { exit_velocity_mph: Math.round(measuredEV * 10) / 10, source: 'measured' };
+  }
+
   const pitchSpeed = EST_PITCH_SPEED_MPH[playerLevel] ?? 90;
   const collisionEff = 0.70 + 0.20 * Math.min(1, Math.max(0, transferEfficiency));
   const ev = 1.2 * predictedBatSpeed * collisionEff + 0.2 * pitchSpeed;
-  return Math.round(ev * 10) / 10;
+
+  return {
+    exit_velocity_mph: Math.round(ev * 10) / 10,
+    source: 'predicted',
+    collision_efficiency: Math.round(collisionEff * 1000) / 1000,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -386,18 +419,12 @@ function calculateBrain(input: ScoreCalculationInput): number {
   ));
 }
 
-/**
- * BAT — Bat delivery quality after energy transfer.
- *
- * Component scores: Bat Speed (30%) + Acceleration (25%) + Lag (25%) + Attack Angle (20%)
- * Then modulated by transfer_efficiency: poor transfer caps the BAT score,
- * reflecting that raw bat speed means little if energy doesn't reach the barrel.
- */
+/** BAT — Bat delivery quality after energy transfer */
 function calculateBat(
   input: ScoreCalculationInput,
   playerLevel: string,
   transferEfficiency: number,
-  predictedBatSpeedMph: number
+  batSpeedResult: BatSpeedResult
 ): { bat: number; bat_speed_mph: number | null; predicted_bat_speed_mph: number | null } {
   const benchmarks: Record<string, { min: number; elite: number }> = {
     youth:        { min: 40, elite: 58 },
@@ -407,9 +434,7 @@ function calculateBat(
   };
   const bench = benchmarks[playerLevel] ?? benchmarks['high_school'];
 
-  // Use the transfer-efficiency-aware predicted bat speed
-  const bat_speed_mph = Math.round(predictedBatSpeedMph);
-
+  const bat_speed_mph = Math.round(batSpeedResult.bat_speed_mph);
   const batSpeedScore = lerp(bat_speed_mph, bench.min, bench.elite, 20, 100);
 
   const accelScore = lerp(
@@ -417,12 +442,12 @@ function calculateBat(
     1.0, 1.8, 40, 100
   );
 
-  const lagScore = input.bat_omega_peak != null && input.bat_omega_peak > input.arm_omega_peak
+  const effectiveBatOmega = input.bat_omega_from_ke ?? input.bat_omega_peak;
+  const lagScore = effectiveBatOmega != null && effectiveBatOmega > input.arm_omega_peak
     ? 85 : 55;
 
   const attackAngleProxyScore = lerp(input.front_foot_angle_deg, 10, 45, 80, 40);
 
-  // Raw component score
   const rawBat = clamp(
     batSpeedScore         * 0.30 +
     accelScore            * 0.25 +
@@ -430,36 +455,21 @@ function calculateBat(
     attackAngleProxyScore * 0.20
   );
 
-  // Modulate by transfer efficiency:
-  // Very poor (<0.3) → 40% of raw score; Good (0.9+) → 100% of raw score
-  const effectiveTransferFactor = lerp(transferEfficiency, 0.3, 0.9, 0.4, 1.0) / 100;
-  // lerp returns 0-100 range, we need 0-1 factor. 40→0.4, 100→1.0
   const transferFactor = 0.4 + 0.6 * Math.min(1, Math.max(0, (transferEfficiency - 0.3) / 0.6));
-
   const bat = Math.round(clamp(rawBat * transferFactor));
 
-  return { bat, bat_speed_mph, predicted_bat_speed_mph: Math.round(predictedBatSpeedMph * 10) / 10 };
+  return { bat, bat_speed_mph, predicted_bat_speed_mph: Math.round(batSpeedResult.bat_speed_mph * 10) / 10 };
 }
 
-/**
- * BALL — Batted ball outcome quality.
- *
- * When measured EV is available: uses actual EV.
- * When NO measured EV: uses predicted_exit_velocity_mph so that
- * players with poor transfer efficiency get a low BALL score
- * reflecting the predicted poor batted-ball outcome, rather than null.
- *
- * Exit Velo (40%) + Launch Angle (25%) + Spray (20%) + Hard Hit (15%)
- */
+/** BALL — Batted ball outcome quality */
 function calculateBall(
   input: ScoreCalculationInput,
   playerLevel: string,
-  predictedExitVeloMph: number,
+  evResult: ExitVeloResult,
   transferEfficiency: number
 ): { ball: number; usedPrediction: boolean } {
-  // Determine which EV to use for scoring
-  const hasActualEV = input.exit_velocity_mph != null;
-  const scoringEV = hasActualEV ? input.exit_velocity_mph! : predictedExitVeloMph;
+  const hasActualEV = evResult.source === 'measured';
+  const scoringEV = evResult.exit_velocity_mph;
 
   const evBenchmarks: Record<string, { min: number; elite: number }> = {
     youth:       { min: 40, elite: 65 },
@@ -470,11 +480,9 @@ function calculateBall(
   const bench = evBenchmarks[playerLevel] ?? evBenchmarks['high_school'];
   const exitVeloScore = lerp(scoringEV, bench.min, bench.elite, 20, 100);
 
-  // When using prediction, apply a small confidence discount (max 10%)
-  // to reflect uncertainty vs. measured data
   const confidenceFactor = hasActualEV ? 1.0 : 0.90;
 
-  const la = input.launch_angle_deg ?? (hasActualEV ? 15 : 12); // slightly pessimistic default when predicting
+  const la = input.launch_angle_deg ?? (hasActualEV ? 15 : 12);
   const launchScore = la >= 8 && la <= 32 ? lerp(Math.abs(la - 20), 0, 12, 100, 60) : 40;
 
   const spray = input.spray_angle_deg ?? 0;
@@ -485,11 +493,10 @@ function calculateBall(
     : Math.abs(spray) <= 45 ? 70
     : 50;
 
-  // When predicting, use transfer efficiency to estimate hard-hit capability
   const hardHitRate = input.hard_hit_rate
     ?? (hasActualEV
-      ? (input.exit_velocity_mph! >= bench.elite * 0.95 ? 80 : 40)
-      : transferEfficiency * 65 + 10); // eff 0.3→~30%, eff 0.8→~62%
+      ? (scoringEV >= bench.elite * 0.95 ? 80 : 40)
+      : transferEfficiency * 65 + 10);
   const hardHitScore = lerp(hardHitRate, 20, 50, 20, 100);
 
   const rawBall = clamp(
@@ -500,7 +507,6 @@ function calculateBall(
   );
 
   const ball = Math.round(clamp(rawBall * confidenceFactor));
-
   return { ball, usedPrediction: !hasActualEV };
 }
 
@@ -512,20 +518,26 @@ function computeScoringResult(input: ScoreCalculationInput): ScoringResult {
   // Step 1: Transfer efficiency
   const transferEfficiency = computeTransferEfficiency(input);
 
-  // Step 2: Predicted bat speed and exit velo (always computed)
-  const predictedBatSpeedMph = predictBatSpeed(input, transferEfficiency);
-  const predictedExitVeloMph = predictExitVelocity(predictedBatSpeedMph, transferEfficiency, input.player_level);
+  // Step 2: Bat speed (three-tier) and exit velo (Nathan model)
+  const bsResult = predictBatSpeed(input, transferEfficiency);
+
+  // Resolve measured EV: prefer explicit measured_ev_mph, then exit_velocity_mph
+  const measuredEV = input.measured_ev_mph ?? input.exit_velocity_mph ?? null;
+  const evResult = predictExitVelocity(
+    bsResult.bat_speed_mph, transferEfficiency, input.player_level, measuredEV
+  );
 
   // Pillars
   const { body, creation, transfer } = calculateBody(input);
   const brain = calculateBrain(input);
-  const { bat, bat_speed_mph, predicted_bat_speed_mph } = calculateBat(input, input.player_level, transferEfficiency, predictedBatSpeedMph);
-  const { ball, usedPrediction } = calculateBall(input, input.player_level, predictedExitVeloMph, transferEfficiency);
+  const { bat, bat_speed_mph, predicted_bat_speed_mph } = calculateBat(
+    input, input.player_level, transferEfficiency, bsResult
+  );
+  const { ball, usedPrediction } = calculateBall(
+    input, input.player_level, evResult, transferEfficiency
+  );
 
-  // BALL is always computed (from actual or predicted EV).
-  // Mode determines composite weights: training mode uses BALL weight = 0,
-  // but BALL is still stored for diagnostics.
-  const hasActualOutcome = input.exit_velocity_mph != null;
+  const hasActualOutcome = evResult.source === 'measured';
   const mode: ScoringMode = hasActualOutcome ? 'full' : 'training';
   const w = WEIGHTS[mode];
 
@@ -545,31 +557,32 @@ function computeScoringResult(input: ScoreCalculationInput): ScoringResult {
     ? Math.round((timingGapMs / totalSwingMs) * 100 * 10) / 10
     : 0;
 
+  console.log(`[4B-Score] Path=${bsResult.path} Conf=${bsResult.confidence} BatSpeed=${bsResult.bat_speed_mph}mph EV=${evResult.exit_velocity_mph}mph(${evResult.source})`);
+
   return {
     score_4bkrs,
     mode,
-    version:          'v2',
+    version: 'v2',
     body, brain, bat,
-    ball,             // Always populated (from actual or predicted EV)
+    ball,
     rating, color,
     creation, transfer,
     transfer_ratio:    Math.round(input.transfer_ratio * 1000) / 1000,
     timing_gap_pct,
     bat_speed_mph,
-    exit_velocity_mph: input.exit_velocity_mph ?? null,
+    exit_velocity_mph: evResult.source === 'measured' ? evResult.exit_velocity_mph : null,
 
-    // Predictions (always populated now)
     predicted_bat_speed_mph,
-    predicted_exit_velocity_mph: Math.round(predictedExitVeloMph * 10) / 10,
+    predicted_exit_velocity_mph: evResult.source === 'predicted' ? evResult.exit_velocity_mph : null,
     predicted_entry_bucket:      null,
 
-    // Actuals
-    actual_bat_speed_mph:        input.exit_velocity_mph != null ? bat_speed_mph : null,
-    actual_exit_velocity_mph:    input.exit_velocity_mph ?? null,
+    actual_bat_speed_mph:        bsResult.path === 'measured' ? bsResult.bat_speed_mph : null,
+    actual_exit_velocity_mph:    evResult.source === 'measured' ? evResult.exit_velocity_mph : null,
     actual_entry_bucket:         null,
 
-    // New: transfer efficiency for diagnostics
     transfer_efficiency:         Math.round(transferEfficiency * 1000) / 1000,
+    bat_speed_path:              bsResult.path,
+    bat_speed_confidence:        bsResult.confidence,
 
     scoring_timestamp:           new Date().toISOString(),
   };
@@ -625,6 +638,5 @@ serve(async (req: Request) => {
   }
 });
 
-// Export for documentation purposes (actual sharing is via HTTP)
 export { computeScoringResult };
 export type { ScoreCalculationInput, ScoringResult };
