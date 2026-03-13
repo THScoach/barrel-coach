@@ -69,6 +69,7 @@ interface ScoreCalculationInput {
   hard_hit_rate?: number;
   player_level: PlayerLevel;
   motor_profile?: string;
+  mass_total_kg?: number;
 }
 
 interface ScoringResult {
@@ -193,6 +194,113 @@ function parseCsvRows(csvText: string): Record<string, number>[] {
   return rows;
 }
 
+// ---------------------------------------------------------------------------
+// IK-BASED KINEMATICS WITH SMOOTHING
+// ---------------------------------------------------------------------------
+
+const FPS = 240;
+const MS_PER_FRAME = 1000 / FPS;
+const RAD_TO_DEG = 180 / Math.PI;
+const M_S_TO_MPH = 2.23694;
+
+/** Physical caps — anything above is data noise/jumps */
+const MAX_SEGMENT_OMEGA_DEGS = 1200; // max segment angular velocity
+const MAX_BAT_SPEED_MPH = 120;       // max possible bat speed
+const MAX_HAND_SPEED_MS = 25;        // ~56 mph
+
+/**
+ * Simple 5-point moving average smoother for a numeric timeseries.
+ */
+function smooth5(values: number[]): number[] {
+  const out: number[] = new Array(values.length);
+  for (let i = 0; i < values.length; i++) {
+    const start = Math.max(0, i - 2);
+    const end = Math.min(values.length - 1, i + 2);
+    let sum = 0;
+    let count = 0;
+    for (let j = start; j <= end; j++) {
+      sum += values[j];
+      count++;
+    }
+    out[i] = sum / count;
+  }
+  return out;
+}
+
+/**
+ * Compute peak angular velocity (deg/s) from a smoothed joint angle timeseries.
+ * Joint angles in IK are in radians.
+ */
+function peakAngularVelocity(
+  rows: Record<string, number>[],
+  columnName: string
+): { peak: number; peakIdx: number } {
+  // Extract raw angle values
+  const angles = rows.map(r => r[columnName] ?? 0);
+  // Smooth before differentiating
+  const smoothed = smooth5(angles);
+
+  let peak = 0;
+  let peakIdx = 0;
+  const dt = 2 / FPS; // central difference interval
+
+  for (let i = 1; i < smoothed.length - 1; i++) {
+    const omega = Math.abs((smoothed[i + 1] - smoothed[i - 1]) / dt) * RAD_TO_DEG;
+    if (omega > peak && omega <= MAX_SEGMENT_OMEGA_DEGS) {
+      peak = omega;
+      peakIdx = i;
+    }
+  }
+
+  // If everything was above cap (noisy data), use the capped max
+  if (peak === 0) {
+    for (let i = 1; i < smoothed.length - 1; i++) {
+      const omega = Math.abs((smoothed[i + 1] - smoothed[i - 1]) / dt) * RAD_TO_DEG;
+      if (omega > peak) {
+        peak = Math.min(omega, MAX_SEGMENT_OMEGA_DEGS);
+        peakIdx = i;
+      }
+    }
+  }
+
+  return { peak, peakIdx };
+}
+
+/**
+ * Compute 3D speed timeseries from position columns, smoothed.
+ * Returns peak speed in m/s and the frame index.
+ */
+function peak3DSpeed(
+  rows: Record<string, number>[],
+  xCol: string, yCol: string, zCol: string,
+  maxSpeedMs: number
+): { speed_ms: number; peakIdx: number } {
+  // Compute raw frame-to-frame speeds
+  const dt = 1 / FPS;
+  const speeds: number[] = [0]; // first frame = 0
+
+  for (let i = 1; i < rows.length; i++) {
+    const dx = (rows[i]?.[xCol] ?? 0) - (rows[i - 1]?.[xCol] ?? 0);
+    const dy = (rows[i]?.[yCol] ?? 0) - (rows[i - 1]?.[yCol] ?? 0);
+    const dz = (rows[i]?.[zCol] ?? 0) - (rows[i - 1]?.[zCol] ?? 0);
+    speeds.push(Math.sqrt(dx * dx + dy * dy + dz * dz) / dt);
+  }
+
+  // Smooth speeds
+  const smoothed = smooth5(speeds);
+
+  let peak = 0;
+  let peakIdx = 0;
+  for (let i = 0; i < smoothed.length; i++) {
+    if (smoothed[i] > peak && smoothed[i] <= maxSpeedMs) {
+      peak = smoothed[i];
+      peakIdx = i;
+    }
+  }
+
+  return { speed_ms: peak, peakIdx };
+}
+
 function parseRebootCSV(
   ikRows: Record<string, number>[],
   meRows: Record<string, number>[],
@@ -205,30 +313,63 @@ function parseRebootCSV(
     hard_hit_rate?: number;
   }
 ): ScoreCalculationInput {
-  const pelvis_omega_peak = Math.max(...meRows.map(r => Math.abs(r['lowertorso_angular_momentum_mag'] ?? 0)));
-  const trunk_omega_peak  = Math.max(...meRows.map(r => Math.abs(r['torso_angular_momentum_mag'] ?? 0)));
-  const arm_omega_peak    = trunk_omega_peak * 1.3;
-  const bat_omega_peak    = arm_omega_peak   * 1.15;
+  // --- Angular velocities from IK joint angle derivatives (smoothed) ---
+  const pelvisOmega = peakAngularVelocity(ikRows, 'pelvis_rot');
+  const torsoOmega  = peakAngularVelocity(ikRows, 'torso_rot');
 
-  const pelvisIdx = meRows.findIndex(r => Math.abs(r['lowertorso_angular_momentum_mag'] ?? 0) === pelvis_omega_peak);
-  const trunkIdx  = meRows.findIndex(r => Math.abs(r['torso_angular_momentum_mag'] ?? 0) === trunk_omega_peak);
+  const pelvis_omega_peak = pelvisOmega.peak;
+  const trunk_omega_peak  = torsoOmega.peak;
 
+  // --- Hand speed → arm angular velocity proxy ---
+  const hasRhand = ikRows.some(r => r['rhand_x'] != null && r['rhand_x'] !== 0);
+  const handPrefix = hasRhand ? 'rhand' : 'lhand';
+  const handSpeed = peak3DSpeed(
+    ikRows, `${handPrefix}_x`, `${handPrefix}_y`, `${handPrefix}_z`,
+    MAX_HAND_SPEED_MS
+  );
+  // Convert hand speed to arm angular velocity: ω = v / armLength
+  const armLength = 0.55; // effective arm length in meters
+  const arm_omega_peak = handSpeed.speed_ms > 0
+    ? Math.min((handSpeed.speed_ms / armLength) * RAD_TO_DEG, MAX_SEGMENT_OMEGA_DEGS)
+    : trunk_omega_peak * 1.3;
+
+  // --- Bat speed from bat head position derivatives ---
+  const maxBatSpeedMs = MAX_BAT_SPEED_MPH / M_S_TO_MPH;
+  const batHeadSpeed = peak3DSpeed(ikRows, 'bhead_x', 'bhead_y', 'bhead_z', maxBatSpeedMs);
+  const measuredBatSpeedMph = Math.round(batHeadSpeed.speed_ms * M_S_TO_MPH * 10) / 10;
+
+  // Bat angular velocity from bat head speed ÷ bat length to sweet spot (~0.70m from hands)
+  const bat_omega_peak = batHeadSpeed.speed_ms > 0
+    ? Math.min((batHeadSpeed.speed_ms / 0.70) * RAD_TO_DEG, MAX_SEGMENT_OMEGA_DEGS * 3) // bat can spin faster
+    : arm_omega_peak * 1.15;
+
+  console.log(`[CSV→Score] Smoothed ω (deg/s): pelvis=${pelvis_omega_peak.toFixed(1)}, trunk=${trunk_omega_peak.toFixed(1)}, arm=${arm_omega_peak.toFixed(1)}, bat=${bat_omega_peak.toFixed(1)}`);
+  console.log(`[CSV→Score] Bat head speed: ${measuredBatSpeedMph} mph, Hand speed: ${(handSpeed.speed_ms * M_S_TO_MPH).toFixed(1)} mph`);
+
+  // --- Peak frame indices for timing ---
+  const pelvisIdx = pelvisOmega.peakIdx;
+  const trunkIdx  = torsoOmega.peakIdx;
+
+  // --- Hip-shoulder separation from IK data ---
   const xFactorPeaks = ikRows.map(r => {
     const torsoRot  = r['torso_rot']  ?? 0;
     const pelvisRot = r['pelvis_rot'] ?? 0;
-    return Math.abs((torsoRot - pelvisRot) * (180 / Math.PI));
+    return Math.abs((torsoRot - pelvisRot) * RAD_TO_DEG);
   });
   const hip_shoulder_sep_max_deg = Math.max(...xFactorPeaks);
 
+  // --- Transfer ratio (trunk/pelvis angular velocity) ---
   const transfer_ratio = pelvis_omega_peak > 0 ? trunk_omega_peak / pelvis_omega_peak : 1;
 
-  const FPS = 240;
-  const MS_PER_FRAME = 1000 / FPS;
+  // --- Timing ---
   const pelvis_omega_time = pelvisIdx * MS_PER_FRAME;
   const trunk_omega_time  = trunkIdx  * MS_PER_FRAME;
 
-  const load_duration_ms   = pelvisIdx * MS_PER_FRAME;
-  const launch_duration_ms = (meRows.length - pelvisIdx) * MS_PER_FRAME;
+  const load_duration_ms   = Math.max(1, pelvisIdx * MS_PER_FRAME);
+  const launch_duration_ms = Math.max(1, (ikRows.length - pelvisIdx) * MS_PER_FRAME);
+
+  // --- Optional: extract mass from ME if masstotal column exists ---
+  const massTotal = meRows[0]?.['masstotal'] ?? undefined;
 
   return {
     source: 'reboot_csv',
@@ -250,6 +391,7 @@ function parseRebootCSV(
     hard_hit_rate:       context.hard_hit_rate,
     player_level:        context.player_level,
     motor_profile:       context.motor_profile,
+    mass_total_kg:       massTotal,
   };
 }
 
