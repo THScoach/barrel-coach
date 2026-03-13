@@ -368,8 +368,9 @@ Priority Area: ${lowestPillar || "Unknown"}`;
       }
     }
 
-    // Vault search (runs in parallel doesn't block)
+    // Vault search — retrieve coaching methodology docs
     const vaultExcerpts = await searchVault(supabaseUrl, supabaseKey, message);
+    console.log("[VaultSearch] Result length:", vaultExcerpts.length, "chars", vaultExcerpts ? "— has content" : "— empty");
 
     // ── 3. Scenarios + Cues ─────────────────────────────────────────────
 
