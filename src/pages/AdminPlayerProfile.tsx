@@ -37,6 +37,7 @@ import {
   MessageSquare, MoreHorizontal, Zap, ChevronDown, GitMerge
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
+import { CoachRickChat } from "@/components/dashboard/CoachRickChat";
 import { PlayerResearchModal } from "@/components/PlayerResearchModal";
 import { MergePlayerModal } from "@/components/admin/MergePlayerModal";
 import { useIsMobile } from "@/hooks/use-mobile";
