@@ -359,17 +359,49 @@ function parseRebootCSV(
   }
 ): ScoreCalculationInput {
   // --- Angular velocities from IK (5-frame centred finite difference) ---
-  const pelvisOmega = peakAngularVelocity5Frame(ikRows, 'pelvis_rot');
-  const torsoOmega  = peakAngularVelocity5Frame(ikRows, 'torso_rot');
+  // Initial full-capture peaks (used only for fallback/magnitude)
+  const pelvisOmegaFull = peakAngularVelocity5Frame(ikRows, 'pelvis_rot');
+  const torsoOmegaFull  = peakAngularVelocity5Frame(ikRows, 'torso_rot');
+
+  // --- Contact frame detection ---
+  // Try time_from_max_hand column first (most accurate)
+  let contactFrameIdx = -1;
+  const tfmhCol = ikRows.map(r => r['time_from_max_hand'] ?? r['time_from_contact'] ?? null);
+  const hasTfmh = tfmhCol.some(v => v !== null);
+  if (hasTfmh) {
+    let minAbs = Infinity;
+    for (let i = 0; i < tfmhCol.length; i++) {
+      if (tfmhCol[i] === null) continue;
+      const absVal = Math.abs(tfmhCol[i]!);
+      if (absVal < minAbs) {
+        minAbs = absVal;
+        contactFrameIdx = i;
+      }
+    }
+    console.log(`[CSV→Score] Contact frame from time_from_max_hand: frame ${contactFrameIdx} (value=${tfmhCol[contactFrameIdx]?.toFixed(4)})`);
+  }
+  // Fallback to peak hand speed
+  if (contactFrameIdx < 0) {
+    contactFrameIdx = findContactFrameIndex(ikRows, pelvisOmegaFull.peakIdx);
+  }
+
+  // --- Delivery window: -600ms to +50ms relative to contact ---
+  const deliveryStart = Math.max(0, contactFrameIdx - 144); // 144 frames = 600ms at 240fps
+  const deliveryEnd = Math.min(ikRows.length - 1, contactFrameIdx + 12); // 12 frames = 50ms
+  console.log(`[CSV→Score] delivery window: contactFrame=${contactFrameIdx}, range=[${deliveryStart}, ${deliveryEnd}] (${deliveryEnd - deliveryStart + 1} frames)`);
+
+  // --- Pelvis & trunk peaks WITHIN delivery window ---
+  const pelvisOmega = windowedPeakAngularVelocity(ikRows, 'pelvis_rot', deliveryStart, deliveryEnd, 1200);
+  const torsoOmega  = windowedPeakAngularVelocity(ikRows, 'torso_rot', deliveryStart, deliveryEnd, 1200);
+
+  // --- Pelvis/trunk omega times as time-from-contact (ms) ---
+  const pelvis_omega_time = (pelvisOmega.peakIdx - contactFrameIdx) * MS_PER_FRAME;
+  const trunk_omega_time  = (torsoOmega.peakIdx - contactFrameIdx) * MS_PER_FRAME;
+
+  console.log(`[CSV→Score] TIMING: { contactFrameIndex: ${contactFrameIdx}, pelvis_omega_time_ms: ${pelvis_omega_time.toFixed(1)}, trunk_omega_time_ms: ${trunk_omega_time.toFixed(1)}, timingGapPct: ${(Math.abs(pelvis_omega_time - trunk_omega_time) / 200 * 100).toFixed(1)} }`);
 
   // --- Arm omega: delivery-windowed max of 5-frame centred diff ---
-  // Step 1: Find contact frame from peak hand speed
-  const contactFrame = findContactFrameIndex(ikRows, pelvisOmega.peakIdx);
-  const deliveryStart = Math.max(0, contactFrame - 144); // -600ms at 240fps
-  const deliveryEnd = Math.min(ikRows.length - 1, contactFrame + 12); // +50ms
   const MAX_ARM_OMEGA_DEGS = 2200;
-
-  console.log(`[CSV→Score] delivery window: contactFrame=${contactFrame}, range=[${deliveryStart}, ${deliveryEnd}] (${deliveryEnd - deliveryStart + 1} frames)`);
 
   let armOmega = { peak: 0, peakIdx: 0 };
   let armSourceColumn = 'none';
@@ -419,7 +451,7 @@ function parseRebootCSV(
   armOmega.peak = clampedArm;
   console.log(`[CSV→Score] ✅ FINAL arm_omega_peak=${armOmega.peak.toFixed(1)} deg/s (entering predictBatSpeed)`);
 
-  // --- Bat omega from KE inversion (NEW) ---
+  // --- Bat omega from KE inversion ---
   const bat_omega_from_ke = extractBatOmegaFromKE(meRows);
 
   // --- Mass ---
@@ -436,15 +468,11 @@ function parseRebootCSV(
   // --- Transfer ratio ---
   const transfer_ratio = pelvisOmega.peak > 0 ? torsoOmega.peak / pelvisOmega.peak : 1;
 
-  // --- Timing ---
-  const pelvisIdx = pelvisOmega.peakIdx;
-  const trunkIdx  = torsoOmega.peakIdx;
-  const pelvis_omega_time = pelvisIdx * MS_PER_FRAME;
-  const trunk_omega_time  = trunkIdx  * MS_PER_FRAME;
-  const load_duration_ms   = Math.max(1, pelvisIdx * MS_PER_FRAME);
-  const launch_duration_ms = Math.max(1, (ikRows.length - pelvisIdx) * MS_PER_FRAME);
+  // --- Timing (load/launch durations relative to contact) ---
+  const load_duration_ms   = Math.max(1, (contactFrameIdx - deliveryStart) * MS_PER_FRAME);
+  const launch_duration_ms = Math.max(1, (deliveryEnd - contactFrameIdx) * MS_PER_FRAME);
 
-  // --- Energy from ME (for transfer efficiency ideal path) ---
+  // --- Energy from ME ---
   let bat_energy_j: number | undefined;
   let total_body_energy_j: number | undefined;
   const peakBatKE = meRows.reduce((max, r) => Math.max(max, r['bat_rot_energy'] ?? r['bat_rotational_energy'] ?? 0), 0);
