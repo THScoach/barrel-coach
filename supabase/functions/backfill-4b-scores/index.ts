@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     // Query reboot_sessions with CSV data
     let query = supabase
       .from('reboot_sessions')
-      .select('id, player_id, reboot_session_id, raw_csv_me, raw_csv_ik, session_date, session_type, drill_name')
+      .select('id, player_id, reboot_session_id, raw_csv_me, raw_csv_ik, session_date, session_type, drill_name, measured_bat_speed_mph')
       .not('raw_csv_me', 'is', null)
       .order('created_at', { ascending: true });
 
