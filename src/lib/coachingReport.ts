@@ -227,14 +227,24 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
   const ball = session.ball_score;
 
   // --- Predictions ---
+  const isEstimation = session.bat_speed_confidence === 'low';
+  const batSpeedPrefix = isEstimation ? '~' : '';
+  const batSpeedNote = isEstimation
+    ? 'Estimated from body movement — add sensor data for accuracy.'
+    : session.bat_speed_confidence === 'medium'
+      ? 'From bat tracking data.'
+      : session.bat_speed_confidence === 'high'
+        ? 'Measured by sensor.'
+        : 'What your body is built to create when things click.';
+
   const predictions: PredictionTile[] = [
     {
       label: 'Predicted Bat Speed',
       value: session.predicted_bat_speed_mph != null
-        ? `${Math.round(session.predicted_bat_speed_mph)} mph`
+        ? `${batSpeedPrefix}${Math.round(session.predicted_bat_speed_mph)} mph`
         : 'N/A',
       subLabel: session.predicted_bat_speed_mph != null
-        ? 'What your body is built to create when things click.'
+        ? batSpeedNote
         : 'Need more data to predict this.',
       available: session.predicted_bat_speed_mph != null,
     },
@@ -249,7 +259,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
     {
       label: 'Predicted Exit Velo',
       value: session.predicted_exit_velocity_mph != null
-        ? `${Math.round(session.predicted_exit_velocity_mph)} mph`
+        ? `${isEstimation ? '~' : ''}${Math.round(session.predicted_exit_velocity_mph)} mph`
         : 'N/A',
       subLabel: session.predicted_exit_velocity_mph != null
         ? 'How hard the ball should come off when you square it.'
