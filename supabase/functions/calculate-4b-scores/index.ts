@@ -60,6 +60,7 @@ interface ScoreCalculationInput {
   pelvis_omega_peak: number;        // deg/s
   trunk_omega_peak: number;         // deg/s
   arm_omega_peak: number;           // deg/s — most distal IK segment (hand > arm > torso)
+  arm_omega_source?: string;        // source column name (e.g. 'left_elbow', 'rhand_rot')
 
   // Three-tier bat speed inputs (use highest available)
   measured_bat_speed_mph?: number | null;  // Hawk-Eye or DK sensor — TIER 1
