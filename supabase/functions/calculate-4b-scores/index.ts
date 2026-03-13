@@ -1,1538 +1,382 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 /**
- * calculate-4b-scores Edge Function
- * 
- * Real 4B Bio Engine - Momentum-First KRS (Kinetic Report Scoring)
- * Ported from src/lib/reboot-parser.ts
- * 
- * ME (Momentum-Energy) CSV is PRIMARY + REQUIRED
- * IK (Inverse Kinematics) CSV is OPTIONAL (support only)
+ * supabase/functions/calculate-4b-scores/index.ts
+ *
+ * THE single authoritative 4B scoring engine.
+ * All paths (Reboot CSV, DK sensor, manual) funnel here.
+ * Returns ScoringResult — no other shape is allowed.
+ *
+ * Formula (v2):
+ *   Full mode     : score_4bkrs = Body×0.45 + Brain×0.15 + Bat×0.25 + Ball×0.15
+ *   Training mode : score_4bkrs = Body×0.55 + Brain×0.15 + Bat×0.30
+ *
+ * Body  = Creation×0.40 + Transfer×0.60
+ * Brain = Tempo×0.40 + Sequence Timing×0.35 + Rhythm×0.25
+ * Bat   = Bat Speed×0.30 + Acceleration×0.25 + Lag×0.25 + Attack Angle×0.20
+ * Ball  = Exit Velo×0.40 + Launch Angle×0.25 + Spray×0.20 + Hard Hit×0.15
  */
+
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// ---------------------------------------------------------------------------
+// TYPES (inlined — edge functions cannot import from src/)
+// ---------------------------------------------------------------------------
+
+type ScoringMode    = 'full' | 'training';
+type ScoringVersion = 'v1_legacy' | 'v2';
+type FourBRating    = 'Elite' | 'Good' | 'Working' | 'Priority';
+type ScoreSource    = 'reboot_csv' | 'sensor' | 'manual';
+type PlayerLevel    = 'youth' | 'high_school' | 'college' | 'pro';
+
+interface FourBScores {
+  score_4bkrs: number;
+  mode: ScoringMode;
+  version: ScoringVersion;
+  body: number;
+  brain: number;
+  bat: number;
+  ball: number | null;
+  rating: FourBRating;
+  color: string;
+  creation: number;
+  transfer: number;
+  transfer_ratio: number;
+  timing_gap_pct: number;
+  bat_speed_mph: number | null;
+  exit_velocity_mph: number | null;
+}
+
+interface ScoreCalculationInput {
+  source: ScoreSource;
+  pelvis_omega_peak: number;
+  trunk_omega_peak: number;
+  arm_omega_peak: number;
+  bat_omega_peak?: number;
+  pelvis_omega_time: number;
+  trunk_omega_time: number;
+  hip_shoulder_sep_max_deg: number;
+  stride_length_rel_hip: number;
+  front_foot_angle_deg: number;
+  load_duration_ms: number;
+  launch_duration_ms: number;
+  transfer_ratio: number;
+  exit_velocity_mph?: number;
+  launch_angle_deg?: number;
+  spray_angle_deg?: number;
+  hard_hit_rate?: number;
+  player_level: PlayerLevel;
+  motor_profile?: string;
+}
+
+interface ScoringResult extends FourBScores {
+  predicted_bat_speed_mph?: number | null;
+  predicted_exit_velocity_mph?: number | null;
+  predicted_entry_bucket?: string | null;
+  actual_bat_speed_mph?: number | null;
+  actual_exit_velocity_mph?: number | null;
+  actual_entry_bucket?: string | null;
+  scoring_timestamp: string;
+}
+
+// ---------------------------------------------------------------------------
+// CONSTANTS  (do not change without updating KRS_CALCULATION_LOGIC.md)
+// ---------------------------------------------------------------------------
+
+const WEIGHTS = {
+  full:     { body: 0.45, brain: 0.15, bat: 0.25, ball: 0.15 },
+  training: { body: 0.55, brain: 0.15, bat: 0.30, ball: 0    },
+} as const;
+
+const RATING_THRESHOLDS = { elite: 90, good: 80, working: 60 } as const;
+const RATING_COLORS = { elite: '#4ecdc4', good: '#4ecdc4', working: '#ffa500', priority: '#ff6b6b' } as const;
+
+const TRANSFER_RATIO_ELITE = { min: 1.5, max: 1.8 } as const;
+const TIMING_GAP_ELITE = { min: 14, max: 18 } as const;
+
+// ---------------------------------------------------------------------------
+// HELPERS
+// ---------------------------------------------------------------------------
+
+function clamp(v: number, min = 0, max = 100): number {
+  return Math.max(min, Math.min(max, v));
+}
+
+function lerp(value: number, inMin: number, inMax: number, outMin: number, outMax: number): number {
+  if (inMax === inMin) return outMin;
+  return clamp(outMin + ((value - inMin) / (inMax - inMin)) * (outMax - outMin));
+}
+
+function toRating(score: number): FourBRating {
+  if (score >= RATING_THRESHOLDS.elite)   return 'Elite';
+  if (score >= RATING_THRESHOLDS.good)    return 'Good';
+  if (score >= RATING_THRESHOLDS.working) return 'Working';
+  return 'Priority';
+}
+
+function toColor(rating: FourBRating): string {
+  if (rating === 'Elite' || rating === 'Good') return RATING_COLORS.elite;
+  if (rating === 'Working') return RATING_COLORS.working;
+  return RATING_COLORS.priority;
+}
+
+// ---------------------------------------------------------------------------
+// PILLAR CALCULATORS
+// ---------------------------------------------------------------------------
+
+/** BODY — Creation (40%) + Transfer (60%) */
+function calculateBody(input: ScoreCalculationInput): { body: number; creation: number; transfer: number } {
+  const pelvisVelScore = lerp(input.pelvis_omega_peak, 300, 900, 0, 100);
+  const xFactorScore = lerp(input.hip_shoulder_sep_max_deg, 20, 55, 0, 100);
+  const tempoRatio = input.load_duration_ms / Math.max(input.launch_duration_ms, 1);
+  const loadScore  = lerp(tempoRatio, 1.2, 2.4, 0, 100);
+  const strideScore = lerp(input.stride_length_rel_hip, 0.5, 1.4, 0, 100);
+
+  const creation = clamp(
+    pelvisVelScore * 0.35 +
+    xFactorScore   * 0.25 +
+    loadScore      * 0.25 +
+    strideScore    * 0.15
+  );
+
+  const tr = input.transfer_ratio;
+  let transferRatioScore: number;
+  if (tr >= TRANSFER_RATIO_ELITE.min && tr <= TRANSFER_RATIO_ELITE.max) {
+    transferRatioScore = 90 + lerp(tr, TRANSFER_RATIO_ELITE.min, TRANSFER_RATIO_ELITE.max, 0, 10);
+  } else if (tr < TRANSFER_RATIO_ELITE.min) {
+    transferRatioScore = lerp(tr, 0.8, TRANSFER_RATIO_ELITE.min, 20, 90);
+  } else {
+    transferRatioScore = lerp(tr, TRANSFER_RATIO_ELITE.max, 2.5, 90, 20);
+  }
+
+  const totalSwingMs = input.load_duration_ms + input.launch_duration_ms;
+  const timingGapMs  = input.trunk_omega_time - input.pelvis_omega_time;
+  const timingGapPct = totalSwingMs > 0 ? (timingGapMs / totalSwingMs) * 100 : 0;
+  let timingScore: number;
+  if (timingGapPct >= TIMING_GAP_ELITE.min && timingGapPct <= TIMING_GAP_ELITE.max) {
+    timingScore = 95;
+  } else if (timingGapPct < TIMING_GAP_ELITE.min) {
+    timingScore = lerp(timingGapPct, 0, TIMING_GAP_ELITE.min, 20, 95);
+  } else {
+    timingScore = lerp(timingGapPct, TIMING_GAP_ELITE.max, 35, 95, 30);
+  }
+
+  const decelScore = input.pelvis_omega_time < input.trunk_omega_time ? 85 : 40;
+
+  const transfer = clamp(
+    transferRatioScore * 0.35 +
+    decelScore         * 0.30 +
+    timingScore        * 0.20 +
+    (input.arm_omega_peak > input.trunk_omega_peak ? 85 : 50) * 0.15
+  );
+
+  const body = clamp(creation * 0.40 + transfer * 0.60);
+
+  return { body: Math.round(body), creation: Math.round(creation), transfer: Math.round(transfer) };
+}
+
+/** BRAIN — Tempo (40%) + Sequence Timing (35%) + Rhythm (25%) */
+function calculateBrain(input: ScoreCalculationInput): number {
+  const tempoRatio = input.load_duration_ms / Math.max(input.launch_duration_ms, 1);
+  const tempoScore = lerp(Math.abs(tempoRatio - 2.0), 0.2, 1.0, 100, 20);
+
+  const totalSwingMs  = input.load_duration_ms + input.launch_duration_ms;
+  const timingGapMs   = input.trunk_omega_time - input.pelvis_omega_time;
+  const timingGapPct  = totalSwingMs > 0 ? (timingGapMs / totalSwingMs) * 100 : 0;
+  const seqScore = (timingGapPct >= 14 && timingGapPct <= 18) ? 95
+    : timingGapPct >= 10 && timingGapPct < 14 ? 75
+    : timingGapPct > 18  && timingGapPct <= 22 ? 70
+    : 40;
+
+  const correctOrder =
+    input.pelvis_omega_time < input.trunk_omega_time &&
+    input.trunk_omega_time  < (input.pelvis_omega_time + totalSwingMs * 0.5);
+  const rhythmScore = correctOrder ? 85 : 45;
+
+  return Math.round(clamp(
+    tempoScore  * 0.40 +
+    seqScore    * 0.35 +
+    rhythmScore * 0.25
+  ));
+}
+
+/** BAT — Bat Speed (30%) + Acceleration (25%) + Lag (25%) + Attack Angle (20%) */
+function calculateBat(
+  input: ScoreCalculationInput,
+  playerLevel: string
+): { bat: number; bat_speed_mph: number | null; predicted_bat_speed_mph: number | null } {
+  const benchmarks: Record<string, { min: number; elite: number }> = {
+    youth:        { min: 40, elite: 58 },
+    high_school:  { min: 58, elite: 72 },
+    college:      { min: 66, elite: 80 },
+    pro:          { min: 68, elite: 85 },
+  };
+  const bench = benchmarks[playerLevel] ?? benchmarks['high_school'];
+
+  const predicted_bat_speed_mph = input.bat_omega_peak != null
+    ? Math.round(input.bat_omega_peak * 0.0236)
+    : null;
+
+  const bat_speed_mph = predicted_bat_speed_mph;
+
+  const batSpeedScore = bat_speed_mph != null
+    ? lerp(bat_speed_mph, bench.min, bench.elite, 20, 100)
+    : 50;
+
+  const accelScore = lerp(
+    input.arm_omega_peak / Math.max(input.trunk_omega_peak, 1),
+    1.0, 1.8, 40, 100
+  );
+
+  const lagScore = input.bat_omega_peak != null && input.bat_omega_peak > input.arm_omega_peak
+    ? 85 : 55;
+
+  const attackAngleProxyScore = lerp(input.front_foot_angle_deg, 10, 45, 80, 40);
+
+  const bat = clamp(
+    batSpeedScore         * 0.30 +
+    accelScore            * 0.25 +
+    lagScore              * 0.25 +
+    attackAngleProxyScore * 0.20
+  );
+
+  return { bat: Math.round(bat), bat_speed_mph, predicted_bat_speed_mph };
+}
+
+/** BALL — Exit Velo (40%) + Launch Angle (25%) + Spray (20%) + Hard Hit (15%) */
+function calculateBall(input: ScoreCalculationInput, playerLevel: string): number | null {
+  if (input.exit_velocity_mph == null) return null;
+
+  const evBenchmarks: Record<string, { min: number; elite: number }> = {
+    youth:       { min: 40, elite: 65 },
+    high_school: { min: 68, elite: 92 },
+    college:     { min: 78, elite: 100 },
+    pro:         { min: 85, elite: 108 },
+  };
+  const bench = evBenchmarks[playerLevel] ?? evBenchmarks['high_school'];
+  const exitVeloScore = lerp(input.exit_velocity_mph, bench.min, bench.elite, 20, 100);
+
+  const la = input.launch_angle_deg ?? 15;
+  const launchScore = la >= 8 && la <= 32 ? lerp(Math.abs(la - 20), 0, 12, 100, 60) : 40;
+
+  const spray = input.spray_angle_deg ?? 0;
+  const sprayScore =
+    Math.abs(spray) <= 15 ? 90
+    : spray > 15 && spray <= 30 ? 85
+    : spray < -15 && spray >= -30 ? 95
+    : Math.abs(spray) <= 45 ? 70
+    : 50;
+
+  const hardHitRate = input.hard_hit_rate ?? (input.exit_velocity_mph >= bench.elite * 0.95 ? 80 : 40);
+  const hardHitScore = lerp(hardHitRate, 20, 50, 20, 100);
+
+  return Math.round(clamp(
+    exitVeloScore * 0.40 +
+    launchScore   * 0.25 +
+    sprayScore    * 0.20 +
+    hardHitScore  * 0.15
+  ));
+}
+
+// ---------------------------------------------------------------------------
+// COMPOSITE CALCULATOR
+// ---------------------------------------------------------------------------
+
+function computeScoringResult(input: ScoreCalculationInput): ScoringResult {
+  const { body, creation, transfer } = calculateBody(input);
+  const brain = calculateBrain(input);
+  const { bat, bat_speed_mph, predicted_bat_speed_mph } = calculateBat(input, input.player_level);
+  const ball = calculateBall(input, input.player_level);
+
+  const mode: ScoringMode = ball !== null ? 'full' : 'training';
+  const w = WEIGHTS[mode];
+
+  const score_4bkrs = Math.round(clamp(
+    body  * w.body  +
+    brain * w.brain +
+    bat   * w.bat   +
+    (ball ?? 0) * w.ball
+  ));
+
+  const rating = toRating(score_4bkrs);
+  const color  = toColor(rating);
+
+  const totalSwingMs = input.load_duration_ms + input.launch_duration_ms;
+  const timingGapMs  = input.trunk_omega_time - input.pelvis_omega_time;
+  const timing_gap_pct = totalSwingMs > 0
+    ? Math.round((timingGapMs / totalSwingMs) * 100 * 10) / 10
+    : 0;
+
+  return {
+    score_4bkrs,
+    mode,
+    version:          'v2',
+    body, brain, bat, ball,
+    rating, color,
+    creation, transfer,
+    transfer_ratio:    Math.round(input.transfer_ratio * 1000) / 1000,
+    timing_gap_pct,
+    bat_speed_mph,
+    exit_velocity_mph: input.exit_velocity_mph ?? null,
+    predicted_bat_speed_mph,
+    predicted_exit_velocity_mph: null,
+    predicted_entry_bucket:      null,
+    actual_bat_speed_mph:        input.exit_velocity_mph != null ? bat_speed_mph : null,
+    actual_exit_velocity_mph:    input.exit_velocity_mph ?? null,
+    actual_entry_bucket:         null,
+    scoring_timestamp:           new Date().toISOString(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// CORS
+// ---------------------------------------------------------------------------
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-interface MovementUrlEntry {
-  url: string;
-  movement_id: string;
-}
-
-interface Calculate4BRequest {
-  player_id: string;
-  session_id?: string;
-  download_urls?: Record<string, string[]>;
-  movement_url_map?: Record<string, MovementUrlEntry[]>;
-  raw_csv_me?: string;
-  raw_csv_ik?: string;
-  session_data?: {
-    brain_score?: number;
-    body_score?: number;
-    bat_score?: number;
-    ball_score?: number;
-    ground_flow?: number;
-    core_flow?: number;
-    upper_flow?: number;
-    swing_count?: number;
-  };
-}
-
-enum LeakType {
-  CLEAN_TRANSFER = 'clean_transfer',
-  LATE_LEGS = 'late_legs',
-  EARLY_ARMS = 'early_arms',
-  TORSO_BYPASS = 'torso_bypass',
-  NO_BAT_DELIVERY = 'no_bat_delivery',
-  UNKNOWN = 'unknown',
-}
-
-interface MERow {
-  time: string;
-  org_movement_id: string;
-  time_from_max_hand?: string;
-  bat_kinetic_energy?: string;
-  arms_kinetic_energy?: string;
-  larm_kinetic_energy?: string;
-  rarm_kinetic_energy?: string;
-  legs_kinetic_energy: string;
-  torso_kinetic_energy: string;
-  total_kinetic_energy: string;
-  mass_total?: string;
-  [key: string]: string | undefined;
-}
-
-interface IKRow {
-  time: string;
-  org_movement_id: string;
-  time_from_max_hand?: string;
-  pelvis_rot: string;
-  torso_rot: string;
-  left_knee: string;
-  right_knee: string;
-  left_elbow: string;
-  right_elbow: string;
-  [key: string]: string | undefined;
-}
-
-interface MESwingMetrics {
-  movementId: string;
-  batKE: number;
-  armsKE: number;
-  legsKE: number;
-  torsoKE: number;
-  totalKE: number;
-  batEfficiency: number;
-  torsoToArmsTransferPct: number;
-  legsPeakTime: number;
-  armsPeakTime: number;
-  hasBatKE: boolean;
-}
-
-interface IKSwingMetrics {
-  movementId: string;
-  pelvisVelocity: number;
-  torsoVelocity: number;
-  xFactor: number;
-  xFactorStretchRate: number;
-  pelvisPeakTime: number;
-  torsoPeakTime: number;
-  contactTime: number;
-  pelvisTiming: number;
-  leadKneeAtContact: number;
-  leadElbowAtContact: number;
-  rearElbowAtContact: number;
-  rearElbowExtRate: number;
-  properSequence: boolean;
-}
-
-interface SwingMetrics {
-  movementId: string;
-  pelvisVelocity: number;
-  torsoVelocity: number;
-  xFactor: number;
-  xFactorStretchRate: number;
-  pelvisPeakTime: number;
-  torsoPeakTime: number;
-  contactTime: number;
-  pelvisTiming: number;
-  legsKE: number;
-  torsoKE: number;
-  armsKE: number;
-  batKE: number;
-  totalKE: number;
-  leadKneeAtContact: number;
-  leadElbowAtContact: number;
-  rearElbowAtContact: number;
-  rearElbowExtRate: number;
-  properSequence: boolean;
-  batEfficiency: number;
-  torsoToArmsTransferPct: number;
-  legsKEPeakTime: number;
-  armsKEPeakTime: number;
-}
-
-// ============================================================================
-// CONSTANTS (LOCKED - from Python 4B Bio Engine spec)
-// ============================================================================
-
-const THRESHOLDS = {
-  legsKE: { min: 100, max: 500 },
-  torsoKE: { min: 50, max: 250 },
-  armsKE: { min: 80, max: 250 },
-  batKE: { min: 100, max: 600 },
-  batEfficiency: { min: 25, max: 65 },
-  torsoToArmsTransfer: { min: 50, max: 150 },
-  cvLegsKE: { min: 5, max: 40 },
-  cvTorsoKE: { min: 5, max: 40 },
-  cvOutput: { min: 10, max: 150 },
-  cvTotalKE: { min: 5, max: 40 },
-  cvBatEfficiency: { min: 10, max: 50 },
-};
-
-const WEIGHTS = { body: 0.45, brain: 0.15, bat: 0.25, ball: 0.15 };
-const MIN_SWINGS_FOR_CV = 3;
-
-// Kinetic Potential constants
-const K_BAT_SPEED = 4.25;
-const TARGET_DELIVERY_EFFICIENCY_PCT = 55;
-const KP_SPEED_MULTIPLIER = 2.5;
-const KP_EFFICIENCY_SCALE = 1.4;
-const BASELINE_HEIGHT_INCHES = 68;
-
-// Mass normalization baseline (kg) - thresholds calibrated for reference athlete (~80 kg / 176 lbs)
-const BASELINE_MASS_KG = 80;
-
-// KE threshold keys that scale linearly with body mass
-const MASS_SCALED_KEYS: (keyof typeof THRESHOLDS)[] = [
-  'legsKE', 'torsoKE', 'armsKE', 'batKE',
-];
-
-function getMassScaledThresholds(athleteMassKg: number | null) {
-  if (!athleteMassKg || athleteMassKg <= 0) return THRESHOLDS;
-  const factor = Math.min(2.0, Math.max(0.5, athleteMassKg / BASELINE_MASS_KG));
-  const scaled = { ...THRESHOLDS };
-  for (const key of MASS_SCALED_KEYS) {
-    scaled[key] = {
-      min: Math.round(THRESHOLDS[key].min * factor),
-      max: Math.round(THRESHOLDS[key].max * factor),
-    };
-  }
-  return scaled;
-}
-
-const BAT_SPEED_CLAMPS: Record<string, { min: number; max: number }> = {
-  youth: { min: 45, max: 85 },
-  hs: { min: 55, max: 95 },
-  high_school: { min: 55, max: 95 },
-  college: { min: 60, max: 105 },
-  pro: { min: 65, max: 110 },
-  mlb: { min: 65, max: 110 },
-};
-
-const LEAK_MESSAGES: Record<string, { caption: string; training: string }> = {
-  [LeakType.CLEAN_TRANSFER]: {
-    caption: 'Energy flowed through the chain.',
-    training: 'Keep doing what you\'re doing.',
-  },
-  [LeakType.LATE_LEGS]: {
-    caption: 'Your legs fired late — the energy showed up after your hands.',
-    training: 'Get to the ground earlier.',
-  },
-  [LeakType.EARLY_ARMS]: {
-    caption: 'Your arms took over before your legs finished.',
-    training: 'Let the legs lead.',
-  },
-  [LeakType.TORSO_BYPASS]: {
-    caption: 'Energy jumped from legs to arms, skipping your core.',
-    training: 'Let your core catch and redirect the energy.',
-  },
-  [LeakType.NO_BAT_DELIVERY]: {
-    caption: 'Energy didn\'t make it to the barrel.',
-    training: 'Focus on delivering energy through the hands.',
-  },
-  [LeakType.UNKNOWN]: { caption: '', training: '' },
-};
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-function calculateCV(values: number[]): number {
-  if (values.length < 2) return 0;
-  const mean = values.reduce((a, b) => a + b, 0) / values.length;
-  if (mean === 0) return 0;
-  const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
-  return (Math.sqrt(variance) / Math.abs(mean)) * 100;
-}
-
-function to2080Scale(value: number, min: number, max: number, invert = false): number {
-  if (max === min) return 50;
-  let normalized = (value - min) / (max - min);
-  if (invert) normalized = 1 - normalized;
-  normalized = Math.max(0, Math.min(1, normalized));
-  return Math.round(20 + normalized * 60);
-}
-
-function getGrade(score: number): string {
-  if (score >= 70) return 'Plus-Plus';
-  if (score >= 60) return 'Plus';
-  if (score >= 55) return 'Above Avg';
-  if (score >= 45) return 'Average';
-  if (score >= 40) return 'Below Avg';
-  if (score >= 30) return 'Fringe';
-  return 'Poor';
-}
-
-function avg(arr: number[]): number {
-  return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-}
-
-function percentile(values: number[], p: number): number {
-  if (!values.length) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const idx = Math.floor(sorted.length * p / 100);
-  return sorted[Math.min(idx, sorted.length - 1)];
-}
-
-function radToDeg(rad: number): number {
-  return rad * (180 / Math.PI);
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-function calculateVelocities(values: number[], times: number[]): number[] {
-  const velocities: number[] = [];
-  for (let i = 1; i < values.length; i++) {
-    const dt = times[i] - times[i - 1];
-    if (dt > 0) {
-      velocities.push((values[i] - values[i - 1]) / dt);
-    } else {
-      velocities.push(0);
-    }
-  }
-  return velocities;
-}
-
-// ============================================================================
-// CSV STREAMING & PARSING
-// ============================================================================
-
-async function streamCsvFromUrl(url: string, maxChars: number = 2_000_000): Promise<string> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`CSV download failed: ${response.status}`);
-  }
-
-  // Read enough bytes to check for gzip magic header
-  const arrayBuffer = await response.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
-
-  let text: string;
-
-  // Check for gzip magic bytes (0x1f, 0x8b)
-  if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
-    console.log(`[4B-Engine] Detected gzip-compressed CSV (${bytes.length} bytes), decompressing...`);
-    const ds = new DecompressionStream("gzip");
-    const decompressedStream = new Blob([bytes]).stream().pipeThrough(ds);
-    const decompressedBlob = await new Response(decompressedStream).blob();
-    text = await decompressedBlob.text();
-    console.log(`[4B-Engine] Decompressed to ${text.length} chars`);
-  } else {
-    text = new TextDecoder().decode(bytes);
-  }
-
-  // Cap at maxChars to prevent memory issues
-  if (text.length > maxChars) {
-    const lastNewline = text.lastIndexOf("\n", maxChars);
-    if (lastNewline > 0) {
-      text = text.substring(0, lastNewline);
-    } else {
-      text = text.substring(0, maxChars);
-    }
-    console.log(`[4B-Engine] Capped CSV at ${text.length} chars (max: ${maxChars})`);
-  }
-
-  return text;
-}
-
-function parseCsvToRows(csvText: string, fileLabel: string = 'CSV'): Record<string, string>[] {
-  const lines = csvText.split("\n").filter(l => l.trim());
-  console.log(`[4B-Debug][${fileLabel}] Total non-empty lines: ${lines.length}`);
-  if (lines.length < 2) {
-    console.log(`[4B-Debug][${fileLabel}] Less than 2 lines — nothing to parse`);
-    return [];
-  }
-
-  // Strip surrounding quotes from headers (Reboot CSVs use quoted headers)
-  const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''));
-  console.log(`[4B-Debug][${fileLabel}] Headers found (${headers.length}): ${headers.slice(0, 30).map(h => `"${h}"`).join(' | ')}${headers.length > 30 ? ' ...' : ''}`);
-
-  const rows: Record<string, string>[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(",");
-    const row: Record<string, string> = {};
-    headers.forEach((header, j) => {
-      // Strip surrounding quotes from values too
-      row[header] = (values[j]?.trim() || '').replace(/^"|"$/g, '');
-    });
-    rows.push(row);
-  }
-
-  // Log first 5 rows as sample
-  const sample = rows.slice(0, 5);
-  console.log(`[4B-Debug][${fileLabel}] Parsed ${rows.length} data rows. First 5 sample:`);
-  for (let i = 0; i < sample.length; i++) {
-    const key_fields = {
-      org_movement_id: sample[i].org_movement_id ?? '(missing)',
-      time: sample[i].time ?? '(missing)',
-      total_kinetic_energy: sample[i].total_kinetic_energy ?? '(missing)',
-      legs_kinetic_energy: sample[i].legs_kinetic_energy ?? '(missing)',
-      bat_kinetic_energy: sample[i].bat_kinetic_energy ?? '(missing)',
-      time_from_max_hand: sample[i].time_from_max_hand ?? '(missing)',
-    };
-    console.log(`[4B-Debug][${fileLabel}] Row ${i}: ${JSON.stringify(key_fields)}`);
-  }
-
-  return rows;
-}
-
-function detectFileType(headers: string[]): 'me' | 'ik' | null {
-  const lower = headers.map(h => h.toLowerCase());
-  const meMarkers = ['total_kinetic_energy', 'legs_kinetic_energy', 'torso_kinetic_energy'];
-  const ikMarkers = ['pelvis_rot', 'torso_rot', 'left_knee', 'right_knee'];
-
-  if (meMarkers.some(m => lower.includes(m))) return 'me';
-  if (ikMarkers.some(m => lower.includes(m))) return 'ik';
-  return null;
-}
-
-// ============================================================================
-// ME FILE PROCESSING (PRIMARY - REQUIRED)
-// ============================================================================
-
-function processMEFile(rows: MERow[]): { swingMetrics: Map<string, MESwingMetrics>; csvMassKg: number | null } {
-  console.log(`[4B-Debug][ME-Process] Input rows to processMEFile: ${rows.length}`);
-
-  // Extract mass_total for median
-  const massValues: number[] = [];
-  for (const row of rows) {
-    const m = parseFloat(row.mass_total || '');
-    if (!isNaN(m) && m > 0) massValues.push(m);
-  }
-  const csvMassKg = massValues.length > 0 ? percentile(massValues, 50) : null;
-  if (csvMassKg) console.log(`[4B-Debug][ME-Process] CSV mass_total median: ${csvMassKg.toFixed(1)} kg`);
-
-  const swingGroups = new Map<string, MERow[]>();
-
-  let skippedNoId = 0;
-  let skippedNA = 0;
-  for (const row of rows) {
-    const movementId = row.org_movement_id;
-    if (!movementId) { skippedNoId++; continue; }
-    if (movementId.toLowerCase() === 'n/a') { skippedNA++; continue; }
-    if (!swingGroups.has(movementId)) swingGroups.set(movementId, []);
-    swingGroups.get(movementId)!.push(row);
-  }
-
-  const movementIds = Array.from(swingGroups.keys());
-  console.log(`[4B-Debug][ME-Process] Rows skipped (no org_movement_id): ${skippedNoId}`);
-  console.log(`[4B-Debug][ME-Process] Rows skipped (N/A): ${skippedNA}`);
-  console.log(`[4B-Debug][ME-Process] Unique movement IDs found: ${movementIds.length}`);
-  console.log(`[4B-Debug][ME-Process] Movement IDs: ${movementIds.slice(0, 20).join(', ')}${movementIds.length > 20 ? '...' : ''}`);
-  for (const [id, frames] of swingGroups) {
-    console.log(`[4B-Debug][ME-Process]   movement "${id}": ${frames.length} frames`);
-    if (movementIds.indexOf(id) >= 5) break;
-  }
-
-  const swingMetrics = new Map<string, MESwingMetrics>();
-
-  for (const [movementId, frames] of swingGroups) {
-    frames.sort((a, b) => parseFloat(a.time || '0') - parseFloat(b.time || '0'));
-    if (frames.length < 5) continue;
-
-    const times = frames.map(f => parseFloat(f.time || '0'));
-    const hasContactMarker = frames[0].time_from_max_hand !== undefined;
-
-    let validIndices: number[];
-    if (hasContactMarker) {
-      const contactTimes = frames.map(f => parseFloat(f.time_from_max_hand || '0'));
-      validIndices = contactTimes.map((ct, i) => ct <= 0.01 ? i : -1).filter(i => i >= 0);
-    } else {
-      validIndices = times.map((t, i) => t <= 0.5 ? i : -1).filter(i => i >= 0);
-    }
-
-    if (!validIndices.length) {
-      validIndices = Array.from({ length: Math.min(100, frames.length) }, (_, i) => i);
-    }
-
-    const batKEs: number[] = [];
-    const armsKEs: number[] = [];
-    const legsKEs: number[] = [];
-    const torsoKEs: number[] = [];
-    const totalKEs: number[] = [];
-
-    for (const i of validIndices) {
-      const f = frames[i];
-      const batKE = parseFloat(f.bat_kinetic_energy || '0');
-      const totalKE = parseFloat(f.total_kinetic_energy || '0');
-
-      if (batKE >= 0 && batKE <= totalKE && batKE < 1000) {
-        batKEs.push(batKE);
-      }
-
-      let armsKE = parseFloat(f.arms_kinetic_energy || '0');
-      if (armsKE === 0) {
-        const larmKE = parseFloat(f.larm_kinetic_energy || '0');
-        const rarmKE = parseFloat(f.rarm_kinetic_energy || '0');
-        armsKE = larmKE + rarmKE;
-      }
-      armsKEs.push(armsKE);
-      legsKEs.push(parseFloat(f.legs_kinetic_energy || '0'));
-      torsoKEs.push(parseFloat(f.torso_kinetic_energy || '0'));
-      totalKEs.push(totalKE);
-    }
-
-    const batKE95 = batKEs.length ? percentile(batKEs, 95) : 0;
-    const armsKE95 = percentile(armsKEs, 95);
-    const legsKE95 = percentile(legsKEs, 95);
-    const torsoKE95 = percentile(torsoKEs, 95);
-    const totalKE95 = percentile(totalKEs, 95);
-
-    const batEfficiency = totalKE95 > 0 ? (batKE95 / totalKE95) * 100 : 0;
-    const torsoToArmsTransferPct = torsoKE95 > 0 ? (armsKE95 / torsoKE95) * 100 : 0;
-
-    const legsPeakIdx = legsKEs.length
-      ? legsKEs.reduce((maxIdx, v, i) => v > legsKEs[maxIdx] ? i : maxIdx, 0) : 0;
-    const armsPeakIdx = armsKEs.length
-      ? armsKEs.reduce((maxIdx, v, i) => v > armsKEs[maxIdx] ? i : maxIdx, 0) : 0;
-
-    const legsPeakTime = validIndices.length ? times[validIndices[legsPeakIdx]] * 1000 : 0;
-    const armsPeakTime = validIndices.length ? times[validIndices[armsPeakIdx]] * 1000 : 0;
-
-    const hasBatKE = batKEs.length > 0 && Math.max(...batKEs) > 1;
-
-    swingMetrics.set(movementId, {
-      movementId, batKE: batKE95, armsKE: armsKE95, legsKE: legsKE95,
-      torsoKE: torsoKE95, totalKE: totalKE95, batEfficiency,
-      torsoToArmsTransferPct, legsPeakTime, armsPeakTime, hasBatKE,
-    });
-  }
-
-  console.log(`[4B-Debug][ME-Process] Swings surviving (>=5 frames): ${swingMetrics.size} out of ${swingGroups.size} movement groups`);
-  for (const [id, metrics] of swingMetrics) {
-    console.log(`[4B-Debug][ME-Process]   Swing "${id}": legsKE=${metrics.legsKE.toFixed(1)}J torsoKE=${metrics.torsoKE.toFixed(1)}J armsKE=${metrics.armsKE.toFixed(1)}J batKE=${metrics.batKE.toFixed(1)}J totalKE=${metrics.totalKE.toFixed(1)}J batEff=${metrics.batEfficiency.toFixed(1)}%`);
-    if (swingMetrics.size > 5 && [...swingMetrics.keys()].indexOf(id) >= 4) {
-      console.log(`[4B-Debug][ME-Process]   ... (${swingMetrics.size - 5} more swings)`);
-      break;
-    }
-  }
-
-  return { swingMetrics, csvMassKg };
-}
-
-// ============================================================================
-// IK FILE PROCESSING (OPTIONAL - SUPPORT ONLY)
-// ============================================================================
-
-function processIKFile(rows: IKRow[], dominantHand: 'L' | 'R' = 'R'): Map<string, IKSwingMetrics> {
-  const swingGroups = new Map<string, IKRow[]>();
-
-  for (const row of rows) {
-    const movementId = row.org_movement_id;
-    if (!movementId || movementId.toLowerCase() === 'n/a') continue;
-    if (!swingGroups.has(movementId)) swingGroups.set(movementId, []);
-    swingGroups.get(movementId)!.push(row);
-  }
-
-  const swingMetrics = new Map<string, IKSwingMetrics>();
-
-  for (const [movementId, frames] of swingGroups) {
-    frames.sort((a, b) => parseFloat(a.time || '0') - parseFloat(b.time || '0'));
-    if (frames.length < 10) continue;
-
-    const hasContactMarker = frames[0].time_from_max_hand !== undefined;
-    const times = frames.map(f => parseFloat(f.time || '0'));
-
-    let swingPhaseFrames: IKRow[];
-    let swingPhaseTimes: number[];
-    let contactIdx: number;
-
-    if (hasContactMarker) {
-      const contactTimes = frames.map(f => parseFloat(f.time_from_max_hand || '0'));
-      contactIdx = contactTimes.reduce((minIdx, ct, i) =>
-        Math.abs(ct) < Math.abs(contactTimes[minIdx]) ? i : minIdx, 0);
-      swingPhaseFrames = frames.filter((_, i) => contactTimes[i] <= 0.01);
-      swingPhaseTimes = times.filter((_, i) => contactTimes[i] <= 0.01);
-    } else {
-      swingPhaseFrames = frames.filter(f => parseFloat(f.time || '0') <= 0.5);
-      swingPhaseTimes = swingPhaseFrames.map(f => parseFloat(f.time || '0'));
-      contactIdx = swingPhaseFrames.length - 1;
-    }
-
-    if (swingPhaseFrames.length < 5) {
-      swingPhaseFrames = frames.slice(0, Math.min(100, frames.length));
-      swingPhaseTimes = times.slice(0, Math.min(100, times.length));
-      contactIdx = swingPhaseFrames.length - 1;
-    }
-
-    const pelvisRots = swingPhaseFrames.map(f => parseFloat(f.pelvis_rot || '0'));
-    const torsoRots = swingPhaseFrames.map(f => parseFloat(f.torso_rot || '0'));
-
-    const pelvisVelsRad = calculateVelocities(pelvisRots, swingPhaseTimes);
-    const torsoVelsRad = calculateVelocities(torsoRots, swingPhaseTimes);
-    const pelvisVelsDeg = pelvisVelsRad.map(radToDeg);
-    const torsoVelsDeg = torsoVelsRad.map(radToDeg);
-
-    const pelvisPeakVel = pelvisVelsDeg.length ? Math.max(...pelvisVelsDeg.map(Math.abs)) : 0;
-    const torsoPeakVel = torsoVelsDeg.length ? Math.max(...torsoVelsDeg.map(Math.abs)) : 0;
-
-    const xFactors = swingPhaseFrames.map((_, i) =>
-      Math.abs(radToDeg(torsoRots[i]) - radToDeg(pelvisRots[i])));
-    const xFactorMax = xFactors.length ? Math.max(...xFactors) : 0;
-
-    const xFactorVels = calculateVelocities(xFactors, swingPhaseTimes);
-    const xFactorStretchRate = xFactorVels.length ? Math.max(...xFactorVels.map(Math.abs)) : 0;
-
-    const contactTime = swingPhaseTimes[Math.min(contactIdx, swingPhaseTimes.length - 1)] * 1000;
-
-    const pelvisPeakIdx = pelvisVelsDeg.length
-      ? pelvisVelsDeg.reduce((maxIdx, v, i) =>
-          Math.abs(v) > Math.abs(pelvisVelsDeg[maxIdx]) ? i : maxIdx, 0) : 0;
-    const pelvisPeakTime = swingPhaseTimes[pelvisPeakIdx] * 1000;
-
-    const torsoPeakIdx = torsoVelsDeg.length
-      ? torsoVelsDeg.reduce((maxIdx, v, i) =>
-          Math.abs(v) > Math.abs(torsoVelsDeg[maxIdx]) ? i : maxIdx, 0) : 0;
-    const torsoPeakTime = swingPhaseTimes[torsoPeakIdx] * 1000;
-
-    const properSequence = pelvisPeakTime < torsoPeakTime;
-    const pelvisTiming = contactTime - pelvisPeakTime;
-
-    const contactFrame = swingPhaseFrames[Math.min(contactIdx, swingPhaseFrames.length - 1)];
-    const leadKneeCol = dominantHand === 'R' ? 'left_knee' : 'right_knee';
-    const leadElbowCol = dominantHand === 'R' ? 'left_elbow' : 'right_elbow';
-    const rearElbowCol = dominantHand === 'R' ? 'right_elbow' : 'left_elbow';
-
-    const leadKnee = Math.abs(radToDeg(parseFloat(contactFrame[leadKneeCol] || '0')));
-    const leadElbow = Math.abs(radToDeg(parseFloat(contactFrame[leadElbowCol] || '0')));
-    const rearElbow = Math.abs(radToDeg(parseFloat(contactFrame[rearElbowCol] || '0')));
-
-    const rearElbowAngles = swingPhaseFrames.map(f => parseFloat(f[rearElbowCol] || '0'));
-    const rearElbowVels = calculateVelocities(rearElbowAngles, swingPhaseTimes);
-    const rearElbowExtRate = rearElbowVels.length ? Math.max(...rearElbowVels) * (180 / Math.PI) : 0;
-
-    swingMetrics.set(movementId, {
-      movementId, pelvisVelocity: pelvisPeakVel, torsoVelocity: torsoPeakVel,
-      xFactor: xFactorMax, xFactorStretchRate, pelvisPeakTime, torsoPeakTime,
-      contactTime, pelvisTiming, leadKneeAtContact: leadKnee,
-      leadElbowAtContact: leadElbow, rearElbowAtContact: rearElbow,
-      rearElbowExtRate, properSequence,
-    });
-  }
-
-  return swingMetrics;
-}
-
-// ============================================================================
-// LEAK DETECTION - MOMENTUM-BASED (Python spec)
-// ============================================================================
-
-function detectLeakType(swings: SwingMetrics[]): {
-  type: LeakType; caption: string; trainingMeaning: string;
-} {
-  if (!swings.length) {
-    return { type: LeakType.UNKNOWN, caption: '', trainingMeaning: '' };
-  }
-
-  const avgBatEfficiency = avg(swings.map(s => s.batEfficiency));
-  const avgTorsoToArms = avg(swings.map(s => s.torsoToArmsTransferPct));
-  const avgTorsoKE = avg(swings.map(s => s.torsoKE));
-  const properSeqPct = swings.filter(s => s.legsKEPeakTime <= s.armsKEPeakTime).length / swings.length;
-  const lateLegsPct = swings.filter(s => s.legsKEPeakTime > s.armsKEPeakTime).length / swings.length;
-  const noBatPct = swings.filter(s => s.batKE < 10).length / swings.length;
-  const torsoBypassIndicator = avgTorsoKE > 0 && avgTorsoToArms < 50;
-
-  // Detection order per Python spec
-  if (noBatPct > 0.5) {
-    const msg = LEAK_MESSAGES[LeakType.NO_BAT_DELIVERY];
-    return { type: LeakType.NO_BAT_DELIVERY, caption: msg.caption, trainingMeaning: msg.training };
-  }
-  if (lateLegsPct > 0.5) {
-    const msg = LEAK_MESSAGES[LeakType.LATE_LEGS];
-    return { type: LeakType.LATE_LEGS, caption: msg.caption, trainingMeaning: msg.training };
-  }
-  if (torsoBypassIndicator) {
-    const msg = LEAK_MESSAGES[LeakType.TORSO_BYPASS];
-    return { type: LeakType.TORSO_BYPASS, caption: msg.caption, trainingMeaning: msg.training };
-  }
-  if (properSeqPct < 0.4) {
-    const msg = LEAK_MESSAGES[LeakType.EARLY_ARMS];
-    return { type: LeakType.EARLY_ARMS, caption: msg.caption, trainingMeaning: msg.training };
-  }
-  if (properSeqPct > 0.7 && avgBatEfficiency > 30) {
-    const msg = LEAK_MESSAGES[LeakType.CLEAN_TRANSFER];
-    return { type: LeakType.CLEAN_TRANSFER, caption: msg.caption, trainingMeaning: msg.training };
-  }
-
-  return { type: LeakType.UNKNOWN, caption: '', trainingMeaning: '' };
-}
-
-// ============================================================================
-// KINETIC PROJECTIONS (OLD)
-// ============================================================================
-
-function calculateKineticProjections(
-  swings: SwingMetrics[],
-  leak: { type: LeakType },
-  playerLevel: string = 'hs'
-) {
-  if (!swings.length) {
-    return {
-      batSpeedCurrentMph: 0, batSpeedCeilingMph: 0,
-      exitVeloCurrentMph: 0, exitVeloCeilingMph: 0,
-      deliveryEfficiencyPct: 0,
-      potentialDeliveryEfficiencyPct: TARGET_DELIVERY_EFFICIENCY_PCT,
-      hasProjections: false,
-    };
-  }
-
-  const avgBatKE = avg(swings.map(s => s.batKE));
-  const avgArmsKE = avg(swings.map(s => s.armsKE));
-  const avgTotalKE = avg(swings.map(s => s.totalKE));
-  const avgTorsoToArmsTransfer = avg(swings.map(s => s.torsoToArmsTransferPct));
-  const hasBatKE = swings.some(s => s.batKE > 1);
-
-  let deliveredEnergyJ: number;
-  let deliveryEfficiencyPct: number;
-
-  if (hasBatKE && avgBatKE > 0) {
-    deliveredEnergyJ = avgBatKE;
-    deliveryEfficiencyPct = avgTotalKE > 0 ? (avgBatKE / avgTotalKE) * 100 : 0;
-  } else {
-    deliveredEnergyJ = avgArmsKE * (avgTorsoToArmsTransfer / 100);
-    deliveryEfficiencyPct = avgTotalKE > 0
-      ? (deliveredEnergyJ / avgTotalKE) * 100
-      : clamp(avgTorsoToArmsTransfer * 0.5, 0, 60);
-  }
-
-  const potentialDeliveredEnergyJ = avgTotalKE * (TARGET_DELIVERY_EFFICIENCY_PCT / 100);
-
-  let batSpeedCurrentMph = K_BAT_SPEED * Math.sqrt(Math.max(deliveredEnergyJ, 0));
-  let batSpeedCeilingMph = K_BAT_SPEED * Math.sqrt(Math.max(potentialDeliveredEnergyJ, deliveredEnergyJ));
-
-  if (leak.type === LeakType.NO_BAT_DELIVERY || deliveryEfficiencyPct < 30) {
-    batSpeedCeilingMph = Math.max(batSpeedCeilingMph, batSpeedCurrentMph + 10);
-  } else if (deliveryEfficiencyPct < 45) {
-    batSpeedCeilingMph = Math.max(batSpeedCeilingMph, batSpeedCurrentMph + 6);
-  }
-
-  const clamps = BAT_SPEED_CLAMPS[playerLevel] || BAT_SPEED_CLAMPS.hs;
-  batSpeedCurrentMph = clamp(Math.round(batSpeedCurrentMph), clamps.min, clamps.max);
-  batSpeedCeilingMph = clamp(Math.round(batSpeedCeilingMph), batSpeedCurrentMph, clamps.max);
-
-  const exitVeloCurrentMph = clamp(Math.round(1.25 * batSpeedCurrentMph + 5), 55, 115);
-  const exitVeloCeilingMph = clamp(Math.round(1.25 * batSpeedCeilingMph + 5), exitVeloCurrentMph, 120);
-
-  return {
-    batSpeedCurrentMph, batSpeedCeilingMph,
-    exitVeloCurrentMph, exitVeloCeilingMph,
-    deliveryEfficiencyPct: Math.round(deliveryEfficiencyPct * 10) / 10,
-    potentialDeliveryEfficiencyPct: TARGET_DELIVERY_EFFICIENCY_PCT,
-    hasProjections: true,
-  };
-}
-
-// ============================================================================
-// KINETIC POTENTIAL LAYER (MASS-NORMALIZED)
-// ============================================================================
-
-function calculateKineticPotentialLayer(
-  swings: SwingMetrics[],
-  playerWeightLbs: number | null,
-  playerHeightInches: number | null
-) {
-  const warnings: string[] = [];
-  const bodyMassKg = playerWeightLbs ? playerWeightLbs / 2.20462 : 75;
-  const heightInches = playerHeightInches || 68;
-
-  if (!playerWeightLbs) warnings.push('Using default weight (165 lbs)');
-  if (!playerHeightInches) warnings.push('Using default height (68")');
-
-  if (!swings.length) {
-    return {
-      avgTotalKEPeak: 0, avgArmsKEPeak: 0, bodyMassKg, heightInches,
-      properSequencePct: 0, avgLegsToTorsoTransferPct: 0, avgTorsoToArmsTransferPct: 0,
-      massAdjustedEnergy: 0, leverIndex: heightInches / BASELINE_HEIGHT_INCHES,
-      efficiency: 0, estimatedCurrentBatSpeedMph: 0,
-      projectedBatSpeedCeilingMph: 0, mphLeftOnTable: 0,
-      hasProjections: false, warnings: ['No swings available'],
-    };
-  }
-
-  const avgTotalKEPeak = avg(swings.map(s => s.totalKE));
-  const avgArmsKEPeak = avg(swings.map(s => s.armsKE));
-  const avgLegsKEPeak = avg(swings.map(s => s.legsKE));
-  const avgTorsoKEPeak = avg(swings.map(s => s.torsoKE));
-
-  if (avgArmsKEPeak <= 0) {
-    return {
-      avgTotalKEPeak, avgArmsKEPeak: 0, bodyMassKg, heightInches,
-      properSequencePct: 0, avgLegsToTorsoTransferPct: 0, avgTorsoToArmsTransferPct: 0,
-      massAdjustedEnergy: avgTotalKEPeak / bodyMassKg,
-      leverIndex: heightInches / BASELINE_HEIGHT_INCHES,
-      efficiency: 0, estimatedCurrentBatSpeedMph: 0,
-      projectedBatSpeedCeilingMph: 0, mphLeftOnTable: 0,
-      hasProjections: false, warnings: ['Arms kinetic energy is zero'],
-    };
-  }
-
-  const avgLegsToTorsoTransferPct = avgLegsKEPeak > 0 ? (avgTorsoKEPeak / avgLegsKEPeak) * 100 : 0;
-  const avgTorsoToArmsTransferPct = avg(swings.map(s => s.torsoToArmsTransferPct));
-  const properSequencePct = (swings.filter(s => s.properSequence).length / swings.length) * 100;
-
-  const massAdjustedEnergy = avgTotalKEPeak / bodyMassKg;
-  const leverIndex = heightInches / BASELINE_HEIGHT_INCHES;
-
-  const rawEfficiency = avgTotalKEPeak > 0
-    ? (avgArmsKEPeak / avgTotalKEPeak) * KP_EFFICIENCY_SCALE : 0;
-  const efficiency = clamp(rawEfficiency, 0, 1);
-
-  const projectedBatSpeedCeilingMph = KP_SPEED_MULTIPLIER * Math.sqrt(avgArmsKEPeak) * leverIndex;
-  const estimatedCurrentBatSpeedMph = projectedBatSpeedCeilingMph * efficiency;
-  const mphLeftOnTable = projectedBatSpeedCeilingMph - estimatedCurrentBatSpeedMph;
-
-  return {
-    avgTotalKEPeak: Math.round(avgTotalKEPeak * 10) / 10,
-    avgArmsKEPeak: Math.round(avgArmsKEPeak * 10) / 10,
-    bodyMassKg: Math.round(bodyMassKg * 10) / 10,
-    heightInches,
-    properSequencePct: Math.round(properSequencePct * 10) / 10,
-    avgLegsToTorsoTransferPct: Math.round(avgLegsToTorsoTransferPct * 10) / 10,
-    avgTorsoToArmsTransferPct: Math.round(avgTorsoToArmsTransferPct * 10) / 10,
-    massAdjustedEnergy: Math.round(massAdjustedEnergy * 100) / 100,
-    leverIndex: Math.round(leverIndex * 100) / 100,
-    efficiency: Math.round(efficiency * 100) / 100,
-    estimatedCurrentBatSpeedMph: Math.round(estimatedCurrentBatSpeedMph * 10) / 10,
-    projectedBatSpeedCeilingMph: Math.round(projectedBatSpeedCeilingMph * 10) / 10,
-    mphLeftOnTable: Math.round(mphLeftOnTable * 10) / 10,
-    hasProjections: true,
-    warnings,
-  };
-}
-
-// ============================================================================
-// MAIN 4B SCORING FUNCTION (ME-PRIMARY)
-// ============================================================================
-
-function calculate4BScores(
-  ikRows: IKRow[] | null,
-  meRows: MERow[],
-  dominantHand: 'L' | 'R' = 'R',
-  playerLevel: string = 'hs',
-  playerWeightLbs: number | null = null,
-  playerHeightInches: number | null = null
-) {
-  const dataQuality = {
-    swingCount: 0, hasContactEvent: false, hasBatKE: false,
-    batKECoverage: 0, cvScoresValid: false,
-    incompleteSwings: [] as string[], warnings: [] as string[],
-    hasMEData: false, hasIKData: false,
-  };
-
-  const defaultResult = {
-    brain: 50, body: 50, bat: 50, ball: 50, catchBarrelScore: 50,
-    grades: { brain: 'Average', body: 'Average', bat: 'Average', ball: 'Average', overall: 'Average' },
-    components: { groundFlow: 50, coreFlow: 50, upperFlow: 50 },
-    rawMetrics: {} as Record<string, number>,
-    leak: { type: LeakType.UNKNOWN as string, caption: '', trainingMeaning: '' },
-    projections: {
-      batSpeedCurrentMph: 0, batSpeedCeilingMph: 0,
-      exitVeloCurrentMph: 0, exitVeloCeilingMph: 0,
-      deliveryEfficiencyPct: 0,
-      potentialDeliveryEfficiencyPct: TARGET_DELIVERY_EFFICIENCY_PCT,
-      hasProjections: false,
-    },
-    kineticPotential: null as any,
-    dataQuality,
-    swingCount: 0,
-  };
-
-  if (!meRows || meRows.length === 0) {
-    dataQuality.warnings.push('ME file required for 4B scoring');
-    return defaultResult;
-  }
-
-  // Process ME file (PRIMARY)
-  const meResult = processMEFile(meRows);
-  const meMetrics = meResult.swingMetrics;
-  const csvMassKg = meResult.csvMassKg;
-  dataQuality.hasMEData = meMetrics.size > 0;
-
-  if (meMetrics.size === 0) {
-    dataQuality.warnings.push('No valid swings found in ME file');
-    return defaultResult;
-  }
-
-  // Determine athlete mass for threshold scaling
-  const athleteMassKg = csvMassKg
-    ?? (playerWeightLbs ? playerWeightLbs / 2.20462 : null);
-  const th = getMassScaledThresholds(athleteMassKg);
-  if (athleteMassKg) {
-    console.log(`[4B-Debug] Mass normalization: ${athleteMassKg.toFixed(1)} kg, scale factor ${(athleteMassKg / BASELINE_MASS_KG).toFixed(2)}`);
-  }
-
-  // Process IK file (OPTIONAL)
-  const ikMetrics = ikRows && ikRows.length > 0
-    ? processIKFile(ikRows, dominantHand)
-    : new Map<string, IKSwingMetrics>();
-  dataQuality.hasIKData = ikMetrics.size > 0;
-
-  // Build swing data from ME (primary) with optional IK support
-  const swings: SwingMetrics[] = [];
-  let swingsWithBatKE = 0;
-
-  for (const [movementId, meData] of meMetrics) {
-    const ikData = ikMetrics.get(movementId);
-
-    const swing: SwingMetrics = {
-      movementId,
-      pelvisVelocity: ikData?.pelvisVelocity || 0,
-      torsoVelocity: ikData?.torsoVelocity || 0,
-      xFactor: ikData?.xFactor || 0,
-      xFactorStretchRate: ikData?.xFactorStretchRate || 0,
-      pelvisPeakTime: ikData?.pelvisPeakTime || 0,
-      torsoPeakTime: ikData?.torsoPeakTime || 0,
-      contactTime: ikData?.contactTime || 0,
-      pelvisTiming: ikData?.pelvisTiming || 0,
-      leadKneeAtContact: ikData?.leadKneeAtContact || 0,
-      leadElbowAtContact: ikData?.leadElbowAtContact || 0,
-      rearElbowAtContact: ikData?.rearElbowAtContact || 0,
-      rearElbowExtRate: ikData?.rearElbowExtRate || 0,
-      properSequence: ikData?.properSequence || false,
-      legsKE: meData.legsKE,
-      torsoKE: meData.torsoKE,
-      armsKE: meData.armsKE,
-      batKE: meData.batKE,
-      totalKE: meData.totalKE,
-      batEfficiency: meData.batEfficiency,
-      torsoToArmsTransferPct: meData.torsoToArmsTransferPct,
-      legsKEPeakTime: meData.legsPeakTime,
-      armsKEPeakTime: meData.armsPeakTime,
-    };
-
-    if (meData.hasBatKE) swingsWithBatKE++;
-    swings.push(swing);
-  }
-
-  if (!swings.length) {
-    dataQuality.warnings.push('No valid swings found in files');
-    return defaultResult;
-  }
-
-  // Data quality flags
-  dataQuality.swingCount = swings.length;
-  dataQuality.hasBatKE = swingsWithBatKE > 0;
-  dataQuality.batKECoverage = swingsWithBatKE / swings.length;
-  dataQuality.cvScoresValid = swings.length >= MIN_SWINGS_FOR_CV;
-
-  if (!dataQuality.hasBatKE) dataQuality.warnings.push('Bat KE not available - using transfer proxy');
-  if (!dataQuality.cvScoresValid) dataQuality.warnings.push(`Need ${MIN_SWINGS_FOR_CV}+ swings for consistency scores`);
-  if (!dataQuality.hasIKData) dataQuality.warnings.push('IK data not available - using ME-only scoring');
-
-  // Extract values
-  const legsKEs = swings.map(s => s.legsKE);
-  const torsoKEs = swings.map(s => s.torsoKE);
-  const armsKEs = swings.map(s => s.armsKE);
-  const batKEs = swings.map(s => s.batKE);
-  const totalKEs = swings.map(s => s.totalKE);
-  const batEffs = swings.map(s => s.batEfficiency);
-  const torsoToArmsTransfers = swings.map(s => s.torsoToArmsTransferPct);
-
-  const avgLegsKE = avg(legsKEs);
-  const avgTorsoKE = avg(torsoKEs);
-  const avgArmsKE = avg(armsKEs);
-  const avgBatKE = avg(batKEs);
-  const avgTotalKE = avg(totalKEs);
-  const avgBatEff = avg(batEffs);
-  const avgTorsoToArms = avg(torsoToArmsTransfers);
-
-  // Raw metrics
-  const rawMetrics: Record<string, any> = {
-    avgLegsKE: Math.round(avgLegsKE * 10) / 10,
-    avgTorsoKE: Math.round(avgTorsoKE * 10) / 10,
-    avgArmsKE: Math.round(avgArmsKE * 10) / 10,
-    avgBatKE: Math.round(avgBatKE * 10) / 10,
-    avgTotalKE: Math.round(avgTotalKE * 10) / 10,
-    avgBatEfficiency: Math.round(avgBatEff * 10) / 10,
-    avgTorsoToArmsTransfer: Math.round(avgTorsoToArms * 10) / 10,
-    swingCount: swings.length,
-  };
-
-  if (athleteMassKg) {
-    rawMetrics.athleteMassKg = Math.round(athleteMassKg * 10) / 10;
-    rawMetrics.massScaleFactor = Math.round((athleteMassKg / BASELINE_MASS_KG) * 100) / 100;
-  }
-
-  // ========== KINETIC CHAIN GAINS ==========
-  const pelvis_torso_gain = avgLegsKE > 0 ? Math.round((avgTorsoKE / avgLegsKE) * 100) / 100 : 0;
-  const torso_arm_gain = avgTorsoKE > 0 ? Math.round((avgArmsKE / avgTorsoKE) * 100) / 100 : 0;
-  const arm_bat_gain = avgArmsKE > 0 ? Math.round((avgBatKE / avgArmsKE) * 100) / 100 : 0;
-  rawMetrics.pelvis_torso_gain = pelvis_torso_gain;
-  rawMetrics.torso_arm_gain = torso_arm_gain;
-  rawMetrics.arm_bat_gain = arm_bat_gain;
-
-  // Energy flow labels (Strong >= 1.3, OK >= 1.0, Losing < 1.0)
-  const flowLabel = (gain: number) => gain >= 1.3 ? 'STRONG' : gain >= 1.0 ? 'OK' : 'LOSING';
-  rawMetrics.energy_flow = {
-    hip_to_body: flowLabel(pelvis_torso_gain),
-    body_to_arms: flowLabel(torso_arm_gain),
-    arms_to_barrel: flowLabel(arm_bat_gain),
-  };
-
-  // ========== TIMING / SEQUENCE METRICS ==========
-  // Derive cascade/brake timing from ME peak times
-  const legsKEPeakTimes = swings.map(s => s.legsKEPeakTime);
-  const armsKEPeakTimes = swings.map(s => s.armsKEPeakTime);
-  const avgLegsKEPeakTime = avg(legsKEPeakTimes);
-  const avgArmsKEPeakTime = avg(armsKEPeakTimes);
-  const ke_cascade_ms = Math.round(Math.abs(avgArmsKEPeakTime - avgLegsKEPeakTime) * 10) / 10;
-  rawMetrics.ke_cascade_ms = ke_cascade_ms;
-
-  // Brake efficiency: how well legs decelerate before arms peak
-  // (ratio of legs KE at arms-peak-time vs legs KE peak — lower = better braking)
-  const brakeEfficiencies = swings.map(s => {
-    if (s.legsKE <= 0) return 0;
-    // Approximate: if legs peaked before arms, good braking
-    return s.legsKEPeakTime < s.armsKEPeakTime ? 1.0 : 0.5;
-  });
-  rawMetrics.brake_efficiency = Math.round(avg(brakeEfficiencies) * 100) / 100;
-
-  // ========== IK-DEPENDENT METRICS ==========
-  if (dataQuality.hasIKData) {
-    const pelvisVels = swings.map(s => s.pelvisVelocity).filter(v => v > 0);
-    const torsoVels = swings.map(s => s.torsoVelocity).filter(v => v > 0);
-    const xFactors = swings.map(s => s.xFactor).filter(v => v > 0);
-    rawMetrics.avgPelvisVelocity = Math.round(avg(pelvisVels) * 10) / 10;
-    rawMetrics.avgTorsoVelocity = Math.round(avg(torsoVels) * 10) / 10;
-    rawMetrics.avgXFactor = Math.round(avg(xFactors) * 10) / 10;
-
-    // Pelvis-torso gap (ms between pelvis peak and torso peak rotational velocity)
-    const gaps = swings.map(s => s.torsoPeakTime - s.pelvisPeakTime).filter(g => g !== 0);
-    rawMetrics.pelvis_torso_gap_ms = gaps.length ? Math.round(avg(gaps) * 10) / 10 : null;
-
-    // ke_brake_ms: time from legs KE peak to pelvis peak rotation (ground brake)
-    const brakeTimes = swings.map(s => Math.abs(s.pelvisPeakTime - s.legsKEPeakTime));
-    rawMetrics.ke_brake_ms = Math.round(avg(brakeTimes) * 10) / 10;
-
-    // Window timing & space (from IK contact data)
-    const timingScores = swings.map(s => {
-      // Timing: how close pelvis fires before torso (ideal ~20-40ms gap)
-      const gap = s.torsoPeakTime - s.pelvisPeakTime;
-      if (gap >= 15 && gap <= 45) return 80;
-      if (gap >= 5 && gap <= 60) return 60;
-      return 40;
-    });
-    const spaceScores = swings.map(s => {
-      // Space: x-factor separation quality
-      if (s.xFactor >= 45 && s.xFactor <= 65) return 80;
-      if (s.xFactor >= 30 && s.xFactor <= 80) return 60;
-      return 40;
-    });
-    rawMetrics.window_timing = Math.round(avg(timingScores));
-    rawMetrics.window_space = Math.round(avg(spaceScores));
-    rawMetrics.swing_window_score = Math.round((rawMetrics.window_timing + rawMetrics.window_space) / 2);
-  }
-
-  // ========== VARIABILITY / STABILITY METRICS ==========
-  rawMetrics.trunk_variability_cv = Math.round(calculateCV(torsoKEs) * 10) / 10;
-  rawMetrics.arm_variability_cv = Math.round(calculateCV(armsKEs) * 10) / 10;
-
-  // Platform score: consistency of ground force production
-  const platformScore = to2080Scale(calculateCV(legsKEs), th.cvLegsKE.min, th.cvLegsKE.max, true);
-  rawMetrics.platform_score = platformScore;
-
-  // ========== BEAT PATTERN (rhythm string) ==========
-  // Derived from kinetic chain timing order
-  const sequenceCorrectPct = swings.filter(s => s.legsKEPeakTime <= s.armsKEPeakTime).length / swings.length;
-  let beat = '';
-  if (sequenceCorrectPct >= 0.8) beat = 'LEGS → TORSO → ARMS → BAT';
-  else if (sequenceCorrectPct >= 0.5) beat = 'LEGS → ARMS (torso skipping)';
-  else beat = 'ARMS → LEGS (reversed)';
-  rawMetrics.beat = beat;
-
-  // ========== STORY (narrative summary) ==========
-  const storyBase = avgLegsKE > (th.legsKE.min + th.legsKE.max) / 2
-    ? 'Strong ground force production'
-    : 'Needs more ground force';
-  const storyRhythm = sequenceCorrectPct >= 0.7
-    ? 'Good kinetic sequence timing'
-    : 'Timing sequence needs work';
-  const storyBarrel = avgBatEff > 35
-    ? 'Energy reaching the barrel'
-    : 'Energy not reaching the barrel efficiently';
-  rawMetrics.story = { base: storyBase, rhythm: storyRhythm, barrel: storyBarrel };
-
-  // ========== ARCHETYPE ==========
-  // Classify swing archetype from metrics patterns
-  let archetype = 'Balanced';
-  if (pelvis_torso_gain < 0.8 && torso_arm_gain > 1.3) archetype = 'Arm Dominant';
-  else if (avgLegsKE > (th.legsKE.max * 0.7) && arm_bat_gain > 1.5) archetype = 'Slingshotter';
-  else if (sequenceCorrectPct < 0.4) archetype = 'Spinner';
-  else if (pelvis_torso_gain > 1.4 && torso_arm_gain > 1.2) archetype = 'Whipper';
-  else if (avgLegsKE < th.legsKE.min * 1.2) archetype = 'Glider';
-  rawMetrics.archetype = archetype;
-
-  // ========== ROOT CAUSE ==========
-  // Derive primary issue from leak + scores
-  let rootIssue = 'None detected';
-  let rootWhat = 'Swing is functioning well';
-  let rootBuild = 'Continue current training';
-  if (avgBatEff < 25) {
-    rootIssue = 'Energy delivery';
-    rootWhat = 'Energy is being created but not reaching the barrel';
-    rootBuild = 'Focus on bat delivery and hand path drills';
-  } else if (sequenceCorrectPct < 0.5) {
-    rootIssue = 'Timing collapse';
-    rootWhat = 'Arms are firing before legs finish';
-    rootBuild = 'Sequence drills: let the legs lead';
-  } else if (avgLegsKE < th.legsKE.min * 1.3) {
-    rootIssue = 'Weak platform';
-    rootWhat = 'Not generating enough ground force';
-    rootBuild = 'Lower half loading and drive drills';
-  } else if (calculateCV(legsKEs) > 30) {
-    rootIssue = 'Unstable axis';
-    rootWhat = 'Ground force production is inconsistent';
-    rootBuild = 'Balance and stability work';
-  }
-  rawMetrics.root_cause = { issue: rootIssue, what: rootWhat, build: rootBuild };
-
-  // ========== GROUND FLOW (mass-normalized) ==========
-  const groundFlowScore = to2080Scale(avgLegsKE, th.legsKE.min, th.legsKE.max);
-
-  // ========== CORE FLOW (mass-normalized) ==========
-  const coreFlowComponents = [
-    to2080Scale(avgTorsoKE, th.torsoKE.min, th.torsoKE.max),
-    to2080Scale(avgTorsoToArms, th.torsoToArmsTransfer.min, th.torsoToArmsTransfer.max),
-  ];
-  const coreFlowScore = Math.round(avg(coreFlowComponents));
-
-  // ========== BODY (Ground + Core) ==========
-  const bodyScore = Math.round((groundFlowScore + coreFlowScore) / 2);
-
-  // ========== BAT (Upper Flow, mass-normalized) ==========
-  let upperFlowComponents: number[];
-  if (dataQuality.hasBatKE) {
-    upperFlowComponents = [
-      to2080Scale(avgBatKE, th.batKE.min, th.batKE.max),
-      to2080Scale(avgArmsKE, th.armsKE.min, th.armsKE.max),
-      to2080Scale(avgBatEff, th.batEfficiency.min, th.batEfficiency.max),
-    ];
-  } else {
-    const deliveryEffProxy = avgArmsKE * (avgTorsoToArms / 100);
-    const proxyEffPct = avgTotalKE > 0 ? (deliveryEffProxy / avgTotalKE) * 100 : avgTorsoToArms * 0.4;
-    upperFlowComponents = [
-      to2080Scale(avgArmsKE, th.armsKE.min, th.armsKE.max),
-      to2080Scale(proxyEffPct, th.torsoToArmsTransfer.min, th.torsoToArmsTransfer.max),
-    ];
-  }
-  const batScore = Math.round(avg(upperFlowComponents));
-
-  // ========== BRAIN (Consistency) ==========
-  let brainScore = 50;
-  if (dataQuality.cvScoresValid) {
-    const cvLegsKE = calculateCV(legsKEs);
-    const cvTorsoKE = calculateCV(torsoKEs);
-    const cvArmsKE = calculateCV(armsKEs);
-    const cvOutput = dataQuality.hasBatKE ? calculateCV(batKEs) : calculateCV(armsKEs);
-
-    rawMetrics.cvLegsKE = Math.round(cvLegsKE * 10) / 10;
-    rawMetrics.cvTorsoKE = Math.round(cvTorsoKE * 10) / 10;
-    rawMetrics.cvArmsKE = Math.round(cvArmsKE * 10) / 10;
-    rawMetrics.cvOutput = Math.round(cvOutput * 10) / 10;
-
-    const brainComponents = [
-      to2080Scale(cvLegsKE, th.cvLegsKE.min, th.cvLegsKE.max, true),
-      to2080Scale(cvTorsoKE, th.cvTorsoKE.min, th.cvTorsoKE.max, true),
-      to2080Scale(cvOutput, th.cvOutput.min, th.cvOutput.max, true),
-    ];
-    brainScore = Math.round(avg(brainComponents));
-  }
-
-  // ========== BALL (Output Consistency) ==========
-  let ballScore = 50;
-  if (dataQuality.cvScoresValid) {
-    const cvTotalKE = calculateCV(totalKEs);
-    const cvBatEff = calculateCV(batEffs.filter(e => e > 0));
-
-    rawMetrics.cvTotalKE = Math.round(cvTotalKE * 10) / 10;
-    rawMetrics.cvBatEfficiency = Math.round(cvBatEff * 10) / 10;
-
-    const ballComponents = [
-      to2080Scale(cvTotalKE, th.cvTotalKE.min, th.cvTotalKE.max, true),
-      to2080Scale(cvBatEff, th.cvBatEfficiency.min, th.cvBatEfficiency.max, true),
-    ];
-    ballScore = Math.round(avg(ballComponents));
-  }
-
-  // ========== CATCH BARREL SCORE ==========
-  const catchBarrelScore = Math.round(
-    bodyScore * WEIGHTS.body + batScore * WEIGHTS.bat +
-    brainScore * WEIGHTS.brain + ballScore * WEIGHTS.ball
-  );
-
-  // ========== LEAK DETECTION ==========
-  const leak = detectLeakType(swings);
-
-  // ========== KINETIC PROJECTIONS ==========
-  const projections = calculateKineticProjections(swings, leak, playerLevel);
-
-  // ========== KINETIC POTENTIAL LAYER ==========
-  const kineticPotential = calculateKineticPotentialLayer(swings, playerWeightLbs, playerHeightInches);
-
-  return {
-    brain: brainScore,
-    body: bodyScore,
-    bat: batScore,
-    ball: ballScore,
-    catchBarrelScore,
-    grades: {
-      brain: getGrade(brainScore),
-      body: getGrade(bodyScore),
-      bat: getGrade(batScore),
-      ball: getGrade(ballScore),
-      overall: getGrade(catchBarrelScore),
-    },
-    components: {
-      groundFlow: groundFlowScore,
-      coreFlow: coreFlowScore,
-      upperFlow: batScore,
-    },
-    rawMetrics,
-    leak: {
-      type: leak.type,
-      caption: leak.caption,
-      trainingMeaning: leak.trainingMeaning,
-    },
-    projections,
-    kineticPotential,
-    dataQuality,
-    swingCount: swings.length,
-  };
-}
-
-// ============================================================================
+// ---------------------------------------------------------------------------
 // EDGE FUNCTION HANDLER
-// ============================================================================
+// ---------------------------------------------------------------------------
 
-Deno.serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const input: ScoreCalculationInput = await req.json();
 
-    const body = await req.json() as Calculate4BRequest;
-
-    if (!body.player_id) {
+    // Basic validation
+    const required: Array<keyof ScoreCalculationInput> = [
+      'source', 'pelvis_omega_peak', 'trunk_omega_peak', 'arm_omega_peak',
+      'pelvis_omega_time', 'trunk_omega_time', 'transfer_ratio', 'player_level',
+    ];
+    const missing = required.filter(k => input[k] == null);
+    if (missing.length > 0) {
       return new Response(
-        JSON.stringify({ error: 'player_id is required' }),
+        JSON.stringify({ error: `Missing required fields: ${missing.join(', ')}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`[4B-Engine] Processing for player: ${body.player_id}`);
+    const result: ScoringResult = computeScoringResult(input);
 
-    // Fetch player info for height/weight/handedness/level
-    const { data: player } = await supabase
-      .from('players')
-      .select('id, name, handedness, level, height_inches, weight_lbs')
-      .eq('id', body.player_id)
-      .maybeSingle();
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
-    const dominantHand: 'L' | 'R' = player?.handedness === 'left' ? 'L' : 'R';
-    const playerLevel = player?.level || 'hs';
-    const playerWeightLbs = player?.weight_lbs ? Number(player.weight_lbs) : null;
-    const playerHeightInches = player?.height_inches ? Number(player.height_inches) : null;
-
-    console.log(`[4B-Engine] Player: ${player?.name || 'unknown'}, Hand: ${dominantHand}, Level: ${playerLevel}`);
-
-    let scores: ReturnType<typeof calculate4BScores>;
-
-    // Priority 1: raw CSV text passed directly (from manual-reboot-upload)
-    const hasRawCsv = body.raw_csv_me && body.raw_csv_me.trim().length > 10;
-
-    if (hasRawCsv) {
-      console.log("[4B-Engine] Using raw CSV text passed directly (no URL streaming needed)");
-
-      const meRows = parseCsvToRows(body.raw_csv_me!, 'raw-momentum-energy') as MERow[];
-      console.log(`[4B-Engine] Raw ME CSV: parsed ${meRows.length} rows`);
-
-      let ikRows: IKRow[] | null = null;
-      if (body.raw_csv_ik && body.raw_csv_ik.trim().length > 10) {
-        ikRows = parseCsvToRows(body.raw_csv_ik, 'raw-inverse-kinematics') as IKRow[];
-        console.log(`[4B-Engine] Raw IK CSV: parsed ${ikRows.length} rows`);
-      }
-
-      scores = calculate4BScores(
-        ikRows, meRows, dominantHand, playerLevel,
-        playerWeightLbs, playerHeightInches
-      );
-
-      console.log(`[4B-Engine] RAW CSV RESULTS: Brain=${scores.brain} Body=${scores.body} ` +
-        `Bat=${scores.bat} Ball=${scores.ball} Overall=${scores.catchBarrelScore} ` +
-        `Swings=${scores.swingCount} Leak=${scores.leak.type}`);
-
-    } else if (body.download_urls && Object.keys(body.download_urls).length > 0) {
-      // Priority 2: download_urls (streaming from signed URLs)
-      console.log("[4B-Engine] Streaming CSV data from download URLs...");
-
-      let meRows: MERow[] = [];
-      let ikRows: IKRow[] | null = null;
-
-      // Build URL→movement_id lookup from movement_url_map
-      const meMovementMap = body.movement_url_map?.["momentum-energy"] || [];
-      const ikMovementMap = body.movement_url_map?.["inverse-kinematics"] || [];
-
-      // Stream momentum-energy CSV(s) (PRIMARY)
-      // When we have multiple URLs (per-movement exports), concatenate all CSVs
-      const meUrls = body.download_urls["momentum-energy"] || [];
-      if (meUrls.length > 0) {
-        console.log(`[4B-Engine] Streaming ${meUrls.length} momentum-energy CSV(s) (capped at 2MB each)...`);
-        console.log(`[4B-Engine] Movement URL map has ${meMovementMap.length} entries`);
-        for (let urlIdx = 0; urlIdx < meUrls.length; urlIdx++) {
-          const expectedMovementId = meMovementMap[urlIdx]?.movement_id || null;
-          console.log(`[4B-Engine] ME URL ${urlIdx + 1}/${meUrls.length}: expected movement_id="${expectedMovementId}"`);
-          const csvText = await streamCsvFromUrl(meUrls[urlIdx]);
-          console.log(`[4B-Engine] ME URL ${urlIdx + 1}/${meUrls.length}: ${csvText.length} chars`);
-          const rows = parseCsvToRows(csvText, `momentum-energy-${urlIdx + 1}`) as MERow[];
-          console.log(`[4B-Engine] ME URL ${urlIdx + 1}: parsed ${rows.length} rows`);
-
-          // Check if rows have org_movement_id; if not, inject from movement map
-          if (rows.length > 0 && expectedMovementId) {
-            const hasOrgMovementId = rows[0].org_movement_id && rows[0].org_movement_id.trim() !== '';
-            if (!hasOrgMovementId) {
-              console.log(`[4B-Engine] ⚠️ ME URL ${urlIdx + 1}: No org_movement_id column found — injecting "${expectedMovementId}" for ${rows.length} rows`);
-              for (const row of rows) {
-                row.org_movement_id = expectedMovementId;
-              }
-            } else {
-              console.log(`[4B-Engine] ME URL ${urlIdx + 1}: org_movement_id present, first value="${rows[0].org_movement_id}"`);
-            }
-          }
-
-          meRows.push(...rows);
-        }
-        console.log(`[4B-Engine] Total ME rows after concatenation: ${meRows.length}`);
-      }
-
-      // Stream inverse-kinematics CSV(s) (OPTIONAL)
-      const ikUrls = body.download_urls["inverse-kinematics"] || [];
-      if (ikUrls.length > 0) {
-        console.log(`[4B-Engine] Streaming ${ikUrls.length} inverse-kinematics CSV(s) (capped at 2MB each)...`);
-        const allIkRows: IKRow[] = [];
-        for (let urlIdx = 0; urlIdx < ikUrls.length; urlIdx++) {
-          try {
-            const expectedMovementId = ikMovementMap[urlIdx]?.movement_id || null;
-            const ikCsv = await streamCsvFromUrl(ikUrls[urlIdx]);
-            console.log(`[4B-Engine] IK URL ${urlIdx + 1}/${ikUrls.length}: ${ikCsv.length} chars, expected movement_id="${expectedMovementId}"`);
-            const rows = parseCsvToRows(ikCsv, `inverse-kinematics-${urlIdx + 1}`) as IKRow[];
-            console.log(`[4B-Engine] IK URL ${urlIdx + 1}: parsed ${rows.length} rows`);
-
-            // Inject movement_id if missing
-            if (rows.length > 0 && expectedMovementId) {
-              const hasOrgMovementId = rows[0].org_movement_id && rows[0].org_movement_id.trim() !== '';
-              if (!hasOrgMovementId) {
-                console.log(`[4B-Engine] ⚠️ IK URL ${urlIdx + 1}: No org_movement_id — injecting "${expectedMovementId}"`);
-                for (const row of rows) {
-                  row.org_movement_id = expectedMovementId;
-                }
-              }
-            }
-
-            allIkRows.push(...rows);
-          } catch (err) {
-            console.warn(`[4B-Engine] IK URL ${urlIdx + 1} streaming failed, skipping:`, err);
-          }
-        }
-        if (allIkRows.length > 0) {
-          ikRows = allIkRows;
-          console.log(`[4B-Engine] Total IK rows after concatenation: ${ikRows.length}`);
-        }
-      }
-
-      // Run the REAL 4B Bio Engine
-      scores = calculate4BScores(
-        ikRows, meRows, dominantHand, playerLevel,
-        playerWeightLbs, playerHeightInches
-      );
-
-      console.log(`[4B-Engine] REAL ENGINE RESULTS: Brain=${scores.brain} Body=${scores.body} ` +
-        `Bat=${scores.bat} Ball=${scores.ball} Overall=${scores.catchBarrelScore} ` +
-        `Swings=${scores.swingCount} Leak=${scores.leak.type}`);
-      console.log(`[4B-Engine] Flows: Ground=${scores.components.groundFlow} ` +
-        `Core=${scores.components.coreFlow} Upper=${scores.components.upperFlow}`);
-      console.log(`[4B-Engine] Raw: LegsKE=${scores.rawMetrics.avgLegsKE}J ` +
-        `TorsoKE=${scores.rawMetrics.avgTorsoKE}J ArmsKE=${scores.rawMetrics.avgArmsKE}J ` +
-        `BatKE=${scores.rawMetrics.avgBatKE}J TotalKE=${scores.rawMetrics.avgTotalKE}J`);
-
-      if (scores.kineticPotential?.hasProjections) {
-        console.log(`[4B-Engine] Kinetic Potential: Current=${scores.kineticPotential.estimatedCurrentBatSpeedMph}mph ` +
-          `Ceiling=${scores.kineticPotential.projectedBatSpeedCeilingMph}mph ` +
-          `Left=${scores.kineticPotential.mphLeftOnTable}mph`);
-      }
-
-    } else {
-      // Fallback: use provided session_data
-      const sd = body.session_data;
-      const brainScore = sd?.brain_score ?? 50;
-      const bodyScore = sd?.body_score ?? 50;
-      const batScore = sd?.bat_score ?? 50;
-      const ballScore = sd?.ball_score ?? 50;
-      const groundFlow = sd?.ground_flow ?? 55;
-      const coreFlow = sd?.core_flow ?? 55;
-      const upperFlow = sd?.upper_flow ?? 55;
-      const swingCount = sd?.swing_count ?? 1;
-      const overallScore = Math.round(bodyScore * 0.45 + brainScore * 0.15 + batScore * 0.25 + ballScore * 0.15);
-
-      // Simple leak detection for fallback
-      let leakType = 'unknown', leakCaption = '', leakTraining = '';
-      if (groundFlow >= 60 && coreFlow >= 60 && upperFlow >= 60) {
-        leakType = 'clean_transfer';
-        leakCaption = LEAK_MESSAGES[LeakType.CLEAN_TRANSFER].caption;
-        leakTraining = LEAK_MESSAGES[LeakType.CLEAN_TRANSFER].training;
-      } else if (groundFlow < 45) {
-        leakType = 'late_legs';
-        leakCaption = LEAK_MESSAGES[LeakType.LATE_LEGS].caption;
-        leakTraining = LEAK_MESSAGES[LeakType.LATE_LEGS].training;
-      } else if (upperFlow > groundFlow + 15) {
-        leakType = 'early_arms';
-        leakCaption = LEAK_MESSAGES[LeakType.EARLY_ARMS].caption;
-        leakTraining = LEAK_MESSAGES[LeakType.EARLY_ARMS].training;
-      }
-
-      scores = {
-        brain: brainScore, body: bodyScore, bat: batScore, ball: ballScore,
-        catchBarrelScore: overallScore,
-        grades: {
-          brain: getGrade(brainScore), body: getGrade(bodyScore),
-          bat: getGrade(batScore), ball: getGrade(ballScore), overall: getGrade(overallScore),
-        },
-        components: { groundFlow, coreFlow, upperFlow },
-        rawMetrics: {},
-        leak: { type: leakType, caption: leakCaption, trainingMeaning: leakTraining },
-        projections: {
-          batSpeedCurrentMph: 0, batSpeedCeilingMph: 0,
-          exitVeloCurrentMph: 0, exitVeloCeilingMph: 0,
-          deliveryEfficiencyPct: 0,
-          potentialDeliveryEfficiencyPct: TARGET_DELIVERY_EFFICIENCY_PCT,
-          hasProjections: false,
-        },
-        kineticPotential: null,
-        dataQuality: {
-          swingCount, hasContactEvent: false, hasBatKE: false,
-          batKECoverage: 0, cvScoresValid: false,
-          incompleteSwings: [], warnings: ['Using provided session_data (no CSV)'],
-          hasMEData: false, hasIKData: false,
-        },
-        swingCount,
-      };
-    }
-
-    // Build session record — include reboot_session_id for linkage
-    const sessionRecord: Record<string, unknown> = {
-      player_id: body.player_id,
-      session_date: new Date().toISOString(),
-      session_source: 'manual',
-      reboot_session_id: body.session_id || null,
-      brain_score: scores.brain,
-      body_score: scores.body,
-      bat_score: scores.bat,
-      ball_score: scores.ball,
-      overall_score: scores.catchBarrelScore,
-      brain_grade: scores.grades.brain,
-      body_grade: scores.grades.body,
-      bat_grade: scores.grades.bat,
-      ball_grade: scores.grades.ball,
-      overall_grade: scores.grades.overall,
-      ground_flow: scores.components.groundFlow,
-      core_flow: scores.components.coreFlow,
-      upper_flow: scores.components.upperFlow,
-      leak_type: scores.leak.type,
-      leak_caption: scores.leak.caption,
-      leak_training: scores.leak.trainingMeaning,
-      swing_count: scores.swingCount,
-      data_quality: scores.swingCount >= 5 ? 'good' : scores.swingCount >= 3 ? 'fair' : 'limited',
-      raw_metrics: scores.rawMetrics,
-      projections: scores.projections,
-      kinetic_potential: scores.kineticPotential,
-    };
-
-    // Upsert into player_sessions — deduplicate by (player_id, reboot_session_id)
-    let insertedSession: any;
-    let insertError: any;
-
-    if (body.session_id) {
-      // Check if a player_session already exists for this reboot session
-      const { data: existing } = await supabase
-        .from('player_sessions')
-        .select('id')
-        .eq('player_id', body.player_id)
-        .eq('reboot_session_id', body.session_id)
-        .maybeSingle();
-
-      if (existing) {
-        // Update existing record instead of creating duplicate
-        const { data, error } = await supabase
-          .from('player_sessions')
-          .update(sessionRecord)
-          .eq('id', existing.id)
-          .select()
-          .single();
-        insertedSession = data;
-        insertError = error;
-        console.log(`[4B-Engine] Updated existing player_session ${existing.id}`);
-      } else {
-        const { data, error } = await supabase
-          .from('player_sessions')
-          .insert(sessionRecord)
-          .select()
-          .single();
-        insertedSession = data;
-        insertError = error;
-      }
-    } else {
-      const { data, error } = await supabase
-        .from('player_sessions')
-        .insert(sessionRecord)
-        .select()
-        .single();
-      insertedSession = data;
-      insertError = error;
-    }
-
-    if (insertError) {
-      console.error('[4B-Engine] Insert error:', insertError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to save session', details: insertError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`[4B-Engine] Session saved: ${insertedSession.id}`);
-
-    // Update reboot_sessions status to "scored" (not "completed")
-    if (body.session_id) {
-      const { error: updateError } = await supabase
-        .from('reboot_sessions')
-        .update({ status: 'scored', processed_at: new Date().toISOString() })
-        .eq('reboot_session_id', body.session_id)
-        .eq('player_id', body.player_id);
-
-      if (updateError) {
-        console.warn('[4B-Engine] Could not update reboot_sessions status:', updateError);
-      } else {
-        console.log(`[4B-Engine] Marked reboot_session ${body.session_id} as scored`);
-      }
-    }
-
+  } catch (err) {
+    console.error('[calculate-4b-scores] Error:', err);
     return new Response(
-      JSON.stringify({
-        success: true,
-        session_id: insertedSession.id,
-        scores: {
-          brain: scores.brain, body: scores.body,
-          bat: scores.bat, ball: scores.ball,
-          overall: scores.catchBarrelScore,
-        },
-        grades: scores.grades,
-        components: scores.components,
-        leak: scores.leak,
-        projections: scores.projections,
-        kinetic_potential: scores.kineticPotential,
-        raw_metrics: scores.rawMetrics,
-        swing_count: scores.swingCount,
-        data_quality: scores.dataQuality,
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error) {
-    console.error('[4B-Engine] Error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error', details: String(error) }),
+      JSON.stringify({ error: 'Internal scoring error', detail: String(err) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
+
+// Export for use by compute-4b-from-csv (shared internal helper — no formula duplication)
+export { computeScoringResult };
+export type { ScoreCalculationInput, ScoringResult };
