@@ -9,7 +9,7 @@
  *   3. calculate-4b-scores edge function returns ScoringResult exactly.
  *   4. All clients consume ScoringResult (or FourBScores subset) — no local calculators.
  *
- * Version: v2 (training = Body×0.55 + Brain×0.15 + Bat×0.30)
+ * Version: v2.2 (three-tier bat speed + Nathan collision model)
  * Updated: March 2026
  */
 
@@ -29,6 +29,12 @@ export type MotorProfile   =
   | 'Whipper_Tilt'
   | 'Slingshotter'
   | 'Titan';
+
+/** Three-tier bat speed prediction path */
+export type BatSpeedSource = 'measured' | 'ke_direct' | 'estimation';
+
+/** Confidence tier for bat speed prediction */
+export type BatSpeedConfidence = 'high' | 'medium' | 'low';
 
 // ---------------------------------------------------------------------------
 // CORE SCORE SHAPE  (canonical — matches DB columns and API response)
@@ -71,8 +77,15 @@ export interface ScoreCalculationInput {
   // Kinematic inputs (normalized Reboot Motion or sensor equivalent)
   pelvis_omega_peak: number;        // deg/s
   trunk_omega_peak: number;         // deg/s
-  arm_omega_peak: number;           // deg/s
-  bat_omega_peak?: number;          // deg/s — optional for sensor path
+  arm_omega_peak: number;           // deg/s — most distal IK segment (5-frame centred FD)
+
+  // Three-tier bat speed inputs (use highest available)
+  /** Hawk-Eye or DK sensor bat speed — TIER 1 (highest priority) */
+  measured_bat_speed_mph?: number | null;
+  /** From bat_rot_energy KE inversion: √(2×KE/0.048)×(180/π), capped 2800 — TIER 2 */
+  bat_omega_from_ke?: number | null;
+  /** @deprecated Use bat_omega_from_ke. Kept for backward compatibility. */
+  bat_omega_peak?: number;
 
   pelvis_omega_time: number;        // ms from front foot contact (FFC)
   trunk_omega_time: number;         // ms from FFC
@@ -86,6 +99,8 @@ export interface ScoreCalculationInput {
 
   // Optional outcome data (Ball pillar — enables 'full' mode)
   exit_velocity_mph?: number;
+  /** Measured EV from Hawk-Eye or launch monitor (alias for exit_velocity_mph) */
+  measured_ev_mph?: number | null;
   launch_angle_deg?: number;
   spray_angle_deg?: number;
   hard_hit_rate?: number;
@@ -93,6 +108,11 @@ export interface ScoreCalculationInput {
   // Context
   player_level: PlayerLevel;
   motor_profile?: string;
+
+  // ME-derived fields
+  mass_total_kg?: number;           // total body mass from ME
+  bat_energy_j?: number;            // KE at barrel from ME
+  total_body_energy_j?: number;     // sum of all segment KE from ME
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +129,13 @@ export interface ScoringResult extends FourBScores {
   actual_bat_speed_mph?: number | null;
   actual_exit_velocity_mph?: number | null;
   actual_entry_bucket?: string | null;
+
+  // Transfer efficiency diagnostic (0–1)
+  transfer_efficiency?: number | null;
+
+  // Bat speed confidence tier
+  bat_speed_path?: BatSpeedSource | null;
+  bat_speed_confidence?: BatSpeedConfidence | null;
 
   scoring_timestamp: string;        // ISO 8601
 }

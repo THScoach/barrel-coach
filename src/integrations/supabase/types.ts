@@ -2855,7 +2855,9 @@ export type Database = {
           ball_score: number | null
           bat_grade: string | null
           bat_score: number | null
+          bat_speed_confidence: string | null
           bat_speed_mph: number | null
+          bat_speed_source: string | null
           body_grade: string | null
           body_score: number | null
           brain_grade: string | null
@@ -2910,7 +2912,9 @@ export type Database = {
           ball_score?: number | null
           bat_grade?: string | null
           bat_score?: number | null
+          bat_speed_confidence?: string | null
           bat_speed_mph?: number | null
+          bat_speed_source?: string | null
           body_grade?: string | null
           body_score?: number | null
           brain_grade?: string | null
@@ -2965,7 +2969,9 @@ export type Database = {
           ball_score?: number | null
           bat_grade?: string | null
           bat_score?: number | null
+          bat_speed_confidence?: string | null
           bat_speed_mph?: number | null
+          bat_speed_source?: string | null
           body_grade?: string | null
           body_score?: number | null
           brain_grade?: string | null
@@ -3658,6 +3664,8 @@ export type Database = {
       }
       reboot_sessions: {
         Row: {
+          bat_speed_confidence: string | null
+          bat_speed_source: string | null
           completed_at: string | null
           created_at: string | null
           drill_name: string | null
@@ -3668,6 +3676,8 @@ export type Database = {
           last_polled_at: string | null
           location: string | null
           me_file_path: string | null
+          measured_bat_speed_mph: number | null
+          measured_ev_mph: number | null
           movement_type: string | null
           notes: string | null
           parsed_metrics: Json | null
@@ -3686,6 +3696,8 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          bat_speed_confidence?: string | null
+          bat_speed_source?: string | null
           completed_at?: string | null
           created_at?: string | null
           drill_name?: string | null
@@ -3696,6 +3708,8 @@ export type Database = {
           last_polled_at?: string | null
           location?: string | null
           me_file_path?: string | null
+          measured_bat_speed_mph?: number | null
+          measured_ev_mph?: number | null
           movement_type?: string | null
           notes?: string | null
           parsed_metrics?: Json | null
@@ -3714,6 +3728,8 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          bat_speed_confidence?: string | null
+          bat_speed_source?: string | null
           completed_at?: string | null
           created_at?: string | null
           drill_name?: string | null
@@ -3724,6 +3740,8 @@ export type Database = {
           last_polled_at?: string | null
           location?: string | null
           me_file_path?: string | null
+          measured_bat_speed_mph?: number | null
+          measured_ev_mph?: number | null
           movement_type?: string | null
           notes?: string | null
           parsed_metrics?: Json | null
