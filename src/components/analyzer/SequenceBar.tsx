@@ -108,7 +108,7 @@ export function SequenceBar({
           const color = getSegmentColor(segment, analysis, playbackState);
           const isActive = playbackState?.segmentStates[segment] === 'active';
           const hasPeaked = playbackState?.segmentStates[segment] === 'peaked';
-          const segmentData = analysis?.segments[segment];
+          const segmentData = analysis?.segments?.[segment];
           
           return (
             <div key={segment} className="flex items-center">

@@ -159,7 +159,7 @@ export function MomentumSequenceVisualizer({
           </div>
           
           {/* Timeline with peaks */}
-          {analysis && (
+          {analysis?.segments && (
             <div className="relative h-8 bg-slate-800 rounded overflow-hidden">
               {/* Timeline track */}
               <div className="absolute inset-0 flex items-center px-2">
@@ -168,12 +168,12 @@ export function MomentumSequenceVisualizer({
               
               {/* Peak markers */}
               {IDEAL_SEQUENCE.map((segment) => {
-                const segmentData = analysis.segments[segment];
+                const segmentData = analysis.segments?.[segment];
                 if (!segmentData) return null;
                 
                 const position = (segmentData.peakTimeMs / (durationMs || 500)) * 100;
                 const idealIdx = IDEAL_SEQUENCE.indexOf(segment);
-                const actualIdx = analysis.actualOrder.indexOf(segment);
+                const actualIdx = Array.isArray(analysis.actualOrder) ? analysis.actualOrder.indexOf(segment) : -1;
                 const isCorrect = idealIdx === actualIdx;
                 
                 return (
