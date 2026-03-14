@@ -106,8 +106,8 @@ export function SequenceBar({
       <div className={cn("flex items-center gap-1", className)}>
         {IDEAL_SEQUENCE.map((segment, idx) => {
           const color = getSegmentColor(segment, analysis, playbackState);
-          const isActive = playbackState?.segmentStates[segment] === 'active';
-          const hasPeaked = playbackState?.segmentStates[segment] === 'peaked';
+          const isActive = playbackState?.segmentStates?.[segment] === 'active';
+          const hasPeaked = playbackState?.segmentStates?.[segment] === 'peaked';
           const segmentData = analysis?.segments?.[segment];
           
           return (
