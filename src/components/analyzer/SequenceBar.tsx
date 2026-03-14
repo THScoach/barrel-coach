@@ -69,7 +69,7 @@ function getSegmentColor(
   analysis: SwingSequenceAnalysis | null,
   playbackState: SequencePlaybackState | null
 ): string {
-  if (!playbackState) return SEGMENT_COLORS.inactive;
+  if (!playbackState || !playbackState.segmentStates) return SEGMENT_COLORS.inactive;
   
   const state = playbackState.segmentStates[segment];
   

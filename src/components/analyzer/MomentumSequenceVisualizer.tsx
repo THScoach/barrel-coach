@@ -246,9 +246,11 @@ interface SequenceOverlayProps {
 export function SequenceOverlay({ analysis, playbackState, className }: SequenceOverlayProps) {
   if (!analysis || !playbackState) return null;
   
+  const segmentStates = playbackState.segmentStates ?? ({} as Record<SegmentName, 'pending' | 'active' | 'peaked' | 'inactive'>);
+
   // Find currently active segment
   const activeSegment = IDEAL_SEQUENCE.find(
-    seg => playbackState.segmentStates[seg] === 'active'
+    seg => segmentStates[seg] === 'active'
   );
   
   return (
