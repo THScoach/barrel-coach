@@ -133,7 +133,7 @@ function getSegmentColor(
   analysis: SwingSequenceAnalysis | null,
   playbackState: SequencePlaybackState | null
 ): { stroke: string; opacity: number; glow: boolean } {
-  if (!playbackState) {
+  if (!playbackState || !playbackState.segmentStates) {
     return { stroke: SEGMENT_COLORS.inactive, opacity: 0.2, glow: false };
   }
   
