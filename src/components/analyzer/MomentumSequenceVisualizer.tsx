@@ -100,8 +100,8 @@ export function MomentumSequenceVisualizer({
   // Handle segment click to seek
   const handleSegmentClick = useCallback((segment: SegmentName) => {
     if (!analysis || !onSeekToTime) return;
-    const segmentData = analysis.segments[segment];
-    if (segmentData) {
+    const segmentData = analysis.segments?.[segment];
+    if (segmentData?.peakTimeMs != null) {
       onSeekToTime(segmentData.peakTimeMs);
     }
   }, [analysis, onSeekToTime]);

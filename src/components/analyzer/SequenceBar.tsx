@@ -78,7 +78,7 @@ function getSegmentColor(
   if (state === 'inactive') return SEGMENT_COLORS.inactive;
   
   // Active or peaked - check if in correct order
-  if (analysis) {
+  if (analysis && Array.isArray(analysis.actualOrder)) {
     const idealIdx = IDEAL_SEQUENCE.indexOf(segment);
     const actualIdx = analysis.actualOrder.indexOf(segment);
     
