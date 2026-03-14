@@ -570,8 +570,20 @@ export function getPlaybackState(
   const peakedSegments: SegmentName[] = [];
   let nextSegmentToPeak: SegmentName | null = null;
   
+  // Guard against missing segments data
+  if (!analysis?.segments) {
+    for (const seg of IDEAL_SEQUENCE) {
+      segmentStates[seg] = 'inactive';
+    }
+    return { currentTimeMs, segmentStates, peakedSegments, nextSegmentToPeak };
+  }
+  
   for (const seg of IDEAL_SEQUENCE) {
     const data = analysis.segments[seg];
+    if (!data) {
+      segmentStates[seg] = 'inactive';
+      continue;
+    }
     const peakTime = data.peakTimeMs;
     
     // Determine state based on current time relative to peak
