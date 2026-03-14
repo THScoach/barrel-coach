@@ -78,7 +78,7 @@ function getSegmentColor(
   if (state === 'inactive') return SEGMENT_COLORS.inactive;
   
   // Active or peaked - check if in correct order
-  if (analysis) {
+  if (analysis && Array.isArray(analysis.actualOrder)) {
     const idealIdx = IDEAL_SEQUENCE.indexOf(segment);
     const actualIdx = analysis.actualOrder.indexOf(segment);
     
@@ -106,9 +106,9 @@ export function SequenceBar({
       <div className={cn("flex items-center gap-1", className)}>
         {IDEAL_SEQUENCE.map((segment, idx) => {
           const color = getSegmentColor(segment, analysis, playbackState);
-          const isActive = playbackState?.segmentStates[segment] === 'active';
-          const hasPeaked = playbackState?.segmentStates[segment] === 'peaked';
-          const segmentData = analysis?.segments[segment];
+          const isActive = playbackState?.segmentStates?.[segment] === 'active';
+          const hasPeaked = playbackState?.segmentStates?.[segment] === 'peaked';
+          const segmentData = analysis?.segments?.[segment];
           
           return (
             <div key={segment} className="flex items-center">
