@@ -5,21 +5,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB limit for in-memory processing
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { documentId } = await req.json();
+  let documentId: string | undefined;
+
+  try {
+    const body = await req.json();
+    documentId = body.documentId;
     console.log("[ProcessVaultDocument] Processing:", documentId);
 
-    // Get document
     const { data: doc, error: docError } = await supabase
       .from("knowledge_documents")
       .select("*")
@@ -37,15 +40,15 @@ Deno.serve(async (req) => {
       .eq("id", documentId);
 
     let extractedText = "";
+    const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
 
     if (doc.source_type === "url" && doc.original_url) {
-      // Use Firecrawl to scrape URL content
       if (!firecrawlKey) {
         throw new Error("FIRECRAWL_API_KEY not configured");
       }
 
       console.log("[ProcessVaultDocument] Scraping URL:", doc.original_url);
-      
+
       const scrapeResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
         method: "POST",
         headers: {
@@ -65,53 +68,56 @@ Deno.serve(async (req) => {
 
       const scrapeData = await scrapeResponse.json();
       extractedText = scrapeData.data?.markdown || scrapeData.data?.content || "";
-      
+
       console.log("[ProcessVaultDocument] Scraped", extractedText.length, "chars");
 
     } else if (doc.storage_path) {
-      // Download file from storage
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from("coach_knowledge")
-        .download(doc.storage_path);
-
-      if (downloadError) {
-        throw new Error(`Failed to download file: ${downloadError.message}`);
-      }
-
-      // For PDFs and DOCs, we need to extract text
-      // Using simple text extraction for now
-      if (doc.source_type === "pdf") {
-        // PDF text extraction - using basic approach
-        // For better extraction, you'd want to use a PDF parsing library
-        const arrayBuffer = await fileData.arrayBuffer();
-        const textDecoder = new TextDecoder("utf-8", { fatal: false });
-        const rawText = textDecoder.decode(arrayBuffer);
-        
-        // Try to extract readable text from PDF (basic approach)
-        // Real implementation would use pdf.js or similar
-        extractedText = rawText
-          .replace(/[\x00-\x1F\x7F-\xFF]/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-        
-        // If extraction is too garbled, note it
-        if (extractedText.length < 100) {
-          extractedText = `[PDF content - ${fileData.size} bytes. Full text extraction requires additional processing. Title: ${doc.title}]`;
-        }
+      // Check file size before downloading
+      const fileSize = doc.file_size || 0;
+      if (fileSize > MAX_FILE_SIZE_BYTES) {
+        console.log(`[ProcessVaultDocument] File too large (${fileSize} bytes), storing metadata only`);
+        extractedText = `[File: ${doc.title} | Type: ${doc.source_type} | Size: ${(fileSize / 1024 / 1024).toFixed(1)}MB — file exceeds processing limit. Content indexed by title and metadata.]`;
       } else {
-        // DOC/DOCX - basic text extraction
-        const text = await fileData.text();
-        extractedText = text.replace(/[\x00-\x1F]/g, " ").trim();
+        // Download file from storage
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from("coach_knowledge")
+          .download(doc.storage_path);
+
+        if (downloadError) {
+          throw new Error(`Failed to download file: ${downloadError.message}`);
+        }
+
+        if (doc.source_type === "pdf") {
+          // Stream-safe: read only first 500KB of text content from PDF
+          const slice = fileData.slice(0, 512 * 1024);
+          const arrayBuffer = await slice.arrayBuffer();
+          const textDecoder = new TextDecoder("utf-8", { fatal: false });
+          const rawText = textDecoder.decode(arrayBuffer);
+
+          extractedText = rawText
+            .replace(/[\x00-\x1F\x7F-\xFF]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          if (extractedText.length < 100) {
+            extractedText = `[PDF content - ${fileData.size} bytes. Title: ${doc.title}. Full text extraction requires additional processing.]`;
+          }
+        } else {
+          // DOC/DOCX - read as text, limit size
+          const slice = fileData.slice(0, 512 * 1024);
+          const text = await slice.text();
+          extractedText = text.replace(/[\x00-\x1F]/g, " ").trim();
+        }
+
+        console.log("[ProcessVaultDocument] Extracted", extractedText.length, "chars from file");
       }
-      
-      console.log("[ProcessVaultDocument] Extracted", extractedText.length, "chars from file");
     }
 
-    // Update document with extracted text
+    // Limit stored text to 200KB to reduce memory pressure
     const { error: updateError } = await supabase
       .from("knowledge_documents")
       .update({
-        extracted_text: extractedText.substring(0, 500000), // Limit to 500KB
+        extracted_text: extractedText.substring(0, 200000),
         status: "ready",
         error_message: null,
       })
@@ -130,23 +136,17 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     const error = err as Error;
-    console.error("[ProcessVaultDocument] Error:", error);
+    console.error("[ProcessVaultDocument] Error:", error.message);
 
-    // Try to update document status to error
-    try {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      const { documentId } = await (await fetch(new Request(req.url, req))).json().catch(() => ({}));
-      
-      if (documentId) {
+    if (documentId) {
+      try {
         await supabase
           .from("knowledge_documents")
           .update({ status: "error", error_message: error.message })
           .eq("id", documentId);
+      } catch (e) {
+        console.error("[ProcessVaultDocument] Failed to update error status:", e);
       }
-    } catch (e) {
-      console.error("[ProcessVaultDocument] Failed to update error status:", e);
     }
 
     return new Response(
