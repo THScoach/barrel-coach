@@ -147,22 +147,17 @@ const App = () => (
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/welcome" element={<Welcome />} />
 
-            {/* Player portal */}
-            <Route path="/player" element={<PlayerHome />} />
-            <Route path="/player/home" element={<PlayerHome />} />
-            <Route path="/player/dashboard" element={<PlayerDashboard4B />} />
-            <Route path="/player/drills" element={<PlayerDrills />} />
-            <Route path="/player/profile" element={<PlayerProfile />} />
-            <Route path="/player/messages" element={<PlayerMessages />} />
-            <Route path="/player/data" element={<PlayerData />} />
-            <Route path="/player/ghost-lab" element={<PlayerGhostLab />} />
-            <Route path="/player/ghost-recovery" element={<PlayerGhostRecovery />} />
-            <Route path="/player/weekly-checkin" element={<PlayerWeeklyCheckin />} />
-            <Route path="/player/new-session" element={<PlayerNewSession />} />
-            <Route path="/player/coach-chat" element={<CoachChat />} />
-            <Route path="/player/swings" element={<PlayerSwings />} />
-            <Route path="/player/swings/:sessionId" element={<PlayerSwingDetail />} />
-            <Route path="/player/progression" element={<PlayerProgression />} />
+            {/* Player portal (v2 rebuild) */}
+            <Route path="/player" element={<PlayerHomeDashboard />} />
+            <Route path="/player/home" element={<PlayerHomeDashboard />} />
+            <Route path="/player/data" element={<PlayerMyData />} />
+            <Route path="/player/session" element={<PlayerSessionPage />} />
+            <Route path="/player/progress" element={<PlayerProgressPage />} />
+            <Route path="/player/messages" element={<PlayerMessagesPage />} />
+            <Route path="/player/profile" element={<PlayerProfilePage />} />
+            {/* Legacy redirects — coach-chat and coach both go to messages */}
+            <Route path="/player/coach-chat" element={<PlayerMessagesPage />} />
+            <Route path="/player/coach" element={<PlayerMessagesPage />} />
 
             {/* RickBot */}
             <Route path="/rick" element={<ProtectedAdminRoute><Rick /></ProtectedAdminRoute>} />
