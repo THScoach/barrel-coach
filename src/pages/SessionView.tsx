@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { getGradeLabel, getScoreColor } from "@/lib/4b-scores-api";
+import { SkeletonViewer } from "@/components/SkeletonViewer";
+import { parseIKCsv } from "@/lib/skeleton-data";
 
 export default function SessionView() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -408,6 +410,17 @@ export default function SessionView() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* 3D Skeleton Viewer — shown when IK CSV data is available */}
+        {session?.raw_csv_ik && (
+          <div className="mb-6">
+            <SkeletonViewer
+              csvData={session.raw_csv_ik}
+              playbackSpeed={0.25}
+              className="min-h-[400px]"
+            />
+          </div>
         )}
 
         {/* Coaching Notes */}
