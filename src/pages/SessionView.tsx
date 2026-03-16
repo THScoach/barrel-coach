@@ -5,7 +5,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Brain, Dumbbell, Swords, Target, ArrowLeft } from "lucide-react";
+import { Brain, Dumbbell, Swords, Target, ArrowLeft, Upload } from "lucide-react";
 import { predictBallFlight, confidenceLabel } from "@/lib/ballFlightPredictor";
 import { SessionHeader } from "@/components/session/SessionHeader";
 import { ProcessingBanner } from "@/components/session/ProcessingBanner";
