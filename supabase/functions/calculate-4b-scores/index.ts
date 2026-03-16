@@ -127,7 +127,7 @@ const OMEGA_TO_MPH = (Math.PI / 180) * 0.70 * 2.23694; // 0.02732
 /** Moment of inertia for standard wood bat (32oz) about knob: 0.048 kg·m² */
 const I_BAT_KGM2 = 0.048;
 
-/** Cap bat omega at 2800 deg/s ≈ 76.5 mph */
+/** Cap bat omega at 2800 deg/s ≈ 76.5 mph (via OMEGA_TO_MPH direct, before chain multiplier) */
 const MAX_BAT_OMEGA_DEGS = 2800;
 
 /** Default body mass (kg) when ME masstotal not available */
