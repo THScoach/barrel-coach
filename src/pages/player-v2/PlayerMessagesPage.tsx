@@ -85,12 +85,12 @@ export default function PlayerMessagesPage() {
 
   // Compute weakest category from scores
   const getWeakestCategory = () => {
-    if (!scores) return undefined;
+    if (!player) return undefined;
     const entries = [
-      { key: 'brain', val: scores.brain_score },
-      { key: 'body', val: scores.body_score },
-      { key: 'bat', val: scores.bat_score },
-      { key: 'ball', val: scores.ball_score },
+      { key: 'brain', val: player.latest_brain_score },
+      { key: 'body', val: player.latest_body_score },
+      { key: 'bat', val: player.latest_bat_score },
+      { key: 'ball', val: player.latest_ball_score },
     ].filter(e => e.val !== null);
     if (entries.length === 0) return undefined;
     entries.sort((a, b) => (a.val ?? 100) - (b.val ?? 100));
