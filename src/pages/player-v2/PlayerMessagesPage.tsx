@@ -28,7 +28,7 @@ interface InsightMessage {
 }
 
 export default function PlayerMessagesPage() {
-  const { player, loading, scores } = usePlayerData();
+  const { player, loading } = usePlayerData();
   const [activeTab, setActiveTab] = useState<'chat' | 'insights'>('chat');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [insights, setInsights] = useState<InsightMessage[]>([]);
