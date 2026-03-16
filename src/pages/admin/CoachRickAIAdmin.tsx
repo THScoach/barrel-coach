@@ -162,7 +162,7 @@ export default function CoachRickAIAdmin() {
               >
                 <Link to={link.href}>
                   <link.icon className="h-6 w-6 text-accent" />
-                  <span>{link.label}</span>
+                  <span className="text-sm text-white">{link.label}</span>
                 </Link>
               </Button>
             ))}
