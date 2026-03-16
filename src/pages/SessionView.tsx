@@ -318,6 +318,19 @@ export default function SessionView() {
 
         <ProcessingBanner status={sessionStatus} />
 
+        {/* Upload Video Button */}
+        {session?.player_id && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <Upload className="h-4 w-4" />
+              Upload Video
+            </button>
+          </div>
+        )}
+
         {/* 4B Framework Cards */}
         <div className="grid sm:grid-cols-2 gap-4 mb-6">
           <FourBCard
