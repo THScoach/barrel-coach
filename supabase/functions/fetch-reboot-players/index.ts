@@ -274,9 +274,20 @@ serve(async (req) => {
         const lastName = player.last_name || player.lastName || player.family_name || player.familyName || player.surname || "";
         const fullName = player.name || player.full_name || player.fullName || player.display_name || player.displayName || `${firstName} ${lastName}`.trim();
         
-        // Try multiple possible throws/bats fields
-        const bats = player.bats || player.hitting_hand || player.hittingHand || player.hits || player.bat_side || player.batSide || null;
-        const throws = player.throws || player.throwing_hand || player.throwingHand || player.throw_side || player.throwSide || null;
+        // Extract attributes from Reboot's key-value array format
+        const attrs = Array.isArray(player.attributes) ? player.attributes : [];
+        const attrMap = new Map<string, string>();
+        for (const a of attrs) {
+          if (a?.key && a?.value != null) attrMap.set(a.key.toLowerCase(), String(a.value));
+        }
+        
+        // Try multiple possible throws/bats fields, then fall back to attributes
+        const batsRaw = player.bats || player.hitting_hand || player.hittingHand || player.hits || player.bat_side || player.batSide || attrMap.get("dom_hand_hitting") || null;
+        const throwsRaw = player.throws || player.throwing_hand || player.throwingHand || player.throw_side || player.throwSide || attrMap.get("dom_hand_throwing") || attrMap.get("throws") || null;
+        
+        // Height/weight: flat fields first, then attributes
+        const heightRaw = player.height || player.height_display || player.height_in || attrMap.get("height_ft") || attrMap.get("height_in") || null;
+        const weightRaw = player.weight || player.weight_display || player.weight_lb || player.weight_lbs || attrMap.get("weight_lbs") || attrMap.get("weight_lb") || null;
         
         // Log players with potentially unusual field names
         if (!rebootId || !fullName) {
@@ -288,10 +299,10 @@ serve(async (req) => {
           name: fullName,
           first_name: firstName,
           last_name: lastName,
-          height: player.height || player.height_display || null,
-          weight: player.weight || player.weight_display || null,
-          bats: bats,
-          throws: throws,
+          height: heightRaw,
+          weight: weightRaw,
+          bats: batsRaw,
+          throws: throwsRaw,
           level: player.level || player.skill_level || player.skillLevel || null,
           team: player.team || player.organization || player.org_name || player.orgName || null,
           birth_date: player.birth_date || player.birthDate || player.dob || player.date_of_birth || null,
