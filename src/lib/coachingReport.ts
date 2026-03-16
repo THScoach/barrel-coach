@@ -230,12 +230,12 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
   const isEstimation = session.bat_speed_confidence === 'low';
   const batSpeedPrefix = isEstimation ? '~' : '';
   const batSpeedNote = isEstimation
-    ? 'Estimated from body movement — add sensor data for accuracy.'
+    ? 'Estimated from swing mechanics — add sensor data for precision.'
     : session.bat_speed_confidence === 'medium'
       ? 'From bat tracking data.'
       : session.bat_speed_confidence === 'high'
         ? 'Measured by sensor.'
-        : 'What your body is built to create when things click.';
+        : 'Estimated from swing mechanics.';
 
   const predictions: PredictionTile[] = [
     {
