@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { getGradeLabel, getScoreColor } from "@/lib/4b-scores-api";
 import { SkeletonViewer } from "@/components/SkeletonViewer";
-import { parseIKCsv } from "@/lib/skeleton-data";
+import { VideoUploadToReboot } from "@/components/VideoUploadToReboot";
 
 export default function SessionView() {
   const { sessionId } = useParams<{ sessionId: string }>();
