@@ -1,0 +1,174 @@
+/**
+ * Player Profile & Settings
+ */
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { usePlayerData } from "@/hooks/usePlayerData";
+import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
+import { TagPill } from "@/components/player-v2/TagPill";
+import { getInitials, motorProfileColor, bandForWeight } from "@/lib/player-utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import { LogOut, Download, Share2, ChevronRight } from "lucide-react";
+
+export default function PlayerProfilePage() {
+  const { player, loading } = usePlayerData();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/login');
+  };
+
+  const handleExportCSV = async () => {
+    if (!player?.id) return;
+    const { data } = await supabase
+      .from("player_sessions")
+      .select("session_date, overall_score, body_score, brain_score, bat_score, ball_score, leak_type, swing_count")
+      .eq("player_id", player.id)
+      .order("session_date", { ascending: true });
+
+    if (!data || data.length === 0) {
+      toast.info("No session data to export");
+      return;
+    }
+
+    const headers = Object.keys(data[0]).join(',');
+    const rows = data.map(r => Object.values(r).join(',')).join('\n');
+    const csv = `${headers}\n${rows}`;
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${player.name || 'player'}_sessions.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("CSV exported!");
+  };
+
+  if (loading) {
+    return (
+      <div style={{ background: '#000', minHeight: '100vh' }}>
+        <div className="p-4 space-y-4">
+          <Skeleton className="h-20 w-20 rounded-full mx-auto" style={{ background: '#222' }} />
+          <Skeleton className="h-6 w-48 mx-auto" style={{ background: '#111' }} />
+          <Skeleton className="h-48 w-full rounded-xl" style={{ background: '#111' }} />
+        </div>
+      </div>
+    );
+  }
+
+  const band = bandForWeight(player?.weight_lbs ? Number(player.weight_lbs) : null);
+  const weightNum = player?.weight_lbs ? Number(player.weight_lbs) : 0;
+
+  const heightFt = player?.height_inches ? Math.floor(Number(player.height_inches) / 12) : null;
+  const heightIn = player?.height_inches ? Number(player.height_inches) % 12 : null;
+
+  return (
+    <div style={{ background: '#000', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
+      {/* Header */}
+      <header className="sticky top-0 z-50 px-4 py-3 flex items-center justify-between" style={{ background: '#0a0a0a', borderBottom: '1px solid #222' }}>
+        <h1 className="text-lg font-bold" style={{ color: '#fff' }}>Profile</h1>
+        <button onClick={handleLogout} className="flex items-center gap-1.5 text-sm" style={{ color: '#777' }}>
+          <LogOut className="h-4 w-4" /> Logout
+        </button>
+      </header>
+
+      <main className="px-4 pb-24 pt-6 space-y-4">
+        {/* Avatar + Name */}
+        <div className="text-center">
+          <div
+            className="w-[72px] h-[72px] rounded-full flex items-center justify-center mx-auto text-xl font-bold"
+            style={{ background: '#222', color: '#fff' }}
+          >
+            {getInitials(player?.name)}
+          </div>
+          <h2 className="text-xl font-bold mt-3" style={{ color: '#fff' }}>{player?.name || 'Player'}</h2>
+          <div className="flex items-center justify-center gap-2 mt-1">
+            {player?.team && <span className="text-sm" style={{ color: '#777' }}>{player.team}</span>}
+            {player?.position && <span className="text-sm" style={{ color: '#777' }}>· {player.position}</span>}
+            {player?.level && <span className="text-sm" style={{ color: '#777' }}>· {player.level}</span>}
+          </div>
+          {player?.motor_profile_sensor && (
+            <div className="mt-2">
+              <TagPill label={player.motor_profile_sensor} color={motorProfileColor(player.motor_profile_sensor)} />
+            </div>
+          )}
+        </div>
+
+        {/* Player Info */}
+        <div className="rounded-xl" style={{ background: '#111', border: '1px solid #222' }}>
+          {[
+            { label: 'Height', value: heightFt ? `${heightFt}'${heightIn}"` : '—' },
+            { label: 'Weight', value: player?.weight_lbs ? `${Math.round(Number(player.weight_lbs))} lbs` : '—' },
+            { label: 'Bats', value: player?.handedness || '—' },
+            { label: 'Throws', value: player?.throws || '—' },
+            { label: 'Level', value: player?.level || '—' },
+          ].map((row, i) => (
+            <div key={row.label} className="flex items-center justify-between px-4 py-3" style={{ borderBottom: i < 4 ? '1px solid #222' : 'none' }}>
+              <span className="text-sm" style={{ color: '#777' }}>{row.label}</span>
+              <span className="text-sm font-semibold" style={{ color: '#fff' }}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Band Selection */}
+        <div className="rounded-xl p-4" style={{ background: '#111', border: '1px solid #222' }}>
+          <p className="text-xs font-semibold uppercase mb-3" style={{ color: '#777' }}>Recommended Band</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Red Band', range: 'Under 160 lbs', color: '#E63946', match: weightNum > 0 && weightNum < 160 },
+              { label: 'Black Band', range: '160–250 lbs', color: '#fff', match: weightNum >= 160 && weightNum <= 250 },
+            ].map(b => (
+              <div
+                key={b.label}
+                className="rounded-lg p-3 text-center transition-opacity"
+                style={{
+                  background: '#0a0a0a',
+                  border: `1px solid ${b.match ? b.color : '#333'}`,
+                  opacity: b.match ? 1 : 0.4,
+                }}
+              >
+                <p className="text-sm font-bold" style={{ color: b.color }}>{b.label}</p>
+                <p className="text-[11px] mt-1" style={{ color: '#555' }}>{b.range}</p>
+              </div>
+            ))}
+          </div>
+          {weightNum > 250 && (
+            <p className="text-center text-sm font-bold mt-3" style={{ color: '#fff' }}>Double Black Band</p>
+          )}
+        </div>
+
+        {/* Export & Share */}
+        <div className="space-y-2">
+          <button
+            onClick={handleExportCSV}
+            className="w-full rounded-xl p-4 flex items-center justify-between"
+            style={{ background: '#111', border: '1px solid #222' }}
+          >
+            <div className="flex items-center gap-3">
+              <Download className="h-5 w-5" style={{ color: '#777' }} />
+              <span className="text-sm font-semibold" style={{ color: '#fff' }}>Download All Session Data (CSV)</span>
+            </div>
+            <ChevronRight className="h-4 w-4" style={{ color: '#555' }} />
+          </button>
+
+          <button
+            onClick={() => toast.info("Coming soon")}
+            className="w-full rounded-xl p-4 flex items-center justify-between"
+            style={{ background: '#111', border: '1px solid #222' }}
+          >
+            <div className="flex items-center gap-3">
+              <Share2 className="h-5 w-5" style={{ color: '#777' }} />
+              <span className="text-sm font-semibold" style={{ color: '#fff' }}>Share Progress</span>
+            </div>
+            <span className="text-[11px]" style={{ color: '#555' }}>Coming soon</span>
+          </button>
+        </div>
+      </main>
+
+      <PlayerBottomNav />
+    </div>
+  );
+}

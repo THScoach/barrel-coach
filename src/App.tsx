@@ -82,21 +82,13 @@ import ScenarioTrainer from "./pages/admin/ScenarioTrainer";
 import VideoScriptAnalyzer from "./pages/admin/VideoScriptAnalyzer";
 import AdminSeedSwingData from "./pages/AdminSeedSwingData";
 
-// Player pages
-import PlayerHome from "./pages/player/PlayerHome";
-import PlayerDashboard4B from "./pages/player/PlayerDashboard4B";
-import PlayerDrills from "./pages/player/PlayerDrills";
-import PlayerProfile from "./pages/player/PlayerProfile";
-import PlayerMessages from "./pages/player/PlayerMessages";
-import PlayerData from "./pages/player/PlayerData";
-import PlayerGhostLab from "./pages/player/PlayerGhostLab";
-import PlayerGhostRecovery from "./pages/player/PlayerGhostRecovery";
-import PlayerWeeklyCheckin from "./pages/player/PlayerWeeklyCheckin";
-import PlayerNewSession from "./pages/player/PlayerNewSession";
-import CoachChat from "./pages/player/CoachChat";
-import PlayerSwings from "./pages/player/PlayerSwings";
-import PlayerSwingDetail from "./pages/player/PlayerSwingDetail";
-import PlayerProgression from "./pages/player/PlayerProgression";
+// Player pages (v2 rebuild)
+import PlayerHomeDashboard from "./pages/player-v2/PlayerHomeDashboard";
+import PlayerMyData from "./pages/player-v2/PlayerMyData";
+import PlayerSessionPage from "./pages/player-v2/PlayerSessionPage";
+import PlayerProgressPage from "./pages/player-v2/PlayerProgressPage";
+import PlayerMessagesPage from "./pages/player-v2/PlayerMessagesPage";
+import PlayerProfilePage from "./pages/player-v2/PlayerProfilePage";
 
 // RickBot
 import Rick from "./pages/Rick";
@@ -155,22 +147,17 @@ const App = () => (
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/welcome" element={<Welcome />} />
 
-            {/* Player portal */}
-            <Route path="/player" element={<PlayerHome />} />
-            <Route path="/player/home" element={<PlayerHome />} />
-            <Route path="/player/dashboard" element={<PlayerDashboard4B />} />
-            <Route path="/player/drills" element={<PlayerDrills />} />
-            <Route path="/player/profile" element={<PlayerProfile />} />
-            <Route path="/player/messages" element={<PlayerMessages />} />
-            <Route path="/player/data" element={<PlayerData />} />
-            <Route path="/player/ghost-lab" element={<PlayerGhostLab />} />
-            <Route path="/player/ghost-recovery" element={<PlayerGhostRecovery />} />
-            <Route path="/player/weekly-checkin" element={<PlayerWeeklyCheckin />} />
-            <Route path="/player/new-session" element={<PlayerNewSession />} />
-            <Route path="/player/coach-chat" element={<CoachChat />} />
-            <Route path="/player/swings" element={<PlayerSwings />} />
-            <Route path="/player/swings/:sessionId" element={<PlayerSwingDetail />} />
-            <Route path="/player/progression" element={<PlayerProgression />} />
+            {/* Player portal (v2 rebuild) */}
+            <Route path="/player" element={<PlayerHomeDashboard />} />
+            <Route path="/player/home" element={<PlayerHomeDashboard />} />
+            <Route path="/player/data" element={<PlayerMyData />} />
+            <Route path="/player/session" element={<PlayerSessionPage />} />
+            <Route path="/player/progress" element={<PlayerProgressPage />} />
+            <Route path="/player/messages" element={<PlayerMessagesPage />} />
+            <Route path="/player/profile" element={<PlayerProfilePage />} />
+            {/* Legacy redirects — coach-chat and coach both go to messages */}
+            <Route path="/player/coach-chat" element={<PlayerMessagesPage />} />
+            <Route path="/player/coach" element={<PlayerMessagesPage />} />
 
             {/* RickBot */}
             <Route path="/rick" element={<ProtectedAdminRoute><Rick /></ProtectedAdminRoute>} />
