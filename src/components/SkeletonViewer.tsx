@@ -72,16 +72,19 @@ function SkeletonBones({ frame, bones }: SkeletonBonesProps) {
       const b = frame.joints[bone.to];
       if (!a || !b) return;
 
-      // Line
-      const geom = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(a.x, a.z, -a.y), // swap Y/Z for upright view
-        new THREE.Vector3(b.x, b.z, -b.y),
-      ]);
+      // Line via drei <Line> to avoid SVG conflict
+      const points: [number, number, number][] = [
+        [a.x, a.z, -a.y],
+        [b.x, b.z, -b.y],
+      ];
 
       items.push(
-        <line key={`bone-${i}`} geometry={geom}>
-          <lineBasicMaterial attach="material" color={BONE_COLORS[bone.side]} linewidth={2} />
-        </line>
+        <Line
+          key={`bone-${i}`}
+          points={points}
+          color={BONE_COLORS[bone.side]}
+          lineWidth={2}
+        />
       );
 
       // Joint spheres (deduplicated)
