@@ -412,6 +412,17 @@ export default function SessionView() {
           </Card>
         )}
 
+        {/* 3D Skeleton Viewer — shown when IK CSV data is available */}
+        {session?.raw_csv_ik && (
+          <div className="mb-6">
+            <SkeletonViewer
+              csvData={session.raw_csv_ik}
+              playbackSpeed={0.25}
+              className="min-h-[400px]"
+            />
+          </div>
+        )}
+
         {/* Coaching Notes */}
         {session && (
           <CoachingNotes sessionId={session.id} initialNotes={session.notes} />
