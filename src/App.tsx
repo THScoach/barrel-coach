@@ -204,6 +204,9 @@ const App = () => (
             <Route path="/admin/coach-rick-ai" element={<ProtectedAdminRoute><CoachRickAIAdmin /></ProtectedAdminRoute>} />
             <Route path="/admin/coach-rick-ai/test" element={<ProtectedAdminRoute><CoachRickAITestChat /></ProtectedAdminRoute>} />
             <Route path="/admin/coach-rick-ai/videos" element={<ProtectedAdminRoute><CoachRickAIVideos /></ProtectedAdminRoute>} />
+            <Route path="/admin/coach-rick-ai/knowledge" element={<ProtectedAdminRoute><KnowledgeBaseEditor /></ProtectedAdminRoute>} />
+            <Route path="/admin/coach-rick-ai/scenarios" element={<ProtectedAdminRoute><ScenarioTrainer /></ProtectedAdminRoute>} />
+            <Route path="/admin/coach-rick-ai/cues" element={<ProtectedAdminRoute><CueBankManager /></ProtectedAdminRoute>} />
             <Route path="/admin/cue-bank" element={<ProtectedAdminRoute><CueBankManager /></ProtectedAdminRoute>} />
             <Route path="/admin/knowledge-editor" element={<ProtectedAdminRoute><KnowledgeBaseEditor /></ProtectedAdminRoute>} />
             <Route path="/admin/scenario-trainer" element={<ProtectedAdminRoute><ScenarioTrainer /></ProtectedAdminRoute>} />

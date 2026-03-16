@@ -26,7 +26,7 @@ export function AdminHeader() {
     { to: "/admin/library", label: "Library" },
     { to: "/admin/vault", label: "Vault", icon: BookOpen },
     { to: "/admin/coach-rick-ai", label: "Coach Rick AI", icon: Bot },
-    { to: "/admin/knowledge-base", label: "KB", icon: BookOpen },
+    { to: "/admin/knowledge-base", label: "Docs", icon: BookOpen },
   ];
 
   const isActive = (path: string) => {
