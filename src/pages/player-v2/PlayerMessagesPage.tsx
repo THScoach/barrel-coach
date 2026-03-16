@@ -1,5 +1,6 @@
 /**
- * Coach Rick - Chat + Insights tabs
+ * Coach Rick - AI Chat + Insights tabs
+ * Calls coach-rick-ai-chat edge function for live AI responses
  */
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,78 +8,156 @@ import { usePlayerData } from "@/hooks/usePlayerData";
 import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { EmptyState } from "@/components/player-v2/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Send, MessageSquare, Lightbulb } from "lucide-react";
+import { Send, MessageSquare, Lightbulb, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
-interface Message {
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  isDiagnostic?: boolean;
+}
+
+interface InsightMessage {
   id: string;
   content: string;
   message_type: string;
-  trigger_reason: string | null;
   is_read: boolean;
   created_at: string;
 }
 
 export default function PlayerMessagesPage() {
-  const { player, loading } = usePlayerData();
+  const { player, loading, scores } = usePlayerData();
   const [activeTab, setActiveTab] = useState<'chat' | 'insights'>('chat');
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [insights, setInsights] = useState<InsightMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(true);
+  const [chatLogId, setChatLogId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Load existing chat history + insights
   useEffect(() => {
     if (!player?.id) return;
-    const fetchMessages = async () => {
+    const fetchData = async () => {
       setLoadingMessages(true);
-      const { data } = await supabase
-        .from("locker_room_messages")
-        .select("id, content, message_type, trigger_reason, is_read, created_at")
-        .eq("player_id", player.id)
-        .order("created_at", { ascending: true })
-        .limit(100);
 
-      if (data) setMessages(data);
+      // Fetch chat logs for this player (last conversation)
+      const { data: chatLogs } = await supabase
+        .from("chat_logs")
+        .select("id, messages")
+        .eq("player_id", player.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (chatLogs?.messages && Array.isArray(chatLogs.messages)) {
+        setChatLogId(chatLogs.id);
+        const restored: ChatMessage[] = (chatLogs.messages as any[]).map((m, i) => ({
+          id: `restored-${i}`,
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.content || '',
+          timestamp: new Date(),
+        }));
+        setMessages(restored);
+      }
+
+      // Fetch insight messages from locker_room_messages
+      const { data: lockerMessages } = await supabase
+        .from("locker_room_messages")
+        .select("id, content, message_type, is_read, created_at")
+        .eq("player_id", player.id)
+        .neq("message_type", "player_reply")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (lockerMessages) setInsights(lockerMessages);
       setLoadingMessages(false);
     };
-    fetchMessages();
+    fetchData();
   }, [player?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Compute weakest category from scores
+  const getWeakestCategory = () => {
+    if (!scores) return undefined;
+    const entries = [
+      { key: 'brain', val: scores.brain_score },
+      { key: 'body', val: scores.body_score },
+      { key: 'bat', val: scores.bat_score },
+      { key: 'ball', val: scores.ball_score },
+    ].filter(e => e.val !== null);
+    if (entries.length === 0) return undefined;
+    entries.sort((a, b) => (a.val ?? 100) - (b.val ?? 100));
+    return entries[0].key;
+  };
+
   const handleSend = async () => {
-    if (!newMessage.trim() || !player?.id) return;
+    if (!newMessage.trim() || !player?.id || sending) return;
     setSending(true);
     const content = newMessage.trim();
     setNewMessage('');
 
-    // Optimistic add
-    const optimistic: Message = {
+    const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
+      role: 'user',
       content,
-      message_type: 'player_reply',
-      trigger_reason: null,
-      is_read: true,
-      created_at: new Date().toISOString(),
+      timestamp: new Date(),
     };
-    setMessages(prev => [...prev, optimistic]);
+    setMessages(prev => [...prev, userMsg]);
 
-    await supabase.from("locker_room_messages").insert({
-      player_id: player.id,
-      content,
-      message_type: 'player_reply',
-      trigger_reason: 'player_chat',
-      is_read: true,
-    });
-    setSending(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('coach-rick-ai-chat', {
+        body: {
+          message: content,
+          history: messages.map(m => ({ role: m.role, content: m.content })),
+          chatMode: 'player',
+          playerId: player.id,
+          scores: scores ? {
+            brain: scores.brain_score,
+            body: scores.body_score,
+            bat: scores.bat_score,
+            ball: scores.ball_score,
+          } : undefined,
+          weakestCategory: getWeakestCategory(),
+          chatLogId,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const assistantMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: data.response || "I'm having trouble responding right now. Try again in a moment.",
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, assistantMsg]);
+
+      if (data?.chatLogId) setChatLogId(data.chatLogId);
+    } catch (err) {
+      console.error('Coach Rick AI error:', err);
+      const errorMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: "Sorry, I couldn't process that right now. Try again in a moment.",
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setSending(false);
+    }
   };
 
   const markRead = async (id: string) => {
     await supabase.from("locker_room_messages").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", id);
-    setMessages(prev => prev.map(m => m.id === id ? { ...m, is_read: true } : m));
+    setInsights(prev => prev.map(m => m.id === id ? { ...m, is_read: true } : m));
   };
 
   if (loading) {
@@ -90,9 +169,6 @@ export default function PlayerMessagesPage() {
       </div>
     );
   }
-
-  const chatMessages = messages.filter(m => m.message_type === 'player_reply' || m.message_type === 'coach_message' || m.message_type === 'diagnostic');
-  const insightMessages = messages.filter(m => m.message_type !== 'player_reply' && m.message_type !== 'coach_message');
 
   return (
     <div className="flex flex-col" style={{ background: '#000', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
@@ -132,20 +208,24 @@ export default function PlayerMessagesPage() {
             <div className="space-y-3">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-3/4 rounded-xl" style={{ background: '#111' }} />)}
             </div>
-          ) : chatMessages.length === 0 ? (
-            <EmptyState icon={<MessageSquare className="h-12 w-12" />} title="No messages yet" description="Send Coach Rick a message to get started" />
+          ) : messages.length === 0 ? (
+            <EmptyState
+              icon={<MessageSquare className="h-12 w-12" />}
+              title="Chat with Coach Rick"
+              description="Ask about your swing, drills, or game plan — Coach Rick knows your data"
+            />
           ) : (
             <div className="space-y-3">
-              {chatMessages.map(m => {
-                const isPlayer = m.message_type === 'player_reply';
-                const isDiagnostic = m.message_type === 'diagnostic';
+              {messages.map(m => {
+                const isPlayer = m.role === 'user';
+                const isDiagnostic = m.isDiagnostic;
                 return (
                   <div key={m.id} className={isPlayer ? 'ml-12' : 'mr-12'}>
                     {isDiagnostic && (
                       <p className="text-[11px] font-bold mb-1" style={{ color: '#4ecdc4' }}>DIAGNOSTIC UPDATE</p>
                     )}
                     <div
-                      className="p-3 text-sm leading-relaxed"
+                      className="p-3 text-sm leading-relaxed whitespace-pre-wrap"
                       style={{
                         background: isDiagnostic ? 'rgba(78,205,196,0.05)' : isPlayer ? 'rgba(230,57,70,0.12)' : '#1a1a1a',
                         border: `1px solid ${isDiagnostic ? 'rgba(78,205,196,0.2)' : isPlayer ? 'rgba(230,57,70,0.2)' : '#222'}`,
@@ -156,22 +236,30 @@ export default function PlayerMessagesPage() {
                       {m.content}
                     </div>
                     <p className="text-[10px] mt-1 px-1" style={{ color: '#555' }}>
-                      {format(new Date(m.created_at), 'h:mm a')}
+                      {format(m.timestamp, 'h:mm a')}
                     </p>
                   </div>
                 );
               })}
+              {sending && (
+                <div className="mr-12">
+                  <div className="p-3 flex items-center gap-2" style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: '16px 16px 16px 4px' }}>
+                    <Loader2 className="h-4 w-4 animate-spin" style={{ color: '#777' }} />
+                    <span className="text-sm" style={{ color: '#777' }}>Coach Rick is thinking...</span>
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
           )
         )}
 
         {activeTab === 'insights' && (
-          insightMessages.length === 0 ? (
+          insights.length === 0 ? (
             <EmptyState icon={<Lightbulb className="h-12 w-12" />} title="No insights yet" description="Insights appear after sessions are analyzed" />
           ) : (
             <div className="space-y-3">
-              {insightMessages.map(m => (
+              {insights.map(m => (
                 <button
                   key={m.id}
                   onClick={() => markRead(m.id)}
@@ -201,8 +289,9 @@ export default function PlayerMessagesPage() {
             <input
               value={newMessage}
               onChange={e => setNewMessage(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSend()}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder="Message Coach Rick..."
+              disabled={sending}
               className="flex-1 px-4 py-2.5 rounded-full text-sm outline-none"
               style={{ background: '#111', border: '1px solid #333', color: '#fff' }}
             />
@@ -210,7 +299,7 @@ export default function PlayerMessagesPage() {
               onClick={handleSend}
               disabled={sending || !newMessage.trim()}
               className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ background: '#E63946', opacity: !newMessage.trim() ? 0.5 : 1 }}
+              style={{ background: '#E63946', opacity: (!newMessage.trim() || sending) ? 0.5 : 1 }}
             >
               <Send className="h-4 w-4" style={{ color: '#fff' }} />
             </button>
