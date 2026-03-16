@@ -5,9 +5,9 @@
  * Renders color-coded bones with play/pause, scrubber, and speed controls.
  */
 
-import { useMemo, useRef, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { useMemo, useRef } from 'react';
+import { Canvas, extend } from '@react-three/fiber';
+import { OrbitControls, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { 
   SkeletonFrame, 
