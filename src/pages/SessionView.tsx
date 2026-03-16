@@ -1,11 +1,11 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Brain, Dumbbell, Swords, Target, ArrowLeft } from "lucide-react";
+import { Brain, Dumbbell, Swords, Target, ArrowLeft, Upload } from "lucide-react";
 import { predictBallFlight, confidenceLabel } from "@/lib/ballFlightPredictor";
 import { SessionHeader } from "@/components/session/SessionHeader";
 import { ProcessingBanner } from "@/components/session/ProcessingBanner";
@@ -16,12 +16,13 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { getGradeLabel, getScoreColor } from "@/lib/4b-scores-api";
 import { SkeletonViewer } from "@/components/SkeletonViewer";
-import { parseIKCsv } from "@/lib/skeleton-data";
+import { VideoUploadToReboot } from "@/components/VideoUploadToReboot";
 
 export default function SessionView() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   // Try to load from reboot_sessions first (video-based sessions)
   const { data: rebootSession, isLoading: rebootLoading } = useQuery({
@@ -317,6 +318,19 @@ export default function SessionView() {
 
         <ProcessingBanner status={sessionStatus} />
 
+        {/* Upload Video Button */}
+        {session?.player_id && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <Upload className="h-4 w-4" />
+              Upload Video
+            </button>
+          </div>
+        )}
+
         {/* 4B Framework Cards */}
         <div className="grid sm:grid-cols-2 gap-4 mb-6">
           <FourBCard
@@ -456,6 +470,21 @@ export default function SessionView() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Video Upload Modal */}
+        {session?.player_id && (
+          <VideoUploadToReboot
+            playerId={session.player_id}
+            playerName={session?.players?.name || undefined}
+            open={showUploadModal}
+            onOpenChange={setShowUploadModal}
+            onSuccess={(newSessionId) => {
+              toast.success(`Video uploaded! Session ID: ${newSessionId}`);
+              queryClient.invalidateQueries({ queryKey: ["reboot-session", sessionId] });
+              queryClient.invalidateQueries({ queryKey: ["reboot-uploads", sessionId] });
+            }}
+          />
+        )}
       </main>
       <Footer />
     </div>
