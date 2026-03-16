@@ -74,7 +74,8 @@
     "tus-js-client": "^4.3.1",
     "vaul": "^0.9.9",
     "vitest": "^4.0.17",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
