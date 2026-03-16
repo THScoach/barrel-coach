@@ -82,21 +82,13 @@ import ScenarioTrainer from "./pages/admin/ScenarioTrainer";
 import VideoScriptAnalyzer from "./pages/admin/VideoScriptAnalyzer";
 import AdminSeedSwingData from "./pages/AdminSeedSwingData";
 
-// Player pages
-import PlayerHome from "./pages/player/PlayerHome";
-import PlayerDashboard4B from "./pages/player/PlayerDashboard4B";
-import PlayerDrills from "./pages/player/PlayerDrills";
-import PlayerProfile from "./pages/player/PlayerProfile";
-import PlayerMessages from "./pages/player/PlayerMessages";
-import PlayerData from "./pages/player/PlayerData";
-import PlayerGhostLab from "./pages/player/PlayerGhostLab";
-import PlayerGhostRecovery from "./pages/player/PlayerGhostRecovery";
-import PlayerWeeklyCheckin from "./pages/player/PlayerWeeklyCheckin";
-import PlayerNewSession from "./pages/player/PlayerNewSession";
-import CoachChat from "./pages/player/CoachChat";
-import PlayerSwings from "./pages/player/PlayerSwings";
-import PlayerSwingDetail from "./pages/player/PlayerSwingDetail";
-import PlayerProgression from "./pages/player/PlayerProgression";
+// Player pages (v2 rebuild)
+import PlayerHomeDashboard from "./pages/player-v2/PlayerHomeDashboard";
+import PlayerMyData from "./pages/player-v2/PlayerMyData";
+import PlayerSessionPage from "./pages/player-v2/PlayerSessionPage";
+import PlayerProgressPage from "./pages/player-v2/PlayerProgressPage";
+import PlayerMessagesPage from "./pages/player-v2/PlayerMessagesPage";
+import PlayerProfilePage from "./pages/player-v2/PlayerProfilePage";
 
 // RickBot
 import Rick from "./pages/Rick";
