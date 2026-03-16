@@ -3295,6 +3295,7 @@ export type Database = {
           subscription_tier: string | null
           tags: string[] | null
           team: string | null
+          throws: string | null
           total_xp: number | null
           unread_locker_messages: number | null
           updated_at: string | null
@@ -3366,6 +3367,7 @@ export type Database = {
           subscription_tier?: string | null
           tags?: string[] | null
           team?: string | null
+          throws?: string | null
           total_xp?: number | null
           unread_locker_messages?: number | null
           updated_at?: string | null
@@ -3437,6 +3439,7 @@ export type Database = {
           subscription_tier?: string | null
           tags?: string[] | null
           team?: string | null
+          throws?: string | null
           total_xp?: number | null
           unread_locker_messages?: number | null
           updated_at?: string | null
