@@ -275,15 +275,18 @@ function predictBatSpeed(
   }
 
   // ── TIER 3: ESTIMATION (arm IK derivative — lowest confidence) ─────────
+  // OMEGA_TO_MPH uses 0.70m bat lever arm. For segment-level sources (elbow/
+  // shoulder), the angular velocity is of the arm joint, NOT the bat — so the
+  // 0.70m lever already overstates the arm's linear speed.  The chain
+  // multiplier must therefore be modest (~1.25–1.40) rather than the prior
+  // 2.10–2.40, which produced ~115 mph outputs (impossible).
   const armSpeed = input.arm_omega_peak * OMEGA_TO_MPH;
 
-  // Source-aware chain multiplier:
-  // Segment-level sources (shoulder/elbow) produce lower omega than hand/wrist
   const segmentSources = ['right_shoulder_rot', 'right_elbow', 'left_elbow', 'rshoulder_rot', 'relbow_rot', 'lelbow_rot', 'torso_fallback'];
   const isSegmentLevel = !input.arm_omega_source || segmentSources.includes(input.arm_omega_source);
   const chainMultiplier = isSegmentLevel
-    ? 2.10 + 0.30 * Math.max(0, Math.min(1, transferEfficiency))   // 2.10–2.40 for segment
-    : 1.15 + 0.35 * Math.max(0, Math.min(1, transferEfficiency));  // 1.15–1.50 for hand/wrist
+    ? 1.25 + 0.15 * Math.max(0, Math.min(1, transferEfficiency))   // 1.25–1.40 for segment
+    : 1.10 + 0.20 * Math.max(0, Math.min(1, transferEfficiency));  // 1.10–1.30 for hand/wrist
 
   // FIX 4: √ scaling, range 0.80–1.15
   const massFactor = Math.max(0.80, Math.min(1.15, Math.sqrt(massKg / 80)));
@@ -294,7 +297,17 @@ function predictBatSpeed(
     : (tr >= 1.0 && tr <= 2.5) ? 0.95
     : 0.85;
 
-  const estimated = armSpeed * chainMultiplier * massFactor * trBonus;
+  let estimated = armSpeed * chainMultiplier * massFactor * trBonus;
+
+  // Hard clamp: no bat speed can exceed physical limits
+  const HARD_MAX_BAT_SPEED: Record<string, number> = {
+    youth: 55, high_school: 75, college: 82, pro: 85,
+  };
+  const hardMax = HARD_MAX_BAT_SPEED[input.player_level] ?? 85;
+  if (estimated > hardMax) {
+    console.warn(`[4B-Score] estimation clamped: ${estimated.toFixed(1)} → ${hardMax} mph (max for ${input.player_level})`);
+    estimated = hardMax;
+  }
 
   console.log(`[4B-Score] estimation: { arm_omega: ${input.arm_omega_peak.toFixed(1)}, source_column: "${input.arm_omega_source ?? 'unknown'}", chainMultiplier: ${chainMultiplier.toFixed(3)}, bat_speed_mph: ${(Math.round(estimated * 10) / 10)} }`);
 
@@ -303,7 +316,7 @@ function predictBatSpeed(
     path: 'estimation',
     confidence: 'low',
     mass_mod: Math.round(massFactor * 1000) / 1000,
-    warning: 'No sensor data. Estimated from IK arm velocity — expect ±10 mph uncertainty.',
+    warning: 'Estimated from IK arm velocity — expect ±8 mph uncertainty.',
   };
 }
 
