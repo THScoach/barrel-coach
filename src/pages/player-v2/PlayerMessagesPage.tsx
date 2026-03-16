@@ -118,11 +118,11 @@ export default function PlayerMessagesPage() {
           history: messages.map(m => ({ role: m.role, content: m.content })),
           chatMode: 'player',
           playerId: player.id,
-          scores: scores ? {
-            brain: scores.brain_score,
-            body: scores.body_score,
-            bat: scores.bat_score,
-            ball: scores.ball_score,
+          scores: player ? {
+            brain: player.latest_brain_score,
+            body: player.latest_body_score,
+            bat: player.latest_bat_score,
+            ball: player.latest_ball_score,
           } : undefined,
           weakestCategory: getWeakestCategory(),
           chatLogId,
