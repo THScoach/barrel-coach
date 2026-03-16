@@ -22,6 +22,7 @@ export default function SessionView() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   // Try to load from reboot_sessions first (video-based sessions)
   const { data: rebootSession, isLoading: rebootLoading } = useQuery({
