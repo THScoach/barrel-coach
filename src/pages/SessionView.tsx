@@ -470,6 +470,21 @@ export default function SessionView() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Video Upload Modal */}
+        {session?.player_id && (
+          <VideoUploadToReboot
+            playerId={session.player_id}
+            playerName={session?.players?.name || undefined}
+            open={showUploadModal}
+            onOpenChange={setShowUploadModal}
+            onSuccess={(newSessionId) => {
+              toast.success(`Video uploaded! Session ID: ${newSessionId}`);
+              queryClient.invalidateQueries({ queryKey: ["reboot-session", sessionId] });
+              queryClient.invalidateQueries({ queryKey: ["reboot-uploads", sessionId] });
+            }}
+          />
+        )}
       </main>
       <Footer />
     </div>
