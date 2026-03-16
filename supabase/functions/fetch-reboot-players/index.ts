@@ -450,6 +450,11 @@ serve(async (req) => {
 
         // Always store org_player_id as reboot_athlete_id (this is what data_export needs)
         const birthDate = parseBirthDate(player.birth_date || player.birthDate || player.dob || player.date_of_birth);
+        // Normalize level to match DB constraint: youth, high_school, college, pro, mlb
+        const VALID_LEVELS = new Set(["youth", "high_school", "college", "pro", "mlb"]);
+        const rawLevel = (player.level || player.skill_level || player.skillLevel || "").toLowerCase().trim();
+        const mappedLevel = VALID_LEVELS.has(rawLevel) ? rawLevel : null;
+
         const playerData: Record<string, any> = {
           name: fullName,
           reboot_athlete_id: rebootId,
@@ -457,7 +462,7 @@ serve(async (req) => {
           weight_lbs: parseWeight(weightRaw),
           handedness: normalizeHand(batsRaw),
           throws: normalizeHand(throwsRaw),
-          level: player.level || player.skill_level || player.skillLevel || null,
+          level: mappedLevel,
           team: player.team || player.organization || player.org_name || player.orgName || null,
         };
         if (birthDate) playerData.birth_date = birthDate;
