@@ -415,17 +415,48 @@ serve(async (req) => {
           }
         }
 
-        // Extract handedness
-        const bats = player.bats || player.hitting_hand || player.hittingHand || player.hits || player.bat_side || player.batSide || null;
+        // Extract attributes from Reboot's key-value array format
+        const attrs = Array.isArray(player.attributes) ? player.attributes : [];
+        const attrMap = new Map<string, string>();
+        for (const a of attrs) {
+          if (a?.key && a?.value != null) attrMap.set(a.key.toLowerCase(), String(a.value));
+        }
+
+        // Extract handedness (bats) and throws from flat fields + attributes
+        const batsRaw = player.bats || player.hitting_hand || player.hittingHand || player.hits || player.bat_side || player.batSide || attrMap.get("dom_hand_hitting") || null;
+        const throwsRaw = player.throws || player.throwing_hand || player.throwingHand || player.throw_side || player.throwSide || attrMap.get("dom_hand_throwing") || attrMap.get("throws") || null;
         
+        // Normalize Reboot handedness codes (RHA→right, LHA→left, SHA→switch)
+        const normalizeHand = (val: string | null): string | null => {
+          if (!val) return null;
+          const v = val.toUpperCase().trim();
+          if (v === "RHA" || v === "R" || v === "RIGHT") return "right";
+          if (v === "LHA" || v === "L" || v === "LEFT") return "left";
+          if (v === "SHA" || v === "S" || v === "SWITCH" || v === "B" || v === "BOTH") return "switch";
+          return val.toLowerCase();
+        };
+
+        // Height/weight from flat fields + attributes
+        const heightRaw = player.height || player.height_display || player.height_in || attrMap.get("height_in") || null;
+        const heightFromFt = attrMap.get("height_ft"); // Reboot stores height_ft as decimal feet
+        
+        let heightInches = parseHeight(heightRaw);
+        if (!heightInches && heightFromFt) {
+          const ft = parseFloat(heightFromFt);
+          if (!isNaN(ft)) heightInches = Math.round(ft * 12);
+        }
+        
+        const weightRaw = player.weight || player.weight_display || player.weight_lb || player.weight_lbs || attrMap.get("weight_lbs") || attrMap.get("weight_lb") || null;
+
         // Always store org_player_id as reboot_athlete_id (this is what data_export needs)
         const birthDate = parseBirthDate(player.birth_date || player.birthDate || player.dob || player.date_of_birth);
         const playerData: Record<string, any> = {
           name: fullName,
           reboot_athlete_id: rebootId,
-          height_inches: parseHeight(player.height || player.height_display || player.height_in),
-          weight_lbs: parseWeight(player.weight || player.weight_display || player.weight_lb),
-          handedness: bats,
+          height_inches: heightInches,
+          weight_lbs: parseWeight(weightRaw),
+          handedness: normalizeHand(batsRaw),
+          throws: normalizeHand(throwsRaw),
           level: player.level || player.skill_level || player.skillLevel || null,
           team: player.team || player.organization || player.org_name || player.orgName || null,
         };
