@@ -823,6 +823,12 @@ export default function AdminPlayerProfile() {
                 playerName={getPlayerName()}
               />
             </TabsContent>
+            <TabsContent value="kommodo">
+              <PlayerKommodoTab
+                playersTableId={player?.players_id}
+                playerName={getPlayerName()}
+              />
+            </TabsContent>
             <TabsContent value="communication">
               <PlayerCommunicationTabNew 
                 playerId={player?.id || id!} 
