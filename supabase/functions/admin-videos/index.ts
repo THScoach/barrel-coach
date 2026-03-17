@@ -1,18 +1,15 @@
 // =============================================================================
-// SECURITY SELF-TEST CHECKLIST
+// ADMIN VIDEOS + KOMMODO API - Consolidated admin endpoint
 // =============================================================================
-// ✅ 1. Admin check via is_admin() RPC happens BEFORE any database mutations
-// ✅ 2. Returns 401 { error: "Unauthorized: Admin access required" } if not admin
-// ✅ 3. Uses anon key + user token for auth verification (not service_role)
-// ✅ 4. Service_role client created ONLY AFTER admin verification passes (line 54-57)
-// ✅ 5. No inserts/updates occur before admin check completes (line 45-51)
-// ✅ 6. Request body/params parsed AFTER admin verification (line 60-61)
+// ✅ Admin check via is_admin() RPC happens BEFORE any database mutations
+// ✅ Returns 401 if not admin
+// ✅ Uses anon key + user token for auth verification
+// ✅ Service_role client created ONLY AFTER admin verification passes
 // =============================================================================
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Generate a hash from video URL for deduplication
 async function hashString(str: string): Promise<string> {
   const encoder = new TextEncoder()
   const data = encoder.encode(str)
@@ -26,149 +23,184 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Verify the caller is an admin user
+// ── Admin verification ──
 async function verifyAdmin(req: Request): Promise<{ isAdmin: boolean; error?: string }> {
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    return { isAdmin: false, error: 'Missing authorization header' }
-  }
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } }
-  )
-
+  if (!authHeader?.startsWith('Bearer ')) return { isAdmin: false, error: 'Missing authorization header' }
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    global: { headers: { Authorization: authHeader } }
+  })
   const token = authHeader.replace('Bearer ', '')
   const { data, error } = await supabase.auth.getUser(token)
-  
-  if (error || !data.user) {
-    return { isAdmin: false, error: 'Invalid token' }
-  }
-
-  // Check admin role using the is_admin function
+  if (error || !data.user) return { isAdmin: false, error: 'Invalid token' }
   const { data: isAdmin, error: roleError } = await supabase.rpc('is_admin')
-  
-  if (roleError || isAdmin !== true) {
-    return { isAdmin: false, error: 'Unauthorized: Admin access required' }
-  }
-
+  if (roleError || isAdmin !== true) return { isAdmin: false, error: 'Unauthorized: Admin access required' }
   return { isAdmin: true }
 }
 
+// ── Kommodo HTTP client with rate-limit handling ──
+async function kommodoFetch(path: string, apiKey: string, params?: Record<string, string>): Promise<any> {
+  const url = new URL(`https://api.komododecks.com${path}`)
+  if (params) for (const [k, v] of Object.entries(params)) { if (v) url.searchParams.set(k, v) }
+  let attempts = 0
+  while (attempts < 3) {
+    const res = await fetch(url.toString(), { headers: { 'Authorization': `Bearer ${apiKey}` } })
+    if (res.status === 429) {
+      const retryAfter = parseInt(res.headers.get('Retry-After') || '5', 10)
+      console.warn(`Kommodo rate limited, retrying in ${retryAfter}s...`)
+      await new Promise(r => setTimeout(r, retryAfter * 1000))
+      attempts++
+      continue
+    }
+    if (!res.ok) { const text = await res.text(); throw new Error(`Kommodo API ${res.status}: ${text}`) }
+    return res.json()
+  }
+  throw new Error('Kommodo rate limit exceeded after retries')
+}
+
+// ── Title parsing for auto-linking: LastName_FirstName_Type_Date ──
+function parseRecordingTitle(title: string): { lastName?: string; firstName?: string } | null {
+  if (!title) return null
+  const parts = title.split('_')
+  if (parts.length >= 2) return { lastName: parts[0].trim(), firstName: parts[1].trim() }
+  return null
+}
+
+// ── Respond helper ──
+function json(data: any, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+}
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
-  // Verify admin access for all requests
   const { isAdmin, error: authError } = await verifyAdmin(req)
-  if (!isAdmin) {
-    return new Response(
-      JSON.stringify({ error: authError }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-  }
+  if (!isAdmin) return json({ error: authError }, 401)
 
-  // Use service role for database operations after admin verification
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  )
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
   try {
     const url = new URL(req.url)
+    const action = url.searchParams.get('action') || ''
     const videoId = url.searchParams.get('id')
+    const kommodoApiKey = Deno.env.get('KOMMODO_API_KEY')
 
+    // ════════════════════════════════════════
+    // GET actions
+    // ════════════════════════════════════════
     if (req.method === 'GET') {
-      const action = url.searchParams.get('action')
 
-      // Kommodo: list recordings
+      // --- Original video CRUD ---
+      if (!action) {
+        if (videoId) {
+          const { data, error } = await supabase.from('drill_videos').select('*').eq('id', videoId).single()
+          if (error) throw error
+          return json(data)
+        } else {
+          const { data, error } = await supabase.from('drill_videos').select('*').order('created_at', { ascending: false })
+          if (error) throw error
+          return json(data)
+        }
+      }
+
+      // --- Kommodo: list recordings from their API ---
       if (action === 'kommodo-list') {
-        const kommodoApiKey = Deno.env.get('KOMMODO_API_KEY')
         if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
-
-        console.log('Fetching recordings from Kommodo...')
         const response = await fetch('https://api.komododecks.com/v1/recordings', {
           headers: { 'Authorization': `Bearer ${kommodoApiKey}` }
         })
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error('Kommodo list error:', response.status, errorText)
-          throw new Error(`Kommodo API error: ${response.status}`)
-        }
-
+        if (!response.ok) throw new Error(`Kommodo API error: ${response.status}`)
         const data = await response.json()
-        return new Response(
-          JSON.stringify({ recordings: data.recordings || data.data || data }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        return json({ recordings: data.recordings || data.data || data })
       }
 
-      // List all videos or get single video
-      if (videoId) {
-        const { data, error } = await supabase
-          .from('drill_videos')
-          .select('*')
-          .eq('id', videoId)
-          .single()
+      // --- Kommodo: paginated list with search ---
+      if (action === 'kommodo-list-recordings') {
+        if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
+        const page = url.searchParams.get('page') || '1'
+        const perPage = url.searchParams.get('per_page') || '25'
+        const search = url.searchParams.get('search') || ''
+        const data = await kommodoFetch('/v1/recordings', kommodoApiKey, {
+          page, per_page: perPage, ...(search ? { search } : {}),
+        })
+        return json(data)
+      }
 
-        if (error) throw error
-        return new Response(
-          JSON.stringify(data),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      } else {
-        const { data, error } = await supabase
-          .from('drill_videos')
-          .select('*')
-          .order('created_at', { ascending: false })
+      // --- Kommodo: get single recording ---
+      if (action === 'kommodo-get-recording') {
+        if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
+        const recordingId = url.searchParams.get('recording_id')
+        if (!recordingId) throw new Error('recording_id required')
+        const data = await kommodoFetch(`/v1/recordings/${recordingId}`, kommodoApiKey)
+        return json(data)
+      }
 
+      // --- Kommodo: list team members ---
+      if (action === 'kommodo-list-members') {
+        if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
+        const data = await kommodoFetch('/v1/team/members', kommodoApiKey)
+        return json(data)
+      }
+
+      // --- Kommodo: unlinked recordings ---
+      if (action === 'kommodo-unlinked') {
+        if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
+        const allRecs = await kommodoFetch('/v1/recordings', kommodoApiKey, { per_page: '100' })
+        const recordings = allRecs.recordings || allRecs.data || allRecs || []
+        const { data: linked } = await supabase.from('player_kommodo_recordings').select('kommodo_recording_id')
+        const linkedIds = new Set((linked || []).map((r: any) => r.kommodo_recording_id))
+        return json({ recordings: recordings.filter((r: any) => !linkedIds.has(r.id)) })
+      }
+
+      // --- Kommodo: sync status ---
+      if (action === 'kommodo-sync-status') {
+        const { data } = await supabase
+          .from('kommodo_sync_log').select('*')
+          .order('started_at', { ascending: false }).limit(1).maybeSingle()
+        return json({ last_sync: data })
+      }
+
+      // --- Kommodo: player recordings ---
+      if (action === 'kommodo-player-recordings') {
+        const playerId = url.searchParams.get('player_id')
+        if (!playerId) throw new Error('player_id required')
+        const { data, error } = await supabase
+          .from('player_kommodo_recordings').select('*')
+          .eq('player_id', playerId).order('recording_created_at', { ascending: false })
         if (error) throw error
-        return new Response(
-          JSON.stringify(data),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        return json({ recordings: data })
       }
     }
 
-    // Kommodo: import recordings
+    // ════════════════════════════════════════
+    // POST actions
+    // ════════════════════════════════════════
     if (req.method === 'POST') {
-      const url2 = new URL(req.url)
-      const action = url2.searchParams.get('action')
-      
-      if (action === 'kommodo-import') {
-        const kommodoApiKey = Deno.env.get('KOMMODO_API_KEY')
-        if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
+      const body = await req.json().catch(() => ({}))
 
-        const { recording_ids, auto_publish = false } = await req.json()
+      // --- Original Kommodo import (download + Gumlet pipeline) ---
+      if (action === 'kommodo-import') {
+        if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
+        const { recording_ids, auto_publish = false } = body
         if (!recording_ids || !Array.isArray(recording_ids)) throw new Error('recording_ids array required')
 
-        console.log('Importing recordings to permanent storage:', recording_ids)
         const results: { id: string; success: boolean; error?: string; video_id?: string }[] = []
-
         for (const recordingId of recording_ids) {
           try {
             const response = await fetch(`https://api.komododecks.com/v1/recordings/${recordingId}`, {
               headers: { 'Authorization': `Bearer ${kommodoApiKey}` }
             })
             if (!response.ok) throw new Error(`Failed to fetch recording: ${response.status}`)
-
             const recording = await response.json()
             const videoUrl = recording.urls?.video || recording.urls?.page || recording.video_url || recording.playback_url || recording.url
             const transcriptUrl = recording.urls?.transcript || null
             const title = recording.title || recording.name || `Imported ${recordingId}`
             const duration = recording.duration || recording.duration_seconds || 0
-
             if (!videoUrl) throw new Error('No video URL found in recording')
 
             const fileHash = await hashString(videoUrl + recordingId)
             const { data: existing } = await supabase.rpc('check_academy_video_duplicate', { p_file_hash: fileHash })
-            if (existing && existing.length > 0) {
-              results.push({ id: recordingId, success: false, error: `Already imported as "${existing[0].title}"` })
-              continue
-            }
+            if (existing && existing.length > 0) { results.push({ id: recordingId, success: false, error: `Already imported as "${existing[0].title}"` }); continue }
 
             let transcript = ''
             if (transcriptUrl) {
@@ -181,10 +213,8 @@ serve(async (req) => {
               } catch (e) { console.error('Failed to fetch transcript:', e) }
             }
 
-            console.log('Downloading video from Kommodo:', videoUrl)
             const videoResponse = await fetch(videoUrl)
             if (!videoResponse.ok) throw new Error(`Failed to download video: ${videoResponse.status}`)
-
             const videoBlob = await videoResponse.blob()
             const contentType = videoResponse.headers.get('content-type') || 'video/mp4'
             const extension = contentType.includes('quicktime') ? 'mov' : contentType.includes('webm') ? 'webm' : 'mp4'
@@ -199,7 +229,6 @@ serve(async (req) => {
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
               body: JSON.stringify({ storage_path: storagePath, original_title: title, auto_publish, file_hash: fileHash })
             })
-
             if (!gumletResponse.ok) throw new Error(`Gumlet processing failed: ${await gumletResponse.text()}`)
             const gumletData = await gumletResponse.json()
             if (!gumletData.success) throw new Error(gumletData.error || 'Gumlet processing failed')
@@ -212,66 +241,162 @@ serve(async (req) => {
                 body: JSON.stringify({ video_id: gumletData.video_id, auto_publish })
               }).catch(err => console.error('Failed to trigger auto-tag:', err))
             }
-
             results.push({ id: recordingId, success: true, video_id: gumletData.video_id })
           } catch (err) {
             console.error('Error importing recording:', recordingId, err)
             results.push({ id: recordingId, success: false, error: err instanceof Error ? err.message : 'Unknown error' })
           }
         }
+        return json({ results })
+      }
 
-        return new Response(JSON.stringify({ results }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      // --- Kommodo: link recording to player ---
+      if (action === 'kommodo-link-recording') {
+        if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
+        const { kommodo_recording_id, player_id } = body
+        if (!kommodo_recording_id || !player_id) throw new Error('kommodo_recording_id and player_id required')
+        const rec = await kommodoFetch(`/v1/recordings/${kommodo_recording_id}`, kommodoApiKey)
+        const { error } = await supabase.from('player_kommodo_recordings').upsert({
+          kommodo_recording_id,
+          player_id,
+          title: rec.title || rec.name || 'Untitled',
+          description: rec.description || null,
+          duration_seconds: rec.duration || rec.duration_seconds || null,
+          thumbnail_url: rec.urls?.poster || rec.thumbnail_url || null,
+          video_url: rec.urls?.video || rec.video_url || null,
+          page_url: rec.urls?.page || rec.page_url || null,
+          kommodo_member_id: rec.member_id || rec.creator_id || null,
+          kommodo_member_name: rec.member_name || rec.creator_name || null,
+          link_method: 'manual',
+          recording_created_at: rec.created_at || null,
+        }, { onConflict: 'kommodo_recording_id' })
+        if (error) throw error
+        return json({ success: true })
+      }
+
+      // --- Kommodo: unlink recording ---
+      if (action === 'kommodo-unlink-recording') {
+        const { kommodo_recording_id } = body
+        if (!kommodo_recording_id) throw new Error('kommodo_recording_id required')
+        const { error } = await supabase.from('player_kommodo_recordings').delete().eq('kommodo_recording_id', kommodo_recording_id)
+        if (error) throw error
+        return json({ success: true })
+      }
+
+      // --- Kommodo: update player ↔ member mapping ---
+      if (action === 'kommodo-update-member-mapping') {
+        const { player_id, kommodo_member_id } = body
+        if (!player_id) throw new Error('player_id required')
+        const { error } = await supabase.from('players').update({ kommodo_member_id: kommodo_member_id || null }).eq('id', player_id)
+        if (error) throw error
+        return json({ success: true })
+      }
+
+      // --- Kommodo: run sync ---
+      if (action === 'kommodo-run-sync') {
+        if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
+        console.log('Starting Kommodo sync...')
+
+        const { data: syncLog, error: logErr } = await supabase
+          .from('kommodo_sync_log').insert({ status: 'running', triggered_by: 'manual' }).select().single()
+        if (logErr) throw logErr
+
+        let recordingsFound = 0, recordingsLinked = 0, recordingsUnlinked = 0
+
+        try {
+          const allRecs = await kommodoFetch('/v1/recordings', kommodoApiKey, { per_page: '100' })
+          const recordings = allRecs.recordings || allRecs.data || allRecs || []
+          recordingsFound = recordings.length
+
+          const { data: linked } = await supabase.from('player_kommodo_recordings').select('kommodo_recording_id')
+          const linkedIds = new Set((linked || []).map((r: any) => r.kommodo_recording_id))
+
+          const { data: playersWithMember } = await supabase.from('players').select('id, name, kommodo_member_id').not('kommodo_member_id', 'is', null)
+          const memberToPlayer = new Map<string, { id: string; name: string }>()
+          for (const p of playersWithMember || []) { if (p.kommodo_member_id) memberToPlayer.set(p.kommodo_member_id, { id: p.id, name: p.name || '' }) }
+
+          const { data: allPlayers } = await supabase.from('players').select('id, name')
+          const nameToPlayer = new Map<string, { id: string; name: string }>()
+          for (const p of allPlayers || []) {
+            if (!p.name) continue
+            const parts = p.name.trim().split(/\s+/)
+            if (parts.length >= 2) nameToPlayer.set(`${parts[parts.length - 1]}_${parts[0]}`.toLowerCase(), { id: p.id, name: p.name })
+          }
+
+          for (const rec of recordings) {
+            if (linkedIds.has(rec.id)) continue
+            let matchedPlayer: { id: string; name: string } | null = null
+            let linkMethod = ''
+
+            const memberId = rec.member_id || rec.creator_id
+            if (memberId && memberToPlayer.has(memberId)) { matchedPlayer = memberToPlayer.get(memberId)!; linkMethod = 'auto_member' }
+
+            if (!matchedPlayer) {
+              const parsed = parseRecordingTitle(rec.title || rec.name || '')
+              if (parsed?.lastName && parsed?.firstName) {
+                const key = `${parsed.lastName}_${parsed.firstName}`.toLowerCase()
+                if (nameToPlayer.has(key)) { matchedPlayer = nameToPlayer.get(key)!; linkMethod = 'auto_name' }
+              }
+            }
+
+            if (matchedPlayer) {
+              const { error: insertErr } = await supabase.from('player_kommodo_recordings').insert({
+                kommodo_recording_id: rec.id, player_id: matchedPlayer.id,
+                title: rec.title || rec.name || 'Untitled', description: rec.description || null,
+                duration_seconds: rec.duration || rec.duration_seconds || null,
+                thumbnail_url: rec.urls?.poster || rec.thumbnail_url || null,
+                video_url: rec.urls?.video || rec.video_url || null,
+                page_url: rec.urls?.page || rec.page_url || null,
+                kommodo_member_id: memberId || null,
+                kommodo_member_name: rec.member_name || rec.creator_name || null,
+                link_method: linkMethod, recording_created_at: rec.created_at || null,
+              })
+              if (!insertErr) { recordingsLinked++; console.log(`Linked "${rec.title}" → ${matchedPlayer.name} (${linkMethod})`) }
+            } else { recordingsUnlinked++ }
+          }
+
+          await supabase.from('kommodo_sync_log').update({
+            status: 'completed', finished_at: new Date().toISOString(),
+            recordings_found: recordingsFound, recordings_linked: recordingsLinked, recordings_unlinked: recordingsUnlinked,
+          }).eq('id', syncLog.id)
+
+        } catch (syncErr) {
+          await supabase.from('kommodo_sync_log').update({
+            status: 'failed', finished_at: new Date().toISOString(),
+            error: syncErr instanceof Error ? syncErr.message : 'Unknown error', recordings_found: recordingsFound,
+          }).eq('id', syncLog.id)
+          throw syncErr
+        }
+
+        return json({ success: true, recordings_found: recordingsFound, recordings_linked: recordingsLinked, recordings_unlinked: recordingsUnlinked })
       }
     }
 
+    // ════════════════════════════════════════
+    // PUT - Update video
+    // ════════════════════════════════════════
     if (req.method === 'PUT') {
-      // Update video
       const updates = await req.json()
-      
-      // If publishing, set published_at
-      if (updates.status === 'published' && !updates.published_at) {
-        updates.published_at = new Date().toISOString()
-      }
-
-      const { data, error } = await supabase
-        .from('drill_videos')
-        .update(updates)
-        .eq('id', videoId)
-        .select()
-        .single()
-
+      if (updates.status === 'published' && !updates.published_at) updates.published_at = new Date().toISOString()
+      const { data, error } = await supabase.from('drill_videos').update(updates).eq('id', videoId).select().single()
       if (error) throw error
-      return new Response(
-        JSON.stringify(data),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return json(data)
     }
 
+    // ════════════════════════════════════════
+    // DELETE - Delete video
+    // ════════════════════════════════════════
     if (req.method === 'DELETE') {
-      // Delete video
-      const { error } = await supabase
-        .from('drill_videos')
-        .delete()
-        .eq('id', videoId)
-
+      const { error } = await supabase.from('drill_videos').delete().eq('id', videoId)
       if (error) throw error
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return json({ success: true })
     }
 
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json({ error: 'Method not allowed' }, 405)
 
   } catch (error: unknown) {
     console.error('Admin videos error:', error)
     const message = error instanceof Error ? error.message : 'Unknown error'
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json({ error: message }, 500)
   }
 })
