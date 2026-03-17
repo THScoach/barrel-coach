@@ -13,7 +13,7 @@ async function getAuthHeaders() {
 
 async function kommodoGet(action: string, params?: Record<string, string>) {
   const headers = await getAuthHeaders();
-  const url = new URL(`${SUPABASE_URL}/functions/v1/kommodo-api`);
+  const url = new URL(`${SUPABASE_URL}/functions/v1/admin-videos`);
   url.searchParams.set('action', action);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
@@ -30,7 +30,7 @@ async function kommodoGet(action: string, params?: Record<string, string>) {
 
 async function kommodoPost(action: string, body: Record<string, any>) {
   const headers = await getAuthHeaders();
-  const url = new URL(`${SUPABASE_URL}/functions/v1/kommodo-api`);
+  const url = new URL(`${SUPABASE_URL}/functions/v1/admin-videos`);
   url.searchParams.set('action', action);
   const res = await fetch(url.toString(), {
     method: 'POST',
@@ -46,19 +46,19 @@ async function kommodoPost(action: string, body: Record<string, any>) {
 
 export const kommodoApi = {
   listRecordings: (params?: { page?: string; per_page?: string; search?: string }) =>
-    kommodoGet('list-recordings', params),
+    kommodoGet('kommodo-list-recordings', params),
   getRecording: (recordingId: string) =>
-    kommodoGet('get-recording', { recording_id: recordingId }),
-  listMembers: () => kommodoGet('list-members'),
-  getUnlinkedRecordings: () => kommodoGet('unlinked-recordings'),
-  getSyncStatus: () => kommodoGet('sync-status'),
+    kommodoGet('kommodo-get-recording', { recording_id: recordingId }),
+  listMembers: () => kommodoGet('kommodo-list-members'),
+  getUnlinkedRecordings: () => kommodoGet('kommodo-unlinked'),
+  getSyncStatus: () => kommodoGet('kommodo-sync-status'),
   getPlayerRecordings: (playerId: string) =>
-    kommodoGet('player-recordings', { player_id: playerId }),
+    kommodoGet('kommodo-player-recordings', { player_id: playerId }),
   linkRecording: (kommodoRecordingId: string, playerId: string) =>
-    kommodoPost('link-recording', { kommodo_recording_id: kommodoRecordingId, player_id: playerId }),
+    kommodoPost('kommodo-link-recording', { kommodo_recording_id: kommodoRecordingId, player_id: playerId }),
   unlinkRecording: (kommodoRecordingId: string) =>
-    kommodoPost('unlink-recording', { kommodo_recording_id: kommodoRecordingId }),
+    kommodoPost('kommodo-unlink-recording', { kommodo_recording_id: kommodoRecordingId }),
   updateMemberMapping: (playerId: string, kommodoMemberId: string | null) =>
-    kommodoPost('update-member-mapping', { player_id: playerId, kommodo_member_id: kommodoMemberId }),
-  runSync: () => kommodoPost('run-sync', {}),
+    kommodoPost('kommodo-update-member-mapping', { player_id: playerId, kommodo_member_id: kommodoMemberId }),
+  runSync: () => kommodoPost('kommodo-run-sync', {}),
 };
