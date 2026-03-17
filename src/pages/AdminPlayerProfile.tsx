@@ -852,9 +852,6 @@ export default function AdminPlayerProfile() {
               <TabsTrigger value="overview" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Overview
               </TabsTrigger>
-              <TabsTrigger value="scores" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-                Scores
-              </TabsTrigger>
               <TabsTrigger value="video" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Video
               </TabsTrigger>
@@ -863,6 +860,9 @@ export default function AdminPlayerProfile() {
               </TabsTrigger>
               <TabsTrigger value="reboot" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Reboot Motion
+              </TabsTrigger>
+              <TabsTrigger value="scores" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Scores
               </TabsTrigger>
               <TabsTrigger value="kommodo" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Kommodo
