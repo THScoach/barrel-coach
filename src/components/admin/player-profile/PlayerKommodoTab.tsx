@@ -86,16 +86,21 @@ export function PlayerKommodoTab({ playersTableId, playerName }: PlayerKommodoTa
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-white text-sm truncate">{rec.title || 'Untitled'}</p>
                     <div className="flex gap-3 text-xs text-slate-400 mt-0.5">
+                      {rec.session_type && (
+                        <Badge variant="outline" className="text-[10px] border-orange-500/30 text-orange-400 px-1.5 py-0">
+                          {rec.session_type}
+                        </Badge>
+                      )}
                       {rec.duration_seconds && (
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {formatDuration(rec.duration_seconds)}
                         </span>
                       )}
-                      {rec.recording_created_at && (
+                      {(rec.recording_date || rec.recording_created_at) && (
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {new Date(rec.recording_created_at).toLocaleDateString()}
+                          {new Date(rec.recording_date || rec.recording_created_at).toLocaleDateString()}
                         </span>
                       )}
                     </div>
