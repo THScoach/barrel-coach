@@ -289,7 +289,7 @@ export function AcademyUploader({ onUploadComplete, autoPublish = false }: Acade
               ? 'border-green-500/50 bg-green-500/5'
               : status === 'error' || status === 'duplicate'
                 ? 'border-red-500/50 bg-red-500/5'
-                : 'border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30'
+                : 'border-[#FF3B30]/30 hover:border-primary/50 hover:bg-muted/30'
           }
         `}>
           <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
