@@ -782,6 +782,9 @@ export default function AdminPlayerProfile() {
               <TabsTrigger value="reboot" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Reboot Motion
               </TabsTrigger>
+              <TabsTrigger value="kommodo" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Kommodo
+              </TabsTrigger>
               <TabsTrigger value="communication" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Communication
               </TabsTrigger>
