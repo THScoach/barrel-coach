@@ -173,7 +173,7 @@ export default function AdminRebootAnalysis() {
 
       const { data, error } = await supabase
         .from("players")
-        .select("id, name, level, team, reboot_athlete_id")
+        .select("id, name, level, team, reboot_athlete_id, reboot_player_id")
         .ilike("name", `%${searchQuery}%`)
         .limit(10);
 
