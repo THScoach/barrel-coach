@@ -399,7 +399,8 @@ function calculateBody(input: ScoreCalculationInput): { body: number; creation: 
   }
 
   const timingGapMs  = input.trunk_omega_time - input.pelvis_omega_time;
-  const timingGapPct = (timingGapMs / 200) * 100;
+  const bodyDeliveryMs = getDeliveryDurationMs(input);
+  const timingGapPct = (timingGapMs / bodyDeliveryMs) * 100;
   let timingScore: number;
   if (timingGapPct >= TIMING_GAP_ELITE.min && timingGapPct <= TIMING_GAP_ELITE.max) {
     timingScore = 95;
