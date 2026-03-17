@@ -263,3 +263,6 @@ verify_jwt = false
 
 [functions.kommodo-api]
 verify_jwt = false
+
+[functions.score-hitting-session]
+verify_jwt = false
