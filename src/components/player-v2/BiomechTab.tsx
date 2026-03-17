@@ -31,6 +31,9 @@ interface BiomechSession {
   focus_next_bp: string | null;
   recommended_cues: string[] | null;
   recommended_drills: any[] | null;
+  coach_barrels_classification: any[] | null;
+  coach_barrels_prescription: any | null;
+  coach_barrels_voice_sample: string | null;
 }
 
 const FLAG_LABELS: Record<string, { label: string; icon: any }> = {
