@@ -627,7 +627,7 @@ export default function AdminRebootAnalysis() {
                 {/* Auto-fetch option */}
                 <Button
                   onClick={fetchRebootSessions}
-                  disabled={!selectedPlayer?.reboot_athlete_id || isLoadingSessions}
+                  disabled={!(selectedPlayer?.reboot_player_id || selectedPlayer?.reboot_athlete_id) || isLoadingSessions}
                   className="w-full mb-2 border-slate-700 text-slate-300 hover:bg-slate-800"
                   variant="outline"
                 >
