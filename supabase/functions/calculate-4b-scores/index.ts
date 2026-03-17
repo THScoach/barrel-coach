@@ -194,28 +194,26 @@ function computeTransferEfficiency(input: ScoreCalculationInput): number {
   // ── Sequence score: did pelvis peak BEFORE trunk? ──────────────────────
   const sequenceScore = input.pelvis_omega_time < input.trunk_omega_time ? 1.0 : 0.0;
 
-  // ── Timing score: gap as % of swing duration (foot-plant to contact) ──
-  // pelvis_omega_time and trunk_omega_time are ms-from-contact (negative = before contact)
-  // totalSwingDuration = foot-plant-to-contact window ≈ 150–250ms for pro
-  // We approximate this as load_duration + launch_duration, but those may be
-  // the full capture. A better proxy: the span from the earliest peak to contact.
-  // Since times are relative to max-hand (≈ contact), the earliest peak marks
-  // roughly foot-plant. Use that as the denominator.
-  const timingGapMs = Math.abs(input.pelvis_omega_time - input.trunk_omega_time);
+  // ── Timing score: signed gap (trunk − pelvis). Negative = torso-led = 0 reward ──
+  const timingGapMs = input.trunk_omega_time - input.pelvis_omega_time;
 
-  // Fixed 200ms denominator = typical full delivery duration (foot-plant to contact)
-  const DELIVERY_DURATION_MS = 200;
-  const timingGapPct = (timingGapMs / DELIVERY_DURATION_MS) * 100;
-  const timingScore = Math.max(0, 1 - timingGapPct / 50);
+  let timingScore: number;
+  if (timingGapMs <= 0) {
+    // Torso-led swing — no timing credit
+    timingScore = 0;
+  } else {
+    const deliveryDurationMs = getDeliveryDurationMs(input);
+    const timingGapPct = (timingGapMs / deliveryDurationMs) * 100;
+    timingScore = Math.max(0, 1 - timingGapPct / 50);
+  }
 
   console.log(
     `[4B-Score] transferEff DEBUG: { pelvis_omega_time_ms: ${input.pelvis_omega_time.toFixed(1)}, ` +
-    `trunk_omega_time_ms: ${input.trunk_omega_time.toFixed(1)}, timingGapMs: ${timingGapMs.toFixed(1)}, ` +
-    `timingGapPct: ${timingGapPct.toFixed(1)} }`
+    `trunk_omega_time_ms: ${input.trunk_omega_time.toFixed(1)}, timingGapMs: ${timingGapMs.toFixed(1)} }`
   );
   console.log(
     `[4B-Score] transferEfficiency=${(0.5 * sequenceScore + 0.5 * timingScore).toFixed(3)} ` +
-    `(sequenceScore=${sequenceScore}, timingGapPct=${timingGapPct.toFixed(1)}%, timingScore=${timingScore.toFixed(3)})`
+    `(sequenceScore=${sequenceScore}, timingScore=${timingScore.toFixed(3)})`
   );
 
   const transferEfficiency = 0.5 * sequenceScore + 0.5 * timingScore;
