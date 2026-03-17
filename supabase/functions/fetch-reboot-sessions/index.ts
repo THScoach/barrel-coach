@@ -52,13 +52,28 @@ function extractPlayerIds(session: any): string[] {
   return [...new Set(ids)];
 }
 
+// ── Retry-aware fetch for transient TLS errors ──────────────────────
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3): Promise<Response> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fetch(url, options);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`[fetchWithRetry] Attempt ${attempt}/${retries} failed: ${msg}`);
+      if (attempt === retries) throw err;
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
+  }
+  throw new Error("fetchWithRetry: unreachable");
+}
+
 // ── OAuth token ──────────────────────────────────────────────────────
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 async function getOAuthToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt - 60000) return cachedToken.token;
-  const resp = await fetch(`${REBOOT_API_BASE}/oauth/token`, {
+  const resp = await fetchWithRetry(`${REBOOT_API_BASE}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username: REBOOT_USERNAME, password: REBOOT_PASSWORD }),
@@ -103,7 +118,7 @@ async function fetchAllOrgSessions(sinceDate: string): Promise<any[]> {
     url.searchParams.set("offset", ((page - 1) * pageSize).toString());
 
     console.log(`[fetch-reboot-sessions] Fetching page ${page}`);
-    const resp = await fetch(url.toString(), {
+    const resp = await fetchWithRetry(url.toString(), {
       headers: { "X-Api-Key": REBOOT_API_KEY, "Content-Type": "application/json" },
     });
     if (!resp.ok) throw new Error(`Reboot API error (${resp.status}): ${await resp.text()}`);
@@ -187,7 +202,7 @@ async function fetchPlayerSessionsViaOAuth(orgPlayerId: string, sinceDate: strin
     console.log(`[fetch-reboot-sessions] OAuth player page ${page}: ${url.toString()}`);
 
     try {
-      const resp = await fetch(url.toString(), { headers: oauthHeaders });
+      const resp = await fetchWithRetry(url.toString(), { headers: oauthHeaders });
 
       if (!resp.ok) {
         const body = await resp.text();

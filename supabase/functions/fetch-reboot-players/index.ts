@@ -22,6 +22,22 @@ interface RebootTokenResponse {
 // Cache for access token
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+// Retry-aware fetch to handle transient TLS errors in Deno edge runtime
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3): Promise<Response> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fetch(url, options);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`[fetchWithRetry] Attempt ${attempt}/${retries} failed: ${msg}`);
+      if (attempt === retries) throw err;
+      // Wait with exponential backoff before retrying
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
+  }
+  throw new Error("fetchWithRetry: unreachable");
+}
+
 // Get OAuth access token from Reboot
 async function getRebootAccessToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt) {
@@ -30,7 +46,7 @@ async function getRebootAccessToken(): Promise<string> {
 
   console.log("[Auth] Fetching new Reboot access token");
   
-  const response = await fetch(`${REBOOT_API_BASE}/oauth/token`, {
+  const response = await fetchWithRetry(`${REBOOT_API_BASE}/oauth/token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -109,7 +125,7 @@ async function fetchRebootPlayers(): Promise<any[]> {
     url.searchParams.set("limit", pageSize.toString());
     url.searchParams.set("offset", ((page - 1) * pageSize).toString());
 
-    const response = await fetch(url.toString(), {
+    const response = await fetchWithRetry(url.toString(), {
       method: "GET",
       headers,
     });
