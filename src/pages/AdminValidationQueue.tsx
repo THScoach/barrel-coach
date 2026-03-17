@@ -330,14 +330,13 @@ export default function AdminValidationQueue() {
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant="outline"
-                          className={
+                          className={`border-0 rounded-md font-medium ${
                             swing.status === "pending_validation"
-                              ? "border-yellow-500 text-yellow-400"
+                              ? "bg-[#FFA000]/20 text-[#FFA000]"
                               : swing.status === "analyzed"
-                              ? "border-blue-500 text-blue-400"
-                              : "border-slate-500 text-slate-400"
-                          }
+                              ? "bg-[#00B4D8]/20 text-[#00B4D8]"
+                              : "bg-[#1E2535] text-[#B0B8C8]"
+                          }`}
                         >
                           {swing.status === "pending_validation" ? "Pending" : swing.status}
                         </Badge>

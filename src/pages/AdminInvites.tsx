@@ -366,7 +366,7 @@ export default function AdminInvites() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="bg-slate-700 text-white font-medium border border-slate-600">
+                      <Badge variant="secondary" className="bg-[#1E2535] text-[#B0B8C8] font-medium border-0 rounded-md">
                         {INVITE_TYPE_LABELS[invite.invite_type]}
                       </Badge>
                     </TableCell>
