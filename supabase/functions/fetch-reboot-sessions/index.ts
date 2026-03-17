@@ -202,7 +202,7 @@ async function fetchPlayerSessionsViaOAuth(orgPlayerId: string, sinceDate: strin
     console.log(`[fetch-reboot-sessions] OAuth player page ${page}: ${url.toString()}`);
 
     try {
-      const resp = await fetch(url.toString(), { headers: oauthHeaders });
+      const resp = await fetchWithRetry(url.toString(), { headers: oauthHeaders });
 
       if (!resp.ok) {
         const body = await resp.text();
