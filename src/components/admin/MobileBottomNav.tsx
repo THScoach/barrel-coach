@@ -37,7 +37,7 @@ export function MobileBottomNav() {
                 onClick={() => setShowPlayerPicker(true)}
                 className="flex flex-col items-center justify-center -mt-5"
               >
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-600 to-orange-500 flex items-center justify-center shadow-xl shadow-red-900/40 border-4 border-slate-900">
+                <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-xl shadow-primary/40 border-4 border-slate-900">
                   <item.icon className="h-6 w-6 text-white" />
                 </div>
                 <span className="text-[11px] font-medium text-white mt-1">{item.label}</span>

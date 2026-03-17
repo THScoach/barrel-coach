@@ -69,7 +69,7 @@ export function AdminHeader() {
           <Button 
             size="sm" 
             onClick={() => setShowPlayerPicker(true)}
-            className="gap-2 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white font-semibold min-h-[44px] px-4 shadow-lg shadow-red-900/30"
+            className="gap-2 bg-primary hover:bg-primary/90 text-white font-semibold min-h-[44px] px-4 shadow-lg shadow-primary/30"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">New Session</span>

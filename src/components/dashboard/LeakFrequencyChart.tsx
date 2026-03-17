@@ -3,18 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from "recharts";
 import { Loader2 } from "lucide-react";
 
-const LEAK_COLORS: Record<string, string> = {
-  EARLY_ARMS: "#ef4444",
-  CAST: "#f97316",
-  LUNGE: "#ef4444",
-  COLLAPSE: "#ef4444",
-  DISCONNECTION: "#f97316",
-  SPIN_OUT: "#f97316",
-  POOR_SEPARATION: "#f97316",
-  ENERGY_LEAK: "#ef4444",
-  CLEAN_TRANSFER: "#22c55e",
-};
-
 const LEAK_LABELS: Record<string, string> = {
   EARLY_ARMS: "Early Arms",
   CAST: "Cast",
@@ -31,7 +19,6 @@ export function LeakFrequencyChart() {
   const { data: leakData, isLoading } = useQuery({
     queryKey: ["leak-frequency"],
     queryFn: async () => {
-      // Get leak distribution from reboot_uploads
       const { data, error } = await supabase
         .from("reboot_uploads")
         .select("weakest_link")
@@ -40,37 +27,34 @@ export function LeakFrequencyChart() {
 
       if (error) throw error;
 
-      // Count occurrences
       const counts: Record<string, number> = {};
       (data || []).forEach((row) => {
         const leak = row.weakest_link || "UNKNOWN";
         counts[leak] = (counts[leak] || 0) + 1;
       });
 
-      // Convert to chart data
       return Object.entries(counts)
         .map(([name, count]) => ({
           name,
           label: LEAK_LABELS[name] || name,
           count,
-          color: LEAK_COLORS[name] || "#64748b",
         }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 6); // Top 6 leaks
+        .slice(0, 6);
     },
   });
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (!leakData || leakData.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-slate-500">
+      <div className="flex items-center justify-center h-48 text-muted-foreground">
         No leak data available
       </div>
     );
@@ -85,23 +69,19 @@ export function LeakFrequencyChart() {
           dataKey="label"
           axisLine={false}
           tickLine={false}
-          tick={{ fill: "#94a3b8", fontSize: 11 }}
+          tick={{ fill: "#6B7A8F", fontSize: 11 }}
           width={80}
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: "#1e293b",
-            border: "1px solid #334155",
+            backgroundColor: "#111827",
+            border: "1px solid #1E2535",
             borderRadius: "8px",
           }}
-          labelStyle={{ color: "#f1f5f9" }}
+          labelStyle={{ color: "#fff" }}
           formatter={(value: number) => [`${value} players`, "Count"]}
         />
-        <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-          {leakData.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={entry.color} />
-          ))}
-        </Bar>
+        <Bar dataKey="count" radius={[0, 4, 4, 0]} fill="#FF3B30" />
       </BarChart>
     </ResponsiveContainer>
   );
