@@ -243,28 +243,28 @@ export default function AdminInvites() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-white">{stats.total}</div>
-              <div className="text-xs text-slate-400">Total Invites</div>
+              <div className="text-xs text-caption">Total Invites</div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-amber-400">{stats.pending}</div>
-              <div className="text-xs text-slate-400">Pending</div>
+              <div className="text-2xl font-bold text-white">{stats.pending}</div>
+              <div className="text-xs text-caption">Pending</div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-green-400">{stats.accepted}</div>
-              <div className="text-xs text-slate-400">Accepted</div>
+              <div className="text-2xl font-bold text-white">{stats.accepted}</div>
+              <div className="text-xs text-caption">Accepted</div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-slate-500">{stats.expired}</div>
-              <div className="text-xs text-slate-400">Expired</div>
+              <div className="text-2xl font-bold text-white">{stats.expired}</div>
+              <div className="text-xs text-caption">Expired</div>
             </CardContent>
           </Card>
         </div>
