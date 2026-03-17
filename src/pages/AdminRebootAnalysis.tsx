@@ -701,10 +701,13 @@ export default function AdminRebootAnalysis() {
                 {/* Messages */}
                 {!selectedPlayer && <p className="text-sm text-slate-400 text-center mt-4">Select a player first</p>}
 
-                {selectedPlayer && !selectedPlayer.reboot_athlete_id && (
-                  <p className="text-sm text-yellow-400 text-center mt-4">
-                    This player has no Reboot Athlete ID - use manual import above
-                  </p>
+                {selectedPlayer && !selectedPlayer.reboot_player_id && !selectedPlayer.reboot_athlete_id && (
+                  <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                    <p className="text-sm text-yellow-400 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      This player has no Reboot ID mapped. Enter the session manually or set their Reboot Player ID first.
+                    </p>
+                  </div>
                 )}
 
                 {/* Auto-fetched sessions list */}
