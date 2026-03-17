@@ -57,6 +57,7 @@ import {
   DKFieldsSection,
   PlayerRebootMotionTab,
 } from "@/components/admin/player-profile";
+import { PlayerKommodoTab } from "@/components/admin/player-profile/PlayerKommodoTab";
 
 const LEVELS = ['Youth', 'High School', 'Travel Ball', 'College', 'Independent', 'MiLB', 'MLB'];
 const POSITIONS = ['C', '1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF', 'OF', 'DH', 'P', 'Utility'];
