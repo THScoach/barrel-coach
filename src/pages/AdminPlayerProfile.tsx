@@ -30,11 +30,18 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { 
   ArrowLeft, Save, User, Phone, Building, 
   FileText, Plus, Loader2, Sparkles, Settings,
-  MessageSquare, MoreHorizontal, Zap, ChevronDown, GitMerge
+  MessageSquare, MoreHorizontal, Zap, ChevronDown, GitMerge,
+  ChevronLeft, ChevronRight
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { CoachRickChat } from "@/components/dashboard/CoachRickChat";
