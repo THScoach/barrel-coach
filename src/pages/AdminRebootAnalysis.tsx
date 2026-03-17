@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -154,6 +154,11 @@ export default function AdminRebootAnalysis() {
   // NEW: Sync players state
   const [isSyncingPlayers, setIsSyncingPlayers] = useState(false);
 
+  // Date range filter & pagination for sessions list
+  const [sessionDateFrom, setSessionDateFrom] = useState("");
+  const [sessionDateTo, setSessionDateTo] = useState("");
+  const [sessionsVisible, setSessionsVisible] = useState(20);
+
   // Reference athlete import state
   const [isReferenceImport, setIsReferenceImport] = useState(false);
   const [referenceLevel, setReferenceLevel] = useState<'MLB' | 'MiLB' | 'NCAA' | 'Indy' | 'International'>('MLB');
@@ -287,6 +292,7 @@ export default function AdminRebootAnalysis() {
 
       console.log("[Fetch Sessions] Mapped sessions:", mappedSessions);
       setRebootSessions(mappedSessions);
+      setSessionsVisible(20);
 
       if (sessions.length === 0) {
         toast.info("No sessions found - try manual import instead");
@@ -300,6 +306,23 @@ export default function AdminRebootAnalysis() {
       setIsLoadingSessions(false);
     }
   };
+
+  // Filtered and paginated sessions
+  const filteredSessions = useMemo(() => {
+    let filtered = rebootSessions;
+    if (sessionDateFrom) {
+      const from = new Date(sessionDateFrom).getTime();
+      filtered = filtered.filter((s) => new Date(s.session_date).getTime() >= from);
+    }
+    if (sessionDateTo) {
+      const to = new Date(sessionDateTo + "T23:59:59").getTime();
+      filtered = filtered.filter((s) => new Date(s.session_date).getTime() <= to);
+    }
+    return filtered;
+  }, [rebootSessions, sessionDateFrom, sessionDateTo]);
+
+  const visibleSessions = filteredSessions.slice(0, sessionsVisible);
+  const hasMoreSessions = filteredSessions.length > sessionsVisible;
 
   // Process session (regular or reference)
   const processSession = async () => {
@@ -714,8 +737,45 @@ export default function AdminRebootAnalysis() {
                 {/* Auto-fetched sessions list */}
                 {rebootSessions.length > 0 && (
                   <div className="space-y-2 mt-6">
-                    <p className="text-sm text-slate-400 mb-2">Sessions from Reboot:</p>
-                    {rebootSessions.map((session) => (
+                    <p className="text-sm text-slate-400 mb-2">
+                      Sessions from Reboot ({filteredSessions.length} of {rebootSessions.length}):
+                    </p>
+
+                    {/* Date range filter */}
+                    <div className="flex gap-2 mb-3">
+                      <div className="flex-1">
+                        <label className="block text-xs text-slate-500 mb-1">From</label>
+                        <Input
+                          type="date"
+                          value={sessionDateFrom}
+                          onChange={(e) => { setSessionDateFrom(e.target.value); setSessionsVisible(20); }}
+                          className="bg-slate-800/50 border-slate-700 text-white text-sm h-8"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs text-slate-500 mb-1">To</label>
+                        <Input
+                          type="date"
+                          value={sessionDateTo}
+                          onChange={(e) => { setSessionDateTo(e.target.value); setSessionsVisible(20); }}
+                          className="bg-slate-800/50 border-slate-700 text-white text-sm h-8"
+                        />
+                      </div>
+                      {(sessionDateFrom || sessionDateTo) && (
+                        <div className="flex items-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-xs text-slate-400 hover:text-white"
+                            onClick={() => { setSessionDateFrom(""); setSessionDateTo(""); setSessionsVisible(20); }}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {visibleSessions.map((session) => (
                       <label
                         key={session.session_id}
                         className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -746,6 +806,16 @@ export default function AdminRebootAnalysis() {
                         </div>
                       </label>
                     ))}
+
+                    {hasMoreSessions && (
+                      <Button
+                        variant="ghost"
+                        className="w-full text-slate-400 hover:text-white border border-slate-700 mt-2"
+                        onClick={() => setSessionsVisible((prev) => prev + 20)}
+                      >
+                        Load more ({filteredSessions.length - sessionsVisible} remaining)
+                      </Button>
+                    )}
                   </div>
                 )}
 
