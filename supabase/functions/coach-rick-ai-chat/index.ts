@@ -57,12 +57,26 @@ interface FullPlayerContext {
   // Stack + Blast (legacy, keep if available)
   stackData: any | null;
   blastData: any | null;
+  // Biomech interpretation (from hitting_4b_krs_sessions)
+  biomech: {
+    weakestB: string | null;
+    mainConstraint: string | null;
+    krsScore: number | null;
+    summaryCoachText: string | null;
+    hasSequenceIssue: boolean;
+    hasMomentumIssue: boolean;
+    hasPlaneIssue: boolean;
+    hasRangeUsageIssue: boolean;
+    hasBalanceStabilityIssue: boolean;
+    focusNextBp: string | null;
+    recommendedCues: any;
+  } | null;
 }
 
 async function loadFullPlayerContext(supabase: any, playerId: string): Promise<FullPlayerContext | null> {
   try {
     // Run all queries in parallel for speed
-    const [playerRes, sessionsRes, drillsRes, notesRes, stackRes, blastRes] = await Promise.all([
+    const [playerRes, sessionsRes, drillsRes, notesRes, stackRes, blastRes, biomechRes] = await Promise.all([
       // Player basic info
       supabase
         .from("players")
@@ -110,6 +124,15 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         .order("recorded_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+
+      // Latest biomech interpretation
+      supabase
+        .from("hitting_4b_krs_sessions")
+        .select("weakest_b, main_constraint, krs_score, summary_coach_text, has_sequence_issue, has_momentum_issue, has_plane_issue, has_range_usage_issue, has_balance_stability_issue, focus_next_bp, recommended_cues")
+        .eq("player_id", playerId)
+        .order("session_date", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     const player = playerRes.data;
@@ -117,6 +140,7 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
 
     const sessions = sessionsRes.data || [];
     const latestSession = sessions[0] || null;
+    const biomechData = biomechRes.data;
 
     return {
       name: player.name || "Player",
@@ -159,6 +183,19 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         })),
       stackData: stackRes.data || null,
       blastData: blastRes.data || null,
+      biomech: biomechData ? {
+        weakestB: biomechData.weakest_b,
+        mainConstraint: biomechData.main_constraint,
+        krsScore: biomechData.krs_score,
+        summaryCoachText: biomechData.summary_coach_text,
+        hasSequenceIssue: biomechData.has_sequence_issue,
+        hasMomentumIssue: biomechData.has_momentum_issue,
+        hasPlaneIssue: biomechData.has_plane_issue,
+        hasRangeUsageIssue: biomechData.has_range_usage_issue,
+        hasBalanceStabilityIssue: biomechData.has_balance_stability_issue,
+        focusNextBp: biomechData.focus_next_bp,
+        recommendedCues: biomechData.recommended_cues,
+      } : null,
     };
   } catch (err) {
     console.error("[ContextLoader] Error loading player context:", err);
@@ -221,6 +258,32 @@ function formatPlayerContextBlock(ctx: FullPlayerContext): string {
     lines.push("Recent Coach Notes:");
     for (const n of ctx.coachNotes) {
       lines.push(`  - ${n.date}: ${n.description}`);
+    }
+  }
+
+  // Biomech interpretation (from hitting_4b_krs_sessions)
+  if (ctx.biomech) {
+    const b = ctx.biomech;
+    lines.push("");
+    lines.push("[BIOMECH INTERPRETATION — latest 4B/KRS analysis]");
+    lines.push(`Weakest B: ${b.weakestB || "Unknown"} | Main Constraint: ${b.mainConstraint || "None"} | KRS: ${b.krsScore ?? "N/A"}`);
+    const flags = [];
+    if (b.hasSequenceIssue) flags.push("Sequence issue");
+    if (b.hasMomentumIssue) flags.push("Momentum issue");
+    if (b.hasPlaneIssue) flags.push("Swing plane issue");
+    if (b.hasRangeUsageIssue) flags.push("Range/timing issue");
+    if (b.hasBalanceStabilityIssue) flags.push("Balance/stability issue");
+    if (flags.length > 0) {
+      lines.push(`Active Flags: ${flags.join(", ")}`);
+    }
+    if (b.summaryCoachText) {
+      lines.push(`Coach Summary: ${b.summaryCoachText}`);
+    }
+    if (b.focusNextBp) {
+      lines.push(`Focus for next BP: ${b.focusNextBp}`);
+    }
+    if (b.recommendedCues && Array.isArray(b.recommendedCues)) {
+      lines.push(`Cues: ${b.recommendedCues.join(", ")}`);
     }
   }
 

@@ -1,5 +1,5 @@
 /**
- * My Data - 4 tabs: 4B Card, Trends, Sessions, Video
+ * My Data - 5 tabs: 4B Card, Trends, Sessions, Video, Biomech
  */
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
@@ -17,12 +17,14 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip
 } from "recharts";
 import { format } from "date-fns";
+import { BiomechTab } from "@/components/player-v2/BiomechTab";
 
 const TABS = [
   { key: '4b', label: '4B Card' },
   { key: 'trends', label: 'Trends' },
   { key: 'sessions', label: 'Sessions' },
   { key: 'video', label: 'Video' },
+  { key: 'biomech', label: 'Biomech' },
 ];
 
 interface SessionRow {
@@ -248,6 +250,10 @@ export default function PlayerMyData() {
 
         {activeTab === 'video' && (
           <VideoTab playerId={player?.id ?? null} sessionIdParam={searchParams.get('session')} />
+        )}
+
+        {activeTab === 'biomech' && (
+          <BiomechTab playerId={player?.id ?? null} />
         )}
       </main>
 
