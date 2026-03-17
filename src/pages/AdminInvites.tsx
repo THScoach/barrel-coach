@@ -78,10 +78,10 @@ const INVITE_TYPE_LABELS: Record<InviteType, string> = {
 };
 
 const STATUS_CONFIG: Record<InviteStatus, { label: string; variant: string; icon: React.ReactNode }> = {
-  pending: { label: "Pending", variant: "bg-amber-500/20 text-amber-300 border-amber-500/40", icon: <Clock className="h-3 w-3" /> },
-  accepted: { label: "Accepted", variant: "bg-green-500/20 text-green-300 border-green-500/40", icon: <CheckCircle className="h-3 w-3" /> },
-  expired: { label: "Expired", variant: "bg-slate-500/20 text-slate-400 border-slate-500/40", icon: <XCircle className="h-3 w-3" /> },
-  cancelled: { label: "Cancelled", variant: "bg-red-500/20 text-red-400 border-red-500/40", icon: <XCircle className="h-3 w-3" /> },
+  pending: { label: "Pending", variant: "bg-[#FFA000]/20 text-[#FFA000] border-[#FFA000]/40", icon: <Clock className="h-3 w-3" /> },
+  accepted: { label: "Accepted", variant: "bg-[#00B4D8]/20 text-[#00B4D8] border-[#00B4D8]/40", icon: <CheckCircle className="h-3 w-3" /> },
+  expired: { label: "Expired", variant: "bg-[#FF3B30]/20 text-[#FF3B30] border-[#FF3B30]/40", icon: <XCircle className="h-3 w-3" /> },
+  cancelled: { label: "Cancelled", variant: "bg-[#FF3B30]/20 text-[#FF3B30] border-[#FF3B30]/40", icon: <XCircle className="h-3 w-3" /> },
 };
 
 export default function AdminInvites() {
