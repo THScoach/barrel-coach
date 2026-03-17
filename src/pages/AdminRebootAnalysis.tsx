@@ -448,8 +448,9 @@ export default function AdminRebootAnalysis() {
   const selectPlayer = (player: Player) => {
     console.log("[Player Select] Selected player:", player);
 
-    if (!player.reboot_athlete_id) {
-      toast.warning("This player has no Reboot Athlete ID. You can still use manual import if you know the IDs.");
+    const rebootId = player.reboot_player_id || player.reboot_athlete_id;
+    if (!rebootId) {
+      toast.warning("This player has no Reboot ID mapped. You can still use manual import if you know the IDs.");
     }
 
     setSelectedPlayer(player);
@@ -460,8 +461,8 @@ export default function AdminRebootAnalysis() {
     setResults(null);
 
     // Pre-fill manual org_player_id if available
-    if (player.reboot_athlete_id) {
-      setManualOrgPlayerId(player.reboot_athlete_id);
+    if (rebootId) {
+      setManualOrgPlayerId(rebootId);
     }
   };
 
