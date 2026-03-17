@@ -234,8 +234,9 @@ export default function AdminRebootAnalysis() {
 
   // Fetch sessions from Reboot (may not work for all API tiers)
   const fetchRebootSessions = async () => {
-    if (!selectedPlayer?.reboot_athlete_id) {
-      toast.error("Player has no Reboot Athlete ID");
+    const rebootId = selectedPlayer?.reboot_player_id || selectedPlayer?.reboot_athlete_id;
+    if (!rebootId) {
+      toast.error("Player has no Reboot Player ID mapped");
       return;
     }
 
@@ -249,10 +250,10 @@ export default function AdminRebootAnalysis() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      console.log("[Fetch Sessions] Fetching for player:", selectedPlayer.reboot_athlete_id);
+      console.log("[Fetch Sessions] Fetching for player:", rebootId);
 
       const response = await supabase.functions.invoke("fetch-reboot-sessions", {
-        body: { org_player_id: selectedPlayer.reboot_athlete_id },
+        body: { org_player_id: rebootId },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
         },
