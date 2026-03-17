@@ -292,6 +292,7 @@ export default function AdminRebootAnalysis() {
 
       console.log("[Fetch Sessions] Mapped sessions:", mappedSessions);
       setRebootSessions(mappedSessions);
+      setSessionsVisible(20);
 
       if (sessions.length === 0) {
         toast.info("No sessions found - try manual import instead");
@@ -305,6 +306,23 @@ export default function AdminRebootAnalysis() {
       setIsLoadingSessions(false);
     }
   };
+
+  // Filtered and paginated sessions
+  const filteredSessions = useMemo(() => {
+    let filtered = rebootSessions;
+    if (sessionDateFrom) {
+      const from = new Date(sessionDateFrom).getTime();
+      filtered = filtered.filter((s) => new Date(s.session_date).getTime() >= from);
+    }
+    if (sessionDateTo) {
+      const to = new Date(sessionDateTo + "T23:59:59").getTime();
+      filtered = filtered.filter((s) => new Date(s.session_date).getTime() <= to);
+    }
+    return filtered;
+  }, [rebootSessions, sessionDateFrom, sessionDateTo]);
+
+  const visibleSessions = filteredSessions.slice(0, sessionsVisible);
+  const hasMoreSessions = filteredSessions.length > sessionsVisible;
 
   // Process session (regular or reference)
   const processSession = async () => {
