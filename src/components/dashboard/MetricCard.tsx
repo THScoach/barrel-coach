@@ -21,23 +21,23 @@ export function MetricCard({
   value,
   trend,
   icon: Icon,
-  iconColor = "text-blue-500",
-  iconBgColor = "bg-blue-500/15",
+  iconColor = "text-secondary-accent",
+  iconBgColor = "bg-secondary-accent/15",
   loading = false,
   className,
   style,
 }: MetricCardProps) {
   return (
-    <Card className={cn("bg-slate-800 border-slate-700", className)} style={style}>
+    <Card className={cn(className)} style={style}>
       <CardContent className="pt-5 pb-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-slate-400 mb-1">{title}</p>
+            <p className="text-caption text-muted-foreground mb-1">{title}</p>
             {loading ? (
-              <div className="h-9 w-20 bg-slate-700 animate-pulse rounded" />
+              <div className="h-9 w-20 bg-muted animate-pulse rounded" />
             ) : (
               <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-white">{value}</p>
+                <p className="text-3xl font-bold text-foreground">{value}</p>
                 {trend !== undefined && <TrendIndicator value={trend} size="sm" />}
               </div>
             )}
