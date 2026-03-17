@@ -260,3 +260,6 @@ verify_jwt = false
 
 [functions.kommodo-import]
 verify_jwt = false
+
+[functions.kommodo-api]
+verify_jwt = false

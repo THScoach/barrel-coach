@@ -1975,6 +1975,42 @@ export type Database = {
         }
         Relationships: []
       }
+      kommodo_sync_log: {
+        Row: {
+          error: string | null
+          finished_at: string | null
+          id: string
+          recordings_found: number | null
+          recordings_linked: number | null
+          recordings_unlinked: number | null
+          started_at: string
+          status: string
+          triggered_by: string | null
+        }
+        Insert: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          recordings_found?: number | null
+          recordings_linked?: number | null
+          recordings_unlinked?: number | null
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          recordings_found?: number | null
+          recordings_linked?: number | null
+          recordings_unlinked?: number | null
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
       kwon_analyses: {
         Row: {
           analysis_date: string
@@ -2589,6 +2625,78 @@ export type Database = {
           },
           {
             foreignKeyName: "player_external_profiles_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_kommodo_recordings: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_seconds: number | null
+          id: string
+          kommodo_member_id: string | null
+          kommodo_member_name: string | null
+          kommodo_recording_id: string
+          link_method: string | null
+          page_url: string | null
+          player_id: string
+          recording_created_at: string | null
+          source: string
+          thumbnail_url: string | null
+          title: string | null
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          kommodo_member_id?: string | null
+          kommodo_member_name?: string | null
+          kommodo_recording_id: string
+          link_method?: string | null
+          page_url?: string | null
+          player_id: string
+          recording_created_at?: string | null
+          source?: string
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          kommodo_member_id?: string | null
+          kommodo_member_name?: string | null
+          kommodo_recording_id?: string
+          link_method?: string | null
+          page_url?: string | null
+          player_id?: string
+          recording_created_at?: string | null
+          source?: string
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_kommodo_recordings_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_kommodo_recordings_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players_public"
@@ -3261,6 +3369,7 @@ export type Database = {
           is_validation_study: boolean | null
           kinetic_fingerprint_json: Json | null
           kinetic_fingerprint_url: string | null
+          kommodo_member_id: string | null
           last_contact_date: string | null
           last_sensor_session_date: string | null
           latest_ball_score: number | null
@@ -3333,6 +3442,7 @@ export type Database = {
           is_validation_study?: boolean | null
           kinetic_fingerprint_json?: Json | null
           kinetic_fingerprint_url?: string | null
+          kommodo_member_id?: string | null
           last_contact_date?: string | null
           last_sensor_session_date?: string | null
           latest_ball_score?: number | null
@@ -3405,6 +3515,7 @@ export type Database = {
           is_validation_study?: boolean | null
           kinetic_fingerprint_json?: Json | null
           kinetic_fingerprint_url?: string | null
+          kommodo_member_id?: string | null
           last_contact_date?: string | null
           last_sensor_session_date?: string | null
           latest_ball_score?: number | null

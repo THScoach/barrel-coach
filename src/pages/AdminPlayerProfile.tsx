@@ -57,6 +57,7 @@ import {
   DKFieldsSection,
   PlayerRebootMotionTab,
 } from "@/components/admin/player-profile";
+import { PlayerKommodoTab } from "@/components/admin/player-profile/PlayerKommodoTab";
 
 const LEVELS = ['Youth', 'High School', 'Travel Ball', 'College', 'Independent', 'MiLB', 'MLB'];
 const POSITIONS = ['C', '1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF', 'OF', 'DH', 'P', 'Utility'];
@@ -781,6 +782,9 @@ export default function AdminPlayerProfile() {
               <TabsTrigger value="reboot" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Reboot Motion
               </TabsTrigger>
+              <TabsTrigger value="kommodo" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Kommodo
+              </TabsTrigger>
               <TabsTrigger value="communication" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Communication
               </TabsTrigger>
@@ -815,6 +819,12 @@ export default function AdminPlayerProfile() {
             </TabsContent>
             <TabsContent value="reboot">
               <PlayerRebootMotionTab
+                playersTableId={player?.players_id}
+                playerName={getPlayerName()}
+              />
+            </TabsContent>
+            <TabsContent value="kommodo">
+              <PlayerKommodoTab
                 playersTableId={player?.players_id}
                 playerName={getPlayerName()}
               />
