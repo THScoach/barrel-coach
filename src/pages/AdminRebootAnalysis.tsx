@@ -737,8 +737,45 @@ export default function AdminRebootAnalysis() {
                 {/* Auto-fetched sessions list */}
                 {rebootSessions.length > 0 && (
                   <div className="space-y-2 mt-6">
-                    <p className="text-sm text-slate-400 mb-2">Sessions from Reboot:</p>
-                    {rebootSessions.map((session) => (
+                    <p className="text-sm text-slate-400 mb-2">
+                      Sessions from Reboot ({filteredSessions.length} of {rebootSessions.length}):
+                    </p>
+
+                    {/* Date range filter */}
+                    <div className="flex gap-2 mb-3">
+                      <div className="flex-1">
+                        <label className="block text-xs text-slate-500 mb-1">From</label>
+                        <Input
+                          type="date"
+                          value={sessionDateFrom}
+                          onChange={(e) => { setSessionDateFrom(e.target.value); setSessionsVisible(20); }}
+                          className="bg-slate-800/50 border-slate-700 text-white text-sm h-8"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs text-slate-500 mb-1">To</label>
+                        <Input
+                          type="date"
+                          value={sessionDateTo}
+                          onChange={(e) => { setSessionDateTo(e.target.value); setSessionsVisible(20); }}
+                          className="bg-slate-800/50 border-slate-700 text-white text-sm h-8"
+                        />
+                      </div>
+                      {(sessionDateFrom || sessionDateTo) && (
+                        <div className="flex items-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-xs text-slate-400 hover:text-white"
+                            onClick={() => { setSessionDateFrom(""); setSessionDateTo(""); setSessionsVisible(20); }}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {visibleSessions.map((session) => (
                       <label
                         key={session.session_id}
                         className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -769,6 +806,16 @@ export default function AdminRebootAnalysis() {
                         </div>
                       </label>
                     ))}
+
+                    {hasMoreSessions && (
+                      <Button
+                        variant="ghost"
+                        className="w-full text-slate-400 hover:text-white border border-slate-700 mt-2"
+                        onClick={() => setSessionsVisible((prev) => prev + 20)}
+                      >
+                        Load more ({filteredSessions.length - sessionsVisible} remaining)
+                      </Button>
+                    )}
                   </div>
                 )}
 
