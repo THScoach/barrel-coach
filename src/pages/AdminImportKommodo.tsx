@@ -104,9 +104,16 @@ export default function AdminImportKommodo() {
     setImportResults([]);
     
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/kommodo-import?action=import`, {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos?action=kommodo-import`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
         body: JSON.stringify({
           recording_ids: Array.from(selectedIds),
           auto_publish: autoPublish
