@@ -55,7 +55,7 @@ export function BiomechTab({ playerId }: { playerId: string | null }) {
       setLoading(true);
       const { data } = await supabase
         .from("hitting_4b_krs_sessions")
-        .select("id, session_date, krs_score, body_score, brain_score, bat_score, ball_score, weakest_b, main_constraint, secondary_constraint, has_sequence_issue, has_momentum_issue, has_plane_issue, has_range_usage_issue, has_balance_stability_issue, summary_player_text, summary_coach_text, focus_next_bp, recommended_cues, recommended_drills")
+        .select("id, session_date, krs_score, body_score, brain_score, bat_score, ball_score, weakest_b, main_constraint, secondary_constraint, has_sequence_issue, has_momentum_issue, has_plane_issue, has_range_usage_issue, has_balance_stability_issue, summary_player_text, summary_coach_text, focus_next_bp, recommended_cues, recommended_drills, coach_barrels_classification, coach_barrels_prescription, coach_barrels_voice_sample")
         .eq("player_id", playerId)
         .order("session_date", { ascending: false })
         .limit(50);
