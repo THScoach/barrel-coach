@@ -40,6 +40,7 @@ interface Player {
   level: string | null;
   team: string | null;
   reboot_athlete_id: string | null;
+  reboot_player_id: string | null;
 }
 
 type SessionType = string | { name?: string | null } | null | undefined;
@@ -172,7 +173,7 @@ export default function AdminRebootAnalysis() {
 
       const { data, error } = await supabase
         .from("players")
-        .select("id, name, level, team, reboot_athlete_id")
+        .select("id, name, level, team, reboot_athlete_id, reboot_player_id")
         .ilike("name", `%${searchQuery}%`)
         .limit(10);
 
@@ -233,8 +234,9 @@ export default function AdminRebootAnalysis() {
 
   // Fetch sessions from Reboot (may not work for all API tiers)
   const fetchRebootSessions = async () => {
-    if (!selectedPlayer?.reboot_athlete_id) {
-      toast.error("Player has no Reboot Athlete ID");
+    const rebootId = selectedPlayer?.reboot_player_id || selectedPlayer?.reboot_athlete_id;
+    if (!rebootId) {
+      toast.error("Player has no Reboot Player ID mapped");
       return;
     }
 
@@ -248,10 +250,10 @@ export default function AdminRebootAnalysis() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      console.log("[Fetch Sessions] Fetching for player:", selectedPlayer.reboot_athlete_id);
+      console.log("[Fetch Sessions] Fetching for player:", rebootId);
 
       const response = await supabase.functions.invoke("fetch-reboot-sessions", {
-        body: { org_player_id: selectedPlayer.reboot_athlete_id },
+        body: { org_player_id: rebootId },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
         },
@@ -446,8 +448,9 @@ export default function AdminRebootAnalysis() {
   const selectPlayer = (player: Player) => {
     console.log("[Player Select] Selected player:", player);
 
-    if (!player.reboot_athlete_id) {
-      toast.warning("This player has no Reboot Athlete ID. You can still use manual import if you know the IDs.");
+    const rebootId = player.reboot_player_id || player.reboot_athlete_id;
+    if (!rebootId) {
+      toast.warning("This player has no Reboot ID mapped. You can still use manual import if you know the IDs.");
     }
 
     setSelectedPlayer(player);
@@ -458,8 +461,8 @@ export default function AdminRebootAnalysis() {
     setResults(null);
 
     // Pre-fill manual org_player_id if available
-    if (player.reboot_athlete_id) {
-      setManualOrgPlayerId(player.reboot_athlete_id);
+    if (rebootId) {
+      setManualOrgPlayerId(rebootId);
     }
   };
 
@@ -625,7 +628,7 @@ export default function AdminRebootAnalysis() {
                 {/* Auto-fetch option */}
                 <Button
                   onClick={fetchRebootSessions}
-                  disabled={!selectedPlayer?.reboot_athlete_id || isLoadingSessions}
+                  disabled={!(selectedPlayer?.reboot_player_id || selectedPlayer?.reboot_athlete_id) || isLoadingSessions}
                   className="w-full mb-2 border-slate-700 text-slate-300 hover:bg-slate-800"
                   variant="outline"
                 >
@@ -699,10 +702,13 @@ export default function AdminRebootAnalysis() {
                 {/* Messages */}
                 {!selectedPlayer && <p className="text-sm text-slate-400 text-center mt-4">Select a player first</p>}
 
-                {selectedPlayer && !selectedPlayer.reboot_athlete_id && (
-                  <p className="text-sm text-yellow-400 text-center mt-4">
-                    This player has no Reboot Athlete ID - use manual import above
-                  </p>
+                {selectedPlayer && !selectedPlayer.reboot_player_id && !selectedPlayer.reboot_athlete_id && (
+                  <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                    <p className="text-sm text-yellow-400 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      This player has no Reboot ID mapped. Enter the session manually or set their Reboot Player ID first.
+                    </p>
+                  </div>
                 )}
 
                 {/* Auto-fetched sessions list */}
