@@ -38,13 +38,11 @@ export default function PlayerMessagesPage() {
   const [chatLogId, setChatLogId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load existing chat history + insights
   useEffect(() => {
     if (!player?.id) return;
     const fetchData = async () => {
       setLoadingMessages(true);
 
-      // Fetch chat logs for this player (last conversation)
       const { data: chatLogs } = await supabase
         .from("chat_logs")
         .select("id, messages")
@@ -64,7 +62,6 @@ export default function PlayerMessagesPage() {
         setMessages(restored);
       }
 
-      // Fetch insight messages from locker_room_messages
       const { data: lockerMessages } = await supabase
         .from("locker_room_messages")
         .select("id, content, message_type, is_read, created_at")
@@ -83,7 +80,6 @@ export default function PlayerMessagesPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Compute weakest category from scores
   const getWeakestCategory = () => {
     if (!player) return undefined;
     const entries = [
@@ -162,37 +158,38 @@ export default function PlayerMessagesPage() {
 
   if (loading) {
     return (
-      <div style={{ background: '#000', minHeight: '100vh' }}>
+      <div style={{ background: '#0A0D1A', minHeight: '100vh' }}>
         <div className="p-4 space-y-3">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" style={{ background: '#111' }} />)}
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" style={{ background: '#111827' }} />)}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col" style={{ background: '#000', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="flex flex-col" style={{ background: '#0A0D1A', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
       {/* Header */}
-      <header className="sticky top-0 z-50 px-4 py-3 flex items-center gap-3" style={{ background: '#0a0a0a', borderBottom: '1px solid #222' }}>
-        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(230,57,70,0.15)' }}>
+      <header className="sticky top-0 z-50 px-4 py-3 flex items-center gap-3" style={{ background: '#0A0D1A', borderBottom: '1px solid #1E2535' }}>
+        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,59,48,0.12)' }}>
           <span className="text-lg">🧢</span>
         </div>
         <div className="flex-1">
           <p className="text-sm font-bold" style={{ color: '#fff' }}>Coach Rick</p>
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full" style={{ background: '#4ecdc4' }} />
-            <span className="text-[11px]" style={{ color: '#4ecdc4' }}>Online</span>
+            <div className="w-2 h-2 rounded-full" style={{ background: '#22C55E' }} />
+            <span className="text-[11px]" style={{ color: '#22C55E' }}>Online</span>
           </div>
         </div>
-        <div className="flex gap-1">
+        {/* Underline tab toggle */}
+        <div className="flex gap-4">
           {(['chat', 'insights'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className="px-3 py-1.5 rounded-full text-xs font-semibold capitalize"
+              className="pb-1 text-xs font-semibold capitalize transition-colors"
               style={{
-                background: activeTab === tab ? 'rgba(230,57,70,0.15)' : 'transparent',
-                color: activeTab === tab ? '#E63946' : '#777',
+                color: activeTab === tab ? '#ffffff' : '#6B7A8F',
+                borderBottom: activeTab === tab ? '2px solid #FF3B30' : '2px solid transparent',
               }}
             >
               {tab}
@@ -206,7 +203,7 @@ export default function PlayerMessagesPage() {
         {activeTab === 'chat' && (
           loadingMessages ? (
             <div className="space-y-3">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-3/4 rounded-xl" style={{ background: '#111' }} />)}
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-3/4 rounded-xl" style={{ background: '#111827' }} />)}
             </div>
           ) : messages.length === 0 ? (
             <EmptyState
@@ -222,20 +219,20 @@ export default function PlayerMessagesPage() {
                 return (
                   <div key={m.id} className={isPlayer ? 'ml-12' : 'mr-12'}>
                     {isDiagnostic && (
-                      <p className="text-[11px] font-bold mb-1" style={{ color: '#4ecdc4' }}>DIAGNOSTIC UPDATE</p>
+                      <p className="text-[11px] font-bold mb-1" style={{ color: '#00B4D8' }}>DIAGNOSTIC UPDATE</p>
                     )}
                     <div
                       className="p-3 text-sm leading-relaxed whitespace-pre-wrap"
                       style={{
-                        background: isDiagnostic ? 'rgba(78,205,196,0.05)' : isPlayer ? 'rgba(230,57,70,0.12)' : '#1a1a1a',
-                        border: `1px solid ${isDiagnostic ? 'rgba(78,205,196,0.2)' : isPlayer ? 'rgba(230,57,70,0.2)' : '#222'}`,
+                        background: isDiagnostic ? 'rgba(0,180,216,0.05)' : isPlayer ? 'rgba(255,59,48,0.08)' : '#111827',
+                        border: `1px solid ${isDiagnostic ? 'rgba(0,180,216,0.2)' : isPlayer ? 'rgba(255,59,48,0.15)' : '#1E2535'}`,
                         borderRadius: isPlayer ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                         color: '#fff',
                       }}
                     >
                       {m.content}
                     </div>
-                    <p className="text-[10px] mt-1 px-1" style={{ color: '#555' }}>
+                    <p className="text-[10px] mt-1 px-1" style={{ color: '#6B7A8F' }}>
                       {format(m.timestamp, 'h:mm a')}
                     </p>
                   </div>
@@ -243,9 +240,9 @@ export default function PlayerMessagesPage() {
               })}
               {sending && (
                 <div className="mr-12">
-                  <div className="p-3 flex items-center gap-2" style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: '16px 16px 16px 4px' }}>
-                    <Loader2 className="h-4 w-4 animate-spin" style={{ color: '#777' }} />
-                    <span className="text-sm" style={{ color: '#777' }}>Coach Rick is thinking...</span>
+                  <div className="p-3 flex items-center gap-2" style={{ background: '#111827', border: '1px solid #1E2535', borderRadius: '16px 16px 16px 4px' }}>
+                    <Loader2 className="h-4 w-4 animate-spin" style={{ color: '#6B7A8F' }} />
+                    <span className="text-sm" style={{ color: '#6B7A8F' }}>Coach Rick is thinking...</span>
                   </div>
                 </div>
               )}
@@ -265,16 +262,16 @@ export default function PlayerMessagesPage() {
                   onClick={() => markRead(m.id)}
                   className="block w-full text-left rounded-xl p-4 transition-opacity"
                   style={{
-                    background: '#111',
-                    border: '1px solid #222',
+                    background: '#111827',
+                    border: '1px solid #1E2535',
                     opacity: m.is_read ? 0.6 : 1,
                   }}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs" style={{ color: '#555' }}>{format(new Date(m.created_at), 'MMM d')}</span>
-                    {!m.is_read && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(230,57,70,0.2)', color: '#E63946' }}>New</span>}
+                    <span className="text-xs" style={{ color: '#6B7A8F' }}>{format(new Date(m.created_at), 'MMM d')}</span>
+                    {!m.is_read && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,59,48,0.15)', color: '#FF3B30' }}>New</span>}
                   </div>
-                  <p className="text-[13px] leading-relaxed" style={{ color: '#a0a0a0' }}>{m.content}</p>
+                  <p className="text-[13px] leading-relaxed" style={{ color: '#B0B8C8' }}>{m.content}</p>
                 </button>
               ))}
             </div>
@@ -284,7 +281,7 @@ export default function PlayerMessagesPage() {
 
       {/* Input - Chat tab only */}
       {activeTab === 'chat' && (
-        <div className="fixed bottom-16 left-0 right-0 px-4 py-3" style={{ background: '#0a0a0a', borderTop: '1px solid #222' }}>
+        <div className="fixed bottom-16 left-0 right-0 px-4 py-3" style={{ background: '#0A0D1A', borderTop: '1px solid #1E2535' }}>
           <div className="flex gap-2">
             <input
               value={newMessage}
@@ -293,13 +290,13 @@ export default function PlayerMessagesPage() {
               placeholder="Message Coach Rick..."
               disabled={sending}
               className="flex-1 px-4 py-2.5 rounded-full text-sm outline-none"
-              style={{ background: '#111', border: '1px solid #333', color: '#fff' }}
+              style={{ background: '#111827', border: '1px solid #1E2535', color: '#fff' }}
             />
             <button
               onClick={handleSend}
               disabled={sending || !newMessage.trim()}
               className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ background: '#E63946', opacity: (!newMessage.trim() || sending) ? 0.5 : 1 }}
+              style={{ background: '#FF3B30', opacity: (!newMessage.trim() || sending) ? 0.5 : 1 }}
             >
               <Send className="h-4 w-4" style={{ color: '#fff' }} />
             </button>
