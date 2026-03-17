@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Download, Loader2, RefreshCw, Check, X, Video } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AdminHeader } from "@/components/AdminHeader";
+import { supabase } from "@/integrations/supabase/client";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
