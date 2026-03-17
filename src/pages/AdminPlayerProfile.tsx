@@ -787,6 +787,7 @@ export default function AdminPlayerProfile() {
             </DropdownMenu>
           </div>
         </div>
+        </TooltipProvider>
 
         {/* Mobile Segmented Control + More */}
         {isMobile ? (
