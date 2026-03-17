@@ -90,6 +90,19 @@ interface ScoreCalculationInput {
   mass_total_kg?: number;           // total body mass from ME
   bat_energy_j?: number;            // KE at barrel from ME
   total_body_energy_j?: number;     // sum of all segment KE from ME
+
+  // Delivery window timing (for P→T gap denominator)
+  foot_plant_time_ms?: number | null;  // ms from FFC at foot-plant
+  contact_time_ms?: number | null;     // ms from FFC at contact
+}
+
+/** Actual delivery duration from foot-plant to contact, falling back to 200ms */
+function getDeliveryDurationMs(input: ScoreCalculationInput): number {
+  if (input.foot_plant_time_ms != null && input.contact_time_ms != null) {
+    const dur = input.contact_time_ms - input.foot_plant_time_ms;
+    if (dur > 0) return dur;
+  }
+  return 200; // default ≈ typical pro delivery window
 }
 
 interface ScoringResult extends FourBScores {
