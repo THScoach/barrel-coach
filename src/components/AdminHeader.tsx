@@ -42,7 +42,6 @@ export function AdminHeader() {
         <div className="flex items-center gap-8">
           <Link to="/admin" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
             <Logo size="md" />
-            <span className="hidden md:inline font-bold text-slate-50 text-lg tracking-tight">Rick Lab</span>
           </Link>
           
           {/* Desktop Nav - high contrast text */}
