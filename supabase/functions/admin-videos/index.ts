@@ -352,16 +352,26 @@ serve(async (req) => {
             if (linkedIds.has(rec.id)) continue
             let matchedPlayer: { id: string; name: string } | null = null
             let linkMethod = ''
+            let parsedSessionType: string | null = null
+            let parsedDate: string | null = null
 
-            const memberId = rec.member_id || rec.creator_id
-            if (memberId && memberToPlayer.has(memberId)) { matchedPlayer = memberToPlayer.get(memberId)!; linkMethod = 'auto_member' }
-
-            if (!matchedPlayer) {
-              const parsed = parseRecordingTitle(rec.title || rec.name || '')
-              if (parsed?.lastName && parsed?.firstName) {
-                const key = `${parsed.lastName}_${parsed.firstName}`.toLowerCase()
-                if (nameToPlayer.has(key)) { matchedPlayer = nameToPlayer.get(key)!; linkMethod = 'auto_name' }
+            // Strategy 1: Name-based parsing (priority)
+            const parsed = parseRecordingTitle(rec.title || rec.name || '')
+            if (parsed?.lastName && parsed?.firstName) {
+              const key = `${parsed.lastName}_${parsed.firstName}`.toLowerCase()
+              if (nameToPlayer.has(key)) {
+                matchedPlayer = nameToPlayer.get(key)!
+                linkMethod = 'auto_name'
+                parsedSessionType = parsed.sessionType || null
+                parsedDate = parsed.recordingDate || null
               }
+            }
+
+            // Strategy 2: Member-based fallback
+            const memberId = rec.member_id || rec.creator_id
+            if (!matchedPlayer && memberId && memberToPlayer.has(memberId)) {
+              matchedPlayer = memberToPlayer.get(memberId)!
+              linkMethod = 'auto_member'
             }
 
             if (matchedPlayer) {
@@ -375,6 +385,8 @@ serve(async (req) => {
                 kommodo_member_id: memberId || null,
                 kommodo_member_name: rec.member_name || rec.creator_name || null,
                 link_method: linkMethod, recording_created_at: rec.created_at || null,
+                session_type: parsedSessionType,
+                recording_date: parsedDate,
               })
               if (!insertErr) { recordingsLinked++; console.log(`Linked "${rec.title}" → ${matchedPlayer.name} (${linkMethod})`) }
             } else { recordingsUnlinked++ }
