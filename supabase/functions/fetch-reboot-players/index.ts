@@ -125,7 +125,7 @@ async function fetchRebootPlayers(): Promise<any[]> {
     url.searchParams.set("limit", pageSize.toString());
     url.searchParams.set("offset", ((page - 1) * pageSize).toString());
 
-    const response = await fetch(url.toString(), {
+    const response = await fetchWithRetry(url.toString(), {
       method: "GET",
       headers,
     });
