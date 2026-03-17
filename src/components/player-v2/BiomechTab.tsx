@@ -272,6 +272,50 @@ function BiomechDetail({ session: s, onBack }: { session: BiomechSession; onBack
         </div>
       )}
 
+      {/* Coach Barrels Insight */}
+      {s.coach_barrels_voice_sample && (
+        <div className="rounded-xl p-4" style={{ background: '#0D1520', border: '1px solid #1A3050' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-base">🛢️</span>
+            <p className="text-xs font-semibold uppercase" style={{ color: '#F59E0B' }}>Coach Barrels</p>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: '#1E2535', color: '#6B7A8F' }}>
+              Coach Rick AI inside 4B
+            </span>
+          </div>
+          <p className="text-sm leading-relaxed" style={{ color: '#E2E8F0' }}>{s.coach_barrels_voice_sample}</p>
+          {Array.isArray(s.coach_barrels_classification) && s.coach_barrels_classification.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              {s.coach_barrels_classification.map((fc: any, i: number) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ background: fc.classification === 'capacity' ? '#FF3B30' : fc.classification === 'recruitment' ? '#22C55E' : '#FFA000' }}
+                  />
+                  <span style={{ color: '#B0B8C8' }}>
+                    {(FLAG_LABELS[fc.flag_id]?.label || fc.flag_id)} — <strong style={{ color: fc.classification === 'capacity' ? '#FF3B30' : '#22C55E' }}>{fc.classification}</strong>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {s.coach_barrels_prescription && (
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid #1E2535' }}>
+              <p className="text-[10px] uppercase font-semibold mb-1" style={{ color: '#F59E0B' }}>Prescription</p>
+              {s.coach_barrels_prescription.drills?.length > 0 && (
+                <p className="text-xs" style={{ color: '#B0B8C8' }}>
+                  Drills: {s.coach_barrels_prescription.drills.join(', ')}
+                </p>
+              )}
+              {s.coach_barrels_prescription.tools?.length > 0 && (
+                <p className="text-xs mt-0.5" style={{ color: '#B0B8C8' }}>
+                  Tools: {s.coach_barrels_prescription.tools.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Focus for Next BP */}
       {s.focus_next_bp && (
         <div className="rounded-xl p-4" style={{ background: '#14200D', border: '1px solid #2D4A1A' }}>
