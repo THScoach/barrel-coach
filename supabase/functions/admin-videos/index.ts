@@ -81,6 +81,31 @@ serve(async (req) => {
     const videoId = url.searchParams.get('id')
 
     if (req.method === 'GET') {
+      const action = url.searchParams.get('action')
+
+      // Kommodo: list recordings
+      if (action === 'kommodo-list') {
+        const kommodoApiKey = Deno.env.get('KOMMODO_API_KEY')
+        if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
+
+        console.log('Fetching recordings from Kommodo...')
+        const response = await fetch('https://api.komododecks.com/v1/recordings', {
+          headers: { 'Authorization': `Bearer ${kommodoApiKey}` }
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error('Kommodo list error:', response.status, errorText)
+          throw new Error(`Kommodo API error: ${response.status}`)
+        }
+
+        const data = await response.json()
+        return new Response(
+          JSON.stringify({ recordings: data.recordings || data.data || data }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
       // List all videos or get single video
       if (videoId) {
         const { data, error } = await supabase
