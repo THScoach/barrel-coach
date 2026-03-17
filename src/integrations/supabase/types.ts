@@ -2645,6 +2645,8 @@ export type Database = {
           page_url: string | null
           player_id: string
           recording_created_at: string | null
+          recording_date: string | null
+          session_type: string | null
           source: string
           thumbnail_url: string | null
           title: string | null
@@ -2663,6 +2665,8 @@ export type Database = {
           page_url?: string | null
           player_id: string
           recording_created_at?: string | null
+          recording_date?: string | null
+          session_type?: string | null
           source?: string
           thumbnail_url?: string | null
           title?: string | null
@@ -2681,6 +2685,8 @@ export type Database = {
           page_url?: string | null
           player_id?: string
           recording_created_at?: string | null
+          recording_date?: string | null
+          session_type?: string | null
           source?: string
           thumbnail_url?: string | null
           title?: string | null
