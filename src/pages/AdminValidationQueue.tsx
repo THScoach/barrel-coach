@@ -53,10 +53,10 @@ interface PendingSwing {
 
 const getScoreColor = (score: number | null): string => {
   if (score === null) return "bg-muted text-muted-foreground";
-  if (score >= 70) return "bg-green-500/20 text-green-400";
-  if (score >= 55) return "bg-blue-500/20 text-blue-400";
-  if (score >= 45) return "bg-yellow-500/20 text-yellow-400";
-  return "bg-red-500/20 text-red-400";
+  if (score >= 85) return "bg-[#22C55E]/20 text-[#22C55E]";
+  if (score >= 70) return "bg-[#00B4D8]/20 text-[#00B4D8]";
+  if (score >= 50) return "bg-[#FFA000]/20 text-[#FFA000]";
+  return "bg-[#FF3B30]/20 text-[#FF3B30]";
 };
 
 const getConfidenceBadge = (frameRate: number | null) => {
