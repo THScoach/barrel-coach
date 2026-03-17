@@ -6,6 +6,7 @@ import { Logo } from "@/components/Logo";
 import { LogOut, User, Plus, BookOpen, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlayerPickerModal } from "@/components/admin/PlayerPickerModal";
+import { PlayerQuickSearch } from "@/components/admin/PlayerQuickSearch";
 
 export function AdminHeader() {
   const { user, signOut } = useAuth();
@@ -62,6 +63,8 @@ export function AdminHeader() {
               </Link>
             ))}
           </nav>
+
+          <PlayerQuickSearch />
         </div>
 
         <div className="flex items-center gap-3">

@@ -87,28 +87,19 @@ export function DKConnectionBadge({ playersTableId, playerPhone }: DKConnectionB
     );
   }
 
-  // Not connected
+  // Not connected — badge IS the action button
   return (
-    <div className="flex items-center gap-2">
-      <Badge variant="secondary" className="bg-slate-700/50 text-slate-400 border-slate-600 hover:bg-slate-700/50">
-        DK Not Connected
-      </Badge>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-6 px-2 text-xs text-slate-400 hover:text-white"
-        onClick={handleSendSetupLink}
-        disabled={isSending}
-      >
-        {isSending ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
-        ) : (
-          <>
-            <Send className="h-3 w-3 mr-1" />
-            Send DK Setup Link
-          </>
-        )}
-      </Button>
-    </div>
+    <button
+      onClick={handleSendSetupLink}
+      disabled={isSending}
+      className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-md px-2.5 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/40 hover:bg-orange-500/30 transition-colors cursor-pointer disabled:opacity-50"
+    >
+      {isSending ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <Send className="h-3 w-3" />
+      )}
+      DK Not Connected
+    </button>
   );
 }

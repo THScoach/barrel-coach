@@ -30,11 +30,18 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { 
   ArrowLeft, Save, User, Phone, Building, 
   FileText, Plus, Loader2, Sparkles, Settings,
-  MessageSquare, MoreHorizontal, Zap, ChevronDown, GitMerge
+  MessageSquare, MoreHorizontal, Zap, ChevronDown, GitMerge,
+  ChevronLeft, ChevronRight
 } from "lucide-react";
 import { AdminHeader } from "@/components/AdminHeader";
 import { CoachRickChat } from "@/components/dashboard/CoachRickChat";
@@ -160,8 +167,7 @@ export default function AdminPlayerProfile() {
     queryFn: async () => {
       if (isNew) return null;
       
-      // First try to find by player_profiles.id
-      const { data: profileById, error: profileError } = await supabase
+      const { data: profileById } = await supabase
         .from('player_profiles')
         .select('*')
         .eq('id', id)
@@ -169,8 +175,7 @@ export default function AdminPlayerProfile() {
       
       if (profileById) return profileById;
       
-      // If not found, try to find by players_id (in case URL uses players.id)
-      const { data: profileByPlayersId, error: playersIdError } = await supabase
+      const { data: profileByPlayersId } = await supabase
         .from('player_profiles')
         .select('*')
         .eq('players_id', id)
@@ -178,11 +183,27 @@ export default function AdminPlayerProfile() {
       
       if (profileByPlayersId) return profileByPlayersId;
       
-      // If still not found, throw error
       throw new Error(`Player profile not found for ID: ${id}`);
     },
     enabled: !isNew,
   });
+
+  // Fetch roster list for prev/next navigation
+  const { data: rosterList } = useQuery({
+    queryKey: ['player-roster-nav'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('player_profiles')
+        .select('id, first_name, last_name')
+        .order('last_name')
+        .order('first_name');
+      return data || [];
+    },
+  });
+
+  const currentIndex = rosterList?.findIndex(p => p.id === (player?.id || id)) ?? -1;
+  const prevPlayer = currentIndex > 0 ? rosterList?.[currentIndex - 1] : null;
+  const nextPlayer = currentIndex >= 0 && currentIndex < (rosterList?.length ?? 0) - 1 ? rosterList?.[currentIndex + 1] : null;
 
   // Populate form when player data loads
   useEffect(() => {
@@ -611,8 +632,29 @@ export default function AdminPlayerProfile() {
         </Button>
 
         {/* Player Header */}
+        <TooltipProvider>
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
+            {/* Prev Player Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={!prevPlayer}
+                  onClick={() => prevPlayer && navigate(`/admin/players/${prevPlayer.id}`)}
+                  className="text-slate-500 hover:text-white hover:bg-slate-800 disabled:opacity-30"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              {prevPlayer && (
+                <TooltipContent side="bottom">
+                  {prevPlayer.first_name} {prevPlayer.last_name}
+                </TooltipContent>
+              )}
+            </Tooltip>
+
             <Avatar className="h-16 w-16 border-2 border-slate-700">
               <AvatarFallback className="bg-gradient-to-br from-red-600 to-orange-500 text-white text-xl font-bold">
                 {getInitials(player?.first_name || '', player?.last_name || '')}
@@ -631,41 +673,81 @@ export default function AdminPlayerProfile() {
                 Bats: {player?.bats || 'R'} / Throws: {player?.throws || 'R'}
               </p>
             </div>
+
+            {/* Next Player Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={!nextPlayer}
+                  onClick={() => nextPlayer && navigate(`/admin/players/${nextPlayer.id}`)}
+                  className="text-slate-500 hover:text-white hover:bg-slate-800 disabled:opacity-30"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              {nextPlayer && (
+                <TooltipContent side="bottom">
+                  {nextPlayer.first_name} {nextPlayer.last_name}
+                </TooltipContent>
+              )}
+            </Tooltip>
           </div>
 
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="icon"
-              className="border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800"
-            >
-              <FileText className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="outline" 
-              size="icon"
-              onClick={() => setShowEditModal(true)}
-              className="border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="outline" 
-              size="icon"
-              className="border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800"
-            >
-              <MessageSquare className="h-4 w-4" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Button 
                   variant="outline" 
                   size="icon"
                   className="border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800"
                 >
-                  <MoreHorizontal className="h-4 w-4" />
+                  <FileText className="h-4 w-4" />
                 </Button>
-              </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>KRS Report</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setShowEditModal(true)}
+                  className="border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Player Settings</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  className="border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Send Message</TooltipContent>
+            </Tooltip>
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      className="border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>More Options</TooltipContent>
+              </Tooltip>
               <DropdownMenuContent align="end" className="bg-slate-900 border-slate-700">
                 <DropdownMenuItem 
                   onClick={() => setShowEditModal(true)}
@@ -705,6 +787,7 @@ export default function AdminPlayerProfile() {
             </DropdownMenu>
           </div>
         </div>
+        </TooltipProvider>
 
         {/* Mobile Segmented Control + More */}
         {isMobile ? (
@@ -770,9 +853,6 @@ export default function AdminPlayerProfile() {
               <TabsTrigger value="overview" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Overview
               </TabsTrigger>
-              <TabsTrigger value="scores" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
-                Scores
-              </TabsTrigger>
               <TabsTrigger value="video" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Video
               </TabsTrigger>
@@ -781,6 +861,9 @@ export default function AdminPlayerProfile() {
               </TabsTrigger>
               <TabsTrigger value="reboot" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Reboot Motion
+              </TabsTrigger>
+              <TabsTrigger value="scores" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Scores
               </TabsTrigger>
               <TabsTrigger value="kommodo" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Kommodo
