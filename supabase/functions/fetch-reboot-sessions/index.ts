@@ -118,7 +118,7 @@ async function fetchAllOrgSessions(sinceDate: string): Promise<any[]> {
     url.searchParams.set("offset", ((page - 1) * pageSize).toString());
 
     console.log(`[fetch-reboot-sessions] Fetching page ${page}`);
-    const resp = await fetch(url.toString(), {
+    const resp = await fetchWithRetry(url.toString(), {
       headers: { "X-Api-Key": REBOOT_API_KEY, "Content-Type": "application/json" },
     });
     if (!resp.ok) throw new Error(`Reboot API error (${resp.status}): ${await resp.text()}`);
