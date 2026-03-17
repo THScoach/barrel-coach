@@ -1636,6 +1636,9 @@ export type Database = {
           bat_score: number | null
           body_score: number | null
           brain_score: number | null
+          coach_barrels_classification: Json | null
+          coach_barrels_prescription: Json | null
+          coach_barrels_voice_sample: string | null
           created_at: string | null
           focus_next_bp: string | null
           formula_inputs: Json | null
@@ -1665,6 +1668,9 @@ export type Database = {
           bat_score?: number | null
           body_score?: number | null
           brain_score?: number | null
+          coach_barrels_classification?: Json | null
+          coach_barrels_prescription?: Json | null
+          coach_barrels_voice_sample?: string | null
           created_at?: string | null
           focus_next_bp?: string | null
           formula_inputs?: Json | null
@@ -1694,6 +1700,9 @@ export type Database = {
           bat_score?: number | null
           body_score?: number | null
           brain_score?: number | null
+          coach_barrels_classification?: Json | null
+          coach_barrels_prescription?: Json | null
+          coach_barrels_voice_sample?: string | null
           created_at?: string | null
           focus_next_bp?: string | null
           formula_inputs?: Json | null
@@ -3488,6 +3497,7 @@ export type Database = {
           has_sensor: boolean | null
           height_inches: number | null
           id: string
+          injury_history: Json | null
           is_beta_tester: boolean | null
           is_in_season: boolean | null
           is_public: boolean | null
@@ -3561,6 +3571,7 @@ export type Database = {
           has_sensor?: boolean | null
           height_inches?: number | null
           id?: string
+          injury_history?: Json | null
           is_beta_tester?: boolean | null
           is_in_season?: boolean | null
           is_public?: boolean | null
@@ -3634,6 +3645,7 @@ export type Database = {
           has_sensor?: boolean | null
           height_inches?: number | null
           id?: string
+          injury_history?: Json | null
           is_beta_tester?: boolean | null
           is_in_season?: boolean | null
           is_public?: boolean | null
