@@ -154,6 +154,11 @@ export default function AdminRebootAnalysis() {
   // NEW: Sync players state
   const [isSyncingPlayers, setIsSyncingPlayers] = useState(false);
 
+  // Date range filter & pagination for sessions list
+  const [sessionDateFrom, setSessionDateFrom] = useState("");
+  const [sessionDateTo, setSessionDateTo] = useState("");
+  const [sessionsVisible, setSessionsVisible] = useState(20);
+
   // Reference athlete import state
   const [isReferenceImport, setIsReferenceImport] = useState(false);
   const [referenceLevel, setReferenceLevel] = useState<'MLB' | 'MiLB' | 'NCAA' | 'Indy' | 'International'>('MLB');
