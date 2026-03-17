@@ -57,6 +57,20 @@ interface FullPlayerContext {
   // Stack + Blast (legacy, keep if available)
   stackData: any | null;
   blastData: any | null;
+  // Biomech interpretation (from hitting_4b_krs_sessions)
+  biomech: {
+    weakestB: string | null;
+    mainConstraint: string | null;
+    krsScore: number | null;
+    summaryCoachText: string | null;
+    hasSequenceIssue: boolean;
+    hasMomentumIssue: boolean;
+    hasPlaneIssue: boolean;
+    hasRangeUsageIssue: boolean;
+    hasBalanceStabilityIssue: boolean;
+    focusNextBp: string | null;
+    recommendedCues: any;
+  } | null;
 }
 
 async function loadFullPlayerContext(supabase: any, playerId: string): Promise<FullPlayerContext | null> {
