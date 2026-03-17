@@ -231,10 +231,10 @@ export default function AdminImportKommodo() {
                                 </div>
                               </TableCell>
                               <TableCell className="text-slate-400 text-sm">
-                                {rec.created_at ? new Date(rec.created_at).toLocaleDateString() : '--'}
+                                {(rec.createdAt || rec.created_at) ? new Date(rec.createdAt || rec.created_at).toLocaleDateString() : '--'}
                               </TableCell>
                               <TableCell className="text-slate-400 text-sm">
-                                {formatDuration(rec.duration || rec.duration_seconds)}
+                                {rec.width && rec.height ? `${rec.width}×${rec.height}` : formatDuration(rec.duration || rec.duration_seconds)}
                               </TableCell>
                               <TableCell>
                                 <Select

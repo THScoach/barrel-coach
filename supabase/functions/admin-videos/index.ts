@@ -146,35 +146,50 @@ serve(async (req) => {
         const perPage = url.searchParams.get('per_page') || '25'
         const search = url.searchParams.get('search') || ''
         const data = await kommodoFetch('/v1/recordings', kommodoApiKey, {
-          page, per_page: perPage, ...(search ? { search } : {}),
+          page, pageSize: perPage, ...(search ? { search } : {}),
         })
         return json(data)
       }
 
-      // --- Kommodo: get single recording ---
-      if (action === 'kommodo-get-recording') {
-        if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
-        const recordingId = url.searchParams.get('recording_id')
-        if (!recordingId) throw new Error('recording_id required')
-        const data = await kommodoFetch(`/v1/recordings/${recordingId}`, kommodoApiKey)
-        return json(data)
-      }
-
-      // --- Kommodo: list team members ---
+      // --- Kommodo: list team members (extracted from recordings) ---
       if (action === 'kommodo-list-members') {
         if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
-        const data = await kommodoFetch('/v1/team/members', kommodoApiKey)
-        return json(data)
+        // Kommodo API has no /v1/team/members endpoint
+        // Extract unique creators/members from all recordings instead
+        const allRecs = await kommodoFetch('/v1/recordings', kommodoApiKey, { pageSize: '100' })
+        const recordings = allRecs.recordings || allRecs.data || allRecs || []
+        const membersMap = new Map<string, { id: string; name: string; email?: string; recording_count: number }>()
+        for (const rec of recordings) {
+          // Parse title to extract member name: LastName_FirstName_...
+          const title = rec.title || ''
+          const parts = title.split('_')
+          if (parts.length >= 2) {
+            const memberKey = `${parts[0]}_${parts[1]}`.toLowerCase()
+            const memberName = `${parts[1]} ${parts[0]}`
+            if (!membersMap.has(memberKey)) {
+              membersMap.set(memberKey, { id: memberKey, name: memberName, recording_count: 0 })
+            }
+            membersMap.get(memberKey)!.recording_count++
+          }
+        }
+        return json({ members: Array.from(membersMap.values()).sort((a, b) => a.name.localeCompare(b.name)) })
       }
 
       // --- Kommodo: unlinked recordings ---
       if (action === 'kommodo-unlinked') {
         if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
-        const allRecs = await kommodoFetch('/v1/recordings', kommodoApiKey, { per_page: '100' })
+        const allRecs = await kommodoFetch('/v1/recordings', kommodoApiKey, { pageSize: '100' })
         const recordings = allRecs.recordings || allRecs.data || allRecs || []
         const { data: linked } = await supabase.from('player_kommodo_recordings').select('kommodo_recording_id')
         const linkedIds = new Set((linked || []).map((r: any) => r.kommodo_recording_id))
-        return json({ recordings: recordings.filter((r: any) => !linkedIds.has(r.id)) })
+        // Normalize field names from Kommodo camelCase to our format
+        const normalized = recordings
+          .filter((r: any) => !linkedIds.has(r.id))
+          .map((r: any) => ({
+            ...r,
+            created_at: r.createdAt || r.created_at,
+          }))
+        return json({ recordings: normalized })
       }
 
       // --- Kommodo: sync status ---
