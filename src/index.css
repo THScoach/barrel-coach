@@ -2,121 +2,112 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Catching Barrels Design System - PWA Optimized Dark Theme */
+/* Catching Barrels Design System — Polished Dark Theme */
 
 @layer base {
   :root {
-    /* Navy Base Colors */
-    --navy-900: 222 47% 11%;
-    --navy-800: 217 33% 17%;
-    --navy-700: 215 25% 27%;
-    --navy-600: 215 20% 35%;
+    /* ─── Core Brand ─── */
+    --navy-900: 228 30% 7%;    /* #0A0D1A */
+    --navy-800: 224 25% 12%;   /* #161B2A */
+    --navy-700: 222 22% 17%;   /* #1E2535 */
+    --navy-600: 220 18% 25%;   /* #2D3648 */
 
-    /* Primary - Near Black (Authority) */
-    --primary: 222 47% 11%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary — Red Accent (CTAs, Alerts) */
+    --primary: 3 100% 59%;     /* #FF3B30 */
+    --primary-foreground: 0 0% 100%;
 
-    /* Accent - Red (Energy, Action - matches logo) */
-    --accent: 0 84% 60%;
+    /* Secondary Accent — Electric Blue (Interactive, Data) */
+    --secondary-accent: 193 100% 42%;  /* #00B4D8 */
+    --secondary-accent-foreground: 0 0% 100%;
+
+    /* Accent aliased to primary red */
+    --accent: 3 100% 59%;
     --accent-foreground: 0 0% 100%;
 
-    /* 4B System Colors */
+    /* ─── 4B System Colors ─── */
     --brain-purple: 270 91% 65%;
     --brain-purple-light: 270 100% 75%;
     --body-blue: 217 91% 60%;
     --body-blue-light: 217 100% 70%;
     --bat-orange: 25 95% 53%;
     --bat-orange-light: 25 100% 63%;
-    --ball-red: 0 84% 60%;
-    --ball-red-light: 0 86% 70%;
+    --ball-red: 3 100% 59%;
+    --ball-red-light: 3 86% 70%;
 
-    /* Backgrounds */
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
-    --surface: 210 40% 98%;
+    /* ─── Backgrounds ─── */
+    --background: 228 30% 7%;       /* #0A0D1A */
+    --foreground: 0 0% 100%;        /* white */
+    --surface: 224 25% 12%;         /* #161B2A */
     --white-95: 220 20% 97%;
 
-    /* Cards */
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    /* ─── Cards ─── */
+    --card: 222 27% 11%;            /* #111827 */
+    --card-foreground: 0 0% 100%;
 
-    /* Popover */
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    /* ─── Popover ─── */
+    --popover: 222 27% 11%;
+    --popover-foreground: 0 0% 100%;
 
-    /* Secondary */
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
+    /* ─── Secondary (soft surfaces) ─── */
+    --secondary: 224 25% 12%;
+    --secondary-foreground: 0 0% 100%;
 
-    /* Muted */
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    /* ─── Muted ─── */
+    --muted: 224 25% 12%;
+    --muted-foreground: 219 16% 55%;  /* #6B7A8F */
 
-    /* Grays */
-    --gray-400: 215 20% 65%;
-    --gray-500: 215 16% 47%;
-    --gray-600: 215 20% 35%;
+    /* ─── Typography ─── */
+    --text-primary: 0 0% 100%;
+    --text-body: 220 18% 74%;         /* #B0B8C8 */
+    --text-caption: 219 16% 55%;      /* #6B7A8F */
 
-    /* Status Colors */
-    --success: 142 71% 45%;
+    /* ─── Status Colors ─── */
+    --success: 160 84% 39%;    /* teal */
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
+    --destructive: 3 84% 46%;  /* #CC2A1F darker red */
     --destructive-foreground: 0 0% 100%;
 
-    /* Borders & Inputs */
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 0 84% 50%;
+    /* ─── Borders & Inputs ─── */
+    --border: 222 22% 17%;     /* #1E2535 */
+    --input: 222 22% 17%;
+    --ring: 193 100% 42%;      /* blue focus ring */
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;         /* 12px consistent radius */
 
-    /* Sidebar */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5% 26%;
-    --sidebar-primary: 240 6% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 5% 96%;
-    --sidebar-accent-foreground: 240 6% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 0 84% 50%;
+    /* ─── Sidebar ─── */
+    --sidebar-background: 228 30% 7%;
+    --sidebar-foreground: 220 18% 74%;
+    --sidebar-primary: 3 100% 59%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 224 25% 12%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 222 22% 17%;
+    --sidebar-ring: 193 100% 42%;
 
-    /* Custom gradients */
-    --gradient-accent: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(0 72% 50%) 100%);
-    --gradient-dark: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(222 47% 18%) 100%);
-    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
+    /* ─── Custom Gradients ─── */
+    --gradient-accent: linear-gradient(135deg, hsl(3 100% 59%) 0%, hsl(3 84% 46%) 100%);
+    --gradient-blue: linear-gradient(135deg, hsl(193 100% 42%) 0%, hsl(210 90% 50%) 100%);
+    --gradient-dark: linear-gradient(180deg, hsl(228 30% 7%) 0%, hsl(224 25% 12%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(222 27% 11%) 0%, hsl(224 25% 12%) 100%);
   }
 
-  .dark {
-    --primary: 210 40% 98%;
-    --primary-foreground: 222 47% 11%;
-    --accent: 0 84% 50%;
-    --accent-foreground: 0 0% 100%;
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
-    --surface: 222 47% 11%;
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 0 84% 50%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-    --sidebar-background: 240 6% 10%;
-    --sidebar-foreground: 240 5% 96%;
-    --sidebar-primary: 224 76% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 4% 16%;
-    --sidebar-accent-foreground: 240 5% 96%;
-    --sidebar-border: 240 4% 16%;
-    --sidebar-ring: 0 84% 50%;
+  /* Light mode override — keep it dark-first */
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 228 30% 7%;
+    --card: 0 0% 100%;
+    --card-foreground: 228 30% 7%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 228 30% 7%;
+    --secondary: 220 20% 97%;
+    --secondary-foreground: 228 30% 7%;
+    --muted: 220 20% 97%;
+    --muted-foreground: 219 16% 55%;
+    --border: 222 22% 88%;
+    --input: 222 22% 88%;
+    --ring: 193 100% 42%;
   }
 }
 
@@ -130,171 +121,190 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-bold tracking-tight text-foreground;
+  /* ─── Typography Scale ─── */
+  h1 {
+    @apply text-5xl font-bold tracking-tight text-foreground;
+    /* 48px */
+  }
+  h2 {
+    @apply text-[32px] font-bold tracking-tight text-foreground;
+  }
+  h3 {
+    @apply text-[22px] font-semibold tracking-tight text-foreground;
+  }
+  h4, h5, h6 {
+    @apply font-semibold tracking-tight text-foreground;
   }
 }
 
 @layer components {
   /* ============================================
-     PWA DARK THEME CONTRAST HIERARCHY
+     CONTRAST HIERARCHY
      Page BG → Nav/Cards → Interactive Elements
      ============================================ */
 
-  /* Page background: Deepest dark */
   .page-bg {
-    @apply bg-slate-950;
+    background-color: hsl(var(--background));
   }
 
-  /* Navigation surfaces: Elevated from page */
   .nav-surface {
-    @apply bg-slate-900/95 backdrop-blur-lg border-slate-800;
+    background-color: hsl(var(--surface) / 0.95);
+    backdrop-filter: blur(16px);
+    border-color: hsl(var(--border));
   }
 
-  /* Card surfaces: Visibly lighter than page - IMPROVED CONTRAST */
   .card-surface {
-    @apply bg-slate-900/90 border border-slate-700/70;
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
   }
 
-  /* Elevated card (hover state or important) */
   .card-elevated {
-    @apply bg-slate-800/95 border border-slate-600;
+    background-color: hsl(var(--surface));
+    border: 1px solid hsl(var(--navy-600));
+    border-radius: var(--radius);
   }
 
-  /* Interactive surface (buttons, inputs) */
+  .card-active {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--accent) / 0.25);
+    box-shadow: inset 0 0 0 1px hsl(var(--accent) / 0.15);
+    border-radius: var(--radius);
+  }
+
   .interactive-surface {
-    @apply bg-slate-800/70 border border-slate-600/60 hover:bg-slate-700/80 hover:border-slate-500 transition-colors;
+    background-color: hsl(var(--surface) / 0.7);
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    transition: all 0.15s ease;
+  }
+  .interactive-surface:hover {
+    background-color: hsl(var(--navy-600) / 0.5);
+    border-color: hsl(var(--navy-600));
   }
 
   /* ============================================
-     RICK LAB ADMIN TYPOGRAPHY - HIGH CONTRAST
+     TYPOGRAPHY CLASSES
      ============================================ */
-  
-  /* Page titles: Maximum contrast, bold */
+
   .admin-title {
-    @apply text-white font-bold tracking-tight;
+    @apply text-foreground font-bold tracking-tight;
   }
-
-  /* Section headings */
   .admin-heading {
-    @apply text-slate-50 font-semibold;
+    @apply text-foreground font-semibold;
   }
-
-  /* Primary content: High visibility */
   .admin-text {
-    @apply text-slate-100;
+    color: hsl(var(--text-body));
   }
-
-  /* Secondary content: Clear, readable */
   .admin-text-secondary {
-    @apply text-slate-300;
+    color: hsl(var(--text-body));
   }
-
-  /* Labels: Visible on dark */
   .admin-label {
-    @apply text-slate-400 text-sm font-medium;
+    color: hsl(var(--text-caption));
+    @apply text-xs font-medium;
   }
-
-  /* Table text: Readable rows */
   .admin-table-text {
-    @apply text-slate-200 font-medium;
+    color: hsl(var(--text-body));
+    @apply font-medium;
   }
 
-  /* ============================================
-     LEGACY TYPOGRAPHY CLASSES
-     ============================================ */
-  
-  /* Headings: Maximum contrast */
   .text-heading {
-    @apply text-white font-semibold;
+    @apply text-foreground font-semibold;
   }
-
-  /* Primary content: High visibility */
   .text-primary-content {
-    @apply text-slate-100;
+    color: hsl(var(--text-body));
   }
-
-  /* Secondary content: Clear but subdued */
   .text-secondary-content {
-    @apply text-slate-300;
+    color: hsl(var(--text-body));
   }
-
-  /* Labels and captions: Muted but readable */
   .text-label {
-    @apply text-slate-400;
+    color: hsl(var(--text-caption));
   }
-
-  /* Disabled/tertiary: Low emphasis */
   .text-tertiary {
-    @apply text-slate-500;
+    color: hsl(var(--muted-foreground));
   }
-
-  /* Key values and numbers: Accent or white */
   .text-value {
-    @apply text-white font-medium;
+    @apply text-foreground font-medium;
   }
 
   /* ============================================
-     TAP TARGETS (iOS HIG: 44pt minimum)
+     TAP TARGETS (44pt minimum)
      ============================================ */
-
   .touch-target {
     min-height: 44px;
     min-width: 44px;
   }
-
   .touch-target-lg {
     min-height: 56px;
     min-width: 56px;
   }
 
   /* ============================================
-     BUTTON STYLES - Clear Visual Hierarchy
+     BUTTON STYLES
      ============================================ */
 
-  /* Primary action: Filled, high contrast */
   .btn-primary {
-    @apply bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold;
-    @apply hover:from-red-700 hover:to-orange-600;
-    @apply min-h-[44px] px-5 rounded-lg;
-    @apply shadow-lg shadow-red-900/30;
+    background-color: hsl(var(--primary));
+    @apply text-white font-semibold;
+    @apply min-h-[44px] px-4 rounded-lg;
+    box-shadow: 0 4px 16px -4px hsl(var(--primary) / 0.4);
     @apply transition-all active:scale-[0.98];
   }
+  .btn-primary:hover {
+    filter: brightness(1.1);
+  }
 
-  /* Secondary action: Bordered, visible */
   .btn-secondary {
-    @apply bg-slate-800/80 border border-slate-600 text-slate-200;
-    @apply hover:bg-slate-700 hover:border-slate-500 hover:text-white;
+    background-color: transparent;
+    border: 1px solid hsl(var(--primary));
+    color: hsl(var(--primary));
+    @apply font-semibold;
     @apply min-h-[44px] px-4 rounded-lg;
     @apply transition-all active:scale-[0.98];
   }
+  .btn-secondary:hover {
+    background-color: hsl(var(--primary) / 0.08);
+  }
 
-  /* Ghost action: Subtle but tappable */
   .btn-ghost {
-    @apply bg-transparent border border-slate-700/50 text-slate-400;
-    @apply hover:bg-slate-800/50 hover:text-slate-200 hover:border-slate-600;
+    background: transparent;
+    border: none;
+    color: hsl(var(--secondary-accent));
+    @apply font-medium;
     @apply min-h-[44px] px-4 rounded-lg;
     @apply transition-all;
   }
+  .btn-ghost:hover {
+    text-decoration: underline;
+  }
 
   /* ============================================
-     CARD STYLES - Elevated & Padded - IMPROVED
+     CARD STYLES
      ============================================ */
 
   .pwa-card {
-    @apply bg-slate-900/90 border border-slate-700/70 rounded-xl;
-    @apply p-5 md:p-6;
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    @apply p-6;
     box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.4);
   }
 
   .pwa-card-interactive {
-    @apply pwa-card cursor-pointer;
-    @apply hover:bg-slate-800/95 hover:border-slate-600 transition-colors;
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    @apply p-6 cursor-pointer transition-colors;
+  }
+  .pwa-card-interactive:hover {
+    border-color: hsl(var(--navy-600));
+    background-color: hsl(var(--surface));
   }
 
-  /* Admin table card - lighter background for row separation */
   .admin-table-card {
-    @apply bg-slate-900/95 border border-slate-700 rounded-xl;
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
     box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.4);
   }
 
@@ -302,30 +312,29 @@
      TAB/NAV STYLES
      ============================================ */
 
-  /* Tab pill style - active state */
   .tab-active {
-    @apply bg-gradient-to-r from-red-600 to-orange-500 text-white font-medium;
-    @apply rounded-lg px-4 py-2;
+    background-color: hsl(var(--primary));
+    @apply text-white font-medium rounded-lg px-4 py-2;
   }
 
-  /* Tab inactive - clearly readable */
   .tab-inactive {
-    @apply text-slate-400 hover:text-slate-200 hover:bg-slate-800/50;
+    color: hsl(var(--text-caption));
     @apply rounded-lg px-4 py-2 transition-colors;
+  }
+  .tab-inactive:hover {
+    color: hsl(var(--text-body));
+    background-color: hsl(var(--surface) / 0.5);
   }
 
   /* ============================================
      SAFE AREAS (iOS PWA)
      ============================================ */
-
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
-
   .pb-safe {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
-
   .safe-area-top {
     padding-top: env(safe-area-inset-top, 0);
   }
@@ -334,88 +343,81 @@
      LEGACY COMPONENT STYLES
      ============================================ */
 
-  /* Score circle component */
   .score-circle {
     @apply relative flex items-center justify-center rounded-full;
     background: var(--gradient-dark);
-    box-shadow: 
-      0 25px 50px -12px rgba(15, 23, 42, 0.25),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 25px 50px -12px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
-
   .score-circle-accent {
     background: var(--gradient-accent);
-    box-shadow: 
-      0 25px 50px -12px rgba(220, 38, 38, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    box-shadow:
+      0 25px 50px -12px hsl(var(--primary) / 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
   }
 
-  /* Product card hover effect */
   .product-card {
     @apply relative overflow-hidden transition-all duration-300;
   }
-
   .product-card:hover {
     @apply -translate-y-1;
-    box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.15);
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.3);
   }
-
   .product-card::before {
     @apply absolute inset-0 opacity-0 transition-opacity duration-300;
     content: '';
-    background: linear-gradient(135deg, hsl(0 84% 50% / 0.05) 0%, transparent 50%);
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.05) 0%, transparent 50%);
   }
-
   .product-card:hover::before {
     @apply opacity-100;
   }
 
-  /* Video upload zone */
   .upload-zone {
-    @apply border-2 border-dashed border-border rounded-xl transition-all duration-200;
+    @apply border-2 border-dashed rounded-xl transition-all duration-200;
+    border-color: hsl(var(--border));
   }
-
   .upload-zone:hover,
   .upload-zone.drag-over {
-    @apply border-accent bg-accent/5;
+    border-color: hsl(var(--secondary-accent));
+    background-color: hsl(var(--secondary-accent) / 0.05);
   }
 
-  /* Progress bar styling */
   .progress-bar {
-    @apply h-2 rounded-full bg-muted overflow-hidden;
+    @apply h-2 rounded-full overflow-hidden;
+    background-color: hsl(var(--muted));
   }
-
   .progress-bar-fill {
     @apply h-full rounded-full transition-all duration-500 ease-out;
     background: var(--gradient-accent);
   }
 
-  /* Step indicator */
   .step-indicator {
-    @apply flex items-center gap-2 text-sm font-medium text-muted-foreground;
+    @apply flex items-center gap-2 text-sm font-medium;
+    color: hsl(var(--muted-foreground));
   }
-
   .step-indicator-active {
-    @apply text-accent;
+    color: hsl(var(--secondary-accent));
   }
 }
 
 @layer utilities {
-  /* Athletic text gradient */
   .text-gradient-accent {
     @apply bg-clip-text text-transparent;
     background-image: var(--gradient-accent);
   }
 
-  /* Smooth entrance animations */
+  .text-gradient-blue {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-blue);
+  }
+
   .animate-fade-in {
     animation: fadeIn 0.5s ease-out forwards;
   }
-
   .animate-slide-up {
     animation: slideUp 0.5s ease-out forwards;
   }
-
   .animate-scale-in {
     animation: scaleIn 0.3s ease-out forwards;
   }
@@ -424,34 +426,18 @@
     from { opacity: 0; }
     to { opacity: 1; }
   }
-
   @keyframes slideUp {
-    from { 
-      opacity: 0; 
-      transform: translateY(20px); 
-    }
-    to { 
-      opacity: 1; 
-      transform: translateY(0); 
-    }
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
   }
-
   @keyframes scaleIn {
-    from { 
-      opacity: 0; 
-      transform: scale(0.95); 
-    }
-    to { 
-      opacity: 1; 
-      transform: scale(1); 
-    }
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
   }
 
-  /* Pulse animation for processing */
   .animate-pulse-slow {
     animation: pulse 2s ease-in-out infinite;
   }
-
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }

@@ -33,6 +33,10 @@ export default {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
+        "secondary-accent": {
+          DEFAULT: "hsl(var(--secondary-accent))",
+          foreground: "hsl(var(--secondary-accent-foreground))",
+        },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
@@ -58,6 +62,9 @@ export default {
         "body-blue": "hsl(var(--body-blue))",
         "bat-orange": "hsl(var(--bat-orange))",
         "ball-red": "hsl(var(--ball-red))",
+        // Typography tokens
+        "text-body": "hsl(var(--text-body))",
+        "text-caption": "hsl(var(--text-caption))",
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
@@ -78,8 +85,19 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['DM Sans', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['DM Sans', 'Inter', 'system-ui', 'sans-serif'],
+      },
+      fontSize: {
+        'h1': ['48px', { lineHeight: '1.1', fontWeight: '700' }],
+        'h2': ['32px', { lineHeight: '1.2', fontWeight: '700' }],
+        'h3': ['22px', { lineHeight: '1.3', fontWeight: '600' }],
+        'body': ['16px', { lineHeight: '1.6', fontWeight: '400' }],
+        'caption': ['12px', { lineHeight: '1.5', fontWeight: '500' }],
+      },
+      spacing: {
+        '18': '4.5rem',    /* 72px */
+        '30': '7.5rem',    /* 120px */
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -87,10 +105,11 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        'card': '0 4px 20px -2px rgba(15, 23, 42, 0.08)',
-        'card-hover': '0 20px 40px -15px rgba(15, 23, 42, 0.15)',
-        'button': '0 4px 14px -2px rgba(249, 115, 22, 0.4)',
-        'score': '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
+        'card': '0 4px 20px -2px rgba(0, 0, 0, 0.3)',
+        'card-hover': '0 20px 40px -15px rgba(0, 0, 0, 0.4)',
+        'button': '0 4px 16px -4px hsl(3 100% 59% / 0.4)',
+        'score': '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+        'blue-glow': '0 4px 16px -4px hsl(193 100% 42% / 0.3)',
       },
       keyframes: {
         "accordion-down": {
