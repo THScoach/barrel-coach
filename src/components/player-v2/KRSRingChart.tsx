@@ -16,7 +16,7 @@ export function KRSRingChart({ score, size = 180 }: KRSRingChartProps) {
   return (
     <div className="flex flex-col items-center">
       <svg width={size} height={size}>
-        <circle cx={center} cy={center} r={radius} fill="none" stroke="#222" strokeWidth={10} />
+        <circle cx={center} cy={center} r={radius} fill="none" stroke="#1E2535" strokeWidth={10} />
         <circle
           cx={center} cy={center} r={radius}
           fill="none" stroke={color} strokeWidth={10}
