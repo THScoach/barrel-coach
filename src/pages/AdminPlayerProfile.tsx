@@ -167,8 +167,7 @@ export default function AdminPlayerProfile() {
     queryFn: async () => {
       if (isNew) return null;
       
-      // First try to find by player_profiles.id
-      const { data: profileById, error: profileError } = await supabase
+      const { data: profileById } = await supabase
         .from('player_profiles')
         .select('*')
         .eq('id', id)
@@ -176,8 +175,7 @@ export default function AdminPlayerProfile() {
       
       if (profileById) return profileById;
       
-      // If not found, try to find by players_id (in case URL uses players.id)
-      const { data: profileByPlayersId, error: playersIdError } = await supabase
+      const { data: profileByPlayersId } = await supabase
         .from('player_profiles')
         .select('*')
         .eq('players_id', id)
@@ -185,11 +183,27 @@ export default function AdminPlayerProfile() {
       
       if (profileByPlayersId) return profileByPlayersId;
       
-      // If still not found, throw error
       throw new Error(`Player profile not found for ID: ${id}`);
     },
     enabled: !isNew,
   });
+
+  // Fetch roster list for prev/next navigation
+  const { data: rosterList } = useQuery({
+    queryKey: ['player-roster-nav'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('player_profiles')
+        .select('id, first_name, last_name')
+        .order('last_name')
+        .order('first_name');
+      return data || [];
+    },
+  });
+
+  const currentIndex = rosterList?.findIndex(p => p.id === (player?.id || id)) ?? -1;
+  const prevPlayer = currentIndex > 0 ? rosterList?.[currentIndex - 1] : null;
+  const nextPlayer = currentIndex >= 0 && currentIndex < (rosterList?.length ?? 0) - 1 ? rosterList?.[currentIndex + 1] : null;
 
   // Populate form when player data loads
   useEffect(() => {
