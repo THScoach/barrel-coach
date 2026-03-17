@@ -399,7 +399,7 @@ serve(async (req) => {
                 page_url: rec.urls?.page || rec.page_url || null,
                 kommodo_member_id: memberId || null,
                 kommodo_member_name: rec.member_name || rec.creator_name || null,
-                link_method: linkMethod, recording_created_at: rec.created_at || null,
+                link_method: linkMethod, recording_created_at: rec.createdAt || rec.created_at || null,
                 session_type: parsedSessionType,
                 recording_date: parsedDate,
               })
