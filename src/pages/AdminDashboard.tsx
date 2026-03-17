@@ -315,7 +315,7 @@ export default function AdminDashboard() {
             <Button
               onClick={() => navigate("/admin/messages")}
               variant="outline"
-              className="border-[#DC2626]/50 text-white hover:bg-[#DC2626]/20"
+              className="border-primary text-primary hover:bg-primary/10"
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Send Message</span>
