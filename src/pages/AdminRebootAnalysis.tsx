@@ -40,6 +40,7 @@ interface Player {
   level: string | null;
   team: string | null;
   reboot_athlete_id: string | null;
+  reboot_player_id: string | null;
 }
 
 type SessionType = string | { name?: string | null } | null | undefined;
