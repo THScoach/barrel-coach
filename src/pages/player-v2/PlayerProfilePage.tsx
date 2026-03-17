@@ -1,13 +1,12 @@
 /**
- * Player Profile & Settings
+ * Player Profile & Settings (4B brand)
  */
-import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlayerData } from "@/hooks/usePlayerData";
 import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { TagPill } from "@/components/player-v2/TagPill";
-import { getInitials, motorProfileColor, bandForWeight } from "@/lib/player-utils";
+import { getInitials, motorProfileColor } from "@/lib/player-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { LogOut, Download, Share2, ChevronRight } from "lucide-react";
@@ -59,11 +58,18 @@ export default function PlayerProfilePage() {
     );
   }
 
-  const band = bandForWeight(player?.weight_lbs ? Number(player.weight_lbs) : null);
   const weightNum = player?.weight_lbs ? Number(player.weight_lbs) : 0;
-
   const heightFt = player?.height_inches ? Math.floor(Number(player.height_inches) / 12) : null;
   const heightIn = player?.height_inches ? Number(player.height_inches) % 12 : null;
+
+  // Injury history from JSONB
+  const injuryHistory: Array<{ name: string; status: string; date?: string; note?: string }> = (() => {
+    try {
+      const raw = (player as any)?.injury_history;
+      if (Array.isArray(raw)) return raw;
+      return [];
+    } catch { return []; }
+  })();
 
   return (
     <div style={{ background: '#000', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
@@ -103,19 +109,37 @@ export default function PlayerProfilePage() {
             { label: 'Height', value: heightFt ? `${heightFt}'${heightIn}"` : '—' },
             { label: 'Weight', value: player?.weight_lbs ? `${Math.round(Number(player.weight_lbs))} lbs` : '—' },
             { label: 'Bats', value: player?.handedness || '—' },
-            { label: 'Throws', value: player?.throws || '—' },
             { label: 'Level', value: player?.level || '—' },
           ].map((row, i) => (
-            <div key={row.label} className="flex items-center justify-between px-4 py-3" style={{ borderBottom: i < 4 ? '1px solid #222' : 'none' }}>
+            <div key={row.label} className="flex items-center justify-between px-4 py-3" style={{ borderBottom: i < 3 ? '1px solid #222' : 'none' }}>
               <span className="text-sm" style={{ color: '#777' }}>{row.label}</span>
               <span className="text-sm font-semibold" style={{ color: '#fff' }}>{row.value}</span>
             </div>
           ))}
         </div>
 
+        {/* Injury History */}
+        {injuryHistory.length > 0 && (
+          <div className="rounded-xl p-4" style={{ background: '#111', border: '1px solid #222' }}>
+            <p className="text-xs font-semibold uppercase mb-3" style={{ color: '#555' }}>Injury History</p>
+            <p className="text-[11px] mb-3" style={{ color: '#777' }}>Informs flag interpretation</p>
+            <div className="space-y-2">
+              {injuryHistory.map((inj, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <span className="text-sm" style={{ color: '#fff' }}>{inj.name}</span>
+                  <TagPill
+                    label={inj.status === 'active' ? 'ACTIVE' : 'CLEARED'}
+                    color={inj.status === 'active' ? '#E63946' : '#4ecdc4'}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Band Selection */}
         <div className="rounded-xl p-4" style={{ background: '#111', border: '1px solid #222' }}>
-          <p className="text-xs font-semibold uppercase mb-3" style={{ color: '#777' }}>Recommended Band</p>
+          <p className="text-xs font-semibold uppercase mb-3" style={{ color: '#555' }}>Recommended Band</p>
           <div className="grid grid-cols-2 gap-3">
             {[
               { label: 'Red Band', range: 'Under 160 lbs', color: '#E63946', match: weightNum > 0 && weightNum < 160 },

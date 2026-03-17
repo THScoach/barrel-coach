@@ -6,7 +6,7 @@ const navItems = [
   { to: '/player/data', icon: Database, label: 'My Data', end: false },
   { to: '/player/session', icon: Dumbbell, label: 'Session', end: false },
   { to: '/player/progress', icon: TrendingUp, label: 'Progress', end: false },
-  { to: '/player/messages', icon: MessageSquare, label: 'Coach Rick', end: false },
+  { to: '/player/messages', icon: MessageSquare, label: 'Coach Barrels', end: false },
 ];
 
 export function PlayerBottomNav() {

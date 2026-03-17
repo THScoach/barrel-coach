@@ -1,5 +1,5 @@
 /**
- * Player Home Dashboard - Complete rebuild
+ * Player Home Dashboard — 4B brand rebuild
  */
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/player-v2/EmptyState";
 import { scoreColor, motorProfileColor } from "@/lib/player-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart3, ChevronRight, Zap, Target, ArrowRight } from "lucide-react";
+import { format } from "date-fns";
 
 interface FlagData {
   id: string;
@@ -34,6 +35,7 @@ export default function PlayerHomeDashboard() {
   const [primaryFlag, setPrimaryFlag] = useState<FlagData | null>(null);
   const [sessionHistory, setSessionHistory] = useState<SessionHistoryItem[]>([]);
   const [projections, setProjections] = useState<any>(null);
+  const [drillCount, setDrillCount] = useState(0);
 
   useEffect(() => {
     if (!player?.id) return;
@@ -90,17 +92,28 @@ export default function PlayerHomeDashboard() {
       if (data) setSessionHistory(data.reverse());
     };
 
+    const fetchDrillCount = async () => {
+      const { count } = await supabase
+        .from("player_drill_assignments")
+        .select("id", { count: 'exact', head: true })
+        .eq("player_id", player.id)
+        .eq("status", "assigned");
+
+      setDrillCount(count ?? 0);
+    };
+
     fetchFlag();
     fetchHistory();
+    fetchDrillCount();
   }, [player?.id]);
 
   if (loading) {
     return (
-      <div style={{ background: '#0A0D1A', minHeight: '100vh' }}>
+      <div style={{ background: '#000', minHeight: '100vh' }}>
         <div className="p-4 space-y-4">
-          <Skeleton className="h-12 w-full" style={{ background: '#1E2535' }} />
-          <Skeleton className="h-48 w-full rounded-xl" style={{ background: '#111827' }} />
-          <Skeleton className="h-32 w-full rounded-xl" style={{ background: '#111827' }} />
+          <Skeleton className="h-12 w-full" style={{ background: '#111' }} />
+          <Skeleton className="h-48 w-full rounded-xl" style={{ background: '#111' }} />
+          <Skeleton className="h-32 w-full rounded-xl" style={{ background: '#111' }} />
         </div>
       </div>
     );
@@ -114,13 +127,19 @@ export default function PlayerHomeDashboard() {
     ball: player?.latest_ball_score,
   };
 
+  const sessionNum = sessionHistory.length + 1;
+
   return (
-    <div style={{ background: '#0A0D1A', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
-      <PlayerTopBar playerName={player?.name ?? null} motorProfile={player?.motor_profile_sensor ?? null} />
+    <div style={{ background: '#000', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
+      <PlayerTopBar
+        playerName={player?.name ?? null}
+        motorProfile={player?.motor_profile_sensor ?? null}
+        statusBadge={player?.account_status === 'queued' ? 'Queued' : null}
+      />
 
       <main className="px-4 pb-24 space-y-4 pt-4">
         {/* KRS Score Card */}
-        <div className="rounded-xl p-5" style={{ background: '#111827', border: '1px solid #1E2535' }}>
+        <div className="rounded-xl p-5" style={{ background: '#111', border: '1px solid #222' }}>
           <KRSRingChart score={krs} />
           <div className="grid grid-cols-4 gap-2 mt-4">
             {(['body', 'brain', 'bat', 'ball'] as const).map(pillar => {
@@ -128,93 +147,97 @@ export default function PlayerHomeDashboard() {
               return (
                 <Link
                   key={pillar}
-                  to={`/player/data?tab=4b`}
+                  to="/player/data?tab=4b"
                   className="flex flex-col items-center p-2 rounded-lg transition-colors hover:opacity-80"
-                  style={{ background: '#0A0D1A' }}
+                  style={{ background: '#0a0a0a' }}
                 >
-                  <span className="text-[10px] font-semibold uppercase" style={{ color: '#6B7A8F' }}>{pillar}</span>
+                  <span className="text-[10px] font-semibold uppercase" style={{ color: '#555' }}>{pillar}</span>
                   <span className="text-lg font-bold" style={{ color: scoreColor(val) }}>{val ?? '—'}</span>
                 </Link>
               );
             })}
           </div>
-          <p className="text-center text-[11px] mt-3" style={{ color: '#6B7A8F' }}>Tap any pillar to see breakdown</p>
+          <p className="text-center text-[11px] mt-3" style={{ color: '#555' }}>Tap any pillar to see breakdown</p>
         </div>
 
         {/* Motor Profile Card */}
         {player?.motor_profile_sensor && (
-          <Link to="/player/profile" className="block rounded-xl p-4" style={{ background: '#111827', border: '1px solid #1E2535' }}>
+          <Link to="/player/profile" className="block rounded-xl p-4" style={{ background: '#111', border: '1px solid #222' }}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: `${motorProfileColor(player.motor_profile_sensor)}1f` }}>
                 <Zap className="h-5 w-5" style={{ color: motorProfileColor(player.motor_profile_sensor) }} />
               </div>
               <div className="flex-1">
-                <p className="text-xs" style={{ color: '#6B7A8F' }}>Motor Profile</p>
+                <p className="text-xs" style={{ color: '#555' }}>Motor Profile</p>
                 <p className="font-bold" style={{ color: '#fff' }}>{player.motor_profile_sensor}</p>
               </div>
-              <ChevronRight className="h-4 w-4" style={{ color: '#6B7A8F' }} />
+              <ChevronRight className="h-4 w-4" style={{ color: '#555' }} />
             </div>
           </Link>
         )}
 
         {/* Primary Flag Card */}
         {primaryFlag && (
-          <div className="rounded-xl p-4" style={{ background: 'rgba(255,59,48,0.06)', border: '1px solid rgba(255,59,48,0.2)' }}>
+          <div className="rounded-xl p-4" style={{ background: 'rgba(230,57,70,0.08)', border: '1px solid rgba(230,57,70,0.25)' }}>
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 rounded-full" style={{ background: '#FF3B30' }} />
-              <span className="text-[11px] font-bold uppercase" style={{ color: '#FF3B30' }}>Primary Fix</span>
+              <div className="w-2 h-2 rounded-full" style={{ background: '#E63946' }} />
+              <span className="text-[11px] font-bold uppercase" style={{ color: '#E63946' }}>Primary Fix</span>
             </div>
             <p className="text-base font-bold mb-1" style={{ color: '#fff' }}>{primaryFlag.flag_type?.replace(/_/g, ' ')}</p>
-            <p className="text-[13px] leading-relaxed mb-3" style={{ color: '#B0B8C8' }}>{primaryFlag.message}</p>
+            <p className="text-[13px] leading-relaxed mb-3" style={{ color: '#a0a0a0' }}>{primaryFlag.message}</p>
             <div className="flex flex-wrap gap-1.5">
-              <TagPill label={primaryFlag.severity || 'warning'} color="#FF3B30" />
-              <TagPill label={primaryFlag.pillar || 'body'} color="#FFA000" />
-              {primaryFlag.segment && <TagPill label={primaryFlag.segment} color="#00B4D8" />}
+              <TagPill label={primaryFlag.severity || 'warning'} color="#E63946" />
+              <TagPill label={primaryFlag.pillar || 'body'} color="#ffa500" />
+              {primaryFlag.segment && <TagPill label={primaryFlag.segment} color="#4ecdc4" />}
             </div>
           </div>
         )}
 
         {/* Projected Gain Card */}
         {projections && (
-          <div className="rounded-xl p-4" style={{ background: '#111827', border: '1px solid #1E2535' }}>
-            <p className="text-xs font-semibold uppercase mb-3" style={{ color: '#6B7A8F' }}>Projected Gains</p>
+          <div className="rounded-xl p-4" style={{ background: '#111', border: '1px solid #222' }}>
+            <p className="text-xs font-semibold uppercase mb-3" style={{ color: '#555' }}>Projected Gains</p>
             <div className="grid grid-cols-2 gap-4">
               {projections.projected_bat_speed && (
                 <div>
-                  <p className="text-[11px]" style={{ color: '#6B7A8F' }}>Bat Speed</p>
+                  <p className="text-[11px]" style={{ color: '#555' }}>Bat Speed</p>
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold" style={{ color: '#fff' }}>{projections.current_bat_speed || '—'}</span>
-                    <ArrowRight className="h-3 w-3" style={{ color: '#22C55E' }} />
-                    <span className="text-lg font-bold" style={{ color: '#22C55E' }}>{projections.projected_bat_speed}</span>
+                    <ArrowRight className="h-3 w-3" style={{ color: '#4ecdc4' }} />
+                    <span className="text-lg font-bold" style={{ color: '#4ecdc4' }}>{projections.projected_bat_speed}</span>
                   </div>
                 </div>
               )}
               {projections.projected_exit_velo && (
                 <div>
-                  <p className="text-[11px]" style={{ color: '#6B7A8F' }}>Exit Velo</p>
+                  <p className="text-[11px]" style={{ color: '#555' }}>Exit Velo</p>
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold" style={{ color: '#fff' }}>{projections.current_exit_velo || '—'}</span>
-                    <ArrowRight className="h-3 w-3" style={{ color: '#22C55E' }} />
-                    <span className="text-lg font-bold" style={{ color: '#22C55E' }}>{projections.projected_exit_velo}</span>
+                    <ArrowRight className="h-3 w-3" style={{ color: '#4ecdc4' }} />
+                    <span className="text-lg font-bold" style={{ color: '#4ecdc4' }}>{projections.projected_exit_velo}</span>
                   </div>
                 </div>
               )}
             </div>
-            <p className="text-[11px] mt-2" style={{ color: '#6B7A8F' }}>When primary flag resolves</p>
+            <p className="text-[11px] mt-2" style={{ color: '#555' }}>When primary flag resolves</p>
           </div>
         )}
 
         {/* Today's Session CTA */}
-        <div className="rounded-xl p-4" style={{ background: '#111827', border: '1px solid #1E2535' }}>
-          <div className="flex items-center gap-2 mb-3">
-            <Target className="h-4 w-4" style={{ color: '#FF3B30' }} />
-            <span className="text-xs font-semibold uppercase" style={{ color: '#6B7A8F' }}>Today's Session</span>
+        <div className="rounded-xl p-4" style={{ background: '#111', border: '1px solid #222' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <Target className="h-4 w-4" style={{ color: '#E63946' }} />
+            <span className="text-xs font-semibold uppercase" style={{ color: '#555' }}>Today's Session</span>
           </div>
-          <p className="text-sm mb-4" style={{ color: '#B0B8C8' }}>Your personalized drill plan is ready</p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <TagPill label={`Session ${sessionNum}`} color="#a0a0a0" />
+            <TagPill label={format(new Date(), 'MMM d')} color="#a0a0a0" />
+            {drillCount > 0 && <TagPill label={`${drillCount} drills`} color="#4ecdc4" />}
+          </div>
           <Link
             to="/player/session"
-            className="block w-full text-center py-3 rounded-lg text-sm font-bold text-white"
-            style={{ background: '#FF3B30' }}
+            className="block w-full text-center py-3 rounded-lg text-sm font-bold text-white transition-colors hover:opacity-90"
+            style={{ background: '#E63946' }}
           >
             Start Today's Session
           </Link>
@@ -222,10 +245,10 @@ export default function PlayerHomeDashboard() {
 
         {/* Progress Snapshot */}
         {sessionHistory.length > 0 && (
-          <div className="rounded-xl p-4" style={{ background: '#111827', border: '1px solid #1E2535' }}>
+          <div className="rounded-xl p-4" style={{ background: '#111', border: '1px solid #222' }}>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase" style={{ color: '#6B7A8F' }}>KRS History</span>
-              <Link to="/player/progress" className="text-xs font-semibold flex items-center gap-1" style={{ color: '#FF3B30' }}>
+              <span className="text-xs font-semibold uppercase" style={{ color: '#555' }}>KRS History</span>
+              <Link to="/player/progress" className="text-xs font-semibold flex items-center gap-1" style={{ color: '#E63946' }}>
                 View all <ChevronRight className="h-3 w-3" />
               </Link>
             </div>
