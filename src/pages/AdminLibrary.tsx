@@ -59,36 +59,27 @@ export default function AdminLibrary() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-slate-900 border border-slate-800 p-1">
-            <TabsTrigger 
-              value="videos" 
-              className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2"
-            >
-              <Video className="h-4 w-4" />
-              Videos
-            </TabsTrigger>
-            <TabsTrigger 
-              value="playlists" 
-              className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2"
-            >
-              <ListVideo className="h-4 w-4" />
-              Playlists
-            </TabsTrigger>
-            <TabsTrigger 
-              value="drills" 
-              className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2"
-            >
-              <Dumbbell className="h-4 w-4" />
-              Drills
-            </TabsTrigger>
-            <TabsTrigger 
-              value="programs" 
-              className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2"
-            >
-              <BookOpen className="h-4 w-4" />
-              Programs
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex gap-6 border-b border-border">
+            {[
+              { value: "videos", icon: Video, label: "Videos" },
+              { value: "playlists", icon: ListVideo, label: "Playlists" },
+              { value: "drills", icon: Dumbbell, label: "Drills" },
+              { value: "programs", icon: BookOpen, label: "Programs" },
+            ].map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setActiveTab(tab.value)}
+                className={`flex items-center gap-2 pb-3 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+                  activeTab === tab.value
+                    ? "text-white border-primary"
+                    : "text-[#6B7A8F] border-transparent hover:text-white"
+                }`}
+              >
+                <tab.icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
           <TabsContent value="videos">
             <VideosTab />

@@ -78,10 +78,10 @@ const INVITE_TYPE_LABELS: Record<InviteType, string> = {
 };
 
 const STATUS_CONFIG: Record<InviteStatus, { label: string; variant: string; icon: React.ReactNode }> = {
-  pending: { label: "Pending", variant: "bg-amber-500/20 text-amber-300 border-amber-500/40", icon: <Clock className="h-3 w-3" /> },
-  accepted: { label: "Accepted", variant: "bg-green-500/20 text-green-300 border-green-500/40", icon: <CheckCircle className="h-3 w-3" /> },
-  expired: { label: "Expired", variant: "bg-slate-500/20 text-slate-400 border-slate-500/40", icon: <XCircle className="h-3 w-3" /> },
-  cancelled: { label: "Cancelled", variant: "bg-red-500/20 text-red-400 border-red-500/40", icon: <XCircle className="h-3 w-3" /> },
+  pending: { label: "Pending", variant: "bg-[#FFA000]/20 text-[#FFA000] border-[#FFA000]/40", icon: <Clock className="h-3 w-3" /> },
+  accepted: { label: "Accepted", variant: "bg-[#00B4D8]/20 text-[#00B4D8] border-[#00B4D8]/40", icon: <CheckCircle className="h-3 w-3" /> },
+  expired: { label: "Expired", variant: "bg-[#FF3B30]/20 text-[#FF3B30] border-[#FF3B30]/40", icon: <XCircle className="h-3 w-3" /> },
+  cancelled: { label: "Cancelled", variant: "bg-[#FF3B30]/20 text-[#FF3B30] border-[#FF3B30]/40", icon: <XCircle className="h-3 w-3" /> },
 };
 
 export default function AdminInvites() {
@@ -243,28 +243,28 @@ export default function AdminInvites() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-white">{stats.total}</div>
-              <div className="text-xs text-slate-400">Total Invites</div>
+              <div className="text-xs text-caption">Total Invites</div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-amber-400">{stats.pending}</div>
-              <div className="text-xs text-slate-400">Pending</div>
+              <div className="text-2xl font-bold text-white">{stats.pending}</div>
+              <div className="text-xs text-caption">Pending</div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-green-400">{stats.accepted}</div>
-              <div className="text-xs text-slate-400">Accepted</div>
+              <div className="text-2xl font-bold text-white">{stats.accepted}</div>
+              <div className="text-xs text-caption">Accepted</div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-slate-500">{stats.expired}</div>
-              <div className="text-xs text-slate-400">Expired</div>
+              <div className="text-2xl font-bold text-white">{stats.expired}</div>
+              <div className="text-xs text-caption">Expired</div>
             </CardContent>
           </Card>
         </div>
@@ -366,7 +366,7 @@ export default function AdminInvites() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="bg-slate-700 text-white font-medium border border-slate-600">
+                      <Badge variant="secondary" className="bg-[#1E2535] text-[#B0B8C8] font-medium border-0 rounded-md">
                         {INVITE_TYPE_LABELS[invite.invite_type]}
                       </Badge>
                     </TableCell>

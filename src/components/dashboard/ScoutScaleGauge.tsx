@@ -1,9 +1,11 @@
 /**
- * Scout Scale Gauge - 20-80 circular gauge with glowing red border
+ * Scout Scale Gauge - 20-80 circular gauge
  * Used for displaying 4B scores (Brain, Body, Bat, Ball)
+ * Uses shared scoreColor utility for brand consistency
  */
 import { cn } from "@/lib/utils";
 import { Brain, Activity, Zap, Target, LucideIcon } from "lucide-react";
+import { scoreColor } from "@/lib/player-utils";
 
 interface ScoutScaleGaugeProps {
   score: number | null;
@@ -20,22 +22,10 @@ const sizeConfig = {
 };
 
 function getScoreGrade(score: number): string {
-  if (score >= 70) return "Plus-Plus";
-  if (score >= 60) return "Plus";
-  if (score >= 55) return "Above Avg";
-  if (score >= 50) return "Average";
-  if (score >= 45) return "Below Avg";
-  if (score >= 40) return "Fringe";
-  return "Well Below";
-}
-
-function getScoreColor(score: number): string {
-  if (score >= 70) return "#14b8a6"; // teal-500
-  if (score >= 60) return "#2dd4bf"; // teal-400
-  if (score >= 55) return "#3b82f6"; // blue-500
-  if (score >= 50) return "#64748b"; // slate-500
-  if (score >= 45) return "#f97316"; // orange-500
-  return "#DC2626"; // red-600
+  if (score >= 85) return "Elite";
+  if (score >= 70) return "Good";
+  if (score >= 50) return "Developing";
+  return "Needs Work";
 }
 
 export function ScoutScaleGauge({ 
@@ -49,12 +39,11 @@ export function ScoutScaleGauge({
   const radius = (config.size - config.strokeWidth) / 2 - 4;
   const circumference = radius * 2 * Math.PI;
   
-  // Convert 20-80 scale to percentage (0-100)
   const displayScore = score ?? 50;
   const percentage = Math.max(0, Math.min(100, ((displayScore - 20) / 60) * 100));
   const offset = circumference - (percentage / 100) * circumference;
   
-  const strokeColor = score !== null ? getScoreColor(displayScore) : "#64748b";
+  const strokeColorValue = scoreColor(score);
   const grade = score !== null ? getScoreGrade(displayScore) : "—";
 
   return (
@@ -64,41 +53,32 @@ export function ScoutScaleGauge({
         style={{ 
           width: config.size, 
           height: config.size,
-          filter: `drop-shadow(0 0 12px rgba(220, 38, 38, 0.4))`,
+          filter: `drop-shadow(0 0 12px ${strokeColorValue}40)`,
         }}
       >
-        {/* Outer glow ring */}
-        <div 
-          className="absolute inset-0 rounded-full"
-          style={{
-            background: `radial-gradient(circle, transparent 50%, rgba(220, 38, 38, 0.15) 100%)`,
-          }}
-        />
-        
         <svg
           width={config.size}
           height={config.size}
           className="transform -rotate-90"
         >
-          {/* Background circle with red glow border */}
+          {/* Background circle */}
           <circle
             cx={config.size / 2}
             cy={config.size / 2}
             r={radius}
             fill="none"
-            stroke="#1e1e1e"
+            stroke="#1E2535"
             strokeWidth={config.strokeWidth}
-            className="opacity-80"
           />
-          {/* Red glow border */}
+          {/* Outer border ring */}
           <circle
             cx={config.size / 2}
             cy={config.size / 2}
             r={radius + config.strokeWidth / 2 + 2}
             fill="none"
-            stroke="#DC2626"
+            stroke={strokeColorValue}
             strokeWidth={1.5}
-            strokeOpacity={0.6}
+            strokeOpacity={0.4}
           />
           {/* Progress circle */}
           <circle
@@ -106,7 +86,7 @@ export function ScoutScaleGauge({
             cy={config.size / 2}
             r={radius}
             fill="none"
-            stroke={strokeColor}
+            stroke={strokeColorValue}
             strokeWidth={config.strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}
@@ -120,7 +100,7 @@ export function ScoutScaleGauge({
           <span className={cn("font-black text-white", config.textSize)}>
             {score !== null ? Math.round(score) : "—"}
           </span>
-          <span className={cn("text-slate-400 font-medium", config.labelSize)}>
+          <span className={cn("font-medium", config.labelSize)} style={{ color: strokeColorValue }}>
             {grade}
           </span>
         </div>
@@ -128,7 +108,7 @@ export function ScoutScaleGauge({
       
       {/* Label with icon */}
       <div className="flex items-center gap-1.5 mt-3">
-        {Icon && <Icon className={cn("text-[#DC2626]", config.iconSize)} />}
+        {Icon && <Icon className={cn(config.iconSize)} style={{ color: strokeColorValue }} />}
         <span className={cn("font-bold uppercase tracking-wider text-white", config.labelSize)}>
           {label}
         </span>

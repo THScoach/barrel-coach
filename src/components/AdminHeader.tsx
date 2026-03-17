@@ -42,7 +42,6 @@ export function AdminHeader() {
         <div className="flex items-center gap-8">
           <Link to="/admin" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
             <Logo size="md" />
-            <span className="hidden md:inline font-bold text-slate-50 text-lg tracking-tight">Rick Lab</span>
           </Link>
           
           {/* Desktop Nav - high contrast text */}
@@ -54,7 +53,7 @@ export function AdminHeader() {
                 className={cn(
                   "px-4 py-2 rounded-lg text-sm font-semibold transition-all min-h-[44px] flex items-center gap-1.5",
                   isActive(link.to)
-                    ? "bg-gradient-to-r from-red-600 to-orange-500 text-white shadow-lg shadow-red-900/30"
+                    ? "bg-primary text-white shadow-lg shadow-primary/30"
                     : "text-slate-200 hover:text-white hover:bg-slate-800"
                 )}
               >
@@ -70,7 +69,7 @@ export function AdminHeader() {
           <Button 
             size="sm" 
             onClick={() => setShowPlayerPicker(true)}
-            className="gap-2 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white font-semibold min-h-[44px] px-4 shadow-lg shadow-red-900/30"
+            className="gap-2 bg-primary hover:bg-primary/90 text-white font-semibold min-h-[44px] px-4 shadow-lg shadow-primary/30"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">New Session</span>

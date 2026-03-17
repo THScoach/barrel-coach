@@ -299,7 +299,7 @@ export default function AdminDashboard() {
           <div className="flex flex-wrap gap-2 md:gap-3">
             <Button
               onClick={() => navigate("/admin/analyzer")}
-              className="bg-[#DC2626] hover:bg-[#DC2626]/90 text-white"
+              className="bg-primary hover:bg-primary/90 text-white"
             >
               <Upload className="h-4 w-4 mr-2" />
               Analyze Session
@@ -307,7 +307,7 @@ export default function AdminDashboard() {
             <Button
               onClick={() => navigate("/admin/players/new")}
               variant="outline"
-              className="border-[#DC2626]/50 text-white hover:bg-[#DC2626]/20"
+              className="border-primary text-primary hover:bg-primary/10"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Player
@@ -315,7 +315,7 @@ export default function AdminDashboard() {
             <Button
               onClick={() => navigate("/admin/messages")}
               variant="outline"
-              className="border-[#DC2626]/50 text-white hover:bg-[#DC2626]/20"
+              className="border-primary text-primary hover:bg-primary/10"
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Send Message</span>
@@ -324,7 +324,7 @@ export default function AdminDashboard() {
             <Button
               onClick={() => navigate("/admin/report-queue")}
               variant="outline"
-              className="border-[#DC2626]/50 text-white hover:bg-[#DC2626]/20"
+              className="border-primary text-primary hover:bg-primary/10"
             >
               <FileCheck className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Report Queue</span>

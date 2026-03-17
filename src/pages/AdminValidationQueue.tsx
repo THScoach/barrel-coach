@@ -53,17 +53,17 @@ interface PendingSwing {
 
 const getScoreColor = (score: number | null): string => {
   if (score === null) return "bg-muted text-muted-foreground";
-  if (score >= 70) return "bg-green-500/20 text-green-400";
-  if (score >= 55) return "bg-blue-500/20 text-blue-400";
-  if (score >= 45) return "bg-yellow-500/20 text-yellow-400";
-  return "bg-red-500/20 text-red-400";
+  if (score >= 85) return "bg-[#22C55E]/20 text-[#22C55E]";
+  if (score >= 70) return "bg-[#00B4D8]/20 text-[#00B4D8]";
+  if (score >= 50) return "bg-[#FFA000]/20 text-[#FFA000]";
+  return "bg-[#FF3B30]/20 text-[#FF3B30]";
 };
 
 const getConfidenceBadge = (frameRate: number | null) => {
   if (!frameRate) return <Badge variant="outline" className="text-xs">Unknown FPS</Badge>;
-  if (frameRate >= 120) return <Badge className="bg-green-500/20 text-green-400 text-xs">High ({frameRate} fps)</Badge>;
-  if (frameRate >= 60) return <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Medium ({frameRate} fps)</Badge>;
-  return <Badge className="bg-red-500/20 text-red-400 text-xs">Low ({frameRate} fps)</Badge>;
+  if (frameRate >= 120) return <Badge className="bg-[#00B4D8]/20 text-[#00B4D8] border-0 rounded-md text-xs">High ({frameRate} fps)</Badge>;
+  if (frameRate >= 60) return <Badge className="bg-[#FFA000]/20 text-[#FFA000] border-0 rounded-md text-xs">Medium ({frameRate} fps)</Badge>;
+  return <Badge className="bg-[#FF3B30]/20 text-[#FF3B30] border-0 rounded-md text-xs">Low ({frameRate} fps)</Badge>;
 };
 
 export default function AdminValidationQueue() {
@@ -330,14 +330,13 @@ export default function AdminValidationQueue() {
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant="outline"
-                          className={
+                          className={`border-0 rounded-md font-medium ${
                             swing.status === "pending_validation"
-                              ? "border-yellow-500 text-yellow-400"
+                              ? "bg-[#FFA000]/20 text-[#FFA000]"
                               : swing.status === "analyzed"
-                              ? "border-blue-500 text-blue-400"
-                              : "border-slate-500 text-slate-400"
-                          }
+                              ? "bg-[#00B4D8]/20 text-[#00B4D8]"
+                              : "bg-[#1E2535] text-[#B0B8C8]"
+                          }`}
                         >
                           {swing.status === "pending_validation" ? "Pending" : swing.status}
                         </Badge>
