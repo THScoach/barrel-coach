@@ -76,7 +76,7 @@ interface FullPlayerContext {
 async function loadFullPlayerContext(supabase: any, playerId: string): Promise<FullPlayerContext | null> {
   try {
     // Run all queries in parallel for speed
-    const [playerRes, sessionsRes, drillsRes, notesRes, stackRes, blastRes] = await Promise.all([
+    const [playerRes, sessionsRes, drillsRes, notesRes, stackRes, blastRes, biomechRes] = await Promise.all([
       // Player basic info
       supabase
         .from("players")
@@ -124,6 +124,15 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         .order("recorded_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+
+      // Latest biomech interpretation
+      supabase
+        .from("hitting_4b_krs_sessions")
+        .select("weakest_b, main_constraint, krs_score, summary_coach_text, has_sequence_issue, has_momentum_issue, has_plane_issue, has_range_usage_issue, has_balance_stability_issue, focus_next_bp, recommended_cues")
+        .eq("player_id", playerId)
+        .order("session_date", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     const player = playerRes.data;
@@ -131,6 +140,7 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
 
     const sessions = sessionsRes.data || [];
     const latestSession = sessions[0] || null;
+    const biomechData = biomechRes.data;
 
     return {
       name: player.name || "Player",
