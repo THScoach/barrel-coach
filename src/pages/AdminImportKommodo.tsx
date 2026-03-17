@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Download, Loader2, RefreshCw, Check, X, Video } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AdminHeader } from "@/components/AdminHeader";
+import { supabase } from "@/integrations/supabase/client";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -42,7 +43,15 @@ export default function AdminImportKommodo() {
     setLoading(true);
     setImportResults([]);
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/kommodo-import?action=list`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos?action=kommodo-list`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        }
+      });
       
       if (!res.ok) {
         const error = await res.json();
@@ -95,9 +104,16 @@ export default function AdminImportKommodo() {
     setImportResults([]);
     
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/kommodo-import?action=import`, {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos?action=kommodo-import`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
         body: JSON.stringify({
           recording_ids: Array.from(selectedIds),
           auto_publish: autoPublish
