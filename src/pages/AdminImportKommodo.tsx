@@ -214,7 +214,7 @@ export default function AdminImportKommodo() {
                           <TableRow className="border-slate-800 hover:bg-transparent">
                             <TableHead className="text-slate-400">Recording</TableHead>
                             <TableHead className="text-slate-400">Date</TableHead>
-                            <TableHead className="text-slate-400">Duration</TableHead>
+                            <TableHead className="text-slate-400">Resolution</TableHead>
                             <TableHead className="text-slate-400 min-w-[200px]">Link to Player</TableHead>
                             <TableHead className="text-slate-400 w-[100px]">Action</TableHead>
                           </TableRow>
@@ -231,10 +231,10 @@ export default function AdminImportKommodo() {
                                 </div>
                               </TableCell>
                               <TableCell className="text-slate-400 text-sm">
-                                {rec.created_at ? new Date(rec.created_at).toLocaleDateString() : '--'}
+                                {(rec.createdAt || rec.created_at) ? new Date(rec.createdAt || rec.created_at).toLocaleDateString() : '--'}
                               </TableCell>
                               <TableCell className="text-slate-400 text-sm">
-                                {formatDuration(rec.duration || rec.duration_seconds)}
+                                {rec.width && rec.height ? `${rec.width}×${rec.height}` : formatDuration(rec.duration || rec.duration_seconds)}
                               </TableCell>
                               <TableCell>
                                 <Select
