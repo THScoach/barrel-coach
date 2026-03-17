@@ -257,3 +257,6 @@ verify_jwt = false
 
 [functions.merge-player-accounts]
 verify_jwt = false
+
+[functions.kommodo-import]
+verify_jwt = false
