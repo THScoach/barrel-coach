@@ -1,14 +1,18 @@
 /**
  * Biomech Tab — Lists hitting_4b_krs_sessions with expandable detail view
+ * Includes Coach Barrels diagnostic trigger + question/answer loop
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { EmptyState } from "@/components/player-v2/EmptyState";
 import { TagPill } from "@/components/player-v2/TagPill";
 import { scoreColor } from "@/lib/player-utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Activity, ChevronRight, ChevronLeft, CheckCircle2, XCircle, Zap, Target, Brain } from "lucide-react";
+import { Activity, ChevronRight, ChevronLeft, CheckCircle2, XCircle, Zap, Target, Brain, Loader2, MessageSquare, Send } from "lucide-react";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 interface BiomechSession {
   id: string;
@@ -49,21 +53,20 @@ export function BiomechTab({ playerId }: { playerId: string | null }) {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchSessions = useCallback(async () => {
     if (!playerId) { setLoading(false); return; }
-    const fetchSessions = async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from("hitting_4b_krs_sessions")
-        .select("id, session_date, krs_score, body_score, brain_score, bat_score, ball_score, weakest_b, main_constraint, secondary_constraint, has_sequence_issue, has_momentum_issue, has_plane_issue, has_range_usage_issue, has_balance_stability_issue, summary_player_text, summary_coach_text, focus_next_bp, recommended_cues, recommended_drills, coach_barrels_classification, coach_barrels_prescription, coach_barrels_voice_sample")
-        .eq("player_id", playerId)
-        .order("session_date", { ascending: false })
-        .limit(50);
-      if (data) setSessions(data as unknown as BiomechSession[]);
-      setLoading(false);
-    };
-    fetchSessions();
+    setLoading(true);
+    const { data } = await supabase
+      .from("hitting_4b_krs_sessions")
+      .select("id, session_date, krs_score, body_score, brain_score, bat_score, ball_score, weakest_b, main_constraint, secondary_constraint, has_sequence_issue, has_momentum_issue, has_plane_issue, has_range_usage_issue, has_balance_stability_issue, summary_player_text, summary_coach_text, focus_next_bp, recommended_cues, recommended_drills, coach_barrels_classification, coach_barrels_prescription, coach_barrels_voice_sample")
+      .eq("player_id", playerId)
+      .order("session_date", { ascending: false })
+      .limit(50);
+    if (data) setSessions(data as unknown as BiomechSession[]);
+    setLoading(false);
   }, [playerId]);
+
+  useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
   if (loading) {
     return (
@@ -90,7 +93,13 @@ export function BiomechTab({ playerId }: { playerId: string | null }) {
   const selected = selectedId ? sessions.find(s => s.id === selectedId) : null;
 
   if (selected) {
-    return <BiomechDetail session={selected} onBack={() => setSelectedId(null)} />;
+    return (
+      <BiomechDetail
+        session={selected}
+        onBack={() => setSelectedId(null)}
+        onRefresh={fetchSessions}
+      />
+    );
   }
 
   return (
@@ -109,16 +118,13 @@ export function BiomechTab({ playerId }: { playerId: string | null }) {
               </p>
               <div className="flex gap-2 mt-1.5 flex-wrap">
                 {s.weakest_b && (
-                  <TagPill
-                    label={`Weakest: ${s.weakest_b.toUpperCase()}`}
-                    color="#FF3B30"
-                  />
+                  <TagPill label={`Weakest: ${s.weakest_b.toUpperCase()}`} color="#FF3B30" />
                 )}
                 {s.main_constraint && (
-                  <TagPill
-                    label={s.main_constraint.replace(/_/g, ' ')}
-                    color="#FFA000"
-                  />
+                  <TagPill label={s.main_constraint.replace(/_/g, ' ')} color="#FFA000" />
+                )}
+                {s.coach_barrels_voice_sample && (
+                  <TagPill label="🛢️ Coach Barrels" color="#F59E0B" />
                 )}
               </div>
             </div>
@@ -140,7 +146,25 @@ export function BiomechTab({ playerId }: { playerId: string | null }) {
 
 // ─── Detail View ─────────────────────────────────────────────────────────────
 
-function BiomechDetail({ session: s, onBack }: { session: BiomechSession; onBack: () => void }) {
+function BiomechDetail({
+  session: s,
+  onBack,
+  onRefresh,
+}: {
+  session: BiomechSession;
+  onBack: () => void;
+  onRefresh: () => void;
+}) {
+  const [running, setRunning] = useState(false);
+  const [barrelsResult, setBarrelsResult] = useState<any>(null);
+  const [questionState, setQuestionState] = useState<{
+    flag_id: string;
+    question_text: string;
+    voice_sample: string;
+  } | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [submittingAnswer, setSubmittingAnswer] = useState(false);
+
   const pillars = [
     { label: 'BODY', score: s.body_score },
     { label: 'BRAIN', score: s.brain_score },
@@ -154,17 +178,103 @@ function BiomechDetail({ session: s, onBack }: { session: BiomechSession; onBack
     active: (s as any)[key] === true,
   }));
 
+  const activeFlags = flagEntries.filter(f => f.active);
   const cues: string[] = Array.isArray(s.recommended_cues) ? s.recommended_cues : [];
   const drills: any[] = Array.isArray(s.recommended_drills) ? s.recommended_drills : [];
+
+  const hasCoachBarrels = !!s.coach_barrels_voice_sample;
+  const hasActiveFlags = activeFlags.length > 0;
+
+  // Build active_flags object for the API
+  const activeFlagsObj: Record<string, boolean> = {};
+  flagEntries.forEach(f => { activeFlagsObj[f.key] = f.active; });
+
+  const runCoachBarrels = async () => {
+    setRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('coach-barrels-diagnostic', {
+        body: {
+          player_id: (s as any).player_id || undefined,
+          krs_session_id: s.id,
+          active_flags: activeFlagsObj,
+          player_scores: {
+            body_score: s.body_score,
+            brain_score: s.brain_score,
+            bat_score: s.bat_score,
+            ball_score: s.ball_score,
+            krs_score: s.krs_score,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      const result = data?.data;
+      if (!result) throw new Error("No result returned");
+
+      setBarrelsResult(result);
+
+      if (result.response_type === "question" && result.question) {
+        setQuestionState({
+          flag_id: result.question.flag_id,
+          question_text: result.question.text,
+          voice_sample: result.voice_sample,
+        });
+      } else {
+        // Classification or prescription — refresh the session data
+        toast.success("Coach Barrels analysis complete");
+        onRefresh();
+      }
+    } catch (err: any) {
+      console.error("Coach Barrels error:", err);
+      toast.error(err.message || "Coach Barrels analysis failed");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const submitAnswer = async () => {
+    if (!questionState || !answer.trim()) return;
+    setSubmittingAnswer(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('coach-barrels-diagnostic', {
+        body: {
+          player_id: (s as any).player_id || undefined,
+          krs_session_id: s.id,
+          active_flags: activeFlagsObj,
+          player_scores: {
+            body_score: s.body_score,
+            brain_score: s.brain_score,
+            bat_score: s.bat_score,
+            ball_score: s.ball_score,
+            krs_score: s.krs_score,
+          },
+          player_response: {
+            flag_id: questionState.flag_id,
+            answer: answer.trim(),
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      setBarrelsResult(data?.data);
+      setQuestionState(null);
+      setAnswer("");
+      toast.success("Coach Barrels prescription generated");
+      onRefresh();
+    } catch (err: any) {
+      console.error("Coach Barrels answer error:", err);
+      toast.error(err.message || "Failed to submit answer");
+    } finally {
+      setSubmittingAnswer(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
       {/* Back button */}
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1 text-sm font-semibold"
-        style={{ color: '#FF3B30' }}
-      >
+      <button onClick={onBack} className="flex items-center gap-1 text-sm font-semibold" style={{ color: '#FF3B30' }}>
         <ChevronLeft className="h-4 w-4" /> All Reports
       </button>
 
@@ -188,7 +298,7 @@ function BiomechDetail({ session: s, onBack }: { session: BiomechSession; onBack
         </div>
       </div>
 
-      {/* Player Summary — prominent */}
+      {/* Player Summary */}
       {s.summary_player_text && (
         <div className="rounded-xl p-4" style={{ background: '#0F1D2E', border: '1px solid #1A3550' }}>
           <p className="text-xs font-semibold uppercase mb-2" style={{ color: '#00B4D8' }}>Your Report</p>
@@ -231,16 +341,9 @@ function BiomechDetail({ session: s, onBack }: { session: BiomechSession; onBack
                 className="flex items-center gap-3 rounded-lg p-3"
                 style={{ background: '#111827', border: '1px solid #1E2535' }}
               >
-                <Icon
-                  className="h-5 w-5 flex-shrink-0"
-                  style={{ color: f.active ? '#FF3B30' : '#22C55E' }}
-                />
-                <p className="text-sm font-semibold" style={{ color: f.active ? '#FF3B30' : '#22C55E' }}>
-                  {f.label}
-                </p>
-                <p className="text-xs ml-auto" style={{ color: '#6B7A8F' }}>
-                  {f.active ? 'Issue detected' : 'Looks good'}
-                </p>
+                <Icon className="h-5 w-5 flex-shrink-0" style={{ color: f.active ? '#FF3B30' : '#22C55E' }} />
+                <p className="text-sm font-semibold" style={{ color: f.active ? '#FF3B30' : '#22C55E' }}>{f.label}</p>
+                <p className="text-xs ml-auto" style={{ color: '#6B7A8F' }}>{f.active ? 'Issue detected' : 'Looks good'}</p>
               </div>
             );
           })}
@@ -254,25 +357,59 @@ function BiomechDetail({ session: s, onBack }: { session: BiomechSession; onBack
           {s.main_constraint && (
             <div className="flex items-center gap-2 mb-1">
               <span className="w-2 h-2 rounded-full" style={{ background: '#FF3B30' }} />
-              <p className="text-sm font-semibold" style={{ color: '#fff' }}>
-                {s.main_constraint.replace(/_/g, ' ')}
-              </p>
+              <p className="text-sm font-semibold" style={{ color: '#fff' }}>{s.main_constraint.replace(/_/g, ' ')}</p>
               <TagPill label="Primary" color="#FF3B30" />
             </div>
           )}
           {s.secondary_constraint && (
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full" style={{ background: '#FFA000' }} />
-              <p className="text-sm" style={{ color: '#B0B8C8' }}>
-                {s.secondary_constraint.replace(/_/g, ' ')}
-              </p>
+              <p className="text-sm" style={{ color: '#B0B8C8' }}>{s.secondary_constraint.replace(/_/g, ' ')}</p>
               <TagPill label="Secondary" color="#FFA000" />
             </div>
           )}
         </div>
       )}
 
-      {/* Coach Barrels Insight */}
+      {/* ═══ Coach Barrels Section ═══ */}
+      
+      {/* Diagnostic Question Loop */}
+      {questionState && (
+        <div className="rounded-xl p-4 space-y-3" style={{ background: '#1A1508', border: '1px solid #3D3510' }}>
+          <div className="flex items-center gap-2">
+            <span className="text-base">🛢️</span>
+            <p className="text-xs font-semibold uppercase" style={{ color: '#F59E0B' }}>Coach Barrels has a question</p>
+          </div>
+          <p className="text-sm leading-relaxed" style={{ color: '#E2E8F0' }}>{questionState.voice_sample}</p>
+          <div className="rounded-lg p-3" style={{ background: '#111827', border: '1px solid #1E2535' }}>
+            <p className="text-xs font-semibold mb-2" style={{ color: '#F59E0B' }}>
+              <MessageSquare className="h-3 w-3 inline mr-1" />
+              Answer this:
+            </p>
+            <p className="text-sm mb-3 italic" style={{ color: '#B0B8C8' }}>"{questionState.question_text}"</p>
+            <Textarea
+              value={answer}
+              onChange={e => setAnswer(e.target.value)}
+              placeholder="Type your answer..."
+              className="min-h-[80px] text-sm border-slate-700 bg-slate-900 text-white placeholder:text-slate-500"
+            />
+            <Button
+              onClick={submitAnswer}
+              disabled={submittingAnswer || !answer.trim()}
+              className="mt-2 bg-amber-600 hover:bg-amber-700 text-white"
+              size="sm"
+            >
+              {submittingAnswer ? (
+                <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Classifying...</>
+              ) : (
+                <><Send className="h-3 w-3 mr-1" /> Submit Answer</>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Existing Coach Barrels Results */}
       {s.coach_barrels_voice_sample && (
         <div className="rounded-xl p-4" style={{ background: '#0D1520', border: '1px solid #1A3050' }}>
           <div className="flex items-center gap-2 mb-2">
@@ -314,6 +451,39 @@ function BiomechDetail({ session: s, onBack }: { session: BiomechSession; onBack
             </div>
           )}
         </div>
+      )}
+
+      {/* Run Coach Barrels button — show if active flags exist and no analysis yet */}
+      {hasActiveFlags && !hasCoachBarrels && !questionState && (
+        <Button
+          onClick={runCoachBarrels}
+          disabled={running}
+          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold"
+          size="lg"
+        >
+          {running ? (
+            <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Running Coach Barrels...</>
+          ) : (
+            <>🛢️ Run Coach Barrels Diagnostic</>
+          )}
+        </Button>
+      )}
+
+      {/* Re-run option if analysis already exists */}
+      {hasActiveFlags && hasCoachBarrels && !questionState && (
+        <Button
+          onClick={runCoachBarrels}
+          disabled={running}
+          variant="outline"
+          className="w-full border-amber-700 text-amber-400 hover:bg-amber-900/20"
+          size="sm"
+        >
+          {running ? (
+            <><Loader2 className="h-3 w-3 animate-spin mr-2" /> Re-analyzing...</>
+          ) : (
+            <>🛢️ Re-run Coach Barrels</>
+          )}
+        </Button>
       )}
 
       {/* Focus for Next BP */}
