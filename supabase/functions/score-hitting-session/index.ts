@@ -344,7 +344,35 @@ serve(async (req) => {
       });
     }
 
-    // 10. Post locker_room_messages
+    // 10. Auto-trigger Coach Barrels diagnostic (fire-and-forget)
+    const coachBarrelsPayload = {
+      player_id: ps.player_id,
+      krs_session_id: inserted.id,
+      reboot_session_id: ps.reboot_session_id || null,
+      active_flags: flags,
+      motor_profile: ps.motor_profile_sensor || null,
+      player_scores: {
+        body_score: ps.body_score,
+        brain_score: ps.brain_score,
+        bat_score: ps.bat_score,
+        ball_score: ps.ball_score,
+        krs_score: insertPayload.krs_score,
+      },
+    };
+
+    // Call Coach Barrels in the background — don't block the response
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    fetch(`${supabaseUrl}/functions/v1/coach-barrels-diagnostic`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(coachBarrelsPayload),
+    }).catch(err => console.error("[Coach Barrels auto-trigger] Error:", err));
+
+    // 11. Post locker_room_messages
     const flagSummary = {
       weakest_b: weakestB,
       main_constraint: mainConstraint,
@@ -363,7 +391,7 @@ serve(async (req) => {
       four_b_context: flagSummary,
       drill_links: recommendedDrills,
       trigger_reason: "reboot_session_scored",
-      session_id: null, // not linked to old sessions table
+      session_id: null,
     });
 
     return new Response(JSON.stringify({
@@ -373,6 +401,7 @@ serve(async (req) => {
       main_constraint: mainConstraint,
       flags,
       krs_score: insertPayload.krs_score,
+      coach_barrels_triggered: true,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
