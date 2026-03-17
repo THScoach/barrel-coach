@@ -183,6 +183,19 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         })),
       stackData: stackRes.data || null,
       blastData: blastRes.data || null,
+      biomech: biomechData ? {
+        weakestB: biomechData.weakest_b,
+        mainConstraint: biomechData.main_constraint,
+        krsScore: biomechData.krs_score,
+        summaryCoachText: biomechData.summary_coach_text,
+        hasSequenceIssue: biomechData.has_sequence_issue,
+        hasMomentumIssue: biomechData.has_momentum_issue,
+        hasPlaneIssue: biomechData.has_plane_issue,
+        hasRangeUsageIssue: biomechData.has_range_usage_issue,
+        hasBalanceStabilityIssue: biomechData.has_balance_stability_issue,
+        focusNextBp: biomechData.focus_next_bp,
+        recommendedCues: biomechData.recommended_cues,
+      } : null,
     };
   } catch (err) {
     console.error("[ContextLoader] Error loading player context:", err);
