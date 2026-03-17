@@ -1630,6 +1630,125 @@ export type Database = {
           },
         ]
       }
+      hitting_4b_krs_sessions: {
+        Row: {
+          ball_score: number | null
+          bat_score: number | null
+          body_score: number | null
+          brain_score: number | null
+          created_at: string | null
+          focus_next_bp: string | null
+          formula_inputs: Json | null
+          formula_version: string | null
+          has_balance_stability_issue: boolean | null
+          has_momentum_issue: boolean | null
+          has_plane_issue: boolean | null
+          has_range_usage_issue: boolean | null
+          has_sequence_issue: boolean | null
+          id: string
+          krs_score: number | null
+          main_constraint: string | null
+          player_id: string
+          player_session_id: string
+          reboot_session_id: string | null
+          recommended_cues: Json | null
+          recommended_drills: Json | null
+          secondary_constraint: string | null
+          session_date: string
+          summary_coach_text: string | null
+          summary_player_text: string | null
+          updated_at: string | null
+          weakest_b: string | null
+        }
+        Insert: {
+          ball_score?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          created_at?: string | null
+          focus_next_bp?: string | null
+          formula_inputs?: Json | null
+          formula_version?: string | null
+          has_balance_stability_issue?: boolean | null
+          has_momentum_issue?: boolean | null
+          has_plane_issue?: boolean | null
+          has_range_usage_issue?: boolean | null
+          has_sequence_issue?: boolean | null
+          id?: string
+          krs_score?: number | null
+          main_constraint?: string | null
+          player_id: string
+          player_session_id: string
+          reboot_session_id?: string | null
+          recommended_cues?: Json | null
+          recommended_drills?: Json | null
+          secondary_constraint?: string | null
+          session_date: string
+          summary_coach_text?: string | null
+          summary_player_text?: string | null
+          updated_at?: string | null
+          weakest_b?: string | null
+        }
+        Update: {
+          ball_score?: number | null
+          bat_score?: number | null
+          body_score?: number | null
+          brain_score?: number | null
+          created_at?: string | null
+          focus_next_bp?: string | null
+          formula_inputs?: Json | null
+          formula_version?: string | null
+          has_balance_stability_issue?: boolean | null
+          has_momentum_issue?: boolean | null
+          has_plane_issue?: boolean | null
+          has_range_usage_issue?: boolean | null
+          has_sequence_issue?: boolean | null
+          id?: string
+          krs_score?: number | null
+          main_constraint?: string | null
+          player_id?: string
+          player_session_id?: string
+          reboot_session_id?: string | null
+          recommended_cues?: Json | null
+          recommended_drills?: Json | null
+          secondary_constraint?: string | null
+          session_date?: string
+          summary_coach_text?: string | null
+          summary_player_text?: string | null
+          updated_at?: string | null
+          weakest_b?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hitting_4b_krs_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hitting_4b_krs_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hitting_4b_krs_sessions_player_session_id_fkey"
+            columns: ["player_session_id"]
+            isOneToOne: false
+            referencedRelation: "player_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hitting_4b_krs_sessions_player_session_id_fkey"
+            columns: ["player_session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions_pending_v2_scoring"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       hittrax_sessions: {
         Row: {
           avg_distance: number | null
