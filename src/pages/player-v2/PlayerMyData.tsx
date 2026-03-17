@@ -251,6 +251,10 @@ export default function PlayerMyData() {
         {activeTab === 'video' && (
           <VideoTab playerId={player?.id ?? null} sessionIdParam={searchParams.get('session')} />
         )}
+
+        {activeTab === 'biomech' && (
+          <BiomechTab playerId={player?.id ?? null} />
+        )}
       </main>
 
       <PlayerBottomNav />
