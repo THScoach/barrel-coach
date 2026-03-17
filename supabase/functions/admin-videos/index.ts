@@ -344,7 +344,7 @@ serve(async (req) => {
         let recordingsFound = 0, recordingsLinked = 0, recordingsUnlinked = 0
 
         try {
-          const allRecs = await kommodoFetch('/v1/recordings', kommodoApiKey, { per_page: '100' })
+          const allRecs = await kommodoFetch('/v1/recordings', kommodoApiKey, { pageSize: '100' })
           const recordings = allRecs.recordings || allRecs.data || allRecs || []
           recordingsFound = recordings.length
 
