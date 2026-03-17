@@ -133,6 +133,97 @@ serve(async (req) => {
       }
     }
 
+    // Kommodo: import recordings
+    if (req.method === 'POST') {
+      const url2 = new URL(req.url)
+      const action = url2.searchParams.get('action')
+      
+      if (action === 'kommodo-import') {
+        const kommodoApiKey = Deno.env.get('KOMMODO_API_KEY')
+        if (!kommodoApiKey) throw new Error('KOMMODO_API_KEY not configured')
+
+        const { recording_ids, auto_publish = false } = await req.json()
+        if (!recording_ids || !Array.isArray(recording_ids)) throw new Error('recording_ids array required')
+
+        console.log('Importing recordings to permanent storage:', recording_ids)
+        const results: { id: string; success: boolean; error?: string; video_id?: string }[] = []
+
+        for (const recordingId of recording_ids) {
+          try {
+            const response = await fetch(`https://api.komododecks.com/v1/recordings/${recordingId}`, {
+              headers: { 'Authorization': `Bearer ${kommodoApiKey}` }
+            })
+            if (!response.ok) throw new Error(`Failed to fetch recording: ${response.status}`)
+
+            const recording = await response.json()
+            const videoUrl = recording.urls?.video || recording.urls?.page || recording.video_url || recording.playback_url || recording.url
+            const transcriptUrl = recording.urls?.transcript || null
+            const title = recording.title || recording.name || `Imported ${recordingId}`
+            const duration = recording.duration || recording.duration_seconds || 0
+
+            if (!videoUrl) throw new Error('No video URL found in recording')
+
+            const fileHash = await hashString(videoUrl + recordingId)
+            const { data: existing } = await supabase.rpc('check_academy_video_duplicate', { p_file_hash: fileHash })
+            if (existing && existing.length > 0) {
+              results.push({ id: recordingId, success: false, error: `Already imported as "${existing[0].title}"` })
+              continue
+            }
+
+            let transcript = ''
+            if (transcriptUrl) {
+              try {
+                const vttResponse = await fetch(transcriptUrl)
+                if (vttResponse.ok) {
+                  const vttText = await vttResponse.text()
+                  transcript = vttText.split('\n').filter(line => !line.startsWith('WEBVTT') && !line.match(/^\d{2}:\d{2}/) && line.trim() !== '').join(' ').trim()
+                }
+              } catch (e) { console.error('Failed to fetch transcript:', e) }
+            }
+
+            console.log('Downloading video from Kommodo:', videoUrl)
+            const videoResponse = await fetch(videoUrl)
+            if (!videoResponse.ok) throw new Error(`Failed to download video: ${videoResponse.status}`)
+
+            const videoBlob = await videoResponse.blob()
+            const contentType = videoResponse.headers.get('content-type') || 'video/mp4'
+            const extension = contentType.includes('quicktime') ? 'mov' : contentType.includes('webm') ? 'webm' : 'mp4'
+
+            const storagePath = `drills/kommodo-${recordingId}-${Date.now()}.${extension}`
+            const { error: uploadError } = await supabase.storage.from('videos').upload(storagePath, videoBlob, { contentType, cacheControl: '3600', upsert: false })
+            if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`)
+
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+            const gumletResponse = await fetch(`${supabaseUrl}/functions/v1/upload-to-gumlet`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+              body: JSON.stringify({ storage_path: storagePath, original_title: title, auto_publish, file_hash: fileHash })
+            })
+
+            if (!gumletResponse.ok) throw new Error(`Gumlet processing failed: ${await gumletResponse.text()}`)
+            const gumletData = await gumletResponse.json()
+            if (!gumletData.success) throw new Error(gumletData.error || 'Gumlet processing failed')
+
+            if (transcript) {
+              await supabase.from('drill_videos').update({ transcript, duration_seconds: Math.round(duration) }).eq('id', gumletData.video_id)
+              fetch(`${supabaseUrl}/functions/v1/auto-tag-video`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+                body: JSON.stringify({ video_id: gumletData.video_id, auto_publish })
+              }).catch(err => console.error('Failed to trigger auto-tag:', err))
+            }
+
+            results.push({ id: recordingId, success: true, video_id: gumletData.video_id })
+          } catch (err) {
+            console.error('Error importing recording:', recordingId, err)
+            results.push({ id: recordingId, success: false, error: err instanceof Error ? err.message : 'Unknown error' })
+          }
+        }
+
+        return new Response(JSON.stringify({ results }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+    }
+
     if (req.method === 'PUT') {
       // Update video
       const updates = await req.json()
