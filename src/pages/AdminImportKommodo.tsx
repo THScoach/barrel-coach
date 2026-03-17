@@ -43,7 +43,15 @@ export default function AdminImportKommodo() {
     setLoading(true);
     setImportResults([]);
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/kommodo-import?action=list`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-videos?action=kommodo-list`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        }
+      });
       
       if (!res.ok) {
         const error = await res.json();
