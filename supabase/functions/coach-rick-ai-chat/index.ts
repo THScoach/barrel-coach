@@ -261,6 +261,32 @@ function formatPlayerContextBlock(ctx: FullPlayerContext): string {
     }
   }
 
+  // Biomech interpretation (from hitting_4b_krs_sessions)
+  if (ctx.biomech) {
+    const b = ctx.biomech;
+    lines.push("");
+    lines.push("[BIOMECH INTERPRETATION — latest 4B/KRS analysis]");
+    lines.push(`Weakest B: ${b.weakestB || "Unknown"} | Main Constraint: ${b.mainConstraint || "None"} | KRS: ${b.krsScore ?? "N/A"}`);
+    const flags = [];
+    if (b.hasSequenceIssue) flags.push("Sequence issue");
+    if (b.hasMomentumIssue) flags.push("Momentum issue");
+    if (b.hasPlaneIssue) flags.push("Swing plane issue");
+    if (b.hasRangeUsageIssue) flags.push("Range/timing issue");
+    if (b.hasBalanceStabilityIssue) flags.push("Balance/stability issue");
+    if (flags.length > 0) {
+      lines.push(`Active Flags: ${flags.join(", ")}`);
+    }
+    if (b.summaryCoachText) {
+      lines.push(`Coach Summary: ${b.summaryCoachText}`);
+    }
+    if (b.focusNextBp) {
+      lines.push(`Focus for next BP: ${b.focusNextBp}`);
+    }
+    if (b.recommendedCues && Array.isArray(b.recommendedCues)) {
+      lines.push(`Cues: ${b.recommendedCues.join(", ")}`);
+    }
+  }
+
   return lines.join("\n");
 }
 
