@@ -52,13 +52,28 @@ function extractPlayerIds(session: any): string[] {
   return [...new Set(ids)];
 }
 
+// ── Retry-aware fetch for transient TLS errors ──────────────────────
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3): Promise<Response> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fetch(url, options);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`[fetchWithRetry] Attempt ${attempt}/${retries} failed: ${msg}`);
+      if (attempt === retries) throw err;
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
+  }
+  throw new Error("fetchWithRetry: unreachable");
+}
+
 // ── OAuth token ──────────────────────────────────────────────────────
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 async function getOAuthToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt - 60000) return cachedToken.token;
-  const resp = await fetch(`${REBOOT_API_BASE}/oauth/token`, {
+  const resp = await fetchWithRetry(`${REBOOT_API_BASE}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username: REBOOT_USERNAME, password: REBOOT_PASSWORD }),
