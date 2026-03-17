@@ -299,7 +299,7 @@ export default function AdminDashboard() {
           <div className="flex flex-wrap gap-2 md:gap-3">
             <Button
               onClick={() => navigate("/admin/analyzer")}
-              className="bg-[#DC2626] hover:bg-[#DC2626]/90 text-white"
+              className="bg-primary hover:bg-primary/90 text-white"
             >
               <Upload className="h-4 w-4 mr-2" />
               Analyze Session
