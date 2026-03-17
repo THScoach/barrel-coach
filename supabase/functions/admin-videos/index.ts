@@ -58,12 +58,37 @@ async function kommodoFetch(path: string, apiKey: string, params?: Record<string
   throw new Error('Kommodo rate limit exceeded after retries')
 }
 
-// ── Title parsing for auto-linking: LastName_FirstName_Type_Date ──
-function parseRecordingTitle(title: string): { lastName?: string; firstName?: string } | null {
+// ── Title parsing: PlayerLast_PlayerFirst_TeamOrOrg_SessionType_YYYYMMDD_optionalFreeText ──
+interface ParsedTitle {
+  lastName: string
+  firstName: string
+  team?: string
+  sessionType?: string
+  recordingDate?: string // ISO date
+}
+
+function parseRecordingTitle(title: string): ParsedTitle | null {
   if (!title) return null
   const parts = title.split('_')
-  if (parts.length >= 2) return { lastName: parts[0].trim(), firstName: parts[1].trim() }
-  return null
+  if (parts.length < 2) return null
+
+  const lastName = parts[0].trim()
+  const firstName = parts[1].trim()
+  if (!lastName || !firstName) return null
+
+  const result: ParsedTitle = { lastName, firstName }
+
+  if (parts.length >= 3) result.team = parts[2].trim()
+  if (parts.length >= 4) result.sessionType = parts[3].trim()
+  if (parts.length >= 5) {
+    const dateStr = parts[4].trim()
+    if (/^\d{8}$/.test(dateStr)) {
+      const y = dateStr.slice(0, 4), m = dateStr.slice(4, 6), d = dateStr.slice(6, 8)
+      result.recordingDate = `${y}-${m}-${d}`
+    }
+  }
+
+  return result
 }
 
 // ── Respond helper ──
