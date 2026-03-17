@@ -63,6 +63,8 @@ export function AdminHeader() {
               </Link>
             ))}
           </nav>
+
+          <PlayerQuickSearch />
         </div>
 
         <div className="flex items-center gap-3">
