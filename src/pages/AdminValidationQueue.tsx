@@ -61,9 +61,9 @@ const getScoreColor = (score: number | null): string => {
 
 const getConfidenceBadge = (frameRate: number | null) => {
   if (!frameRate) return <Badge variant="outline" className="text-xs">Unknown FPS</Badge>;
-  if (frameRate >= 120) return <Badge className="bg-green-500/20 text-green-400 text-xs">High ({frameRate} fps)</Badge>;
-  if (frameRate >= 60) return <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Medium ({frameRate} fps)</Badge>;
-  return <Badge className="bg-red-500/20 text-red-400 text-xs">Low ({frameRate} fps)</Badge>;
+  if (frameRate >= 120) return <Badge className="bg-[#00B4D8]/20 text-[#00B4D8] border-0 rounded-md text-xs">High ({frameRate} fps)</Badge>;
+  if (frameRate >= 60) return <Badge className="bg-[#FFA000]/20 text-[#FFA000] border-0 rounded-md text-xs">Medium ({frameRate} fps)</Badge>;
+  return <Badge className="bg-[#FF3B30]/20 text-[#FF3B30] border-0 rounded-md text-xs">Low ({frameRate} fps)</Badge>;
 };
 
 export default function AdminValidationQueue() {
