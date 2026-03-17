@@ -53,7 +53,7 @@ export function AdminHeader() {
                 className={cn(
                   "px-4 py-2 rounded-lg text-sm font-semibold transition-all min-h-[44px] flex items-center gap-1.5",
                   isActive(link.to)
-                    ? "bg-gradient-to-r from-red-600 to-orange-500 text-white shadow-lg shadow-red-900/30"
+                    ? "bg-primary text-white shadow-lg shadow-primary/30"
                     : "text-slate-200 hover:text-white hover:bg-slate-800"
                 )}
               >
