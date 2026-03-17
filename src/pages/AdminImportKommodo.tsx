@@ -214,7 +214,7 @@ export default function AdminImportKommodo() {
                           <TableRow className="border-slate-800 hover:bg-transparent">
                             <TableHead className="text-slate-400">Recording</TableHead>
                             <TableHead className="text-slate-400">Date</TableHead>
-                            <TableHead className="text-slate-400">Duration</TableHead>
+                            <TableHead className="text-slate-400">Resolution</TableHead>
                             <TableHead className="text-slate-400 min-w-[200px]">Link to Player</TableHead>
                             <TableHead className="text-slate-400 w-[100px]">Action</TableHead>
                           </TableRow>
