@@ -217,29 +217,44 @@ export default function PlayerHome() {
   };
 
   const loadSessionHistory = async (playerId: string) => {
-    const { data: videoSessions } = await supabase
-      .from('video_swing_sessions')
-      .select('id, session_date, video_count, status, context')
-      .eq('player_id', playerId)
-      .order('session_date', { ascending: false })
-      .limit(5);
-    
-    const { data: rebootSessions } = await supabase
-      .from('reboot_uploads')
-      .select('id, session_date, composite_score, grade, processing_status, upload_source')
-      .eq('player_id', playerId)
-      .order('session_date', { ascending: false })
-      .limit(5);
-    
+    const [videoRes, rebootRes, playerSessionsRes, video2dRes] = await Promise.all([
+      supabase
+        .from('video_swing_sessions')
+        .select('id, session_date, video_count, status, context')
+        .eq('player_id', playerId)
+        .order('session_date', { ascending: false })
+        .limit(5),
+      supabase
+        .from('reboot_uploads')
+        .select('id, session_date, composite_score, grade, processing_status, upload_source')
+        .eq('player_id', playerId)
+        .order('session_date', { ascending: false })
+        .limit(5),
+      supabase
+        .from('player_sessions')
+        .select('id, session_date, overall_score, rating, scored_at')
+        .eq('player_id', playerId)
+        .not('body_score', 'is', null)
+        .order('session_date', { ascending: false })
+        .limit(5),
+      supabase
+        .from('video_2d_sessions')
+        .select('id, session_date, composite_score, grade')
+        .eq('player_id', playerId)
+        .eq('processing_status', 'complete')
+        .order('session_date', { ascending: false })
+        .limit(5),
+    ]);
+
     const merged: SessionHistory[] = [
-      ...(videoSessions || []).map(s => ({
+      ...(videoRes.data || []).map(s => ({
         ...s,
         source: 'video' as const,
         composite_score: null,
         grade: null,
         context: s.context || 'Practice',
       })),
-      ...(rebootSessions || []).map(s => ({
+      ...(rebootRes.data || []).map(s => ({
         id: s.id,
         session_date: s.session_date,
         video_count: 1,
@@ -249,10 +264,39 @@ export default function PlayerHome() {
         composite_score: s.composite_score,
         grade: s.grade,
       })),
+      ...(playerSessionsRes.data || []).map(s => ({
+        id: s.id,
+        session_date: s.session_date,
+        video_count: 1,
+        status: 'analyzed',
+        context: '3D Analysis',
+        source: 'reboot' as const,
+        composite_score: s.overall_score,
+        grade: s.rating,
+      })),
+      ...(video2dRes.data || []).map(s => ({
+        id: s.id,
+        session_date: s.session_date,
+        video_count: 1,
+        status: 'analyzed',
+        context: 'Video Analysis',
+        source: 'video' as const,
+        composite_score: s.composite_score,
+        grade: s.grade,
+      })),
     ];
     
-    merged.sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime());
-    setSessionHistory(merged.slice(0, 5));
+    // Deduplicate by date + source
+    const seen = new Set<string>();
+    const deduped = merged.filter(s => {
+      const key = `${s.session_date.substring(0, 10)}-${s.source}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    deduped.sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime());
+    setSessionHistory(deduped.slice(0, 5));
   };
 
   const loadLatestScores = async (playerId: string) => {
