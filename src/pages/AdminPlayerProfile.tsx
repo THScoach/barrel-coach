@@ -910,6 +910,12 @@ export default function AdminPlayerProfile() {
                 playerName={getPlayerName()}
               />
             </TabsContent>
+            <TabsContent value="intel">
+              <PlayerIntelTab
+                playersTableId={player?.players_id}
+                playerName={getPlayerName()}
+              />
+            </TabsContent>
             <TabsContent value="kommodo">
               <PlayerKommodoTab
                 playersTableId={player?.players_id}
