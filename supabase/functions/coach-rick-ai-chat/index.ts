@@ -88,7 +88,7 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
       // Player basic info
       supabase
         .from("players")
-        .select("id, name, age, level, position, motor_profile_sensor, coaching_notes")
+        .select("id, name, age, level, position, motor_profile_sensor, coaching_notes, injury_history")
         .eq("id", playerId)
         .single(),
 
