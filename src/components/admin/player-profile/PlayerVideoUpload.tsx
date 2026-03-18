@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -14,7 +16,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Upload, Video, Loader2, CheckCircle, XCircle, Clock, Plus, Send, AlertCircle, Activity } from "lucide-react";
+import { Upload, Video, Loader2, CheckCircle, XCircle, Clock, Plus, Send, AlertCircle, Activity, Link2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface PlayerVideoUploadProps {
