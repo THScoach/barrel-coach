@@ -151,7 +151,7 @@ serve(async (req) => {
         environment: context === 'practice' ? 'tee' : (context || 'tee'),
         status: 'analyzing',
         swing_count: urls.length,
-        player_id: playerId || null,
+        player_id: profileIdForSession,
         price_cents: 0,
         created_by: user.id,
         user_id: user.id,
