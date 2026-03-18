@@ -52,13 +52,6 @@ serve(async (req) => {
       _role: "admin" 
     });
 
-    if (!isAdmin) {
-      return new Response(
-        JSON.stringify({ error: "Admin access required" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
-      );
-    }
-
     const { 
       urls, 
       autoPublish = false, 
@@ -71,7 +64,33 @@ serve(async (req) => {
       playerName,
       playerEmail,
       playerLevel = 'youth',
+      playerSelfImport = false,
     } = await req.json();
+
+    // Allow non-admin users ONLY when they are importing for their own swing analysis
+    if (!isAdmin && !playerSelfImport) {
+      return new Response(
+        JSON.stringify({ error: "Admin access required" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
+      );
+    }
+
+    // For player self-import, verify the player belongs to this user
+    if (playerSelfImport && !isAdmin) {
+      const { data: playerCheck } = await supabase
+        .from("players")
+        .select("id")
+        .eq("id", playerId)
+        .eq("user_id", user.id)
+        .single();
+      
+      if (!playerCheck) {
+        return new Response(
+          JSON.stringify({ error: "You can only import videos for your own player profile" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
+        );
+      }
+    }
 
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
       return new Response(

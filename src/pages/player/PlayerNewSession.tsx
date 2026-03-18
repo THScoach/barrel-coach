@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VideoUploader, UploadedSwingData } from "@/components/VideoUploader";
 import { Environment, ENVIRONMENTS } from "@/types/analysis";
-import { ArrowLeft, Video, CheckCircle, Loader2, Brain, Activity, Target, Zap } from "lucide-react";
+import { ArrowLeft, Video, CheckCircle, Loader2, Brain, Activity, Target, Zap, Link2 } from "lucide-react";
 import { use2DAnalysisTrigger } from "@/hooks/use2DAnalysisTrigger";
 import { usePlayerData } from "@/hooks/usePlayerData";
 
@@ -26,8 +28,72 @@ export default function PlayerNewSession() {
   const [swingsMaxAllowed, setSwingsMaxAllowed] = useState(15);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [batchResults, setBatchResults] = useState<any>(null);
+  const [onformUrls, setOnformUrls] = useState("");
+  const [importingOnform, setImportingOnform] = useState(false);
 
   const { triggerAnalysis, progress: analysisProgress } = use2DAnalysisTrigger();
+
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+  const handleOnformImport = async () => {
+    const urlList = onformUrls
+      .split('\n')
+      .map(u => u.trim())
+      .filter(u => u.length > 0 && u.includes('getonform.com'));
+
+    if (urlList.length === 0) {
+      toast.error('Paste valid OnForm URLs (one per line)');
+      return;
+    }
+
+    if (!player?.id) {
+      toast.error('Player profile not found');
+      return;
+    }
+
+    setImportingOnform(true);
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/import-onform-video`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authSession?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          urls: urlList,
+          playerId: player.id,
+          forSwingAnalysis: true,
+          playerSelfImport: true,
+          source: 'player_onform',
+          playerName: player.name || 'Player',
+          playerLevel: player.level || 'youth',
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Import failed');
+
+      if (data.videos && data.videos.length > 0) {
+        const uploadedSwings: UploadedSwingData[] = data.videos.map((v: any, i: number) => ({
+          file: new File([], v.filename),
+          storagePath: v.storagePath,
+          swingIndex: i,
+        }));
+
+        setOnformUrls('');
+        toast.success(data.message || `Imported ${urlList.length} video(s)`);
+        await handleUploadComplete(uploadedSwings);
+      } else {
+        throw new Error('No videos were imported successfully');
+      }
+    } catch (error) {
+      console.error('OnForm import error:', error);
+      toast.error(error instanceof Error ? error.message : 'Import failed');
+    } finally {
+      setImportingOnform(false);
+    }
+  };
 
   const handleCreateSession = async () => {
     setIsCreating(true);
@@ -182,12 +248,61 @@ export default function PlayerNewSession() {
       {step === "upload" && sessionId && (
         <Card>
           <CardContent className="pt-6">
-            <VideoUploader
-              swingsRequired={swingsRequired}
-              swingsMaxAllowed={swingsMaxAllowed}
-              sessionId={sessionId}
-              onComplete={handleUploadComplete}
-            />
+            <Tabs defaultValue="upload" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="upload" className="flex items-center gap-2">
+                  <Video className="h-4 w-4" />
+                  Upload Files
+                </TabsTrigger>
+                <TabsTrigger value="onform" className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  OnForm Links
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="upload" className="mt-4">
+                <VideoUploader
+                  swingsRequired={swingsRequired}
+                  swingsMaxAllowed={swingsMaxAllowed}
+                  sessionId={sessionId}
+                  onComplete={handleUploadComplete}
+                />
+              </TabsContent>
+
+              <TabsContent value="onform" className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Paste OnForm video links (one per line)</Label>
+                  <Textarea
+                    placeholder={"https://link.getonform.com/view?id=...\nhttps://link.getonform.com/view?id=...\nhttps://link.getonform.com/view?id=..."}
+                    value={onformUrls}
+                    onChange={(e) => setOnformUrls(e.target.value)}
+                    rows={5}
+                    className="text-sm font-mono"
+                    disabled={importingOnform}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Open OnForm → select video → Share → Copy Link. Paste up to 15 links.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleOnformImport}
+                  disabled={importingOnform || !onformUrls.trim()}
+                  className="w-full"
+                >
+                  {importingOnform ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Importing from OnForm...
+                    </>
+                  ) : (
+                    <>
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Import & Analyze
+                    </>
+                  )}
+                </Button>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       )}
