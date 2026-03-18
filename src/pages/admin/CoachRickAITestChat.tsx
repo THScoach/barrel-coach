@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { 
   FlaskConical, ArrowLeft, Bot, User, Send, Trash2, ThumbsUp, ThumbsDown, 
-  Pencil, ChevronDown, ChevronRight, Loader2, Video, Upload 
+  Pencil, ChevronDown, ChevronRight, Loader2, Video, Upload, ImagePlus, X 
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";

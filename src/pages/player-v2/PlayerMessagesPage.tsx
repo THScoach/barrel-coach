@@ -1,6 +1,7 @@
 /**
  * Coach Barrels — AI Chat + Insights tabs (4B brand)
  * Calls coach-rick-ai-chat edge function for live AI responses
+ * Supports image/PDF uploads with Gemini vision
  */
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,8 +9,9 @@ import { usePlayerData } from "@/hooks/usePlayerData";
 import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { EmptyState } from "@/components/player-v2/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Send, MessageSquare, Lightbulb, Loader2 } from "lucide-react";
+import { Send, MessageSquare, Lightbulb, Loader2, ImagePlus, X } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 interface ChatMessage {
   id: string;
@@ -17,6 +19,7 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   isDiagnostic?: boolean;
+  imageUrl?: string;
 }
 
 interface InsightMessage {
@@ -25,6 +28,21 @@ interface InsightMessage {
   message_type: string;
   is_read: boolean;
   created_at: string;
+}
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(',')[1]); // strip data:...;base64,
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function PlayerMessagesPage() {
@@ -36,7 +54,9 @@ export default function PlayerMessagesPage() {
   const [sending, setSending] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [chatLogId, setChatLogId] = useState<string | null>(null);
+  const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!player?.id) return;
@@ -93,25 +113,71 @@ export default function PlayerMessagesPage() {
     return entries[0].key;
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      toast.error("Only JPG, PNG, and PDF files are supported");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("File must be under 10MB");
+      return;
+    }
+    const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
+    setPendingImage({ file, preview });
+    if (e.target) e.target.value = '';
+  };
+
+  const clearPendingImage = () => {
+    if (pendingImage?.preview) URL.revokeObjectURL(pendingImage.preview);
+    setPendingImage(null);
+  };
+
   const handleSend = async () => {
-    if (!newMessage.trim() || !player?.id || sending) return;
+    if ((!newMessage.trim() && !pendingImage) || !player?.id || sending) return;
     setSending(true);
     const content = newMessage.trim();
     setNewMessage('');
 
-    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content, timestamp: new Date() };
+    let imageBase64: string | undefined;
+    let imageMimeType: string | undefined;
+    let imagePreviewUrl: string | undefined;
+
+    if (pendingImage) {
+      try {
+        imageBase64 = await fileToBase64(pendingImage.file);
+        imageMimeType = pendingImage.file.type;
+        imagePreviewUrl = pendingImage.preview || undefined;
+      } catch {
+        toast.error("Failed to read file");
+        setSending(false);
+        return;
+      }
+      clearPendingImage();
+    }
+
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: content || (imageMimeType?.includes('pdf') ? '📄 PDF uploaded' : '📷 Image uploaded'),
+      timestamp: new Date(),
+      imageUrl: imagePreviewUrl,
+    };
     setMessages(prev => [...prev, userMsg]);
 
     try {
       const { data, error } = await supabase.functions.invoke('coach-rick-ai-chat', {
         body: {
-          message: content,
+          message: content || "Analyze this image in context of my data.",
           history: messages.map(m => ({ role: m.role, content: m.content })),
           chatMode: 'player',
           playerId: player.id,
           scores: { brain: player.latest_brain_score, body: player.latest_body_score, bat: player.latest_bat_score, ball: player.latest_ball_score },
           weakestCategory: getWeakestCategory(),
           chatLogId,
+          imageBase64,
+          imageMimeType,
         },
       });
 
@@ -211,10 +277,16 @@ export default function PlayerMessagesPage() {
                         borderRadius: isPlayer ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                         color: '#fff',
                         padding: '12px 14px',
-                        marginRight: isPlayer ? undefined : '48px',
-                        marginLeft: isPlayer ? '48px' : undefined,
                       }}
                     >
+                      {/* Image thumbnail */}
+                      {m.imageUrl && (
+                        <img
+                          src={m.imageUrl}
+                          alt="Uploaded"
+                          className="rounded-lg mb-2 max-h-48 w-auto object-contain"
+                        />
+                      )}
                       {m.content}
                     </div>
                     <p className="text-[10px] mt-1 px-1" style={{ color: '#555' }}>
@@ -267,7 +339,41 @@ export default function PlayerMessagesPage() {
       {/* Input — Chat tab only */}
       {activeTab === 'chat' && (
         <div className="fixed bottom-16 left-0 right-0 px-4 py-3" style={{ background: '#000', borderTop: '1px solid #222' }}>
+          {/* Pending image preview */}
+          {pendingImage && (
+            <div className="mb-2 relative inline-block">
+              {pendingImage.preview ? (
+                <img src={pendingImage.preview} alt="Preview" className="h-16 rounded-lg border" style={{ borderColor: '#333' }} />
+              ) : (
+                <div className="h-16 px-4 rounded-lg flex items-center gap-2 text-xs" style={{ background: '#111', border: '1px solid #333', color: '#a0a0a0' }}>
+                  📄 {pendingImage.file.name}
+                </div>
+              )}
+              <button
+                onClick={clearPendingImage}
+                className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center"
+                style={{ background: '#E63946' }}
+              >
+                <X className="h-3 w-3" style={{ color: '#fff' }} />
+              </button>
+            </div>
+          )}
           <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,application/pdf"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending}
+              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-opacity"
+              style={{ background: '#111', border: '1px solid #222', opacity: sending ? 0.5 : 1 }}
+            >
+              <ImagePlus className="h-4 w-4" style={{ color: '#a0a0a0' }} />
+            </button>
             <input
               value={newMessage}
               onChange={e => setNewMessage(e.target.value)}
@@ -279,9 +385,9 @@ export default function PlayerMessagesPage() {
             />
             <button
               onClick={handleSend}
-              disabled={sending || !newMessage.trim()}
+              disabled={sending || (!newMessage.trim() && !pendingImage)}
               className="w-10 h-10 rounded-full flex items-center justify-center transition-opacity"
-              style={{ background: '#E63946', opacity: (!newMessage.trim() || sending) ? 0.5 : 1 }}
+              style={{ background: '#E63946', opacity: (!newMessage.trim() && !pendingImage || sending) ? 0.5 : 1 }}
             >
               <Send className="h-4 w-4" style={{ color: '#fff' }} />
             </button>
