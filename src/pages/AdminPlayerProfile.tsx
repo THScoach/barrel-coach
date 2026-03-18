@@ -63,6 +63,7 @@ import {
   PlayerDKSessionsTab,
   DKFieldsSection,
   PlayerRebootMotionTab,
+  PlayerIntelTab,
 } from "@/components/admin/player-profile";
 import { PlayerKommodoTab } from "@/components/admin/player-profile/PlayerKommodoTab";
 
