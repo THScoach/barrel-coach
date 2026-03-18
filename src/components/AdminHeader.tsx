@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { LogOut, User, Plus, BookOpen, Bot } from "lucide-react";
+import { LogOut, User, Plus, BookOpen, Bot, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlayerPickerModal } from "@/components/admin/PlayerPickerModal";
 import { PlayerQuickSearch } from "@/components/admin/PlayerQuickSearch";
