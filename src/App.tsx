@@ -86,6 +86,7 @@ import AdminSeedSwingData from "./pages/AdminSeedSwingData";
 import PlayerHomeDashboard from "./pages/player-v2/PlayerHomeDashboard";
 import PlayerMyData from "./pages/player-v2/PlayerMyData";
 import PlayerSessionPage from "./pages/player-v2/PlayerSessionPage";
+import PlayerNewSession from "./pages/player/PlayerNewSession";
 import PlayerProgressPage from "./pages/player-v2/PlayerProgressPage";
 import PlayerMessagesPage from "./pages/player-v2/PlayerMessagesPage";
 import PlayerProfilePage from "./pages/player-v2/PlayerProfilePage";
