@@ -248,12 +248,61 @@ export default function PlayerNewSession() {
       {step === "upload" && sessionId && (
         <Card>
           <CardContent className="pt-6">
-            <VideoUploader
-              swingsRequired={swingsRequired}
-              swingsMaxAllowed={swingsMaxAllowed}
-              sessionId={sessionId}
-              onComplete={handleUploadComplete}
-            />
+            <Tabs defaultValue="upload" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="upload" className="flex items-center gap-2">
+                  <Video className="h-4 w-4" />
+                  Upload Files
+                </TabsTrigger>
+                <TabsTrigger value="onform" className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  OnForm Links
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="upload" className="mt-4">
+                <VideoUploader
+                  swingsRequired={swingsRequired}
+                  swingsMaxAllowed={swingsMaxAllowed}
+                  sessionId={sessionId}
+                  onComplete={handleUploadComplete}
+                />
+              </TabsContent>
+
+              <TabsContent value="onform" className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Paste OnForm video links (one per line)</Label>
+                  <Textarea
+                    placeholder={"https://link.getonform.com/view?id=...\nhttps://link.getonform.com/view?id=...\nhttps://link.getonform.com/view?id=..."}
+                    value={onformUrls}
+                    onChange={(e) => setOnformUrls(e.target.value)}
+                    rows={5}
+                    className="text-sm font-mono"
+                    disabled={importingOnform}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Open OnForm → select video → Share → Copy Link. Paste up to 15 links.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleOnformImport}
+                  disabled={importingOnform || !onformUrls.trim()}
+                  className="w-full"
+                >
+                  {importingOnform ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Importing from OnForm...
+                    </>
+                  ) : (
+                    <>
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Import & Analyze
+                    </>
+                  )}
+                </Button>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       )}
