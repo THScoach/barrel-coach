@@ -241,7 +241,8 @@ export default function PlayerSessionDetail() {
     priority_drill: session2D.priority_drill ?? '',
     limitations: ['2D video estimation — Brain & Ball scores capped'],
     confidence: session2D.analysis_confidence ?? 0.6,
-    upgrade_cta: session2D.is_paid_user ? '' : 'Upgrade to full 3D biomechanics for precise measurements.',
+    upgrade_cta: '',
+    analysis_json: session2D.analysis_json as any,
   } : null;
 
   const badgeColor = source === '2d' ? '#3B82F6' : '#14B8A6';
