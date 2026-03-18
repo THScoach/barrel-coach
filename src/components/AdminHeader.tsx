@@ -25,6 +25,7 @@ export function AdminHeader() {
     { to: "/admin/validation-queue", label: "Validation" },
     { to: "/admin/invites", label: "Invites" },
     { to: "/admin/library", label: "Library" },
+    { to: "/admin/calibration", label: "Calibration", icon: FlaskConical },
     { to: "/admin/vault", label: "Vault", icon: BookOpen },
     { to: "/admin/coach-rick-ai", label: "Coach Rick AI", icon: Bot },
     { to: "/admin/knowledge-base", label: "Docs", icon: BookOpen },

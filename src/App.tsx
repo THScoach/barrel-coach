@@ -183,6 +183,7 @@ const App = () => (
             <Route path="/admin/invites" element={<ProtectedAdminRoute><AdminInvites /></ProtectedAdminRoute>} />
             <Route path="/admin/library" element={<ProtectedAdminRoute><AdminLibrary /></ProtectedAdminRoute>} />
             <Route path="/admin/videos" element={<ProtectedAdminRoute><AdminVideos /></ProtectedAdminRoute>} />
+            <Route path="/admin/calibration" element={<ProtectedAdminRoute><AdminCalibration /></ProtectedAdminRoute>} />
             <Route path="/admin/vault" element={<ProtectedAdminRoute><AdminVault /></ProtectedAdminRoute>} />
             <Route path="/admin/coach-rick-vault" element={<ProtectedAdminRoute><AdminCoachRickVault /></ProtectedAdminRoute>} />
             <Route path="/admin/knowledge-base" element={<ProtectedAdminRoute><AdminKnowledgeBase /></ProtectedAdminRoute>} />
