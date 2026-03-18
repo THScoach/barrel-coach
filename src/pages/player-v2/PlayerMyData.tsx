@@ -96,11 +96,12 @@ export default function PlayerMyData() {
       items.sort((a, b) => b.session_date.localeCompare(a.session_date));
       setSessions(items);
 
-      if (sessionsData && sessionsData.length > 0) {
+      const reboot3d = rebootRes.data || [];
+      if (reboot3d.length > 0) {
         const { data: swings } = await supabase
           .from("swing_analysis")
           .select("id")
-          .eq("session_id", sessionsData[0].id);
+          .eq("session_id", reboot3d[0].id);
 
         if (swings && swings.length > 0) {
           const swingIds = swings.map(s => s.id);
