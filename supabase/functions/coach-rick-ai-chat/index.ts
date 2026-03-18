@@ -498,15 +498,31 @@ Priority Area: ${lowestPillar || "Unknown"}`;
 
     // ── 6. Call Claude ──────────────────────────────────────────────────
 
+    // Build user message content — multimodal if image attached
+    let userContent: any;
+    if (imageBase64 && imageMimeType) {
+      userContent = [
+        {
+          type: "image_url",
+          image_url: {
+            url: `data:${imageMimeType};base64,${imageBase64}`,
+          },
+        },
+        { type: "text", text: message || "Analyze this image in context of the player's data." },
+      ];
+    } else {
+      userContent = message;
+    }
+
     const claudeMessages = [
       ...conversationHistory.map(m => ({
         role: (m.role === "player" || m.role === "user" ? "user" : "assistant") as "user" | "assistant",
         content: m.content,
       })),
-      { role: "user" as const, content: message },
+      { role: "user" as const, content: userContent },
     ];
 
-    console.log("Calling Lovable AI with", claudeMessages.length, "messages");
+    console.log("Calling Lovable AI with", claudeMessages.length, "messages", imageBase64 ? "(with image)" : "");
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -515,8 +531,8 @@ Priority Area: ${lowestPillar || "Unknown"}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        max_tokens: 400,
+        model: imageBase64 ? "google/gemini-2.5-flash" : "google/gemini-2.5-flash",
+        max_tokens: imageBase64 ? 800 : 400,
         messages: [
           { role: "system", content: systemPrompt },
           ...claudeMessages,
