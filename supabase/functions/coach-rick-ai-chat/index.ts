@@ -174,6 +174,15 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         .eq("processing_status", "complete")
         .order("session_date", { ascending: false })
         .limit(3),
+
+      // Player intel documents
+      supabase
+        .from("player_documents")
+        .select("title, document_type, content_text, ai_extracted_text, ai_summary, tags, created_at")
+        .eq("player_id", playerId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(10),
     ]);
 
     const player = playerRes.data;
