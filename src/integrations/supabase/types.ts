@@ -3143,6 +3143,7 @@ export type Database = {
           transfer_score: number | null
           updated_at: string
           upper_flow: number | null
+          video_2d_session_id: string | null
           weakest_link: string | null
           x_factor_max: number | null
         }
@@ -3200,6 +3201,7 @@ export type Database = {
           transfer_score?: number | null
           updated_at?: string
           upper_flow?: number | null
+          video_2d_session_id?: string | null
           weakest_link?: string | null
           x_factor_max?: number | null
         }
@@ -3257,6 +3259,7 @@ export type Database = {
           transfer_score?: number | null
           updated_at?: string
           upper_flow?: number | null
+          video_2d_session_id?: string | null
           weakest_link?: string | null
           x_factor_max?: number | null
         }
@@ -3273,6 +3276,13 @@ export type Database = {
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_sessions_video_2d_session_id_fkey"
+            columns: ["video_2d_session_id"]
+            isOneToOne: false
+            referencedRelation: "video_2d_sessions"
             referencedColumns: ["id"]
           },
         ]
