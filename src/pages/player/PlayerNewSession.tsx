@@ -48,29 +48,13 @@ export default function PlayerNewSession() {
   };
 
   const handleUploadComplete = async () => {
-    if (!sessionId) return;
-
-    try {
-      // Create Stripe checkout
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { sessionId },
-      });
-
-      if (error) throw error;
-
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error("No checkout URL received");
-      }
-    } catch (error) {
-      console.error("Checkout failed:", error);
-      toast.error("Failed to create checkout. Please try again.");
-    }
+    toast.success("Swings uploaded! Coach Barrels will analyze them shortly.");
+    navigate("/player/data?tab=sessions");
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6 md:ml-56">
+    <div style={{ background: '#000', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="px-4 py-6 pb-24 space-y-6 max-w-lg mx-auto">
       {/* Header with back button */}
       <div className="flex items-center gap-4">
         <Button
@@ -166,6 +150,7 @@ export default function PlayerNewSession() {
           </CardContent>
         </Card>
       )}
+    </div>
     </div>
   );
 }

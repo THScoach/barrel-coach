@@ -86,6 +86,7 @@ import AdminSeedSwingData from "./pages/AdminSeedSwingData";
 import PlayerHomeDashboard from "./pages/player-v2/PlayerHomeDashboard";
 import PlayerMyData from "./pages/player-v2/PlayerMyData";
 import PlayerSessionPage from "./pages/player-v2/PlayerSessionPage";
+import PlayerNewSession from "./pages/player/PlayerNewSession";
 import PlayerProgressPage from "./pages/player-v2/PlayerProgressPage";
 import PlayerMessagesPage from "./pages/player-v2/PlayerMessagesPage";
 import PlayerProfilePage from "./pages/player-v2/PlayerProfilePage";
@@ -152,6 +153,7 @@ const App = () => (
             <Route path="/player/home" element={<PlayerHomeDashboard />} />
             <Route path="/player/data" element={<PlayerMyData />} />
             <Route path="/player/session" element={<PlayerSessionPage />} />
+            <Route path="/player/session/new" element={<PlayerNewSession />} />
             <Route path="/player/progress" element={<PlayerProgressPage />} />
             <Route path="/player/messages" element={<PlayerMessagesPage />} />
             <Route path="/player/profile" element={<PlayerProfilePage />} />
