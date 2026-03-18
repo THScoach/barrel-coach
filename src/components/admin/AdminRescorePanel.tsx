@@ -86,6 +86,7 @@ export function AdminRescorePanel({ playerId }: { playerId?: string }) {
         {result && (
           <div className="flex flex-wrap gap-2 text-xs">
             <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">{result.processed} scored</Badge>
+            {result.csv_downloaded ? <Badge variant="outline" className="border-blue-500/30 text-blue-400">{result.csv_downloaded} CSVs fetched</Badge> : null}
             {result.failed > 0 && <Badge variant="outline" className="border-red-500/30 text-red-400">{result.failed} failed</Badge>}
             {result.skipped > 0 && <Badge variant="outline">{result.skipped} skipped</Badge>}
             <Badge variant="outline">{result.total} total</Badge>
