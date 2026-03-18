@@ -123,14 +123,52 @@ export default function CoachRickAITestChat() {
     return null;
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ACCEPTED_IMG_TYPES.includes(file.type)) {
+      toast.error("Only JPG, PNG, and PDF files are supported");
+      return;
+    }
+    if (file.size > MAX_IMG_SIZE) {
+      toast.error("File must be under 10MB");
+      return;
+    }
+    const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
+    setPendingImage({ file, preview });
+    if (e.target) e.target.value = '';
+  };
+
+  const clearPendingImage = () => {
+    if (pendingImage?.preview) URL.revokeObjectURL(pendingImage.preview);
+    setPendingImage(null);
+  };
+
   const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !pendingImage) || isLoading) return;
+
+    let imageBase64: string | undefined;
+    let imageMimeType: string | undefined;
+    let imagePreviewUrl: string | undefined;
+
+    if (pendingImage) {
+      try {
+        imageBase64 = await fileToBase64(pendingImage.file);
+        imageMimeType = pendingImage.file.type;
+        imagePreviewUrl = pendingImage.preview || undefined;
+      } catch {
+        toast.error("Failed to read file");
+        return;
+      }
+      clearPendingImage();
+    }
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "player",
-      content: input.trim(),
+      content: input.trim() || (imageMimeType?.includes('pdf') ? '📄 PDF uploaded' : '📷 Image uploaded'),
       timestamp: new Date(),
+      imageUrl: imagePreviewUrl,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -150,6 +188,8 @@ export default function CoachRickAITestChat() {
           pageContext,
           playerContext: context,
           isTestMode: true,
+          imageBase64,
+          imageMimeType,
         },
       });
 
@@ -173,6 +213,7 @@ export default function CoachRickAITestChat() {
         knowledge_used: data?.knowledge_used,
         scenarios_matched: data?.scenarios_matched,
         drills_recommended: data?.drills,
+        had_image: !!imageBase64,
       });
     } catch (err) {
       console.error("Chat error:", err);
@@ -187,7 +228,6 @@ export default function CoachRickAITestChat() {
     if (!message) return;
 
     if (rating === "bad") {
-      // Open edit dialog for bad ratings
       setEditingMessageId(messageId);
       setCorrectedResponse(message.content);
       setCoachNotes("");
