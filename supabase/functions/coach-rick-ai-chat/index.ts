@@ -343,9 +343,9 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { message, conversationId, playerId, testContext, isTestMode } = await req.json() as ChatRequest;
+    const { message, conversationId, playerId, testContext, isTestMode, imageBase64, imageMimeType } = await req.json() as ChatRequest;
 
-    console.log("Coach Rick AI chat request:", { message: message.substring(0, 50), playerId, isTestMode });
+    console.log("Coach Rick AI chat request:", { message: message.substring(0, 50), playerId, isTestMode, hasImage: !!imageBase64 });
 
     // ── 1. Load Player Context ──────────────────────────────────────────
 
