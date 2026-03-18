@@ -155,6 +155,15 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         .order("session_date", { ascending: false })
         .limit(1)
         .maybeSingle(),
+
+      // Latest 2D video analysis sessions
+      supabase
+        .from("video_2d_sessions")
+        .select("session_date, composite_score, body_score, brain_score, bat_score, ball_score, leak_detected, motor_profile, coach_rick_take, priority_drill, grade")
+        .eq("player_id", playerId)
+        .eq("processing_status", "complete")
+        .order("session_date", { ascending: false })
+        .limit(3),
     ]);
 
     const player = playerRes.data;
