@@ -258,8 +258,13 @@ export default function PlayerMyData() {
                           Session {sessions.length - i} · {format(new Date(s.session_date), 'MMM d, yyyy')}
                         </p>
                         <div className="flex gap-2 mt-1.5">
+                          <span
+                            className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{ background: s.source === '2d' ? '#3B82F620' : '#14B8A620', color: s.source === '2d' ? '#3B82F6' : '#14B8A6' }}
+                          >
+                            {s.source === '2d' ? 'Video Analysis' : '3D Analysis'}
+                          </span>
                           {s.leak_type && <TagPill label={s.leak_type.replace(/_/g, ' ')} color="#ffa500" />}
-                          {s.swing_count && <TagPill label={`${s.swing_count} swings`} color="#4ecdc4" />}
                         </div>
                       </div>
                       <div className="text-right">
