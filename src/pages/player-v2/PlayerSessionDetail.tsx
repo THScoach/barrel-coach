@@ -34,6 +34,7 @@ interface Session2D {
   video_filename: string | null;
   is_paid_user: boolean | null;
   pending_3d_analysis: boolean | null;
+  analysis_json: any;
 }
 
 interface Session3D {
