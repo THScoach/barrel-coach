@@ -8,11 +8,17 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
+export interface UploadedSwingData {
+  file: File;
+  storagePath: string;
+  swingIndex: number;
+}
+
 interface VideoUploaderProps {
   swingsRequired: number;
   swingsMaxAllowed?: number;
   sessionId: string;
-  onComplete: () => void;
+  onComplete: (uploadedSwings?: UploadedSwingData[]) => void;
   isCheckoutLoading?: boolean;
 }
 
