@@ -52,20 +52,22 @@ serve(async (req) => {
       _role: "admin" 
     });
 
-    const { 
-      urls, 
-      autoPublish = false, 
+    const body = await req.json();
+    const {
+      urls,
+      autoPublish = false,
       forSwingAnalysis = false,
       forFreeDiagnostic = false,
       playerId,
       sessionDate,
       context = 'practice',
       source = 'admin_upload',
-      playerName,
       playerEmail,
       playerLevel = 'youth',
       playerSelfImport = false,
-    } = await req.json();
+    } = body;
+    let playerName = body.playerName;
+    let playerAge = body.playerAge || 14;
 
     // Allow non-admin users ONLY when they are importing for their own swing analysis
     if (!isAdmin && !playerSelfImport) {
