@@ -858,7 +858,6 @@ serve(async (req: Request) => {
 
       // ── Session Linking: auto-pair with video_2d_sessions on same date ──
       const sessionDateStr = (session_date ?? new Date().toISOString()).substring(0, 10);
-      const playerSessionId = existingSession?.id;
       
       if (playerSessionId) {
         try {
