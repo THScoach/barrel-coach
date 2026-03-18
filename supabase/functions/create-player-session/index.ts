@@ -109,7 +109,7 @@ serve(async (req) => {
         player_name: player.name,
         player_email: player.email,
         player_phone: player.phone,
-        player_age: player.age || 16,
+        player_age: Math.max(5, Math.min(50, player.age || 16)),
         player_level: player.level || "hs_varsity",
         environment: environment,
         swings_required: swingsRequired,
