@@ -106,7 +106,7 @@ serve(async (req) => {
     // For swing analysis or free diagnostic, create a session in the `sessions` table
     if (forSwingAnalysis || forFreeDiagnostic) {
       const sessionInsert: Record<string, unknown> = {
-        product_type: forFreeDiagnostic ? 'free_diagnostic' : 'krs_assessment',
+        product_type: forFreeDiagnostic ? 'single_swing' : 'complete_review',
         player_name: playerName || 'Unknown',
         player_email: playerEmail || 'unknown@example.com',
         player_level: playerLevel,
@@ -114,6 +114,7 @@ serve(async (req) => {
         status: 'pending_analysis',
         swing_count: urls.length,
         player_id: playerId || null,
+        price_cents: 0,
         created_by: user.id,
         user_id: user.id,
       };
