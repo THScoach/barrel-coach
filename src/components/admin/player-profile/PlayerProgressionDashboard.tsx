@@ -116,7 +116,7 @@ export function PlayerProgressionDashboard({
     }
 
     // Fetch sessions and activity in parallel
-    const [sessionsRes, rebootRes, activityRes] = await Promise.all([
+    const [sessionsRes, rebootRes, playerSessionsRes, activityRes] = await Promise.all([
       supabase
         .from('sessions')
         .select('id, created_at, composite_score, four_b_brain, four_b_body, four_b_bat, four_b_ball, leak_type, weakest_category')
@@ -130,6 +130,12 @@ export function PlayerProgressionDashboard({
         .order('created_at', { ascending: true })
         .gte('created_at', dateFilter || '1970-01-01'),
       supabase
+        .from('player_sessions')
+        .select('id, session_date, overall_score, body_score, brain_score, bat_score, ball_score, leak_type, scoring_version')
+        .eq('player_id', playersTableId)
+        .order('session_date', { ascending: true })
+        .gte('session_date', dateFilter || '1970-01-01'),
+      supabase
         .from('activity_log')
         .select('id, action, description, created_at, metadata')
         .eq('player_id', playersTableId)
@@ -137,7 +143,9 @@ export function PlayerProgressionDashboard({
         .gte('created_at', dateFilter || '1970-01-01'),
     ]);
 
-    // Transform sessions
+    // Transform sessions — deduplicate by preferring player_sessions (scored 4B engine data)
+    const playerSessionIds = new Set((playerSessionsRes.data || []).map(s => s.id));
+    
     const allSessions: ProgressionSession[] = [
       ...(sessionsRes.data || []).map(s => ({
         id: s.id,
@@ -162,6 +170,20 @@ export function PlayerProgressionDashboard({
         ball: null,
         leakType: null,
         weakestCategory: s.weakest_link,
+      })),
+      ...(playerSessionsRes.data || []).map(s => ({
+        id: s.id,
+        date: new Date(s.session_date || new Date()),
+        type: 'reboot' as const,
+        composite: s.overall_score ?? (s.body_score && s.brain_score && s.bat_score && s.ball_score
+          ? Math.round(s.body_score * 0.45 + s.brain_score * 0.15 + s.bat_score * 0.25 + s.ball_score * 0.15)
+          : null),
+        brain: s.brain_score,
+        body: s.body_score,
+        bat: s.bat_score,
+        ball: s.ball_score,
+        leakType: s.leak_type,
+        weakestCategory: null,
       })),
     ];
 
