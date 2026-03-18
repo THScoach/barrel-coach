@@ -10,8 +10,9 @@ import { EmptyState } from "@/components/player-v2/EmptyState";
 import { TagPill } from "@/components/player-v2/TagPill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Dumbbell, Play, Check, X, Upload } from "lucide-react";
+import { Dumbbell, Play, Check, X, Upload, Plus } from "lucide-react";
 import { format } from "date-fns";
+import { Link } from "react-router-dom";
 
 interface DrillAssignment {
   id: string;
