@@ -664,6 +664,9 @@ serve(async (req: Request) => {
     // 2. Score — HTTP call to shared engine
     const result = await computeScoringResult(input);
 
+    // 2b. Build raw_metrics for Kinetic Sequence / Stability tabs
+    const rawMetrics = buildRawMetrics(input, result);
+
     // 3. Persist to player_sessions if session context provided
     if (session_id && player_id) {
       const supabase = createClient(
