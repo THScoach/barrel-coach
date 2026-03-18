@@ -101,29 +101,35 @@ export default function PlayerData() {
     setPlayerId(playerData.id);
     setPlayerName(playerData.name || '');
 
-    // Fetch traditional sessions
-    const { data: sessionsData } = await supabase
-      .from('sessions')
-      .select('id, created_at, product_type, composite_score, four_b_brain, four_b_body, four_b_bat, four_b_ball')
-      .eq('player_id', playerData.id)
-      .order('created_at', { ascending: false });
-
-    // Fetch 2D video analyses from reboot_uploads
-    const { data: videoAnalysesData } = await supabase
-      .from('reboot_uploads')
-      .select('id, created_at, analysis_type, composite_score, brain_score, body_score, bat_score, grade, leak_detected, processing_status')
-      .eq('player_id', playerData.id)
-      .eq('analysis_type', '2d_video')
-      .eq('processing_status', 'complete')
-      .order('created_at', { ascending: false });
+    // Fetch all session sources in parallel
+    const [sessionsRes, videoAnalysesRes, playerSessionsRes] = await Promise.all([
+      supabase
+        .from('sessions')
+        .select('id, created_at, product_type, composite_score, four_b_brain, four_b_body, four_b_bat, four_b_ball')
+        .eq('player_id', playerData.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('reboot_uploads')
+        .select('id, created_at, analysis_type, composite_score, brain_score, body_score, bat_score, grade, leak_detected, processing_status')
+        .eq('player_id', playerData.id)
+        .eq('analysis_type', '2d_video')
+        .eq('processing_status', 'complete')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('player_sessions')
+        .select('id, session_date, overall_score, brain_score, body_score, bat_score, ball_score, rating, leak_type, scored_at')
+        .eq('player_id', playerData.id)
+        .not('body_score', 'is', null)
+        .order('session_date', { ascending: false }),
+    ]);
 
     // Combine and sort all sessions
     const combinedSessions: Session[] = [
-      ...(sessionsData || []).map(s => ({
+      ...(sessionsRes.data || []).map(s => ({
         ...s,
         source: 'session' as const,
       })),
-      ...(videoAnalysesData || []).map(v => ({
+      ...(videoAnalysesRes.data || []).map(v => ({
         id: v.id,
         created_at: v.created_at || new Date().toISOString(),
         product_type: '2d_video',
@@ -136,6 +142,20 @@ export default function PlayerData() {
         analysis_type: v.analysis_type,
         leak_detected: v.leak_detected,
         grade: v.grade,
+      })),
+      ...(playerSessionsRes.data || []).map(s => ({
+        id: s.id,
+        created_at: s.scored_at || s.session_date,
+        product_type: '3d_reboot',
+        composite_score: s.overall_score,
+        four_b_brain: s.brain_score,
+        four_b_body: s.body_score,
+        four_b_bat: s.bat_score,
+        four_b_ball: s.ball_score,
+        source: 'session' as const,
+        analysis_type: '3d_reboot',
+        leak_detected: s.leak_type,
+        grade: s.rating,
       })),
     ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
@@ -257,20 +277,12 @@ export default function PlayerData() {
                 <div className="space-y-2">
                   {sessions.map(session => {
                     const is2DVideo = session.source === '2d_video';
-                    const linkTo = is2DVideo ? `/player/data?tab=sessions&view=${session.id}` : `/results/${session.id}`;
                     
                     return (
                       <div
                         key={session.id}
                         className="flex items-center justify-between p-3 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-                        onClick={() => {
-                          if (is2DVideo) {
-                            // Show 2D analysis in a modal or expand inline
-                            toast.info("2D Video Analysis - viewing inline");
-                          } else {
-                            navigate(`/results/${session.id}`);
-                          }
-                        }}
+                        onClick={() => navigate(`/player/session/${session.id}`)}
                       >
                         <div className="flex items-center gap-3">
                           {is2DVideo ? (

@@ -1,0 +1,1 @@
+ALTER TABLE public.player_sessions ADD COLUMN IF NOT EXISTS video_2d_session_id uuid REFERENCES public.video_2d_sessions(id);

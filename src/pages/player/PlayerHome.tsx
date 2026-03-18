@@ -217,29 +217,44 @@ export default function PlayerHome() {
   };
 
   const loadSessionHistory = async (playerId: string) => {
-    const { data: videoSessions } = await supabase
-      .from('video_swing_sessions')
-      .select('id, session_date, video_count, status, context')
-      .eq('player_id', playerId)
-      .order('session_date', { ascending: false })
-      .limit(5);
-    
-    const { data: rebootSessions } = await supabase
-      .from('reboot_uploads')
-      .select('id, session_date, composite_score, grade, processing_status, upload_source')
-      .eq('player_id', playerId)
-      .order('session_date', { ascending: false })
-      .limit(5);
-    
+    const [videoRes, rebootRes, playerSessionsRes, video2dRes] = await Promise.all([
+      supabase
+        .from('video_swing_sessions')
+        .select('id, session_date, video_count, status, context')
+        .eq('player_id', playerId)
+        .order('session_date', { ascending: false })
+        .limit(5),
+      supabase
+        .from('reboot_uploads')
+        .select('id, session_date, composite_score, grade, processing_status, upload_source')
+        .eq('player_id', playerId)
+        .order('session_date', { ascending: false })
+        .limit(5),
+      supabase
+        .from('player_sessions')
+        .select('id, session_date, overall_score, rating, scored_at')
+        .eq('player_id', playerId)
+        .not('body_score', 'is', null)
+        .order('session_date', { ascending: false })
+        .limit(5),
+      supabase
+        .from('video_2d_sessions')
+        .select('id, session_date, composite_score, grade')
+        .eq('player_id', playerId)
+        .eq('processing_status', 'complete')
+        .order('session_date', { ascending: false })
+        .limit(5),
+    ]);
+
     const merged: SessionHistory[] = [
-      ...(videoSessions || []).map(s => ({
+      ...(videoRes.data || []).map(s => ({
         ...s,
         source: 'video' as const,
         composite_score: null,
         grade: null,
         context: s.context || 'Practice',
       })),
-      ...(rebootSessions || []).map(s => ({
+      ...(rebootRes.data || []).map(s => ({
         id: s.id,
         session_date: s.session_date,
         video_count: 1,
@@ -249,76 +264,115 @@ export default function PlayerHome() {
         composite_score: s.composite_score,
         grade: s.grade,
       })),
+      ...(playerSessionsRes.data || []).map(s => ({
+        id: s.id,
+        session_date: s.session_date,
+        video_count: 1,
+        status: 'analyzed',
+        context: '3D Analysis',
+        source: 'reboot' as const,
+        composite_score: s.overall_score,
+        grade: s.rating,
+      })),
+      ...(video2dRes.data || []).map(s => ({
+        id: s.id,
+        session_date: s.session_date,
+        video_count: 1,
+        status: 'analyzed',
+        context: 'Video Analysis',
+        source: 'video' as const,
+        composite_score: s.composite_score,
+        grade: s.grade,
+      })),
     ];
     
-    merged.sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime());
-    setSessionHistory(merged.slice(0, 5));
+    // Deduplicate by date + source
+    const seen = new Set<string>();
+    const deduped = merged.filter(s => {
+      const key = `${s.session_date.substring(0, 10)}-${s.source}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    deduped.sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime());
+    setSessionHistory(deduped.slice(0, 5));
   };
 
   const loadLatestScores = async (playerId: string) => {
-    const { data: fourbData } = await supabase
-      .from('swing_4b_scores')
-      .select('brain_score, body_score, bat_score, ball_score, created_at')
-      .eq('player_id', playerId)
-      .order('created_at', { ascending: false })
-      .limit(2);
+    // Query all score sources in parallel
+    const [fourbRes, playerSessionsRes, video2dRes, legacyRes] = await Promise.all([
+      supabase
+        .from('swing_4b_scores')
+        .select('brain_score, body_score, bat_score, ball_score, created_at')
+        .eq('player_id', playerId)
+        .order('created_at', { ascending: false })
+        .limit(2),
+      supabase
+        .from('player_sessions')
+        .select('brain_score, body_score, bat_score, ball_score, session_date, scored_at')
+        .eq('player_id', playerId)
+        .not('body_score', 'is', null)
+        .order('session_date', { ascending: false })
+        .limit(2),
+      supabase
+        .from('video_2d_sessions')
+        .select('brain_score, body_score, bat_score, ball_score, session_date, completed_at')
+        .eq('player_id', playerId)
+        .eq('processing_status', 'complete')
+        .order('session_date', { ascending: false })
+        .limit(2),
+      supabase
+        .from('sessions')
+        .select('four_b_brain, four_b_body, four_b_bat, four_b_ball, created_at')
+        .eq('player_id', playerId)
+        .not('four_b_brain', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(2),
+    ]);
 
-    if (fourbData?.[0]) {
-      const latest = fourbData[0];
-      const scores = {
-        brain_score: latest.brain_score,
-        body_score: latest.body_score,
-        bat_score: latest.bat_score,
-        ball_score: latest.ball_score,
-      };
-      setLatestScores(scores);
-      setWeakestLink(getWeakestLink(
-        scores.brain_score,
-        scores.body_score,
-        scores.bat_score,
-        scores.ball_score
-      ));
-      
-      if (fourbData[1]) {
-        const prev = fourbData[1];
-        setPreviousSession({
-          composite: calculateComposite4B(prev.brain_score, prev.body_score, prev.bat_score, prev.ball_score).composite,
-          date: prev.created_at || '',
-        });
-      }
-      return;
+    type ScoreEntry = { brain: number | null; body: number | null; bat: number | null; ball: number | null; date: string };
+    const all: ScoreEntry[] = [];
+
+    for (const s of fourbRes.data || []) {
+      all.push({ brain: s.brain_score, body: s.body_score, bat: s.bat_score, ball: s.ball_score, date: s.created_at || '' });
+    }
+    for (const s of playerSessionsRes.data || []) {
+      all.push({ brain: s.brain_score, body: s.body_score, bat: s.bat_score, ball: s.ball_score, date: s.scored_at || s.session_date || '' });
+    }
+    for (const s of video2dRes.data || []) {
+      all.push({ brain: s.brain_score, body: s.body_score, bat: s.bat_score, ball: s.ball_score, date: s.completed_at || s.session_date || '' });
+    }
+    for (const s of legacyRes.data || []) {
+      all.push({ brain: s.four_b_brain, body: s.four_b_body, bat: s.four_b_bat, ball: s.four_b_ball, date: s.created_at || '' });
     }
 
-    // Fallback to sessions table
-    const { data } = await supabase
-      .from('sessions')
-      .select('four_b_brain, four_b_body, four_b_bat, four_b_ball, created_at')
-      .eq('player_id', playerId)
-      .not('four_b_brain', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(2);
+    // Sort by date descending, deduplicate by date
+    all.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const seen = new Set<string>();
+    const deduped = all.filter(s => {
+      const key = s.date.substring(0, 10);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
-    if (data?.[0]) {
-      const latest = data[0];
+    if (deduped[0]) {
+      const latest = deduped[0];
       const scores = {
-        brain_score: latest.four_b_brain,
-        body_score: latest.four_b_body,
-        bat_score: latest.four_b_bat,
-        ball_score: latest.four_b_ball,
+        brain_score: latest.brain,
+        body_score: latest.body,
+        bat_score: latest.bat,
+        ball_score: latest.ball,
       };
       setLatestScores(scores);
-      setWeakestLink(getWeakestLink(
-        scores.brain_score,
-        scores.body_score,
-        scores.bat_score,
-        scores.ball_score
-      ));
-      
-      if (data[1]) {
-        const prev = data[1];
+      setWeakestLink(getWeakestLink(scores.brain_score, scores.body_score, scores.bat_score, scores.ball_score));
+
+      if (deduped[1]) {
+        const prev = deduped[1];
         setPreviousSession({
-          composite: calculateComposite4B(prev.four_b_brain, prev.four_b_body, prev.four_b_bat, prev.four_b_ball).composite,
-          date: prev.created_at || '',
+          composite: calculateComposite4B(prev.brain, prev.body, prev.bat, prev.ball).composite,
+          date: prev.date,
         });
       }
     }
@@ -473,24 +527,30 @@ export default function PlayerHome() {
               {sessionHistory.slice(0, 3).map(session => (
                 <Link
                   key={session.id}
-                  to={session.source === 'video' 
-                    ? `/player/data?tab=video&session=${session.id}` 
-                    : `/player/data?tab=scores`}
+                  to={`/player/session/${session.id}`}
                   className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 hover:bg-slate-700/50 transition-all"
                 >
                   <div className="flex items-center gap-3">
                     {session.source === 'reboot' ? (
                       <Activity className="h-4 w-4 text-emerald-400" />
                     ) : (
-                      <Video className="h-4 w-4 text-slate-500" />
+                      <Video className="h-4 w-4 text-blue-400" />
                     )}
                     <div>
                       <p className="text-sm font-medium text-white">
                         {format(new Date(session.session_date), 'MMM d')}
                       </p>
-                      <p className="text-xs text-slate-500">
-                        {session.context}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs text-slate-500">{session.context}</p>
+                        <Badge variant="outline" className={cn(
+                          "text-[9px] px-1 py-0 h-4 border-0",
+                          session.source === 'video' 
+                            ? "bg-blue-500/10 text-blue-400" 
+                            : "bg-teal-500/10 text-teal-400"
+                        )}>
+                          {session.source === 'video' ? 'Video' : '3D'}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
