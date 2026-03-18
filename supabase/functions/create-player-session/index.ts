@@ -104,23 +104,25 @@ serve(async (req) => {
       ? "single_swing" 
       : "complete_review";
 
-    // Create session attached to the existing player
+    const playerName = [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Unknown";
+
+    // Create session attached to the existing player profile
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
       .insert({
         product_type: dbProductType,
         price_cents: priceCents,
-        player_id: player.id, // ATTACH TO EXISTING PLAYER
-        player_name: player.name,
-        player_email: player.email,
-        player_phone: player.phone,
-        player_age: Math.max(5, Math.min(50, player.age || 16)),
-        player_level: player.level || "hs_varsity",
+        player_id: profile.id, // FK references player_profiles
+        player_name: playerName,
+        player_email: profile.email,
+        player_phone: profile.phone,
+        player_age: Math.max(5, Math.min(50, profile.age || 16)),
+        player_level: profile.level || "hs_varsity",
         environment: environment,
         swings_required: swingsRequired,
         swings_max_allowed: swingsMaxAllowed,
         status: "pending_upload",
-        user_id: user.id, // Link to auth user
+        user_id: user.id,
       })
       .select()
       .single();
@@ -130,13 +132,13 @@ serve(async (req) => {
       throw new Error(`Failed to create session: ${sessionError.message}`);
     }
 
-    console.log(`Created session ${session.id} for player ${player.id} (${player.name})`);
+    console.log(`Created session ${session.id} for profile ${profile.id} (${playerName})`);
 
     return new Response(
       JSON.stringify({
         sessionId: session.id,
-        playerId: player.id,
-        playerName: player.name,
+        playerId: profile.id,
+        playerName: playerName,
         swingsRequired,
         swingsMaxAllowed,
         status: session.status,
