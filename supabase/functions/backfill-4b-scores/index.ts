@@ -5,8 +5,130 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const BATCH_SIZE = 10;
+const BATCH_SIZE = 5;
 const SCORING_VERSION = '4b_v2';
+
+// ── Reboot API helpers ──────────────────────────────────────────────────
+
+const REBOOT_API_BASE = 'https://api.rebootmotion.com';
+
+let cachedRebootToken: { token: string; expiresAt: number } | null = null;
+
+async function getRebootAccessToken(): Promise<string> {
+  if (cachedRebootToken && Date.now() < cachedRebootToken.expiresAt) {
+    return cachedRebootToken.token;
+  }
+  const username = Deno.env.get('REBOOT_USERNAME');
+  const password = Deno.env.get('REBOOT_PASSWORD');
+  if (!username || !password) {
+    throw new Error('REBOOT_USERNAME/REBOOT_PASSWORD not configured');
+  }
+  console.log('[Backfill] Fetching Reboot access token');
+  const resp = await fetch(`${REBOOT_API_BASE}/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error(`Reboot OAuth error (${resp.status}): ${err}`);
+  }
+  const data = await resp.json();
+  cachedRebootToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in - 3600) * 1000,
+  };
+  return data.access_token;
+}
+
+/**
+ * Download ME and IK CSV from Reboot data_export for a given session + player.
+ * Tries movement_type_id 2 (hitting) first, then 1 (pitching) as fallback.
+ */
+async function downloadRebootCSV(
+  rebootSessionId: string,
+  orgPlayerId: string,
+  accessToken: string,
+): Promise<{ csvMe?: string; csvIk?: string }> {
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+
+  for (const mtId of [2, 1, 3]) {
+    try {
+      // Try ME
+      const meResp = await fetch(`${REBOOT_API_BASE}/data_export`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          session_id: rebootSessionId,
+          org_player_id: orgPlayerId,
+          data_type: 'momentum-energy',
+          movement_type_id: mtId,
+        }),
+      });
+
+      if (!meResp.ok) {
+        await meResp.text();
+        continue;
+      }
+
+      const meData = await meResp.json();
+      const meUrl = meData.download_urls?.[0] || meData.download_url;
+      if (!meUrl) continue;
+
+      // Download ME CSV
+      const meCsvResp = await fetch(meUrl);
+      if (!meCsvResp.ok) { await meCsvResp.text(); continue; }
+      const csvMe = await meCsvResp.text();
+      if (csvMe.length < 50) continue;
+
+      console.log(`[Backfill] Downloaded ME CSV (${csvMe.length} chars) for session ${rebootSessionId} mt=${mtId}`);
+
+      // Try IK
+      let csvIk: string | undefined;
+      try {
+        const ikResp = await fetch(`${REBOOT_API_BASE}/data_export`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            session_id: rebootSessionId,
+            org_player_id: orgPlayerId,
+            data_type: 'inverse-kinematics',
+            movement_type_id: mtId,
+          }),
+        });
+        if (ikResp.ok) {
+          const ikData = await ikResp.json();
+          const ikUrl = ikData.download_urls?.[0] || ikData.download_url;
+          if (ikUrl) {
+            const ikCsvResp = await fetch(ikUrl);
+            if (ikCsvResp.ok) {
+              csvIk = await ikCsvResp.text();
+              if (csvIk.length < 50) csvIk = undefined;
+              else console.log(`[Backfill] Downloaded IK CSV (${csvIk.length} chars)`);
+            } else {
+              await ikCsvResp.text();
+            }
+          }
+        } else {
+          await ikResp.text();
+        }
+      } catch (e) {
+        console.warn(`[Backfill] IK download failed:`, e);
+      }
+
+      return { csvMe, csvIk };
+    } catch (e) {
+      // Try next movement type
+    }
+  }
+
+  return {};
+}
+
+// ── Main handler ────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -23,11 +145,11 @@ Deno.serve(async (req) => {
 
     console.log(`[Backfill] Starting. player_id=${player_id || 'ALL'}, force=${force_rescore || false}`);
 
-    // Query reboot_sessions with CSV data
+    // Query reboot_sessions: those with CSV data OR those with a reboot_session_id (can download CSV)
     let query = supabase
       .from('reboot_sessions')
-      .select('id, player_id, reboot_session_id, raw_csv_me, raw_csv_ik, session_date, session_type, drill_name, measured_bat_speed_mph')
-      .not('raw_csv_me', 'is', null)
+      .select('id, player_id, reboot_session_id, reboot_player_id, raw_csv_me, raw_csv_ik, session_date, session_type, drill_name, measured_bat_speed_mph')
+      .or('raw_csv_me.not.is.null,reboot_session_id.not.is.null')
       .order('created_at', { ascending: true });
 
     if (player_id) {
@@ -51,17 +173,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[Backfill] Found ${rebootSessions.length} reboot sessions with CSV data`);
+    console.log(`[Backfill] Found ${rebootSessions.length} reboot sessions to check`);
 
-    // For each session, check if player_sessions already has scores
+    // Cache player reboot_athlete_ids for CSV download
+    const playerRebootIds = new Map<string, string>();
+    let rebootToken: string | null = null;
+
     let processed = 0;
     let failed = 0;
     let skipped = 0;
+    let csvDownloaded = 0;
     const errors: { session_id: string; error: string }[] = [];
 
     for (let i = 0; i < rebootSessions.length; i += BATCH_SIZE) {
       const batch = rebootSessions.slice(i, i + BATCH_SIZE);
-      
+
       const batchPromises = batch.map(async (session) => {
         try {
           // Check for existing player_session
@@ -78,8 +204,70 @@ Deno.serve(async (req) => {
             return;
           }
 
+          // If CSV data is missing, try to download from Reboot
+          let csvMe = session.raw_csv_me;
+          let csvIk = session.raw_csv_ik;
+
+          if (!csvMe || csvMe.trim().length < 50) {
+            if (!session.reboot_session_id) {
+              skipped++;
+              return;
+            }
+
+            // Get the player's reboot_athlete_id (org_player_id)
+            let orgPlayerId = session.reboot_player_id;
+            if (!orgPlayerId) {
+              if (!playerRebootIds.has(session.player_id)) {
+                const { data: playerData } = await supabase
+                  .from('players')
+                  .select('reboot_athlete_id')
+                  .eq('id', session.player_id)
+                  .maybeSingle();
+                playerRebootIds.set(session.player_id, playerData?.reboot_athlete_id || '');
+              }
+              orgPlayerId = playerRebootIds.get(session.player_id) || '';
+            }
+
+            if (!orgPlayerId) {
+              console.warn(`[Backfill] No reboot_athlete_id for player ${session.player_id}, skipping`);
+              skipped++;
+              return;
+            }
+
+            // Download CSV from Reboot API
+            if (!rebootToken) {
+              rebootToken = await getRebootAccessToken();
+            }
+
+            const csvData = await downloadRebootCSV(session.reboot_session_id, orgPlayerId, rebootToken);
+            if (!csvData.csvMe || csvData.csvMe.trim().length < 50) {
+              console.warn(`[Backfill] No ME CSV available from Reboot for session ${session.reboot_session_id}`);
+              skipped++;
+              return;
+            }
+
+            // Store downloaded CSV in reboot_sessions
+            const updatePayload: Record<string, string> = { raw_csv_me: csvData.csvMe };
+            if (csvData.csvIk) updatePayload.raw_csv_ik = csvData.csvIk;
+            
+            const { error: csvUpdateErr } = await supabase
+              .from('reboot_sessions')
+              .update(updatePayload)
+              .eq('id', session.id);
+
+            if (csvUpdateErr) {
+              console.warn(`[Backfill] Failed to store CSV for session ${session.id}:`, csvUpdateErr.message);
+            } else {
+              csvDownloaded++;
+              console.log(`[Backfill] Stored CSV for session ${session.reboot_session_id}`);
+            }
+
+            csvMe = csvData.csvMe;
+            csvIk = csvData.csvIk || csvIk;
+          }
+
           // Validate CSV data
-          if (!session.raw_csv_me || session.raw_csv_me.trim().length < 50 || !session.raw_csv_ik || session.raw_csv_ik.trim().length < 50) {
+          if (!csvMe || csvMe.trim().length < 50 || !csvIk || csvIk.trim().length < 50) {
             skipped++;
             return;
           }
@@ -96,8 +284,8 @@ Deno.serve(async (req) => {
               player_id: session.player_id,
               session_id: session.reboot_session_id || session.id,
               session_date: session.session_date,
-              raw_csv_me: session.raw_csv_me,
-              raw_csv_ik: session.raw_csv_ik,
+              raw_csv_me: csvMe,
+              raw_csv_ik: csvIk,
               measured_bat_speed_mph: session.measured_bat_speed_mph,
             }),
           });
@@ -121,7 +309,7 @@ Deno.serve(async (req) => {
       });
 
       await Promise.all(batchPromises);
-      console.log(`[Backfill] Batch ${Math.floor(i / BATCH_SIZE) + 1} complete. Progress: ${processed} scored, ${failed} failed, ${skipped} skipped`);
+      console.log(`[Backfill] Batch ${Math.floor(i / BATCH_SIZE) + 1} complete. Progress: ${processed} scored, ${failed} failed, ${skipped} skipped, ${csvDownloaded} CSVs downloaded`);
     }
 
     const summary = {
@@ -130,11 +318,12 @@ Deno.serve(async (req) => {
       processed,
       failed,
       skipped,
+      csv_downloaded: csvDownloaded,
       scoring_version: SCORING_VERSION,
-      errors: errors.slice(0, 20), // Cap error list
+      errors: errors.slice(0, 20),
     };
 
-    console.log(`[Backfill] Complete. ${JSON.stringify({ processed, failed, skipped, total: rebootSessions.length })}`);
+    console.log(`[Backfill] Complete. ${JSON.stringify({ processed, failed, skipped, csvDownloaded, total: rebootSessions.length })}`);
 
     return new Response(
       JSON.stringify(summary),

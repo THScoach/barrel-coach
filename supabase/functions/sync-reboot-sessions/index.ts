@@ -477,6 +477,23 @@ serve(async (req) => {
 
     console.log(`[sync] ✅ Imported ${insertedCount} sessions across ${perPlayer.size} players`);
 
+    // Fire-and-forget: trigger backfill-4b-scores for each player with new sessions
+    if (insertedCount > 0) {
+      for (const player of players) {
+        if (perPlayer.has(player.name)) {
+          console.log(`[sync] Triggering backfill-4b-scores for ${player.name} (${player.id})`);
+          fetch(`${SUPABASE_URL}/functions/v1/backfill-4b-scores`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({ player_id: player.id }),
+          }).catch(err => console.warn(`[sync] Backfill trigger failed for ${player.name}:`, err));
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
