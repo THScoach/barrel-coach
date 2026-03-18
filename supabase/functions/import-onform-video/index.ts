@@ -52,20 +52,22 @@ serve(async (req) => {
       _role: "admin" 
     });
 
-    const { 
-      urls, 
-      autoPublish = false, 
+    const body = await req.json();
+    const {
+      urls,
+      autoPublish = false,
       forSwingAnalysis = false,
       forFreeDiagnostic = false,
       playerId,
       sessionDate,
       context = 'practice',
       source = 'admin_upload',
-      playerName,
       playerEmail,
       playerLevel = 'youth',
       playerSelfImport = false,
-    } = await req.json();
+    } = body;
+    let playerName = body.playerName;
+    let playerAge = body.playerAge || 14;
 
     // Allow non-admin users ONLY when they are importing for their own swing analysis
     if (!isAdmin && !playerSelfImport) {
@@ -103,6 +105,26 @@ serve(async (req) => {
     const importedVideos: { url: string; storagePath: string; filename: string }[] = [];
     let sessionId: string | null = null;
 
+    // Validate player exists before creating session
+    if (playerId && (forSwingAnalysis || forFreeDiagnostic)) {
+      const { data: playerCheck, error: playerErr } = await supabase
+        .from('players')
+        .select('id, name, age')
+        .eq('id', playerId)
+        .maybeSingle();
+
+      if (playerErr || !playerCheck) {
+        return new Response(
+          JSON.stringify({ error: "No player record found. Please create a player profile first before uploading video." }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+
+      // Use real player data for session
+      if (playerCheck.name) playerName = playerCheck.name;
+      if (playerCheck.age) playerAge = playerCheck.age;
+    }
+
     // For swing analysis or free diagnostic, create a session in the `sessions` table
     if (forSwingAnalysis || forFreeDiagnostic) {
       const sessionInsert: Record<string, unknown> = {
@@ -110,7 +132,7 @@ serve(async (req) => {
         player_name: playerName || 'Unknown',
         player_email: playerEmail || 'unknown@example.com',
         player_level: playerLevel,
-        player_age: 14,
+        player_age: playerAge,
         environment: context === 'practice' ? 'tee' : (context || 'tee'),
         status: 'analyzing',
         swing_count: urls.length,
