@@ -103,6 +103,26 @@ serve(async (req) => {
     const importedVideos: { url: string; storagePath: string; filename: string }[] = [];
     let sessionId: string | null = null;
 
+    // Validate player exists before creating session
+    if (playerId && (forSwingAnalysis || forFreeDiagnostic)) {
+      const { data: playerCheck, error: playerErr } = await supabase
+        .from('players')
+        .select('id, name, age')
+        .eq('id', playerId)
+        .maybeSingle();
+
+      if (playerErr || !playerCheck) {
+        return new Response(
+          JSON.stringify({ error: "No player record found. Please create a player profile first before uploading video." }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+
+      // Use real player data for session
+      if (playerCheck.name) playerName = playerCheck.name;
+      if (playerCheck.age) playerAge = playerCheck.age;
+    }
+
     // For swing analysis or free diagnostic, create a session in the `sessions` table
     if (forSwingAnalysis || forFreeDiagnostic) {
       const sessionInsert: Record<string, unknown> = {
