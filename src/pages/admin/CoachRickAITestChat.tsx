@@ -26,6 +26,19 @@ interface Message {
   content: string;
   timestamp: Date;
   metadata?: Record<string, unknown>;
+  imageUrl?: string;
+}
+
+const MAX_IMG_SIZE = 10 * 1024 * 1024;
+const ACCEPTED_IMG_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 interface PlayerContext {
