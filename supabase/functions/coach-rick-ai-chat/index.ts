@@ -297,6 +297,37 @@ function formatPlayerContextBlock(ctx: FullPlayerContext): string {
     if (b.recommendedCues && Array.isArray(b.recommendedCues)) {
       lines.push(`Cues: ${b.recommendedCues.join(", ")}`);
     }
+
+    // Coach Barrels diagnostic classification
+    if (b.coachBarrelsClassification) {
+      lines.push("");
+      lines.push("[COACH BARRELS DIAGNOSTIC — capacity vs recruitment classification]");
+      lines.push(`Classification: ${JSON.stringify(b.coachBarrelsClassification)}`);
+    }
+    if (b.coachBarrelsVoiceSample) {
+      lines.push(`Voice Sample (how Coach Barrels explained it to this player): "${b.coachBarrelsVoiceSample}"`);
+    }
+    if (b.coachBarrelsPrescription) {
+      lines.push(`Prescription: ${JSON.stringify(b.coachBarrelsPrescription)}`);
+    }
+  }
+
+  // Injury history
+  if (ctx.injuryHistory) {
+    lines.push("");
+    lines.push("[INJURY HISTORY — informs capacity vs recruitment classification]");
+    if (Array.isArray(ctx.injuryHistory)) {
+      for (const injury of ctx.injuryHistory) {
+        const status = injury.status || "unknown";
+        const area = injury.area || injury.body_part || "unspecified";
+        const note = injury.notes || injury.description || "";
+        lines.push(`  - ${area}: ${status}${note ? ` — ${note}` : ""}`);
+      }
+    } else if (typeof ctx.injuryHistory === 'object') {
+      lines.push(`  ${JSON.stringify(ctx.injuryHistory)}`);
+    } else {
+      lines.push(`  ${String(ctx.injuryHistory)}`);
+    }
   }
 
   return lines.join("\n");
