@@ -145,11 +145,11 @@ Deno.serve(async (req) => {
 
     console.log(`[Backfill] Starting. player_id=${player_id || 'ALL'}, force=${force_rescore || false}`);
 
-    // Query reboot_sessions: those with CSV data OR those with a reboot_session_id (can download CSV)
+    // Query reboot_sessions: metadata only (DO NOT load raw_csv_me/ik — too large for memory)
     let query = supabase
       .from('reboot_sessions')
-      .select('id, player_id, reboot_session_id, reboot_player_id, raw_csv_me, raw_csv_ik, session_date, session_type, drill_name, measured_bat_speed_mph')
-      .or('raw_csv_me.not.is.null,reboot_session_id.not.is.null')
+      .select('id, player_id, reboot_session_id, reboot_player_id, session_date, session_type, drill_name, measured_bat_speed_mph')
+      .not('reboot_session_id', 'is', null)
       .order('created_at', { ascending: true });
 
     if (player_id) {
