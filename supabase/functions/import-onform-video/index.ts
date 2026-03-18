@@ -105,7 +105,8 @@ serve(async (req) => {
     const importedVideos: { url: string; storagePath: string; filename: string }[] = [];
     let sessionId: string | null = null;
 
-    // Validate player exists before creating session
+    // Validate player exists and resolve player_profiles ID for sessions FK
+    let profileIdForSession: string | null = null;
     if (playerId && (forSwingAnalysis || forFreeDiagnostic)) {
       const { data: playerCheck, error: playerErr } = await supabase
         .from('players')
@@ -123,6 +124,20 @@ serve(async (req) => {
       // Use real player data for session
       if (playerCheck.name) playerName = playerCheck.name;
       if (playerCheck.age) playerAge = playerCheck.age;
+
+      // sessions.player_id FK references player_profiles, not players
+      // Look up the player_profiles row linked to this players row
+      const { data: profileLink } = await supabase
+        .from('player_profiles')
+        .select('id')
+        .eq('players_id', playerId)
+        .maybeSingle();
+
+      if (profileLink) {
+        profileIdForSession = profileLink.id;
+      } else {
+        console.warn(`No player_profiles record linked to players.id=${playerId}. Session will have null player_id.`);
+      }
     }
 
     // For swing analysis or free diagnostic, create a session in the `sessions` table
