@@ -90,6 +90,7 @@ import PlayerNewSession from "./pages/player/PlayerNewSession";
 import PlayerProgressPage from "./pages/player-v2/PlayerProgressPage";
 import PlayerMessagesPage from "./pages/player-v2/PlayerMessagesPage";
 import PlayerProfilePage from "./pages/player-v2/PlayerProfilePage";
+import PlayerSessionDetail from "./pages/player-v2/PlayerSessionDetail";
 
 // RickBot
 import Rick from "./pages/Rick";
@@ -154,6 +155,7 @@ const App = () => (
             <Route path="/player/data" element={<PlayerMyData />} />
             <Route path="/player/session" element={<PlayerSessionPage />} />
             <Route path="/player/session/new" element={<PlayerNewSession />} />
+            <Route path="/player/session/:sessionId" element={<PlayerSessionDetail />} />
             <Route path="/player/progress" element={<PlayerProgressPage />} />
             <Route path="/player/messages" element={<PlayerMessagesPage />} />
             <Route path="/player/profile" element={<PlayerProfilePage />} />

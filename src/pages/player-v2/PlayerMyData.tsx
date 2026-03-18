@@ -36,6 +36,7 @@ interface SessionRow {
   ball_score: number | null;
   leak_type: string | null;
   swing_count: number | null;
+  source: '3d' | '2d';
 }
 
 interface FlagRow {
@@ -58,20 +59,49 @@ export default function PlayerMyData() {
     if (!player?.id) return;
     const fetchData = async () => {
       setLoadingData(true);
-      const { data: sessionsData } = await supabase
-        .from("player_sessions")
-        .select("id, session_date, overall_score, body_score, brain_score, bat_score, ball_score, leak_type, swing_count")
-        .eq("player_id", player.id)
-        .order("session_date", { ascending: false })
-        .limit(50);
+      const [rebootRes, video2dRes] = await Promise.all([
+        supabase
+          .from("player_sessions")
+          .select("id, session_date, overall_score, body_score, brain_score, bat_score, ball_score, leak_type, swing_count")
+          .eq("player_id", player.id)
+          .order("session_date", { ascending: false })
+          .limit(50),
+        supabase
+          .from("video_2d_sessions")
+          .select("id, session_date, composite_score, body_score, brain_score, bat_score, ball_score, leak_detected, swing_number")
+          .eq("player_id", player.id)
+          .eq("processing_status", "complete")
+          .order("session_date", { ascending: false })
+          .limit(50),
+      ]);
 
-      if (sessionsData) setSessions(sessionsData);
+      const items: SessionRow[] = [];
+      if (rebootRes.data) {
+        items.push(...rebootRes.data.map(s => ({ ...s, source: '3d' as const })));
+      }
+      if (video2dRes.data) {
+        items.push(...video2dRes.data.map(s => ({
+          id: s.id,
+          session_date: s.session_date,
+          overall_score: s.composite_score,
+          body_score: s.body_score,
+          brain_score: s.brain_score,
+          bat_score: s.bat_score,
+          ball_score: s.ball_score,
+          leak_type: s.leak_detected,
+          swing_count: s.swing_number,
+          source: '2d' as const,
+        })));
+      }
+      items.sort((a, b) => b.session_date.localeCompare(a.session_date));
+      setSessions(items);
 
-      if (sessionsData && sessionsData.length > 0) {
+      const reboot3d = rebootRes.data || [];
+      if (reboot3d.length > 0) {
         const { data: swings } = await supabase
           .from("swing_analysis")
           .select("id")
-          .eq("session_id", sessionsData[0].id);
+          .eq("session_id", reboot3d[0].id);
 
         if (swings && swings.length > 0) {
           const swingIds = swings.map(s => s.id);
@@ -218,7 +248,7 @@ export default function PlayerMyData() {
                 return (
                   <Link
                     key={s.id}
-                    to={`/player/data?tab=video&session=${s.id}`}
+                    to={`/player/session/${s.id}`}
                     className="block rounded-xl p-4 transition-colors hover:opacity-90"
                     style={{ background: '#111', border: '1px solid #222' }}
                   >
@@ -228,8 +258,13 @@ export default function PlayerMyData() {
                           Session {sessions.length - i} · {format(new Date(s.session_date), 'MMM d, yyyy')}
                         </p>
                         <div className="flex gap-2 mt-1.5">
+                          <span
+                            className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{ background: s.source === '2d' ? '#3B82F620' : '#14B8A620', color: s.source === '2d' ? '#3B82F6' : '#14B8A6' }}
+                          >
+                            {s.source === '2d' ? 'Video Analysis' : '3D Analysis'}
+                          </span>
                           {s.leak_type && <TagPill label={s.leak_type.replace(/_/g, ' ')} color="#ffa500" />}
-                          {s.swing_count && <TagPill label={`${s.swing_count} swings`} color="#4ecdc4" />}
                         </div>
                       </div>
                       <div className="text-right">
