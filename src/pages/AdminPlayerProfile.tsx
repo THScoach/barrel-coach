@@ -63,6 +63,7 @@ import {
   PlayerDKSessionsTab,
   DKFieldsSection,
   PlayerRebootMotionTab,
+  PlayerIntelTab,
 } from "@/components/admin/player-profile";
 import { PlayerKommodoTab } from "@/components/admin/player-profile/PlayerKommodoTab";
 
@@ -862,6 +863,9 @@ export default function AdminPlayerProfile() {
               <TabsTrigger value="reboot" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Reboot Motion
               </TabsTrigger>
+              <TabsTrigger value="intel" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Intel
+              </TabsTrigger>
               <TabsTrigger value="scores" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Scores
               </TabsTrigger>
@@ -902,6 +906,12 @@ export default function AdminPlayerProfile() {
             </TabsContent>
             <TabsContent value="reboot">
               <PlayerRebootMotionTab
+                playersTableId={player?.players_id}
+                playerName={getPlayerName()}
+              />
+            </TabsContent>
+            <TabsContent value="intel">
+              <PlayerIntelTab
                 playersTableId={player?.players_id}
                 playerName={getPlayerName()}
               />

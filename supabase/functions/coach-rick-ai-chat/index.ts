@@ -93,12 +93,22 @@ interface FullPlayerContext {
     priorityDrill: string | null;
     grade: string | null;
   }[];
+  // Player intel documents
+  playerIntelDocs: {
+    title: string;
+    documentType: string;
+    contentText: string | null;
+    aiExtractedText: string | null;
+    aiSummary: string | null;
+    tags: string[] | null;
+    createdAt: string;
+  }[];
 }
 
 async function loadFullPlayerContext(supabase: any, playerId: string): Promise<FullPlayerContext | null> {
   try {
     // Run all queries in parallel for speed
-    const [playerRes, sessionsRes, drillsRes, notesRes, stackRes, blastRes, biomechRes, video2dRes] = await Promise.all([
+    const [playerRes, sessionsRes, drillsRes, notesRes, stackRes, blastRes, biomechRes, video2dRes, intelRes] = await Promise.all([
       // Player basic info
       supabase
         .from("players")
@@ -164,6 +174,15 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         .eq("processing_status", "complete")
         .order("session_date", { ascending: false })
         .limit(3),
+
+      // Player intel documents
+      supabase
+        .from("player_documents")
+        .select("title, document_type, content_text, ai_extracted_text, ai_summary, tags, created_at")
+        .eq("player_id", playerId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(10),
     ]);
 
     const player = playerRes.data;
@@ -243,6 +262,15 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         coachRickTake: s.coach_rick_take,
         priorityDrill: s.priority_drill,
         grade: s.grade,
+      })),
+      playerIntelDocs: (intelRes.data || []).map((d: any) => ({
+        title: d.title,
+        documentType: d.document_type,
+        contentText: d.content_text,
+        aiExtractedText: d.ai_extracted_text,
+        aiSummary: d.ai_summary,
+        tags: d.tags,
+        createdAt: d.created_at,
       })),
     };
   } catch (err) {
@@ -378,6 +406,37 @@ function formatPlayerContextBlock(ctx: FullPlayerContext): string {
       if (s.motorProfile) lines.push(`    Motor Profile Indication: ${s.motorProfile}`);
       if (s.coachRickTake) lines.push(`    Coach Rick Take: ${s.coachRickTake}`);
       if (s.priorityDrill) lines.push(`    Priority Drill: ${s.priorityDrill}`);
+    }
+  }
+
+  // Player Intel Documents (from coach uploads)
+  if (ctx.playerIntelDocs && ctx.playerIntelDocs.length > 0) {
+    lines.push("");
+    lines.push("[PLAYER INTELLIGENCE — from coach uploads]");
+    let totalChars = 0;
+    const maxTotalChars = 3000;
+    for (const doc of ctx.playerIntelDocs) {
+      if (totalChars >= maxTotalChars) break;
+      const dateStr = doc.createdAt?.substring(0, 10) || "?";
+      lines.push(`\n[${doc.documentType.toUpperCase()}] ${doc.title} (${dateStr}):`);
+      if (doc.aiSummary) {
+        const text = doc.aiSummary.substring(0, 300);
+        lines.push(`Summary: ${text}`);
+        totalChars += text.length;
+      }
+      if (doc.aiExtractedText && totalChars < maxTotalChars) {
+        const text = doc.aiExtractedText.substring(0, 500);
+        lines.push(`Data: ${text}`);
+        totalChars += text.length;
+      }
+      if (doc.contentText && totalChars < maxTotalChars) {
+        const text = doc.contentText.substring(0, 500);
+        lines.push(`Note: ${text}`);
+        totalChars += text.length;
+      }
+      if (doc.tags && doc.tags.length > 0) {
+        lines.push(`Tags: ${doc.tags.join(", ")}`);
+      }
     }
   }
 
@@ -785,6 +844,15 @@ When the player's context includes a Coach Barrels Classification, reference it 
 ## Motor Profiles (use these exact names only):
 - Spinner, Whipper_Load, Whipper_Tilt, Slingshotter, Titan
 - Never invent profile names like "Savant" or "Slinger" — those don't exist
+
+## PLAYER INTELLIGENCE
+You have access to coach-uploaded documents about this player including OMAR biomechanics reports, kinetic sequence data, scouting reports, medical history, and coaching notes.
+When answering questions:
+- Reference specific data points from OMAR reports if relevant (e.g., "Your OMAR data shows pelvis peak at 0.162s before impact — that's good timing")
+- Use coaching notes to inform your diagnosis — if the coach noted a specific issue, acknowledge it
+- If medical documents mention cleared injuries, factor that into your assessment (e.g., neurological inhibition patterns)
+- Never share raw medical information with the player unless the coach's note explicitly says to discuss it
+- Treat coach notes as ground truth — they override AI estimates when they conflict
 
 ${knowledgeSection}
 
