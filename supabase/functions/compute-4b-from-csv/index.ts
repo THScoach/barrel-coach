@@ -818,6 +818,8 @@ serve(async (req: Request) => {
         raw_metrics: rawMetrics,
       };
 
+      let playerSessionId: string | null = null;
+
       const { data: existingSession, error: fetchSessionError } = await supabase
         .from('player_sessions')
         .select('id')
@@ -830,6 +832,7 @@ serve(async (req: Request) => {
       }
 
       if (existingSession?.id) {
+        playerSessionId = existingSession.id;
         const { error: updateError } = await supabase
           .from('player_sessions')
           .update(sessionPayload)
@@ -848,15 +851,13 @@ serve(async (req: Request) => {
         if (insertError) {
           console.error('[compute-4b-from-csv] DB insert error:', insertError);
         }
-        // Store newly created ID for linking
         if (insertedData) {
-          (existingSession as any) = insertedData;
+          playerSessionId = insertedData.id;
         }
       }
 
       // ── Session Linking: auto-pair with video_2d_sessions on same date ──
       const sessionDateStr = (session_date ?? new Date().toISOString()).substring(0, 10);
-      const playerSessionId = existingSession?.id;
       
       if (playerSessionId) {
         try {
