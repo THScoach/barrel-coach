@@ -522,6 +522,9 @@ export default function CoachRickAITestChat() {
                               : "bg-slate-800 text-white"
                           }`}
                         >
+                          {msg.imageUrl && (
+                            <img src={msg.imageUrl} alt="Uploaded" className="rounded-lg mb-2 max-h-40 w-auto object-contain" />
+                          )}
                           <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                         </div>
                         {/* Rating controls for assistant messages */}
