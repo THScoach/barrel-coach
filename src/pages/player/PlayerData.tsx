@@ -277,20 +277,12 @@ export default function PlayerData() {
                 <div className="space-y-2">
                   {sessions.map(session => {
                     const is2DVideo = session.source === '2d_video';
-                    const linkTo = is2DVideo ? `/player/data?tab=sessions&view=${session.id}` : `/results/${session.id}`;
                     
                     return (
                       <div
                         key={session.id}
                         className="flex items-center justify-between p-3 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-                        onClick={() => {
-                          if (is2DVideo) {
-                            // Show 2D analysis in a modal or expand inline
-                            toast.info("2D Video Analysis - viewing inline");
-                          } else {
-                            navigate(`/results/${session.id}`);
-                          }
-                        }}
+                        onClick={() => navigate(`/player/session/${session.id}`)}
                       >
                         <div className="flex items-center gap-3">
                           {is2DVideo ? (

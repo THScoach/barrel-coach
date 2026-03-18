@@ -517,24 +517,30 @@ export default function PlayerHome() {
               {sessionHistory.slice(0, 3).map(session => (
                 <Link
                   key={session.id}
-                  to={session.source === 'video' 
-                    ? `/player/data?tab=video&session=${session.id}` 
-                    : `/player/data?tab=scores`}
+                  to={`/player/session/${session.id}`}
                   className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 hover:bg-slate-700/50 transition-all"
                 >
                   <div className="flex items-center gap-3">
                     {session.source === 'reboot' ? (
                       <Activity className="h-4 w-4 text-emerald-400" />
                     ) : (
-                      <Video className="h-4 w-4 text-slate-500" />
+                      <Video className="h-4 w-4 text-blue-400" />
                     )}
                     <div>
                       <p className="text-sm font-medium text-white">
                         {format(new Date(session.session_date), 'MMM d')}
                       </p>
-                      <p className="text-xs text-slate-500">
-                        {session.context}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs text-slate-500">{session.context}</p>
+                        <Badge variant="outline" className={cn(
+                          "text-[9px] px-1 py-0 h-4 border-0",
+                          session.source === 'video' 
+                            ? "bg-blue-500/10 text-blue-400" 
+                            : "bg-teal-500/10 text-teal-400"
+                        )}>
+                          {session.source === 'video' ? 'Video' : '3D'}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
