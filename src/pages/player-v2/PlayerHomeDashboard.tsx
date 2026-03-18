@@ -326,14 +326,18 @@ export default function PlayerHomeDashboard() {
                 const h = (val / 100) * maxH;
                 const barColor = s.source === '2d' ? '#3B82F6' : scoreColor(val);
                 return (
-                  <div key={s.id} className="flex-1 flex flex-col items-center gap-1">
+                  <Link
+                    key={s.id}
+                    to={`/player/session/${s.id}`}
+                    className="flex-1 flex flex-col items-center gap-1 hover:opacity-80 transition-opacity"
+                  >
                     <span className="text-[10px] font-bold" style={{ color: barColor }}>{val}</span>
                     <div
                       className="w-full rounded-sm"
                       style={{ height: `${Math.max(h, 4)}px`, background: barColor, opacity: 0.7 + (i / sessionHistory.length) * 0.3 }}
                     />
                     <span className="text-[8px]" style={{ color: '#555' }}>{s.source === '2d' ? '2D' : '3D'}</span>
-                  </div>
+                  </Link>
                 );
               })}
             </div>

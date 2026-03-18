@@ -190,7 +190,12 @@ export default function PlayerProgress() {
               const badgeColor = s.source === '2d' ? '#3B82F6' : '#14B8A6';
               const badgeLabel = s.source === '2d' ? 'Video Analysis' : '3D Analysis';
               return (
-                <div key={s.id} className="flex items-center gap-3 rounded-lg p-3" style={{ background: '#0a0a0a', border: '1px solid #222' }}>
+                <button
+                  key={s.id}
+                  onClick={() => navigate(`/player/session/${s.id}`)}
+                  className="flex items-center gap-3 rounded-lg p-3 w-full text-left hover:opacity-80 transition-opacity"
+                  style={{ background: '#0a0a0a', border: '1px solid #222' }}
+                >
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold" style={{ color: scoreColor(score) }}>{score}</span>
@@ -207,7 +212,7 @@ export default function PlayerProgress() {
                     className="h-6 rounded-sm"
                     style={{ width: `${Math.max(score, 5)}%`, maxWidth: '120px', background: badgeColor, opacity: 0.6 }}
                   />
-                </div>
+                </button>
               );
             })}
           </div>

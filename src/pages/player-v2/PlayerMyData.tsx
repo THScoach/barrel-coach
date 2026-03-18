@@ -218,7 +218,7 @@ export default function PlayerMyData() {
                 return (
                   <Link
                     key={s.id}
-                    to={`/player/data?tab=video&session=${s.id}`}
+                    to={`/player/session/${s.id}`}
                     className="block rounded-xl p-4 transition-colors hover:opacity-90"
                     style={{ background: '#111', border: '1px solid #222' }}
                   >
