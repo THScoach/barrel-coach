@@ -116,7 +116,7 @@ export default function PlayerSession() {
         </Link>
 
         {drills.length === 0 ? (
-          <EmptyState icon={<Dumbbell className="h-12 w-12" />} title="No drills assigned" description="Complete an assessment session to get your personalized drill plan" ctaLabel="Upload Session" ctaTo="/player/data" />
+          <EmptyState icon={<Dumbbell className="h-12 w-12" />} title="No drills assigned" description="Upload a swing session first — Coach Barrels will prescribe drills based on your analysis." ctaLabel="Start New Session" ctaTo="/player/session/new" />
         ) : (
           <div className="space-y-3">
             <p className="text-[11px] font-semibold uppercase" style={{ color: '#555' }}>Drill Sequence</p>
