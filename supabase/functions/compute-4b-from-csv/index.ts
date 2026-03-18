@@ -678,6 +678,7 @@ serve(async (req: Request) => {
         player_id,
         reboot_session_id: session_id,
         session_date: session_date ?? new Date().toISOString(),
+        overall_score: result.score_4bkrs,
         score_4bkrs: result.score_4bkrs,
         scoring_mode: result.mode,
         scoring_version: result.version,
@@ -703,6 +704,7 @@ serve(async (req: Request) => {
         bat_speed_confidence: result.bat_speed_confidence,
         scoring_timestamp: result.scoring_timestamp,
         scored_at: new Date().toISOString(),
+        raw_metrics: rawMetrics,
       };
 
       const { data: existingSession, error: fetchSessionError } = await supabase
