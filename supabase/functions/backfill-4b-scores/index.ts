@@ -204,9 +204,15 @@ Deno.serve(async (req) => {
             return;
           }
 
-          // If CSV data is missing, try to download from Reboot
-          let csvMe = session.raw_csv_me;
-          let csvIk = session.raw_csv_ik;
+          // Fetch CSV data on-demand (not preloaded — too large for memory)
+          const { data: csvData } = await supabase
+            .from('reboot_sessions')
+            .select('raw_csv_me, raw_csv_ik')
+            .eq('id', session.id)
+            .single();
+
+          let csvMe = csvData?.raw_csv_me || '';
+          let csvIk = csvData?.raw_csv_ik || '';
 
           if (!csvMe || csvMe.trim().length < 50) {
             if (!session.reboot_session_id) {
@@ -239,16 +245,16 @@ Deno.serve(async (req) => {
               rebootToken = await getRebootAccessToken();
             }
 
-            const csvData = await downloadRebootCSV(session.reboot_session_id, orgPlayerId, rebootToken);
-            if (!csvData.csvMe || csvData.csvMe.trim().length < 50) {
+            const downloadedCsv = await downloadRebootCSV(session.reboot_session_id, orgPlayerId, rebootToken);
+            if (!downloadedCsv.csvMe || downloadedCsv.csvMe.trim().length < 50) {
               console.warn(`[Backfill] No ME CSV available from Reboot for session ${session.reboot_session_id}`);
               skipped++;
               return;
             }
 
             // Store downloaded CSV in reboot_sessions
-            const updatePayload: Record<string, string> = { raw_csv_me: csvData.csvMe };
-            if (csvData.csvIk) updatePayload.raw_csv_ik = csvData.csvIk;
+            const updatePayload: Record<string, string> = { raw_csv_me: downloadedCsv.csvMe };
+            if (downloadedCsv.csvIk) updatePayload.raw_csv_ik = downloadedCsv.csvIk;
             
             const { error: csvUpdateErr } = await supabase
               .from('reboot_sessions')
@@ -262,8 +268,8 @@ Deno.serve(async (req) => {
               console.log(`[Backfill] Stored CSV for session ${session.reboot_session_id}`);
             }
 
-            csvMe = csvData.csvMe;
-            csvIk = csvData.csvIk || csvIk;
+            csvMe = downloadedCsv.csvMe;
+            csvIk = downloadedCsv.csvIk || csvIk;
           }
 
           // Validate CSV data
