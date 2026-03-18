@@ -71,6 +71,10 @@ export default function CoachRickAITestChat() {
   const [isProcessingVideo, setIsProcessingVideo] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  
+  // Image upload state
+  const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Custom context
   const [customContext, setCustomContext] = useState<PlayerContext>({
