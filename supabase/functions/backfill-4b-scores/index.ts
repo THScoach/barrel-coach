@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 1; // Process one at a time to avoid memory limits with large CSVs
 const SCORING_VERSION = '4b_v2';
 
 // ── Reboot API helpers ──────────────────────────────────────────────────
@@ -145,11 +145,11 @@ Deno.serve(async (req) => {
 
     console.log(`[Backfill] Starting. player_id=${player_id || 'ALL'}, force=${force_rescore || false}`);
 
-    // Query reboot_sessions: those with CSV data OR those with a reboot_session_id (can download CSV)
+    // Query reboot_sessions: metadata only (DO NOT load raw_csv_me/ik — too large for memory)
     let query = supabase
       .from('reboot_sessions')
-      .select('id, player_id, reboot_session_id, reboot_player_id, raw_csv_me, raw_csv_ik, session_date, session_type, drill_name, measured_bat_speed_mph')
-      .or('raw_csv_me.not.is.null,reboot_session_id.not.is.null')
+      .select('id, player_id, reboot_session_id, reboot_player_id, session_date, session_type, drill_name, measured_bat_speed_mph')
+      .not('reboot_session_id', 'is', null)
       .order('created_at', { ascending: true });
 
     if (player_id) {
@@ -204,9 +204,15 @@ Deno.serve(async (req) => {
             return;
           }
 
-          // If CSV data is missing, try to download from Reboot
-          let csvMe = session.raw_csv_me;
-          let csvIk = session.raw_csv_ik;
+          // Fetch CSV data on-demand (not preloaded — too large for memory)
+          const { data: csvData } = await supabase
+            .from('reboot_sessions')
+            .select('raw_csv_me, raw_csv_ik')
+            .eq('id', session.id)
+            .single();
+
+          let csvMe = csvData?.raw_csv_me || '';
+          let csvIk = csvData?.raw_csv_ik || '';
 
           if (!csvMe || csvMe.trim().length < 50) {
             if (!session.reboot_session_id) {
@@ -239,16 +245,16 @@ Deno.serve(async (req) => {
               rebootToken = await getRebootAccessToken();
             }
 
-            const csvData = await downloadRebootCSV(session.reboot_session_id, orgPlayerId, rebootToken);
-            if (!csvData.csvMe || csvData.csvMe.trim().length < 50) {
+            const downloadedCsv = await downloadRebootCSV(session.reboot_session_id, orgPlayerId, rebootToken);
+            if (!downloadedCsv.csvMe || downloadedCsv.csvMe.trim().length < 50) {
               console.warn(`[Backfill] No ME CSV available from Reboot for session ${session.reboot_session_id}`);
               skipped++;
               return;
             }
 
             // Store downloaded CSV in reboot_sessions
-            const updatePayload: Record<string, string> = { raw_csv_me: csvData.csvMe };
-            if (csvData.csvIk) updatePayload.raw_csv_ik = csvData.csvIk;
+            const updatePayload: Record<string, string> = { raw_csv_me: downloadedCsv.csvMe };
+            if (downloadedCsv.csvIk) updatePayload.raw_csv_ik = downloadedCsv.csvIk;
             
             const { error: csvUpdateErr } = await supabase
               .from('reboot_sessions')
@@ -262,8 +268,8 @@ Deno.serve(async (req) => {
               console.log(`[Backfill] Stored CSV for session ${session.reboot_session_id}`);
             }
 
-            csvMe = csvData.csvMe;
-            csvIk = csvData.csvIk || csvIk;
+            csvMe = downloadedCsv.csvMe;
+            csvIk = downloadedCsv.csvIk || csvIk;
           }
 
           // Validate CSV data

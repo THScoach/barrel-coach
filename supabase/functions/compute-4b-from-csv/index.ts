@@ -593,6 +593,117 @@ function smooth5(values: number[]): number[] {
 }
 
 // ---------------------------------------------------------------------------
+// BUILD RAW_METRICS for Kinetic Sequence / Stability tabs
+// ---------------------------------------------------------------------------
+
+function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): Record<string, unknown> {
+  const pelvis = input.pelvis_omega_peak;
+  const torso = input.trunk_omega_peak;
+  const arm = input.arm_omega_peak;
+
+  // Gains
+  const pelvis_torso_gain = pelvis > 0 ? Math.round((torso / pelvis) * 100) / 100 : null;
+  const torso_arm_gain = torso > 0 ? Math.round((arm / torso) * 100) / 100 : null;
+  
+  // Estimate bat omega (from KE or predicted bat speed)
+  const batSpeedMph = result.bat_speed_mph || result.predicted_bat_speed_mph || 0;
+  // Convert mph to deg/s approximation: bat speed mph × ~30 ≈ deg/s (rough)
+  const estimatedBatOmega = batSpeedMph > 0 ? batSpeedMph * 30 : arm * 1.3;
+  const arm_bat_gain = arm > 0 ? Math.round((estimatedBatOmega / arm) * 100) / 100 : null;
+
+  // Flow labels
+  function flowLabel(gain: number | null): string {
+    if (gain == null) return 'OK';
+    if (gain >= 1.3) return 'STRONG';
+    if (gain >= 1.0) return 'OK';
+    return 'LOSING';
+  }
+
+  // Timing gap (pelvis → torso)
+  const pelvis_torso_gap_ms = Math.round(Math.abs(input.trunk_omega_time - input.pelvis_omega_time) * 10) / 10;
+
+  // Beat pattern
+  const pelvisFirst = input.pelvis_omega_time <= input.trunk_omega_time;
+  const beat = pelvisFirst ? 'Hips → Torso → Arms' : 'Torso → Hips (reversed)';
+
+  // KE cascade timing estimates from load/launch durations
+  const ke_brake_ms = Math.round(input.load_duration_ms * 0.03); // ~3% of load phase
+  const ke_cascade_ms = Math.round(input.launch_duration_ms * 0.8); // ~80% of launch
+  const brake_efficiency = result.transfer_efficiency != null
+    ? Math.round(result.transfer_efficiency * 1000) / 1000
+    : null;
+
+  // Root cause analysis
+  let rootCause: Record<string, string> = { issue: 'None detected', what: 'Swing is functioning well', build: '' };
+  if (pelvis_torso_gain != null && pelvis_torso_gain < 1.0) {
+    rootCause = {
+      issue: 'Energy Loss: Hip → Torso',
+      what: 'Torso is not amplifying hip rotation. Energy is dying at the core.',
+      build: 'Core connection drills — medicine ball rotations, plank anti-rotation holds, hip-lead sequencing.',
+    };
+  } else if (torso_arm_gain != null && torso_arm_gain < 1.0) {
+    rootCause = {
+      issue: 'Energy Loss: Torso → Arms',
+      what: 'Arm action is decoupled from trunk rotation. Upper body is casting.',
+      build: 'Connection drills — knob-to-ball, short bat work, towel drills for lag.',
+    };
+  } else if (arm_bat_gain != null && arm_bat_gain < 1.0) {
+    rootCause = {
+      issue: 'Energy Loss: Arms → Barrel',
+      what: 'Bat head is not releasing through the zone. Wrist snap is weak or early.',
+      build: 'Wrist snap drills, overload/underload training, bat path work.',
+    };
+  } else if (pelvis_torso_gap_ms < 10) {
+    rootCause = {
+      issue: 'Timing: Simultaneous Rotation',
+      what: 'Hips and torso are firing together instead of sequentially.',
+      build: 'Separation drills — stride & hold, wall drills, hip-lead tempo work.',
+    };
+  }
+
+  // Energy flow
+  const energyFlow = {
+    hip_to_body: flowLabel(pelvis_torso_gain),
+    body_to_arms: flowLabel(torso_arm_gain),
+    arms_to_barrel: flowLabel(arm_bat_gain),
+  };
+
+  // Coaching story
+  const story: Record<string, string> = {};
+  story.base = `Pelvis peak velocity: ${Math.round(pelvis)}°/s. ${
+    pelvis >= 600 ? 'Strong foundation.' : 'Below target — needs more ground-force production.'
+  }`;
+  story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. ${
+    pelvis_torso_gap_ms >= 14 ? 'Good sequential timing.' : 'Gap is tight — work on separation.'
+  }`;
+  story.barrel = `Estimated bat speed: ${batSpeedMph > 0 ? Math.round(batSpeedMph) + ' mph' : 'N/A'}. Transfer ratio: ${input.transfer_ratio.toFixed(2)}.`;
+
+  return {
+    avgPelvisVelocity: Math.round(pelvis),
+    pelvis_torso_gain,
+    torso_arm_gain,
+    arm_bat_gain,
+    pelvis_torso_gap_ms,
+    beat,
+    ke_brake_ms,
+    ke_cascade_ms,
+    brake_efficiency,
+    root_cause: rootCause,
+    energy_flow: energyFlow,
+    story,
+    // Additional raw data for other tabs
+    torso_velocity: Math.round(torso),
+    arm_velocity: Math.round(arm),
+    x_factor_deg: Math.round(input.hip_shoulder_sep_max_deg),
+    transfer_ratio: Math.round(input.transfer_ratio * 1000) / 1000,
+    timing_gap_pct: result.timing_gap_pct,
+    transfer_efficiency: result.transfer_efficiency,
+    bat_speed_mph: result.bat_speed_mph || result.predicted_bat_speed_mph,
+    exit_velocity_mph: result.exit_velocity_mph || result.predicted_exit_velocity_mph,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // EDGE FUNCTION HANDLER
 // ---------------------------------------------------------------------------
 
@@ -664,6 +775,9 @@ serve(async (req: Request) => {
     // 2. Score — HTTP call to shared engine
     const result = await computeScoringResult(input);
 
+    // 2b. Build raw_metrics for Kinetic Sequence / Stability tabs
+    const rawMetrics = buildRawMetrics(input, result);
+
     // 3. Persist to player_sessions if session context provided
     if (session_id && player_id) {
       const supabase = createClient(
@@ -675,6 +789,7 @@ serve(async (req: Request) => {
         player_id,
         reboot_session_id: session_id,
         session_date: session_date ?? new Date().toISOString(),
+        overall_score: result.score_4bkrs,
         score_4bkrs: result.score_4bkrs,
         scoring_mode: result.mode,
         scoring_version: result.version,
@@ -700,6 +815,7 @@ serve(async (req: Request) => {
         bat_speed_confidence: result.bat_speed_confidence,
         scoring_timestamp: result.scoring_timestamp,
         scored_at: new Date().toISOString(),
+        raw_metrics: rawMetrics,
       };
 
       const { data: existingSession, error: fetchSessionError } = await supabase
