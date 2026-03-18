@@ -203,7 +203,11 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         hasBalanceStabilityIssue: biomechData.has_balance_stability_issue,
         focusNextBp: biomechData.focus_next_bp,
         recommendedCues: biomechData.recommended_cues,
+        coachBarrelsClassification: biomechData.coach_barrels_classification,
+        coachBarrelsVoiceSample: biomechData.coach_barrels_voice_sample,
+        coachBarrelsPrescription: biomechData.coach_barrels_prescription,
       } : null,
+      injuryHistory: player.injury_history || null,
     };
   } catch (err) {
     console.error("[ContextLoader] Error loading player context:", err);
