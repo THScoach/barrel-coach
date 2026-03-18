@@ -110,6 +110,7 @@ serve(async (req) => {
         player_name: playerName || 'Unknown',
         player_email: playerEmail || 'unknown@example.com',
         player_level: playerLevel,
+        player_age: 14,
         environment: 'production',
         status: 'pending_analysis',
         swing_count: urls.length,
