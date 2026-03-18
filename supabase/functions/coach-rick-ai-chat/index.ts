@@ -366,6 +366,21 @@ function formatPlayerContextBlock(ctx: FullPlayerContext): string {
     }
   }
 
+  // 2D Video Analysis sessions
+  if (ctx.video2dSessions && ctx.video2dSessions.length > 0) {
+    lines.push("");
+    lines.push("[2D VIDEO ANALYSIS — recent sessions from Gemini vision analysis]");
+    lines.push("Note: Brain scores capped at 55, Ball scores capped at 50 in 2D mode.");
+    for (const s of ctx.video2dSessions) {
+      const dateStr = s.sessionDate?.substring(0, 10) || "?";
+      lines.push(`  ${dateStr}: Body ${s.bodyScore ?? '?'} / Brain ${s.brainScore ?? '?'} / Bat ${s.batScore ?? '?'} / Ball ${s.ballScore ?? '?'} → Composite ${s.compositeScore ?? '?'} (${s.grade || 'Unrated'})`);
+      if (s.leakDetected) lines.push(`    Leak: ${s.leakDetected}`);
+      if (s.motorProfile) lines.push(`    Motor Profile Indication: ${s.motorProfile}`);
+      if (s.coachRickTake) lines.push(`    Coach Rick Take: ${s.coachRickTake}`);
+      if (s.priorityDrill) lines.push(`    Priority Drill: ${s.priorityDrill}`);
+    }
+  }
+
   return lines.join("\n");
 }
 
