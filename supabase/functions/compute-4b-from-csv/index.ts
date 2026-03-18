@@ -847,6 +847,52 @@ serve(async (req: Request) => {
           console.error('[compute-4b-from-csv] DB insert error:', insertError);
         }
       }
+
+      // ── Session Linking: auto-pair with video_2d_sessions on same date ──
+      const sessionDateStr = (session_date ?? new Date().toISOString()).substring(0, 10);
+      const playerSessionId = existingSession?.id;
+      
+      if (playerSessionId) {
+        try {
+          // Find video_2d_sessions for same player on same date
+          const { data: matchingVideos } = await supabase
+            .from('video_2d_sessions')
+            .select('id')
+            .eq('player_id', player_id)
+            .gte('session_date', sessionDateStr)
+            .lt('session_date', sessionDateStr + 'T23:59:59')
+            .eq('processing_status', 'complete')
+            .limit(1);
+
+          if (matchingVideos && matchingVideos.length > 0) {
+            const videoId = matchingVideos[0].id;
+            
+            // Link player_sessions → video_2d_session
+            await supabase
+              .from('player_sessions')
+              .update({ video_2d_session_id: videoId })
+              .eq('id', playerSessionId);
+
+            // Link video_2d_batch_sessions → reboot via batch_session_id lookup
+            const { data: videoSession } = await supabase
+              .from('video_2d_sessions')
+              .select('batch_session_id')
+              .eq('id', videoId)
+              .maybeSingle();
+
+            if (videoSession?.batch_session_id) {
+              await supabase
+                .from('video_2d_batch_sessions')
+                .update({ reboot_session_id: session_id })
+                .eq('id', videoSession.batch_session_id);
+            }
+
+            console.log(`[compute-4b] Linked player_session ${playerSessionId} ↔ video ${videoId} (date: ${sessionDateStr})`);
+          }
+        } catch (linkErr) {
+          console.warn('[compute-4b] Session linking failed:', linkErr);
+        }
+      }
     }
 
     return new Response(JSON.stringify(result), {
