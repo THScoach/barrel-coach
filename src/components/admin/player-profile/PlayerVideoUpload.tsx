@@ -146,9 +146,61 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
   const [rebootPlayerId, setRebootPlayerId] = useState<string | null>(null);
   const [rebootAthleteId, setRebootAthleteId] = useState<string | null>(null);
   const [loadingRebootStatus, setLoadingRebootStatus] = useState(true);
+  const [onformUrls, setOnformUrls] = useState("");
+  const [importingOnform, setImportingOnform] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const processingRef = useRef(false);
+
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+  const handleOnformImport = async () => {
+    const urlList = onformUrls
+      .split('\n')
+      .map(u => u.trim())
+      .filter(u => u.length > 0 && u.includes('getonform.com'));
+
+    if (urlList.length === 0) {
+      toast.error('Paste valid OnForm URLs (one per line)');
+      return;
+    }
+
+    if (urlList.length > MAX_FILES) {
+      toast.error(`Maximum ${MAX_FILES} videos per session`);
+      return;
+    }
+
+    setImportingOnform(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/import-onform-video`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          urls: urlList,
+          playerId,
+          forSwingAnalysis: true,
+          source: 'admin_onform',
+          playerName,
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Import failed');
+
+      toast.success(data.message || `Imported ${urlList.length} video(s)`);
+      setOnformUrls('');
+      queryClient.invalidateQueries({ queryKey: ['player-2d-batch-sessions', playerId] });
+    } catch (error) {
+      console.error('OnForm import error:', error);
+      toast.error(error instanceof Error ? error.message : 'Import failed');
+    } finally {
+      setImportingOnform(false);
+    }
+  };
 
   // Fetch player's Reboot link status
   useEffect(() => {
