@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 1; // Process one at a time to avoid memory limits with large CSVs
 const SCORING_VERSION = '4b_v2';
 
 // ── Reboot API helpers ──────────────────────────────────────────────────
