@@ -592,6 +592,24 @@ export default function CoachRickAITestChat() {
                     <Progress value={videoProgress} className="h-2" />
                   </div>
                 )}
+                {/* Pending image preview */}
+                {pendingImage && (
+                  <div className="mb-3 relative inline-block">
+                    {pendingImage.preview ? (
+                      <img src={pendingImage.preview} alt="Preview" className="h-16 rounded-lg border border-slate-600" />
+                    ) : (
+                      <div className="h-16 px-4 rounded-lg flex items-center gap-2 text-xs bg-slate-800 border border-slate-600 text-slate-400">
+                        📄 {pendingImage.file.name}
+                      </div>
+                    )}
+                    <button
+                      onClick={clearPendingImage}
+                      className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center"
+                    >
+                      <X className="h-3 w-3 text-white" />
+                    </button>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <input
                     ref={videoInputRef}
@@ -600,6 +618,23 @@ export default function CoachRickAITestChat() {
                     onChange={handleVideoUpload}
                     className="hidden"
                   />
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,application/pdf"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={isLoading || isProcessingVideo}
+                    className="border-blue-500/50 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300"
+                    title="Upload image/PDF for analysis"
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="outline"
                     size="icon"
@@ -618,7 +653,7 @@ export default function CoachRickAITestChat() {
                     className="bg-slate-800 border-slate-700 text-white"
                     disabled={isLoading || isProcessingVideo}
                   />
-                  <Button onClick={sendMessage} disabled={!input.trim() || isLoading || isProcessingVideo} className="bg-accent hover:bg-accent/90">
+                  <Button onClick={sendMessage} disabled={(!input.trim() && !pendingImage) || isLoading || isProcessingVideo} className="bg-accent hover:bg-accent/90">
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
