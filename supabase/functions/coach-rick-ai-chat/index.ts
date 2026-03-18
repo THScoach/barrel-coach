@@ -263,6 +263,15 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         priorityDrill: s.priority_drill,
         grade: s.grade,
       })),
+      playerIntelDocs: (intelRes.data || []).map((d: any) => ({
+        title: d.title,
+        documentType: d.document_type,
+        contentText: d.content_text,
+        aiExtractedText: d.ai_extracted_text,
+        aiSummary: d.ai_summary,
+        tags: d.tags,
+        createdAt: d.created_at,
+      })),
     };
   } catch (err) {
     console.error("[ContextLoader] Error loading player context:", err);
