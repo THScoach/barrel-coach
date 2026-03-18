@@ -93,6 +93,16 @@ interface FullPlayerContext {
     priorityDrill: string | null;
     grade: string | null;
   }[];
+  // Player intel documents
+  playerIntelDocs: {
+    title: string;
+    documentType: string;
+    contentText: string | null;
+    aiExtractedText: string | null;
+    aiSummary: string | null;
+    tags: string[] | null;
+    createdAt: string;
+  }[];
 }
 
 async function loadFullPlayerContext(supabase: any, playerId: string): Promise<FullPlayerContext | null> {
