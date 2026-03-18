@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -14,7 +16,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Upload, Video, Loader2, CheckCircle, XCircle, Clock, Plus, Send, AlertCircle, Activity } from "lucide-react";
+import { Upload, Video, Loader2, CheckCircle, XCircle, Clock, Plus, Send, AlertCircle, Activity, Link2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface PlayerVideoUploadProps {
@@ -144,9 +146,61 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
   const [rebootPlayerId, setRebootPlayerId] = useState<string | null>(null);
   const [rebootAthleteId, setRebootAthleteId] = useState<string | null>(null);
   const [loadingRebootStatus, setLoadingRebootStatus] = useState(true);
+  const [onformUrls, setOnformUrls] = useState("");
+  const [importingOnform, setImportingOnform] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const processingRef = useRef(false);
+
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+  const handleOnformImport = async () => {
+    const urlList = onformUrls
+      .split('\n')
+      .map(u => u.trim())
+      .filter(u => u.length > 0 && u.includes('getonform.com'));
+
+    if (urlList.length === 0) {
+      toast.error('Paste valid OnForm URLs (one per line)');
+      return;
+    }
+
+    if (urlList.length > MAX_FILES) {
+      toast.error(`Maximum ${MAX_FILES} videos per session`);
+      return;
+    }
+
+    setImportingOnform(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/import-onform-video`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          urls: urlList,
+          playerId,
+          forSwingAnalysis: true,
+          source: 'admin_onform',
+          playerName,
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Import failed');
+
+      toast.success(data.message || `Imported ${urlList.length} video(s)`);
+      setOnformUrls('');
+      queryClient.invalidateQueries({ queryKey: ['player-2d-batch-sessions', playerId] });
+    } catch (error) {
+      console.error('OnForm import error:', error);
+      toast.error(error instanceof Error ? error.message : 'Import failed');
+    } finally {
+      setImportingOnform(false);
+    }
+  };
 
   // Fetch player's Reboot link status
   useEffect(() => {
@@ -635,35 +689,84 @@ export function PlayerVideoUpload({ playerId, playerName }: PlayerVideoUploadPro
             </div>
           )}
         </div>
-        <div 
-          className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-            queue.length > 0 
-              ? "border-emerald-500/30 bg-emerald-500/5" 
-              : "border-slate-700 hover:border-slate-600 bg-slate-800/30"
-          }`}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/mp4,video/quicktime,.mp4,.mov"
-            multiple
-            onChange={handleFilesSelect}
-            className="hidden"
-          />
-          {queue.length === 0 ? (
-            <div className="text-slate-400">
-              <Video className="h-10 w-10 mx-auto mb-2 opacity-50" />
-              <p className="font-medium">Click to select swing videos</p>
-              <p className="text-xs mt-1">MP4 or MOV, max 500MB each • Select up to {MAX_FILES} videos</p>
+
+        {/* Upload Method Tabs */}
+        <Tabs defaultValue="files" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-slate-800/50">
+            <TabsTrigger value="files" className="flex items-center gap-2 text-xs">
+              <Video className="h-3.5 w-3.5" />
+              File Upload
+            </TabsTrigger>
+            <TabsTrigger value="onform" className="flex items-center gap-2 text-xs">
+              <Link2 className="h-3.5 w-3.5" />
+              OnForm Links
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="files" className="mt-3">
+            <div 
+              className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                queue.length > 0 
+                  ? "border-emerald-500/30 bg-emerald-500/5" 
+                  : "border-slate-700 hover:border-slate-600 bg-slate-800/30"
+              }`}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/mp4,video/quicktime,.mp4,.mov"
+                multiple
+                onChange={handleFilesSelect}
+                className="hidden"
+              />
+              {queue.length === 0 ? (
+                <div className="text-slate-400">
+                  <Video className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                  <p className="font-medium">Click to select swing videos</p>
+                  <p className="text-xs mt-1">MP4 or MOV, max 500MB each • Select up to {MAX_FILES} videos</p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-2 text-emerald-400">
+                  <Plus className="h-5 w-5" />
+                  <span className="font-medium">Add more videos ({queue.length}/{MAX_FILES})</span>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="flex items-center justify-center gap-2 text-emerald-400">
-              <Plus className="h-5 w-5" />
-              <span className="font-medium">Add more videos ({queue.length}/{MAX_FILES})</span>
-            </div>
-          )}
-        </div>
+          </TabsContent>
+
+          <TabsContent value="onform" className="mt-3 space-y-3">
+            <Textarea
+              placeholder={"https://link.getonform.com/view?id=...\nhttps://link.getonform.com/view?id=...\nhttps://link.getonform.com/view?id=..."}
+              value={onformUrls}
+              onChange={(e) => setOnformUrls(e.target.value)}
+              rows={5}
+              className="bg-slate-800/50 border-slate-700 text-white font-mono text-sm placeholder:text-slate-600"
+              disabled={importingOnform}
+            />
+            <p className="text-xs text-slate-500">
+              One link per line. Open OnForm → select video → Share → Copy Link.
+            </p>
+            <Button
+              onClick={handleOnformImport}
+              disabled={importingOnform || !onformUrls.trim()}
+              variant="outline"
+              className="w-full border-slate-700 text-slate-300 hover:text-white"
+            >
+              {importingOnform ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing from OnForm...
+                </>
+              ) : (
+                <>
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Import OnForm Videos
+                </>
+              )}
+            </Button>
+          </TabsContent>
+        </Tabs>
 
         {/* Queue List */}
         {queue.length > 0 && (
