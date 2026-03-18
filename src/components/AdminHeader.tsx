@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { LogOut, User, Plus, BookOpen, Bot } from "lucide-react";
+import { LogOut, User, Plus, BookOpen, Bot, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlayerPickerModal } from "@/components/admin/PlayerPickerModal";
 import { PlayerQuickSearch } from "@/components/admin/PlayerQuickSearch";
@@ -25,6 +25,7 @@ export function AdminHeader() {
     { to: "/admin/validation-queue", label: "Validation" },
     { to: "/admin/invites", label: "Invites" },
     { to: "/admin/library", label: "Library" },
+    { to: "/admin/calibration", label: "Calibration", icon: FlaskConical },
     { to: "/admin/vault", label: "Vault", icon: BookOpen },
     { to: "/admin/coach-rick-ai", label: "Coach Rick AI", icon: Bot },
     { to: "/admin/knowledge-base", label: "Docs", icon: BookOpen },
