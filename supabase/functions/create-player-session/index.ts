@@ -42,19 +42,19 @@ serve(async (req) => {
     const body = await req.json();
     const { productType = "complete_review", environment = "tee" } = body;
 
-    // Look up the player by email
-    const { data: player, error: playerError } = await supabase
-      .from("players")
-      .select("id, name, email, level, age, phone")
+    // Look up the player_profile by email (sessions.player_id FK references player_profiles)
+    const { data: profile, error: profileError } = await supabase
+      .from("player_profiles")
+      .select("id, first_name, last_name, email, level, age, phone")
       .eq("email", user.email)
       .maybeSingle();
 
-    if (playerError) {
-      console.error("Player lookup error:", playerError);
-      throw new Error(`Failed to find player: ${playerError.message}`);
+    if (profileError) {
+      console.error("Profile lookup error:", profileError);
+      throw new Error(`Failed to find player: ${profileError.message}`);
     }
 
-    if (!player) {
+    if (!profile) {
       throw new Error("No player profile found for this account. Contact Coach Rick.");
     }
 
