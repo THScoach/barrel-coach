@@ -38,6 +38,7 @@ export function AdminRescorePanel({ playerId }: { playerId?: string }) {
         failed: data.failed || 0,
         skipped: data.skipped || 0,
         total: data.total || 0,
+        csv_downloaded: data.csv_downloaded || 0,
       });
 
       toast.success(`Scored ${data.processed} sessions. ${data.failed} failed. ${data.skipped} skipped.`);
