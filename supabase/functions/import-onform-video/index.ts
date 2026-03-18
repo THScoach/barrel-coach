@@ -112,7 +112,7 @@ serve(async (req) => {
         player_level: playerLevel,
         player_age: 14,
         environment: context === 'practice' ? 'tee' : (context || 'tee'),
-        status: 'pending_analysis',
+        status: 'analyzing',
         swing_count: urls.length,
         player_id: playerId || null,
         price_cents: 0,
