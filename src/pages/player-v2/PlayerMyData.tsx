@@ -36,6 +36,7 @@ interface SessionRow {
   ball_score: number | null;
   leak_type: string | null;
   swing_count: number | null;
+  source: '3d' | '2d';
 }
 
 interface FlagRow {
