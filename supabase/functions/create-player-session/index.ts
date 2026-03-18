@@ -42,19 +42,19 @@ serve(async (req) => {
     const body = await req.json();
     const { productType = "complete_review", environment = "tee" } = body;
 
-    // Look up the player by email
-    const { data: player, error: playerError } = await supabase
-      .from("players")
-      .select("id, name, email, level, age, phone")
+    // Look up the player_profile by email (sessions.player_id FK references player_profiles)
+    const { data: profile, error: profileError } = await supabase
+      .from("player_profiles")
+      .select("id, first_name, last_name, email, level, age, phone")
       .eq("email", user.email)
       .maybeSingle();
 
-    if (playerError) {
-      console.error("Player lookup error:", playerError);
-      throw new Error(`Failed to find player: ${playerError.message}`);
+    if (profileError) {
+      console.error("Profile lookup error:", profileError);
+      throw new Error(`Failed to find player: ${profileError.message}`);
     }
 
-    if (!player) {
+    if (!profile) {
       throw new Error("No player profile found for this account. Contact Coach Rick.");
     }
 
@@ -104,23 +104,25 @@ serve(async (req) => {
       ? "single_swing" 
       : "complete_review";
 
-    // Create session attached to the existing player
+    const playerName = [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Unknown";
+
+    // Create session attached to the existing player profile
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
       .insert({
         product_type: dbProductType,
         price_cents: priceCents,
-        player_id: player.id, // ATTACH TO EXISTING PLAYER
-        player_name: player.name,
-        player_email: player.email,
-        player_phone: player.phone,
-        player_age: Math.max(5, Math.min(50, player.age || 16)),
-        player_level: player.level || "hs_varsity",
+        player_id: profile.id, // FK references player_profiles
+        player_name: playerName,
+        player_email: profile.email,
+        player_phone: profile.phone,
+        player_age: Math.max(5, Math.min(50, profile.age || 16)),
+        player_level: profile.level || "hs_varsity",
         environment: environment,
         swings_required: swingsRequired,
         swings_max_allowed: swingsMaxAllowed,
         status: "pending_upload",
-        user_id: user.id, // Link to auth user
+        user_id: user.id,
       })
       .select()
       .single();
@@ -130,13 +132,13 @@ serve(async (req) => {
       throw new Error(`Failed to create session: ${sessionError.message}`);
     }
 
-    console.log(`Created session ${session.id} for player ${player.id} (${player.name})`);
+    console.log(`Created session ${session.id} for profile ${profile.id} (${playerName})`);
 
     return new Response(
       JSON.stringify({
         sessionId: session.id,
-        playerId: player.id,
-        playerName: player.name,
+        playerId: profile.id,
+        playerName: playerName,
         swingsRequired,
         swingsMaxAllowed,
         status: session.status,
