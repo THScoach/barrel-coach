@@ -72,7 +72,13 @@ interface FullPlayerContext {
     hasBalanceStabilityIssue: boolean;
     focusNextBp: string | null;
     recommendedCues: any;
+    // Coach Barrels diagnostic data
+    coachBarrelsClassification: any | null;
+    coachBarrelsVoiceSample: string | null;
+    coachBarrelsPrescription: any | null;
   } | null;
+  // Injury history from players table
+  injuryHistory: any | null;
 }
 
 async function loadFullPlayerContext(supabase: any, playerId: string): Promise<FullPlayerContext | null> {
