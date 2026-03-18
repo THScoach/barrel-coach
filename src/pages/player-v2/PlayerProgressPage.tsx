@@ -1,5 +1,6 @@
 /**
  * My Progress — KRS history, flag resolution, projections (4B brand)
+ * Now includes video_2d_sessions alongside Reboot sessions with badges
  */
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +18,7 @@ interface SessionScore {
   session_date: string;
   overall_score: number | null;
   projections: any;
+  source: '3d' | '2d';
 }
 
 interface FlagHistory {
@@ -42,16 +44,52 @@ export default function PlayerProgress() {
     }
     const fetchData = async () => {
       setLoadingData(true);
-      const { data: sessData } = await supabase
-        .from("player_sessions")
-        .select("id, session_date, overall_score, projections")
-        .eq("player_id", player.id)
-        .order("session_date", { ascending: true });
 
-      if (sessData) setSessions(sessData);
+      // Fetch both 3D and 2D sessions in parallel
+      const [rebootRes, video2dRes] = await Promise.all([
+        supabase
+          .from("player_sessions")
+          .select("id, session_date, overall_score, projections")
+          .eq("player_id", player.id)
+          .order("session_date", { ascending: true }),
+        supabase
+          .from("video_2d_sessions")
+          .select("id, session_date, composite_score")
+          .eq("player_id", player.id)
+          .eq("processing_status", "complete")
+          .order("session_date", { ascending: true }),
+      ]);
 
-      if (sessData && sessData.length > 0) {
-        const sessionIds = sessData.map(s => s.id);
+      const merged: SessionScore[] = [];
+
+      if (rebootRes.data) {
+        merged.push(...rebootRes.data.map((s) => ({
+          id: s.id,
+          session_date: s.session_date,
+          overall_score: s.overall_score,
+          projections: s.projections,
+          source: '3d' as const,
+        })));
+      }
+
+      if (video2dRes.data) {
+        merged.push(...video2dRes.data.map((s) => ({
+          id: s.id,
+          session_date: s.session_date,
+          overall_score: s.composite_score,
+          projections: null,
+          source: '2d' as const,
+        })));
+      }
+
+      // Sort by date ascending
+      merged.sort((a, b) => a.session_date.localeCompare(b.session_date));
+      setSessions(merged);
+
+      // Fetch flags from Reboot sessions only
+      const rebootSessions = rebootRes.data || [];
+      if (rebootSessions.length > 0) {
+        const sessionIds = rebootSessions.map(s => s.id);
         const { data: swings } = await supabase
           .from("swing_analysis")
           .select("id, session_id")
@@ -92,13 +130,13 @@ export default function PlayerProgress() {
         <div className="flex flex-col items-center justify-center text-center px-6" style={{ paddingTop: '20vh' }}>
           <BarChart3 className="mb-4" style={{ color: '#E63946' }} size={48} strokeWidth={2} />
           <h2 className="text-[22px] font-semibold mb-2" style={{ color: '#ffffff' }}>No Progress Data Yet</h2>
-          <p className="text-base mb-6 max-w-xs" style={{ color: '#a0a0a0' }}>Complete your first session to start tracking your KRS score over time.</p>
+          <p className="text-base mb-6 max-w-xs" style={{ color: '#a0a0a0' }}>Complete your first session to start tracking your score over time.</p>
           <button
-            onClick={() => navigate('/player/session')}
+            onClick={() => navigate('/player/session/new')}
             className="px-6 py-3 rounded-lg text-sm font-bold text-white"
             style={{ background: '#E63946' }}
           >
-            Start a Session
+            Upload Swings
           </button>
         </div>
         <PlayerBottomNav />
@@ -108,7 +146,8 @@ export default function PlayerProgress() {
 
   const baseline = sessions[0]?.overall_score ?? 0;
   const current = sessions[sessions.length - 1]?.overall_score ?? 0;
-  const latestProjections = sessions[sessions.length - 1]?.projections;
+  const latestReboot = [...sessions].reverse().find(s => s.source === '3d');
+  const latestProjections = latestReboot?.projections;
   const projected = latestProjections?.projected_krs ?? current;
   const gain = current - baseline;
 
@@ -117,7 +156,7 @@ export default function PlayerProgress() {
       <PlayerTopBar playerName={player?.name ?? null} motorProfile={player?.motor_profile_sensor ?? null} />
 
       <main className="px-4 pb-24 pt-4 space-y-4">
-        {/* KRS Summary */}
+        {/* Score Summary */}
         <div className="rounded-xl p-5" style={{ background: '#111', border: '1px solid #222' }}>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
@@ -140,6 +179,38 @@ export default function PlayerProgress() {
               </span>
             </div>
           )}
+        </div>
+
+        {/* Score Timeline with source badges */}
+        <div className="rounded-xl p-5" style={{ background: '#111', border: '1px solid #222' }}>
+          <p className="text-xs font-semibold uppercase mb-4" style={{ color: '#555' }}>Score Timeline</p>
+          <div className="space-y-2">
+            {[...sessions].reverse().slice(0, 10).map((s) => {
+              const score = s.overall_score ?? 0;
+              const badgeColor = s.source === '2d' ? '#3B82F6' : '#14B8A6';
+              const badgeLabel = s.source === '2d' ? 'Video Analysis' : '3D Analysis';
+              return (
+                <div key={s.id} className="flex items-center gap-3 rounded-lg p-3" style={{ background: '#0a0a0a', border: '1px solid #222' }}>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold" style={{ color: scoreColor(score) }}>{score}</span>
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ background: `${badgeColor}20`, color: badgeColor }}
+                      >
+                        {badgeLabel}
+                      </span>
+                    </div>
+                    <span className="text-[11px]" style={{ color: '#555' }}>{s.session_date}</span>
+                  </div>
+                  <div
+                    className="h-6 rounded-sm"
+                    style={{ width: `${Math.max(score, 5)}%`, maxWidth: '120px', background: badgeColor, opacity: 0.6 }}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Flag Resolution Tracker */}
@@ -190,7 +261,17 @@ export default function PlayerProgress() {
           </div>
         )}
 
-        <p className="text-center text-[11px]" style={{ color: '#555' }}>Projections update after each Reboot upload</p>
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-4 text-[11px]" style={{ color: '#555' }}>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm" style={{ background: '#3B82F6' }} />
+            <span>Video Analysis</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm" style={{ background: '#14B8A6' }} />
+            <span>3D Analysis</span>
+          </div>
+        </div>
       </main>
 
       <PlayerBottomNav />

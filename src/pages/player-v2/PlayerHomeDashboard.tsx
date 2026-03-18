@@ -1,5 +1,6 @@
 /**
  * Player Home Dashboard — 4B brand rebuild
+ * Now includes video_2d_sessions as fallback for 4B scores
  */
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -28,6 +29,7 @@ interface SessionHistoryItem {
   id: string;
   overall_score: number | null;
   session_date: string;
+  source?: string;
 }
 
 export default function PlayerHomeDashboard() {
@@ -36,6 +38,13 @@ export default function PlayerHomeDashboard() {
   const [sessionHistory, setSessionHistory] = useState<SessionHistoryItem[]>([]);
   const [projections, setProjections] = useState<any>(null);
   const [drillCount, setDrillCount] = useState(0);
+  const [scores2D, setScores2D] = useState<{
+    composite: number | null;
+    body: number | null;
+    brain: number | null;
+    bat: number | null;
+    ball: number | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!player?.id) return;
@@ -82,14 +91,34 @@ export default function PlayerHomeDashboard() {
     };
 
     const fetchHistory = async () => {
-      const { data } = await supabase
-        .from("player_sessions")
-        .select("id, overall_score, session_date")
-        .eq("player_id", player.id)
-        .order("session_date", { ascending: false })
-        .limit(5);
+      // Fetch both 3D and 2D sessions, merge by date
+      const [rebootRes, video2dRes] = await Promise.all([
+        supabase
+          .from("player_sessions")
+          .select("id, overall_score, session_date")
+          .eq("player_id", player.id)
+          .order("session_date", { ascending: false })
+          .limit(5),
+        supabase
+          .from("video_2d_sessions")
+          .select("id, composite_score, session_date")
+          .eq("player_id", player.id)
+          .eq("processing_status", "complete")
+          .order("session_date", { ascending: false })
+          .limit(5),
+      ]);
 
-      if (data) setSessionHistory(data.reverse());
+      const items: SessionHistoryItem[] = [];
+      if (rebootRes.data) {
+        items.push(...rebootRes.data.map((s) => ({ id: s.id, overall_score: s.overall_score, session_date: s.session_date, source: '3d' })));
+      }
+      if (video2dRes.data) {
+        items.push(...video2dRes.data.map((s) => ({ id: s.id, overall_score: s.composite_score, session_date: s.session_date, source: '2d' })));
+      }
+
+      // Sort by date descending, take last 5, then reverse for chart
+      items.sort((a, b) => b.session_date.localeCompare(a.session_date));
+      setSessionHistory(items.slice(0, 5).reverse());
     };
 
     const fetchDrillCount = async () => {
@@ -102,9 +131,32 @@ export default function PlayerHomeDashboard() {
       setDrillCount(count ?? 0);
     };
 
+    // Fetch latest 2D session scores as fallback for 4B cards
+    const fetch2DScores = async () => {
+      const { data } = await supabase
+        .from("video_2d_sessions")
+        .select("composite_score, body_score, brain_score, bat_score, ball_score")
+        .eq("player_id", player.id)
+        .eq("processing_status", "complete")
+        .order("session_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        setScores2D({
+          composite: data.composite_score,
+          body: data.body_score,
+          brain: data.brain_score,
+          bat: data.bat_score,
+          ball: data.ball_score,
+        });
+      }
+    };
+
     fetchFlag();
     fetchHistory();
     fetchDrillCount();
+    fetch2DScores();
   }, [player?.id]);
 
   if (loading) {
@@ -119,14 +171,22 @@ export default function PlayerHomeDashboard() {
     );
   }
 
-  const krs = player?.latest_composite_score ? Math.round(Number(player.latest_composite_score)) : null;
+  // Use 3D (Reboot) scores if available, otherwise fall back to 2D
+  const has3DScores = player?.latest_composite_score != null;
+  const krs = has3DScores
+    ? Math.round(Number(player.latest_composite_score))
+    : scores2D?.composite != null
+      ? Math.round(scores2D.composite)
+      : null;
+
   const scores = {
-    body: player?.latest_body_score,
-    brain: player?.latest_brain_score,
-    bat: player?.latest_bat_score,
-    ball: player?.latest_ball_score,
+    body: has3DScores ? player?.latest_body_score : scores2D?.body ?? null,
+    brain: has3DScores ? player?.latest_brain_score : scores2D?.brain ?? null,
+    bat: has3DScores ? player?.latest_bat_score : scores2D?.bat ?? null,
+    ball: has3DScores ? player?.latest_ball_score : scores2D?.ball ?? null,
   };
 
+  const scoreSource = has3DScores ? '3D Analysis' : scores2D ? '2D Video Analysis' : null;
   const sessionNum = sessionHistory.length + 1;
 
   return (
@@ -157,7 +217,14 @@ export default function PlayerHomeDashboard() {
               );
             })}
           </div>
-          <p className="text-center text-[11px] mt-3" style={{ color: '#555' }}>Tap any pillar to see breakdown</p>
+          {scoreSource && (
+            <p className="text-center text-[11px] mt-3" style={{ color: '#555' }}>
+              Source: {scoreSource} · Tap any pillar to see breakdown
+            </p>
+          )}
+          {!scoreSource && (
+            <p className="text-center text-[11px] mt-3" style={{ color: '#555' }}>Tap any pillar to see breakdown</p>
+          )}
         </div>
 
         {/* Motor Profile Card */}
@@ -247,7 +314,7 @@ export default function PlayerHomeDashboard() {
         {sessionHistory.length > 0 && (
           <div className="rounded-xl p-4" style={{ background: '#111', border: '1px solid #222' }}>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase" style={{ color: '#555' }}>KRS History</span>
+              <span className="text-xs font-semibold uppercase" style={{ color: '#555' }}>Score History</span>
               <Link to="/player/progress" className="text-xs font-semibold flex items-center gap-1" style={{ color: '#E63946' }}>
                 View all <ChevronRight className="h-3 w-3" />
               </Link>
@@ -257,13 +324,15 @@ export default function PlayerHomeDashboard() {
                 const val = s.overall_score ?? 0;
                 const maxH = 56;
                 const h = (val / 100) * maxH;
+                const barColor = s.source === '2d' ? '#3B82F6' : scoreColor(val);
                 return (
                   <div key={s.id} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[10px] font-bold" style={{ color: scoreColor(val) }}>{val}</span>
+                    <span className="text-[10px] font-bold" style={{ color: barColor }}>{val}</span>
                     <div
                       className="w-full rounded-sm"
-                      style={{ height: `${Math.max(h, 4)}px`, background: scoreColor(val), opacity: 0.7 + (i / sessionHistory.length) * 0.3 }}
+                      style={{ height: `${Math.max(h, 4)}px`, background: barColor, opacity: 0.7 + (i / sessionHistory.length) * 0.3 }}
                     />
+                    <span className="text-[8px]" style={{ color: '#555' }}>{s.source === '2d' ? '2D' : '3D'}</span>
                   </div>
                 );
               })}
@@ -276,9 +345,9 @@ export default function PlayerHomeDashboard() {
           <EmptyState
             icon={<BarChart3 className="h-12 w-12" />}
             title="No scores yet"
-            description="Upload your first Reboot session to see your KRS and 4B scores."
+            description="Upload your first swing session to see your 4B scores."
             ctaLabel="Start Session"
-            ctaTo="/player/session"
+            ctaTo="/player/session/new"
           />
         )}
       </main>
