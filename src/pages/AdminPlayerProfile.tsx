@@ -863,6 +863,9 @@ export default function AdminPlayerProfile() {
               <TabsTrigger value="reboot" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Reboot Motion
               </TabsTrigger>
+              <TabsTrigger value="intel" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
+                Intel
+              </TabsTrigger>
               <TabsTrigger value="scores" className="data-[state=active]:bg-slate-800 text-slate-400 data-[state=active]:text-white">
                 Scores
               </TabsTrigger>
