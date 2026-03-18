@@ -28,8 +28,72 @@ export default function PlayerNewSession() {
   const [swingsMaxAllowed, setSwingsMaxAllowed] = useState(15);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [batchResults, setBatchResults] = useState<any>(null);
+  const [onformUrls, setOnformUrls] = useState("");
+  const [importingOnform, setImportingOnform] = useState(false);
 
   const { triggerAnalysis, progress: analysisProgress } = use2DAnalysisTrigger();
+
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+  const handleOnformImport = async () => {
+    const urlList = onformUrls
+      .split('\n')
+      .map(u => u.trim())
+      .filter(u => u.length > 0 && u.includes('getonform.com'));
+
+    if (urlList.length === 0) {
+      toast.error('Paste valid OnForm URLs (one per line)');
+      return;
+    }
+
+    if (!player?.id) {
+      toast.error('Player profile not found');
+      return;
+    }
+
+    setImportingOnform(true);
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/import-onform-video`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authSession?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          urls: urlList,
+          playerId: player.id,
+          forSwingAnalysis: true,
+          playerSelfImport: true,
+          source: 'player_onform',
+          playerName: player.name || 'Player',
+          playerLevel: player.level || 'youth',
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Import failed');
+
+      if (data.videos && data.videos.length > 0) {
+        const uploadedSwings: UploadedSwingData[] = data.videos.map((v: any, i: number) => ({
+          file: new File([], v.filename),
+          storagePath: v.storagePath,
+          swingIndex: i,
+        }));
+
+        setOnformUrls('');
+        toast.success(data.message || `Imported ${urlList.length} video(s)`);
+        await handleUploadComplete(uploadedSwings);
+      } else {
+        throw new Error('No videos were imported successfully');
+      }
+    } catch (error) {
+      console.error('OnForm import error:', error);
+      toast.error(error instanceof Error ? error.message : 'Import failed');
+    } finally {
+      setImportingOnform(false);
+    }
+  };
 
   const handleCreateSession = async () => {
     setIsCreating(true);
