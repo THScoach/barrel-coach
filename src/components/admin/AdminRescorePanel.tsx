@@ -15,6 +15,7 @@ interface RescoreResult {
   failed: number;
   skipped: number;
   total: number;
+  csv_downloaded?: number;
 }
 
 export function AdminRescorePanel({ playerId }: { playerId?: string }) {
