@@ -59,14 +59,42 @@ export default function PlayerMyData() {
     if (!player?.id) return;
     const fetchData = async () => {
       setLoadingData(true);
-      const { data: sessionsData } = await supabase
-        .from("player_sessions")
-        .select("id, session_date, overall_score, body_score, brain_score, bat_score, ball_score, leak_type, swing_count")
-        .eq("player_id", player.id)
-        .order("session_date", { ascending: false })
-        .limit(50);
+      const [rebootRes, video2dRes] = await Promise.all([
+        supabase
+          .from("player_sessions")
+          .select("id, session_date, overall_score, body_score, brain_score, bat_score, ball_score, leak_type, swing_count")
+          .eq("player_id", player.id)
+          .order("session_date", { ascending: false })
+          .limit(50),
+        supabase
+          .from("video_2d_sessions")
+          .select("id, session_date, composite_score, body_score, brain_score, bat_score, ball_score, leak_detected, swing_number")
+          .eq("player_id", player.id)
+          .eq("processing_status", "complete")
+          .order("session_date", { ascending: false })
+          .limit(50),
+      ]);
 
-      if (sessionsData) setSessions(sessionsData);
+      const items: SessionRow[] = [];
+      if (rebootRes.data) {
+        items.push(...rebootRes.data.map(s => ({ ...s, source: '3d' as const })));
+      }
+      if (video2dRes.data) {
+        items.push(...video2dRes.data.map(s => ({
+          id: s.id,
+          session_date: s.session_date,
+          overall_score: s.composite_score,
+          body_score: s.body_score,
+          brain_score: s.brain_score,
+          bat_score: s.bat_score,
+          ball_score: s.ball_score,
+          leak_type: s.leak_detected,
+          swing_count: s.swing_number,
+          source: '2d' as const,
+        })));
+      }
+      items.sort((a, b) => b.session_date.localeCompare(a.session_date));
+      setSessions(items);
 
       if (sessionsData && sessionsData.length > 0) {
         const { data: swings } = await supabase
