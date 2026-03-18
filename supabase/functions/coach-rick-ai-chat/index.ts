@@ -409,6 +409,37 @@ function formatPlayerContextBlock(ctx: FullPlayerContext): string {
     }
   }
 
+  // Player Intel Documents (from coach uploads)
+  if (ctx.playerIntelDocs && ctx.playerIntelDocs.length > 0) {
+    lines.push("");
+    lines.push("[PLAYER INTELLIGENCE — from coach uploads]");
+    let totalChars = 0;
+    const maxTotalChars = 3000;
+    for (const doc of ctx.playerIntelDocs) {
+      if (totalChars >= maxTotalChars) break;
+      const dateStr = doc.createdAt?.substring(0, 10) || "?";
+      lines.push(`\n[${doc.documentType.toUpperCase()}] ${doc.title} (${dateStr}):`);
+      if (doc.aiSummary) {
+        const text = doc.aiSummary.substring(0, 300);
+        lines.push(`Summary: ${text}`);
+        totalChars += text.length;
+      }
+      if (doc.aiExtractedText && totalChars < maxTotalChars) {
+        const text = doc.aiExtractedText.substring(0, 500);
+        lines.push(`Data: ${text}`);
+        totalChars += text.length;
+      }
+      if (doc.contentText && totalChars < maxTotalChars) {
+        const text = doc.contentText.substring(0, 500);
+        lines.push(`Note: ${text}`);
+        totalChars += text.length;
+      }
+      if (doc.tags && doc.tags.length > 0) {
+        lines.push(`Tags: ${doc.tags.join(", ")}`);
+      }
+    }
+  }
+
   return lines.join("\n");
 }
 
