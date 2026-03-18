@@ -19,6 +19,8 @@ interface ChatRequest {
     ballScore?: number;
   };
   isTestMode?: boolean;
+  imageBase64?: string;
+  imageMimeType?: string;
 }
 
 // ─── Player Context Loader ───────────────────────────────────────────────────
