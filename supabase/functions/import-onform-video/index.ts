@@ -111,7 +111,7 @@ serve(async (req) => {
         player_email: playerEmail || 'unknown@example.com',
         player_level: playerLevel,
         player_age: 14,
-        environment: 'production',
+        environment: context === 'practice' ? 'tee' : (context || 'tee'),
         status: 'pending_analysis',
         swing_count: urls.length,
         player_id: playerId || null,
