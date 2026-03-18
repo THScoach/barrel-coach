@@ -99,11 +99,16 @@ serve(async (req) => {
         priceCents = 0;
     }
 
+    // Map product types to DB-allowed values (constraint: single_swing, complete_review)
+    const dbProductType = productType === "free_diagnostic" || productType === "single_swing" 
+      ? "single_swing" 
+      : "complete_review";
+
     // Create session attached to the existing player
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
       .insert({
-        product_type: productType,
+        product_type: dbProductType,
         price_cents: priceCents,
         player_id: player.id, // ATTACH TO EXISTING PLAYER
         player_name: player.name,
