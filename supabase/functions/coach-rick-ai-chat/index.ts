@@ -108,7 +108,7 @@ interface FullPlayerContext {
 async function loadFullPlayerContext(supabase: any, playerId: string): Promise<FullPlayerContext | null> {
   try {
     // Run all queries in parallel for speed
-    const [playerRes, sessionsRes, drillsRes, notesRes, stackRes, blastRes, biomechRes, video2dRes] = await Promise.all([
+    const [playerRes, sessionsRes, drillsRes, notesRes, stackRes, blastRes, biomechRes, video2dRes, intelRes] = await Promise.all([
       // Player basic info
       supabase
         .from("players")
