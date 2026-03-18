@@ -53,7 +53,8 @@ export default function PlayerNewSession() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6 md:ml-56">
+    <div style={{ background: '#000', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="px-4 py-6 pb-24 space-y-6 max-w-lg mx-auto">
       {/* Header with back button */}
       <div className="flex items-center gap-4">
         <Button

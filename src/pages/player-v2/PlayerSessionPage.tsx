@@ -94,10 +94,26 @@ export default function PlayerSession() {
       <main className="px-4 pb-24 pt-4">
         <div className="mb-4">
           <h1 className="text-xl font-bold" style={{ color: '#fff' }}>Today's Session</h1>
-          <div className="flex gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1">
             <TagPill label={today} color="#a0a0a0" />
             <TagPill label={`${drills.length} drills`} color="#4ecdc4" />
           </div>
+        </div>
+
+        {/* New Session CTA */}
+        <Link
+          to="/player/session/new"
+          className="flex items-center gap-3 rounded-xl p-4 mb-4 transition-all hover:opacity-90"
+          style={{ background: 'rgba(230,57,70,0.08)', border: '1px solid rgba(230,57,70,0.25)' }}
+        >
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#E63946' }}>
+            <Plus className="h-5 w-5 text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-[15px] font-bold" style={{ color: '#fff' }}>Start New Session</p>
+            <p className="text-[12px]" style={{ color: '#a0a0a0' }}>Record & upload your swings for analysis</p>
+          </div>
+        </Link>
         </div>
 
         {drills.length === 0 ? (
