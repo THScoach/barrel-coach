@@ -34,6 +34,7 @@ interface Session2D {
   video_filename: string | null;
   is_paid_user: boolean | null;
   pending_3d_analysis: boolean | null;
+  analysis_json: any;
 }
 
 interface Session3D {
@@ -81,7 +82,7 @@ export default function PlayerSessionDetail() {
       const [res2d, res3d] = await Promise.all([
         supabase
           .from("video_2d_sessions")
-          .select("id, session_date, composite_score, grade, body_score, brain_score, bat_score, ball_score, leak_detected, leak_evidence, motor_profile, coach_rick_take, priority_drill, analysis_confidence, video_url, video_filename, is_paid_user, pending_3d_analysis")
+          .select("id, session_date, composite_score, grade, body_score, brain_score, bat_score, ball_score, leak_detected, leak_evidence, motor_profile, coach_rick_take, priority_drill, analysis_confidence, video_url, video_filename, is_paid_user, pending_3d_analysis, analysis_json")
           .eq("id", sessionId)
           .maybeSingle(),
         supabase
@@ -241,7 +242,8 @@ export default function PlayerSessionDetail() {
     priority_drill: session2D.priority_drill ?? '',
     limitations: ['2D video estimation — Brain & Ball scores capped'],
     confidence: session2D.analysis_confidence ?? 0.6,
-    upgrade_cta: session2D.is_paid_user ? '' : 'Upgrade to full 3D biomechanics for precise measurements.',
+    upgrade_cta: '',
+    analysis_json: session2D.analysis_json as any,
   } : null;
 
   const badgeColor = source === '2d' ? '#3B82F6' : '#14B8A6';
