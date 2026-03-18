@@ -90,6 +90,7 @@ import PlayerNewSession from "./pages/player/PlayerNewSession";
 import PlayerProgressPage from "./pages/player-v2/PlayerProgressPage";
 import PlayerMessagesPage from "./pages/player-v2/PlayerMessagesPage";
 import PlayerProfilePage from "./pages/player-v2/PlayerProfilePage";
+import PlayerSessionDetail from "./pages/player-v2/PlayerSessionDetail";
 
 // RickBot
 import Rick from "./pages/Rick";
