@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { 
   FlaskConical, ArrowLeft, Bot, User, Send, Trash2, ThumbsUp, ThumbsDown, 
-  Pencil, ChevronDown, ChevronRight, Loader2, Video, Upload 
+  Pencil, ChevronDown, ChevronRight, Loader2, Video, Upload, ImagePlus, X 
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
@@ -26,6 +26,19 @@ interface Message {
   content: string;
   timestamp: Date;
   metadata?: Record<string, unknown>;
+  imageUrl?: string;
+}
+
+const MAX_IMG_SIZE = 10 * 1024 * 1024;
+const ACCEPTED_IMG_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 interface PlayerContext {
@@ -58,6 +71,10 @@ export default function CoachRickAITestChat() {
   const [isProcessingVideo, setIsProcessingVideo] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  
+  // Image upload state
+  const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Custom context
   const [customContext, setCustomContext] = useState<PlayerContext>({
@@ -106,14 +123,52 @@ export default function CoachRickAITestChat() {
     return null;
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ACCEPTED_IMG_TYPES.includes(file.type)) {
+      toast.error("Only JPG, PNG, and PDF files are supported");
+      return;
+    }
+    if (file.size > MAX_IMG_SIZE) {
+      toast.error("File must be under 10MB");
+      return;
+    }
+    const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
+    setPendingImage({ file, preview });
+    if (e.target) e.target.value = '';
+  };
+
+  const clearPendingImage = () => {
+    if (pendingImage?.preview) URL.revokeObjectURL(pendingImage.preview);
+    setPendingImage(null);
+  };
+
   const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !pendingImage) || isLoading) return;
+
+    let imageBase64: string | undefined;
+    let imageMimeType: string | undefined;
+    let imagePreviewUrl: string | undefined;
+
+    if (pendingImage) {
+      try {
+        imageBase64 = await fileToBase64(pendingImage.file);
+        imageMimeType = pendingImage.file.type;
+        imagePreviewUrl = pendingImage.preview || undefined;
+      } catch {
+        toast.error("Failed to read file");
+        return;
+      }
+      clearPendingImage();
+    }
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "player",
-      content: input.trim(),
+      content: input.trim() || (imageMimeType?.includes('pdf') ? '📄 PDF uploaded' : '📷 Image uploaded'),
       timestamp: new Date(),
+      imageUrl: imagePreviewUrl,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -133,6 +188,8 @@ export default function CoachRickAITestChat() {
           pageContext,
           playerContext: context,
           isTestMode: true,
+          imageBase64,
+          imageMimeType,
         },
       });
 
@@ -156,6 +213,7 @@ export default function CoachRickAITestChat() {
         knowledge_used: data?.knowledge_used,
         scenarios_matched: data?.scenarios_matched,
         drills_recommended: data?.drills,
+        had_image: !!imageBase64,
       });
     } catch (err) {
       console.error("Chat error:", err);
@@ -170,7 +228,6 @@ export default function CoachRickAITestChat() {
     if (!message) return;
 
     if (rating === "bad") {
-      // Open edit dialog for bad ratings
       setEditingMessageId(messageId);
       setCorrectedResponse(message.content);
       setCoachNotes("");
@@ -465,6 +522,9 @@ export default function CoachRickAITestChat() {
                               : "bg-slate-800 text-white"
                           }`}
                         >
+                          {msg.imageUrl && (
+                            <img src={msg.imageUrl} alt="Uploaded" className="rounded-lg mb-2 max-h-40 w-auto object-contain" />
+                          )}
                           <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                         </div>
                         {/* Rating controls for assistant messages */}
@@ -532,6 +592,24 @@ export default function CoachRickAITestChat() {
                     <Progress value={videoProgress} className="h-2" />
                   </div>
                 )}
+                {/* Pending image preview */}
+                {pendingImage && (
+                  <div className="mb-3 relative inline-block">
+                    {pendingImage.preview ? (
+                      <img src={pendingImage.preview} alt="Preview" className="h-16 rounded-lg border border-slate-600" />
+                    ) : (
+                      <div className="h-16 px-4 rounded-lg flex items-center gap-2 text-xs bg-slate-800 border border-slate-600 text-slate-400">
+                        📄 {pendingImage.file.name}
+                      </div>
+                    )}
+                    <button
+                      onClick={clearPendingImage}
+                      className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center"
+                    >
+                      <X className="h-3 w-3 text-white" />
+                    </button>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <input
                     ref={videoInputRef}
@@ -540,6 +618,23 @@ export default function CoachRickAITestChat() {
                     onChange={handleVideoUpload}
                     className="hidden"
                   />
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,application/pdf"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={isLoading || isProcessingVideo}
+                    className="border-blue-500/50 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300"
+                    title="Upload image/PDF for analysis"
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="outline"
                     size="icon"
@@ -558,7 +653,7 @@ export default function CoachRickAITestChat() {
                     className="bg-slate-800 border-slate-700 text-white"
                     disabled={isLoading || isProcessingVideo}
                   />
-                  <Button onClick={sendMessage} disabled={!input.trim() || isLoading || isProcessingVideo} className="bg-accent hover:bg-accent/90">
+                  <Button onClick={sendMessage} disabled={(!input.trim() && !pendingImage) || isLoading || isProcessingVideo} className="bg-accent hover:bg-accent/90">
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>

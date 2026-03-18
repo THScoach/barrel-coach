@@ -19,6 +19,8 @@ interface ChatRequest {
     ballScore?: number;
   };
   isTestMode?: boolean;
+  imageBase64?: string;
+  imageMimeType?: string;
 }
 
 // ─── Player Context Loader ───────────────────────────────────────────────────
@@ -341,9 +343,9 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { message, conversationId, playerId, testContext, isTestMode } = await req.json() as ChatRequest;
+    const { message, conversationId, playerId, testContext, isTestMode, imageBase64, imageMimeType } = await req.json() as ChatRequest;
 
-    console.log("Coach Rick AI chat request:", { message: message.substring(0, 50), playerId, isTestMode });
+    console.log("Coach Rick AI chat request:", { message: message.substring(0, 50), playerId, isTestMode, hasImage: !!imageBase64 });
 
     // ── 1. Load Player Context ──────────────────────────────────────────
 
@@ -496,15 +498,31 @@ Priority Area: ${lowestPillar || "Unknown"}`;
 
     // ── 6. Call Claude ──────────────────────────────────────────────────
 
+    // Build user message content — multimodal if image attached
+    let userContent: any;
+    if (imageBase64 && imageMimeType) {
+      userContent = [
+        {
+          type: "image_url",
+          image_url: {
+            url: `data:${imageMimeType};base64,${imageBase64}`,
+          },
+        },
+        { type: "text", text: message || "Analyze this image in context of the player's data." },
+      ];
+    } else {
+      userContent = message;
+    }
+
     const claudeMessages = [
       ...conversationHistory.map(m => ({
         role: (m.role === "player" || m.role === "user" ? "user" : "assistant") as "user" | "assistant",
         content: m.content,
       })),
-      { role: "user" as const, content: message },
+      { role: "user" as const, content: userContent },
     ];
 
-    console.log("Calling Lovable AI with", claudeMessages.length, "messages");
+    console.log("Calling Lovable AI with", claudeMessages.length, "messages", imageBase64 ? "(with image)" : "");
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -513,8 +531,8 @@ Priority Area: ${lowestPillar || "Unknown"}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        max_tokens: 400,
+        model: imageBase64 ? "google/gemini-2.5-flash" : "google/gemini-2.5-flash",
+        max_tokens: imageBase64 ? 800 : 400,
         messages: [
           { role: "system", content: systemPrompt },
           ...claudeMessages,
@@ -668,6 +686,15 @@ ${cuesSection}
 7. Never hallucinate data that isn't in the context block
 8. Reference the 4B System (Body, Brain, Bat, Ball) when relevant
 9. If vault knowledge is provided above, use it to ground your answer in coaching methodology
+
+## Image Analysis Guidelines:
+When the player uploads an image (graph, chart, screenshot, swing photo, PDF):
+1. Identify WHAT the image shows (swing video frame, HitTrax report, bat speed chart, etc.)
+2. Connect the image content DIRECTLY to the player's active flag stack, KRS score, and Motor Profile from the context block above
+3. Do NOT give generic analysis — always tie observations to the player's specific data
+4. If the image shows metrics, compare them to the player's known scores and projected targets
+5. If it's a swing frame, relate what you see to the player's biomechanical flags (sequence, momentum, plane, range usage, balance)
+6. Be specific: "This graph shows your Pelvis KE trending at 78J — given your Body score of 62 and active momentum flag, this confirms..."
 
 You are the expert in the room. Concise, data-grounded, no fluff. Coach-to-coach only.`;
 }
