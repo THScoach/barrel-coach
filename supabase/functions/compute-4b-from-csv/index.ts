@@ -839,12 +839,18 @@ serve(async (req: Request) => {
           console.error('[compute-4b-from-csv] DB update error:', updateError);
         }
       } else {
-        const { error: insertError } = await supabase
+        const { data: insertedData, error: insertError } = await supabase
           .from('player_sessions')
-          .insert(sessionPayload);
+          .insert(sessionPayload)
+          .select('id')
+          .single();
 
         if (insertError) {
           console.error('[compute-4b-from-csv] DB insert error:', insertError);
+        }
+        // Store newly created ID for linking
+        if (insertedData) {
+          (existingSession as any) = insertedData;
         }
       }
 
