@@ -152,6 +152,7 @@ const App = () => (
             <Route path="/player/home" element={<PlayerHomeDashboard />} />
             <Route path="/player/data" element={<PlayerMyData />} />
             <Route path="/player/session" element={<PlayerSessionPage />} />
+            <Route path="/player/session/new" element={<PlayerNewSession />} />
             <Route path="/player/progress" element={<PlayerProgressPage />} />
             <Route path="/player/messages" element={<PlayerMessagesPage />} />
             <Route path="/player/profile" element={<PlayerProfilePage />} />
