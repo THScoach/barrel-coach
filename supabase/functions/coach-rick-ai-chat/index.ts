@@ -79,6 +79,20 @@ interface FullPlayerContext {
   } | null;
   // Injury history from players table
   injuryHistory: any | null;
+  // 2D Video Analysis sessions
+  video2dSessions: {
+    sessionDate: string;
+    compositeScore: number | null;
+    bodyScore: number | null;
+    brainScore: number | null;
+    batScore: number | null;
+    ballScore: number | null;
+    leakDetected: string | null;
+    motorProfile: string | null;
+    coachRickTake: string | null;
+    priorityDrill: string | null;
+    grade: string | null;
+  }[];
 }
 
 async function loadFullPlayerContext(supabase: any, playerId: string): Promise<FullPlayerContext | null> {
