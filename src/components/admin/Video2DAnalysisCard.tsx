@@ -8,7 +8,6 @@ import {
   Target, 
   Zap,
   AlertTriangle,
-  CheckCircle,
   Clock,
   Sparkles
 } from "lucide-react";
@@ -28,6 +27,32 @@ interface Video2DAnalysis {
   limitations: string[];
   confidence: number;
   upgrade_cta: string;
+  // V4 nested fields
+  analysis_json?: {
+    primary_leak?: {
+      flag?: string;
+      title?: string;
+      explanation?: string;
+      pillar?: string;
+    };
+    drill_prescription?: {
+      primary?: { name?: string; sets?: number; reps?: string; why?: string };
+      secondary?: { name?: string; sets?: number; reps?: string; why?: string };
+    };
+    motor_profile?: {
+      estimated?: string;
+      confidence?: string;
+      note?: string;
+    };
+    frame_analysis?: {
+      load?: string;
+      foot_plant?: string;
+      delivery_window?: string;
+      contact?: string;
+    };
+    coach_barrels_take?: string;
+    ratings?: Record<string, string>;
+  };
 }
 
 interface Video2DAnalysisCardProps {
@@ -35,6 +60,7 @@ interface Video2DAnalysisCardProps {
   isPaidUser: boolean;
   pendingReboot: boolean;
   onUpgrade?: () => void;
+  isAdminView?: boolean;
 }
 
 const ScoreCircle = ({ label, score, icon: Icon, isCapped }: { 
@@ -68,21 +94,46 @@ const ScoreCircle = ({ label, score, icon: Icon, isCapped }: {
   );
 };
 
+const getLeakPillarStyle = (pillar?: string) => {
+  switch (pillar) {
+    case "BODY": return "bg-red-500/15 text-red-500 border-red-500/30";
+    case "BRAIN": return "bg-blue-500/15 text-blue-500 border-blue-500/30";
+    case "BAT": return "bg-orange-500/15 text-orange-500 border-orange-500/30";
+    default: return "bg-red-500/15 text-red-500 border-red-500/30";
+  }
+};
+
+const inferPillar = (flag: string): string => {
+  const bodyFlags = ["NO_HIP_LEAD", "FRONT_SIDE_COLLAPSE", "NO_LOAD", "TRUNK_DRIFT", "EARLY_WEIGHT_SHIFT", "COLLAPSE", "LUNGE", "SPIN_OUT"];
+  const brainFlags = ["SIMULTANEOUS_FIRING", "DISCONNECTED_SEQUENCE", "RUSHED_TEMPO", "POOR_SEPARATION"];
+  const batFlags = ["CASTING", "BARREL_DUMP", "ARM_DOMINANT", "CAST", "EARLY_ARMS"];
+  if (bodyFlags.includes(flag)) return "BODY";
+  if (brainFlags.includes(flag)) return "BRAIN";
+  if (batFlags.includes(flag)) return "BAT";
+  return "BODY";
+};
+
 export function Video2DAnalysisCard({ 
   analysis, 
   isPaidUser, 
   pendingReboot,
-  onUpgrade 
+  onUpgrade,
+  isAdminView = false,
 }: Video2DAnalysisCardProps) {
-  const getLeakBadgeColor = (leak: string) => {
-    if (leak === "CLEAN_TRANSFER") return "bg-green-500/10 text-green-500";
-    return "bg-yellow-500/10 text-yellow-500";
-  };
+  const json = analysis.analysis_json;
+  const pillar = json?.primary_leak?.pillar || inferPillar(analysis.leak_detected);
+  const leakTitle = json?.primary_leak?.title || analysis.leak_detected?.replace(/_/g, " ");
+  const leakExplanation = json?.primary_leak?.explanation || analysis.leak_evidence;
+  const coachTake = json?.coach_barrels_take || analysis.coach_rick_take;
+  const motorProfile = json?.motor_profile?.estimated || analysis.motor_profile;
+  const drillPrimary = json?.drill_prescription?.primary;
+  const drillSecondary = json?.drill_prescription?.secondary;
+  const frameAnalysis = json?.frame_analysis;
 
   const getGradeColor = (grade: string) => {
     if (grade.includes("Elite") || grade.includes("Excellent")) return "text-green-500";
     if (grade.includes("Above") || grade.includes("Good")) return "text-blue-500";
-    if (grade.includes("Average")) return "text-yellow-500";
+    if (grade.includes("Average") || grade.includes("Working")) return "text-yellow-500";
     return "text-orange-500";
   };
 
@@ -148,48 +199,78 @@ export function Video2DAnalysisCard({
         </CardContent>
       </Card>
 
-      {/* What I Saw */}
+      {/* The Leak */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">What I Saw</CardTitle>
+          <CardTitle className="text-base">The Leak</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {/* Leak Detected */}
+          {/* Leak Badge with pillar color */}
           <div className="flex items-start gap-3">
-            <Badge className={getLeakBadgeColor(analysis.leak_detected)}>
-              {analysis.leak_detected === "CLEAN_TRANSFER" ? (
-                <CheckCircle className="h-3 w-3 mr-1" />
-              ) : (
-                <AlertTriangle className="h-3 w-3 mr-1" />
-              )}
-              {analysis.leak_detected.replace(/_/g, " ")}
+            <Badge className={`${getLeakPillarStyle(pillar)} border`}>
+              {pillar} LEAK: {leakTitle}
             </Badge>
           </div>
           
-          {analysis.leak_evidence && (
-            <p className="text-sm text-muted-foreground">{analysis.leak_evidence}</p>
+          {leakExplanation && (
+            <p className="text-sm text-muted-foreground">{leakExplanation}</p>
           )}
 
           {/* Motor Profile */}
-          {analysis.motor_profile && (
+          {motorProfile && (
             <div className="flex items-center gap-2 pt-2">
               <span className="text-xs text-muted-foreground">Motor Profile:</span>
-              <Badge variant="outline">{analysis.motor_profile}</Badge>
+              <Badge variant="outline">{motorProfile}</Badge>
+              {json?.motor_profile?.confidence && (
+                <span className="text-xs text-muted-foreground">({json.motor_profile.confidence})</span>
+              )}
             </div>
+          )}
+          {json?.motor_profile?.note && (
+            <p className="text-xs text-muted-foreground">{json.motor_profile.note}</p>
           )}
         </CardContent>
       </Card>
 
-      {/* Coach Rick's Take */}
+      {/* Coach Barrels */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Coach Rick's Take</CardTitle>
+          <CardTitle className="text-base">Coach Barrels</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm leading-relaxed">{analysis.coach_rick_take}</p>
+          <p className="text-sm leading-relaxed">{coachTake}</p>
           
-          {/* Priority Drill */}
-          {analysis.priority_drill && (
+          {/* Drill Prescriptions */}
+          {drillPrimary && (
+            <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
+              <div className="text-xs font-medium text-primary mb-1">FOCUS DRILL</div>
+              <p className="text-sm font-medium">{drillPrimary.name}</p>
+              {(drillPrimary.sets || drillPrimary.reps) && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {drillPrimary.sets && `${drillPrimary.sets} sets`}{drillPrimary.sets && drillPrimary.reps && " × "}{drillPrimary.reps}
+                </p>
+              )}
+              {drillPrimary.why && (
+                <p className="text-xs text-muted-foreground mt-1">{drillPrimary.why}</p>
+              )}
+            </div>
+          )}
+          {drillSecondary && (
+            <div className="p-3 bg-muted/50 border border-border rounded-lg">
+              <div className="text-xs font-medium text-muted-foreground mb-1">SECONDARY DRILL</div>
+              <p className="text-sm font-medium">{drillSecondary.name}</p>
+              {(drillSecondary.sets || drillSecondary.reps) && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {drillSecondary.sets && `${drillSecondary.sets} sets`}{drillSecondary.sets && drillSecondary.reps && " × "}{drillSecondary.reps}
+                </p>
+              )}
+              {drillSecondary.why && (
+                <p className="text-xs text-muted-foreground mt-1">{drillSecondary.why}</p>
+              )}
+            </div>
+          )}
+          {/* Fallback for old format without structured drills */}
+          {!drillPrimary && analysis.priority_drill && (
             <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
               <div className="text-xs font-medium text-primary mb-1">FOCUS DRILL</div>
               <p className="text-sm">{analysis.priority_drill}</p>
@@ -198,40 +279,63 @@ export function Video2DAnalysisCard({
         </CardContent>
       </Card>
 
-      {/* Confidence & Limitations */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-muted-foreground">Analysis Confidence</span>
-            <span className="text-xs font-medium">{Math.round(analysis.confidence * 100)}%</span>
-          </div>
-          <Progress value={analysis.confidence * 100} className="h-2" />
-          
-          {analysis.limitations && analysis.limitations.length > 0 && (
-            <div className="mt-4 pt-4 border-t">
-              <div className="text-xs text-muted-foreground mb-2">Limitations:</div>
-              <ul className="text-xs text-muted-foreground space-y-1">
-                {analysis.limitations.map((limitation, i) => (
-                  <li key={i} className="flex items-start gap-1">
-                    <span>•</span>
-                    <span>{limitation}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Frame-by-Frame Analysis */}
+      {frameAnalysis && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Frame Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {frameAnalysis.load && (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">LOAD</div>
+                <p className="text-sm">{frameAnalysis.load}</p>
+              </div>
+            )}
+            {frameAnalysis.foot_plant && (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">FOOT PLANT</div>
+                <p className="text-sm">{frameAnalysis.foot_plant}</p>
+              </div>
+            )}
+            {frameAnalysis.delivery_window && (
+              <div>
+                <div className="text-xs font-medium text-primary mb-1">DELIVERY WINDOW</div>
+                <p className="text-sm">{frameAnalysis.delivery_window}</p>
+              </div>
+            )}
+            {frameAnalysis.contact && (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">CONTACT</div>
+                <p className="text-sm">{frameAnalysis.contact}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Upgrade CTA for Free Users */}
-      {!isPaidUser && !pendingReboot && analysis.upgrade_cta && (
-        <Card className="border-primary/20 bg-primary/5">
+      {/* Confidence & Limitations — admin only */}
+      {isAdminView && (
+        <Card>
           <CardContent className="pt-4">
-            <p className="text-sm mb-3">{analysis.upgrade_cta}</p>
-            {onUpgrade && (
-              <Button onClick={onUpgrade} className="w-full">
-                Get Full Analysis - $47
-              </Button>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-muted-foreground">Analysis Confidence</span>
+              <span className="text-xs font-medium">{Math.round(analysis.confidence * 100)}%</span>
+            </div>
+            <Progress value={analysis.confidence * 100} className="h-2" />
+            
+            {analysis.limitations && analysis.limitations.length > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <div className="text-xs text-muted-foreground mb-2">Limitations:</div>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  {analysis.limitations.map((limitation, i) => (
+                    <li key={i} className="flex items-start gap-1">
+                      <span>•</span>
+                      <span>{limitation}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </CardContent>
         </Card>

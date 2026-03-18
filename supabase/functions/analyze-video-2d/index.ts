@@ -354,7 +354,22 @@ async function processAnalysisInBackground(
       return;
     }
 
-    console.log(`[2D Analysis BG] Got scores: Body=${analysis.body}, Brain=${analysis.brain}, Bat=${analysis.bat}, Ball=${analysis.ball}`);
+    // Extract scores from new nested v4 format (with fallback to flat format for backward compat)
+    const bodyScore = analysis.scores?.body ?? analysis.body;
+    const brainScore = analysis.scores?.brain ?? analysis.brain;
+    const batScore = analysis.scores?.bat ?? analysis.bat;
+    const ballScore = analysis.scores?.ball ?? analysis.ball;
+    const compositeScore = analysis.scores?.composite ?? analysis.composite;
+    const gradeLabel = analysis.ratings?.body ?? analysis.grade ?? "Working";
+    const leakFlag = analysis.primary_leak?.flag ?? analysis.leak_detected ?? null;
+    const leakEvidence = analysis.primary_leak?.explanation ?? analysis.leak_evidence ?? null;
+    const motorProfileEst = analysis.motor_profile?.estimated ?? analysis.motor_profile ?? null;
+    const motorProfileNote = analysis.motor_profile?.note ?? analysis.profile_evidence ?? null;
+    const coachTake = analysis.coach_barrels_take ?? analysis.coach_rick_take ?? null;
+    const drillPrimary = analysis.drill_prescription?.primary?.name ?? analysis.priority_drill ?? null;
+    const analysisConfidence = analysis.analysis_confidence ?? analysis.confidence ?? 0.5;
+
+    console.log(`[2D Analysis BG] Got scores: Body=${bodyScore}, Brain=${brainScore}, Bat=${batScore}, Ball=${ballScore}`);
 
     // Axis stability classification
     const cogVeloY = typeof analysis.cog_velo_y === 'number' ? analysis.cog_velo_y : (analysis.visible_metrics?.cog_velo_y ?? null);
@@ -363,7 +378,6 @@ async function processAnalysisInBackground(
     const armAv = typeof analysis.arm_av === 'number' ? analysis.arm_av : null;
     const ptRatio = pelvisAv && trunkAv ? pelvisAv / trunkAv : null;
     const taRatio = trunkAv && armAv ? trunkAv / armAv : null;
-    // Correct transfer ratio: trunk / pelvis (how much trunk amplifies pelvis)
     const transferRatio = pelvisAv && trunkAv && pelvisAv > 0 ? trunkAv / pelvisAv : null;
 
     let axisStabilityType = 'DEVELOPING';
@@ -389,7 +403,6 @@ async function processAnalysisInBackground(
         stabilityNote = 'Axis stability is developing - minor drift detected';
         stabilityCue = 'Focus on keeping head centered over hips through rotation';
       }
-      // Score: 100 when cogVeloY is 0, drops as it deviates
       const deviation = Math.abs(cogVeloY);
       stabilityScore = Math.max(0, Math.min(100, Math.round(100 - (deviation * 80))));
     }
@@ -399,26 +412,26 @@ async function processAnalysisInBackground(
     // Look up Reboot trunk stability data
     const trunkStability = await lookupTrunkStability(supabase, playerId);
 
-    // Update session with analysis results (individual swing scores)
+    // Update session with analysis results
     const { data: sessionData, error: updateError } = await supabase
       .from("video_2d_sessions")
       .update({
-        composite_score: analysis.composite,
-        body_score: analysis.body,
-        brain_score: Math.min(analysis.brain, 55),
-        bat_score: analysis.bat,
-        ball_score: Math.min(analysis.ball, 50),
-        grade: analysis.grade,
-        camera_angle: analysis.camera_angle,
-        leak_detected: analysis.leak_detected,
-        leak_evidence: analysis.leak_evidence,
-        motor_profile: analysis.motor_profile,
-        motor_profile_indication: analysis.motor_profile,
-        motor_profile_evidence: analysis.profile_evidence,
-        priority_drill: analysis.priority_drill,
-        coach_rick_take: analysis.coach_rick_take,
+        composite_score: compositeScore,
+        body_score: bodyScore,
+        brain_score: Math.min(brainScore, 55),
+        bat_score: batScore,
+        ball_score: Math.min(ballScore, 50),
+        grade: gradeLabel,
+        camera_angle: analysis.camera_angle ?? null,
+        leak_detected: leakFlag,
+        leak_evidence: leakEvidence,
+        motor_profile: motorProfileEst,
+        motor_profile_indication: motorProfileEst,
+        motor_profile_evidence: motorProfileNote,
+        priority_drill: drillPrimary,
+        coach_rick_take: coachTake,
         analysis_json: analysis,
-        analysis_confidence: analysis.confidence,
+        analysis_confidence: analysisConfidence,
         processing_status: "complete",
         completed_at: new Date().toISOString(),
         axis_stability_type: axisStabilityType,
@@ -464,10 +477,10 @@ async function processAnalysisInBackground(
     await supabase
       .from("players")
       .update({
-        latest_body_score: analysis.body,
-        latest_brain_score: Math.min(analysis.brain, 55),
-        latest_bat_score: analysis.bat,
-        latest_composite_score: analysis.composite,
+        latest_body_score: bodyScore,
+        latest_brain_score: Math.min(brainScore, 55),
+        latest_bat_score: batScore,
+        latest_composite_score: compositeScore,
         updated_at: new Date().toISOString(),
       })
       .eq("id", playerId);
