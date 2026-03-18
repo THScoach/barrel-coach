@@ -136,7 +136,7 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
       // Latest biomech interpretation
       supabase
         .from("hitting_4b_krs_sessions")
-        .select("weakest_b, main_constraint, krs_score, summary_coach_text, has_sequence_issue, has_momentum_issue, has_plane_issue, has_range_usage_issue, has_balance_stability_issue, focus_next_bp, recommended_cues")
+        .select("weakest_b, main_constraint, krs_score, summary_coach_text, has_sequence_issue, has_momentum_issue, has_plane_issue, has_range_usage_issue, has_balance_stability_issue, focus_next_bp, recommended_cues, coach_barrels_classification, coach_barrels_voice_sample, coach_barrels_prescription")
         .eq("player_id", playerId)
         .order("session_date", { ascending: false })
         .limit(1)
