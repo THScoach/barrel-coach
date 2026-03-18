@@ -151,5 +151,6 @@ export default function PlayerNewSession() {
         </Card>
       )}
     </div>
+    </div>
   );
 }

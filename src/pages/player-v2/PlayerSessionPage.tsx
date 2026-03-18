@@ -114,7 +114,6 @@ export default function PlayerSession() {
             <p className="text-[12px]" style={{ color: '#a0a0a0' }}>Record & upload your swings for analysis</p>
           </div>
         </Link>
-        </div>
 
         {drills.length === 0 ? (
           <EmptyState icon={<Dumbbell className="h-12 w-12" />} title="No drills assigned" description="Complete an assessment session to get your personalized drill plan" ctaLabel="Upload Session" ctaTo="/player/data" />
