@@ -81,7 +81,7 @@ export default function PlayerSessionDetail() {
       const [res2d, res3d] = await Promise.all([
         supabase
           .from("video_2d_sessions")
-          .select("id, session_date, composite_score, grade, body_score, brain_score, bat_score, ball_score, leak_detected, leak_evidence, motor_profile, coach_rick_take, priority_drill, analysis_confidence, video_url, video_filename, is_paid_user, pending_3d_analysis")
+          .select("id, session_date, composite_score, grade, body_score, brain_score, bat_score, ball_score, leak_detected, leak_evidence, motor_profile, coach_rick_take, priority_drill, analysis_confidence, video_url, video_filename, is_paid_user, pending_3d_analysis, analysis_json")
           .eq("id", sessionId)
           .maybeSingle(),
         supabase
