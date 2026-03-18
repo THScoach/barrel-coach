@@ -231,6 +231,19 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         coachBarrelsPrescription: biomechData.coach_barrels_prescription,
       } : null,
       injuryHistory: player.injury_history || null,
+      video2dSessions: (video2dRes.data || []).map((s: any) => ({
+        sessionDate: s.session_date,
+        compositeScore: s.composite_score,
+        bodyScore: s.body_score,
+        brainScore: s.brain_score,
+        batScore: s.bat_score,
+        ballScore: s.ball_score,
+        leakDetected: s.leak_detected,
+        motorProfile: s.motor_profile,
+        coachRickTake: s.coach_rick_take,
+        priorityDrill: s.priority_drill,
+        grade: s.grade,
+      })),
     };
   } catch (err) {
     console.error("[ContextLoader] Error loading player context:", err);
