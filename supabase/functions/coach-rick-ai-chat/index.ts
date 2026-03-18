@@ -79,12 +79,26 @@ interface FullPlayerContext {
   } | null;
   // Injury history from players table
   injuryHistory: any | null;
+  // 2D Video Analysis sessions
+  video2dSessions: {
+    sessionDate: string;
+    compositeScore: number | null;
+    bodyScore: number | null;
+    brainScore: number | null;
+    batScore: number | null;
+    ballScore: number | null;
+    leakDetected: string | null;
+    motorProfile: string | null;
+    coachRickTake: string | null;
+    priorityDrill: string | null;
+    grade: string | null;
+  }[];
 }
 
 async function loadFullPlayerContext(supabase: any, playerId: string): Promise<FullPlayerContext | null> {
   try {
     // Run all queries in parallel for speed
-    const [playerRes, sessionsRes, drillsRes, notesRes, stackRes, blastRes, biomechRes] = await Promise.all([
+    const [playerRes, sessionsRes, drillsRes, notesRes, stackRes, blastRes, biomechRes, video2dRes] = await Promise.all([
       // Player basic info
       supabase
         .from("players")
@@ -141,6 +155,15 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         .order("session_date", { ascending: false })
         .limit(1)
         .maybeSingle(),
+
+      // Latest 2D video analysis sessions
+      supabase
+        .from("video_2d_sessions")
+        .select("session_date, composite_score, body_score, brain_score, bat_score, ball_score, leak_detected, motor_profile, coach_rick_take, priority_drill, grade")
+        .eq("player_id", playerId)
+        .eq("processing_status", "complete")
+        .order("session_date", { ascending: false })
+        .limit(3),
     ]);
 
     const player = playerRes.data;
@@ -208,6 +231,19 @@ async function loadFullPlayerContext(supabase: any, playerId: string): Promise<F
         coachBarrelsPrescription: biomechData.coach_barrels_prescription,
       } : null,
       injuryHistory: player.injury_history || null,
+      video2dSessions: (video2dRes.data || []).map((s: any) => ({
+        sessionDate: s.session_date,
+        compositeScore: s.composite_score,
+        bodyScore: s.body_score,
+        brainScore: s.brain_score,
+        batScore: s.bat_score,
+        ballScore: s.ball_score,
+        leakDetected: s.leak_detected,
+        motorProfile: s.motor_profile,
+        coachRickTake: s.coach_rick_take,
+        priorityDrill: s.priority_drill,
+        grade: s.grade,
+      })),
     };
   } catch (err) {
     console.error("[ContextLoader] Error loading player context:", err);
@@ -327,6 +363,21 @@ function formatPlayerContextBlock(ctx: FullPlayerContext): string {
       lines.push(`  ${JSON.stringify(ctx.injuryHistory)}`);
     } else {
       lines.push(`  ${String(ctx.injuryHistory)}`);
+    }
+  }
+
+  // 2D Video Analysis sessions
+  if (ctx.video2dSessions && ctx.video2dSessions.length > 0) {
+    lines.push("");
+    lines.push("[2D VIDEO ANALYSIS — recent sessions from Gemini vision analysis]");
+    lines.push("Note: Brain scores capped at 55, Ball scores capped at 50 in 2D mode.");
+    for (const s of ctx.video2dSessions) {
+      const dateStr = s.sessionDate?.substring(0, 10) || "?";
+      lines.push(`  ${dateStr}: Body ${s.bodyScore ?? '?'} / Brain ${s.brainScore ?? '?'} / Bat ${s.batScore ?? '?'} / Ball ${s.ballScore ?? '?'} → Composite ${s.compositeScore ?? '?'} (${s.grade || 'Unrated'})`);
+      if (s.leakDetected) lines.push(`    Leak: ${s.leakDetected}`);
+      if (s.motorProfile) lines.push(`    Motor Profile Indication: ${s.motorProfile}`);
+      if (s.coachRickTake) lines.push(`    Coach Rick Take: ${s.coachRickTake}`);
+      if (s.priorityDrill) lines.push(`    Priority Drill: ${s.priorityDrill}`);
     }
   }
 

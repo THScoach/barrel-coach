@@ -8,11 +8,17 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
+export interface UploadedSwingData {
+  file: File;
+  storagePath: string;
+  swingIndex: number;
+}
+
 interface VideoUploaderProps {
   swingsRequired: number;
   swingsMaxAllowed?: number;
   sessionId: string;
-  onComplete: () => void;
+  onComplete: (uploadedSwings?: UploadedSwingData[]) => void;
   isCheckoutLoading?: boolean;
 }
 
@@ -509,7 +515,16 @@ export function VideoUploader({
           size="lg"
           className="w-full mt-6"
           disabled={!canContinue || isCheckoutLoading}
-          onClick={onComplete}
+          onClick={() => {
+            const uploadedSwings: UploadedSwingData[] = files
+              .filter((f) => f.status === "uploaded" && f.file && f.storageUrl)
+              .map((f) => ({
+                file: f.file!,
+                storagePath: f.storageUrl!,
+                swingIndex: f.index,
+              }));
+            onComplete(uploadedSwings);
+          }}
         >
           {isCheckoutLoading ? (
             <>

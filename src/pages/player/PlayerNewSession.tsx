@@ -1,25 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { VideoUploader } from "@/components/VideoUploader";
+import { VideoUploader, UploadedSwingData } from "@/components/VideoUploader";
 import { Environment, ENVIRONMENTS } from "@/types/analysis";
-import { ArrowLeft, Video, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Video, CheckCircle, Loader2, Brain, Activity, Target, Zap } from "lucide-react";
+import { use2DAnalysisTrigger } from "@/hooks/use2DAnalysisTrigger";
+import { usePlayerData } from "@/hooks/usePlayerData";
 
-type Step = "environment" | "upload";
+type Step = "environment" | "upload" | "analyzing" | "results";
 
 export default function PlayerNewSession() {
   const navigate = useNavigate();
+  const { player } = usePlayerData();
   const [step, setStep] = useState<Step>("environment");
   const [environment, setEnvironment] = useState<Environment>("tee");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [swingsRequired, setSwingsRequired] = useState(5);
   const [swingsMaxAllowed, setSwingsMaxAllowed] = useState(15);
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [batchResults, setBatchResults] = useState<any>(null);
+
+  const { triggerAnalysis, progress: analysisProgress } = use2DAnalysisTrigger();
 
   const handleCreateSession = async () => {
     setIsCreating(true);
@@ -47,10 +55,36 @@ export default function PlayerNewSession() {
     }
   };
 
-  const handleUploadComplete = async () => {
-    toast.success("Swings uploaded! Coach Barrels will analyze them shortly.");
-    navigate("/player/data?tab=sessions");
+  const handleUploadComplete = async (uploadedSwings?: UploadedSwingData[]) => {
+    if (!player?.id || !uploadedSwings || uploadedSwings.length === 0) {
+      toast.success("Swings uploaded!");
+      navigate("/player/data?tab=sessions");
+      return;
+    }
+
+    // Transition to analyzing step
+    setStep("analyzing");
+
+    const resultBatchId = await triggerAnalysis(player.id, uploadedSwings);
+    setBatchId(resultBatchId);
+
+    if (resultBatchId) {
+      // Fetch batch results
+      const { data } = await supabase
+        .from("video_2d_batch_sessions")
+        .select("*")
+        .eq("id", resultBatchId)
+        .single();
+      
+      setBatchResults(data);
+    }
+
+    setStep("results");
   };
+
+  const analysisTotal = analysisProgress.total;
+  const analysisCompleted = analysisProgress.completed + analysisProgress.failed;
+  const analysisPct = analysisTotal > 0 ? Math.round((analysisCompleted / analysisTotal) * 100) : 0;
 
   return (
     <div style={{ background: '#000', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
@@ -60,7 +94,11 @@ export default function PlayerNewSession() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => step === "upload" ? setStep("environment") : navigate("/player")}
+          onClick={() => {
+            if (step === "upload") setStep("environment");
+            else if (step === "results") navigate("/player/data?tab=sessions");
+            else navigate("/player");
+          }}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
@@ -68,7 +106,10 @@ export default function PlayerNewSession() {
         <div>
           <h1 className="text-2xl font-bold">New Swing Session</h1>
           <p className="text-muted-foreground text-sm">
-            {step === "environment" ? "Step 1: Select your environment" : "Step 2: Upload your swings"}
+            {step === "environment" ? "Step 1: Select your environment" 
+             : step === "upload" ? "Step 2: Upload your swings"
+             : step === "analyzing" ? "Step 3: Analyzing your swings..."
+             : "Analysis Complete"}
           </p>
         </div>
       </div>
@@ -149,6 +190,133 @@ export default function PlayerNewSession() {
             />
           </CardContent>
         </Card>
+      )}
+
+      {/* Step 3: Analyzing */}
+      {step === "analyzing" && (
+        <Card>
+          <CardContent className="pt-6 space-y-6">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4" style={{ background: 'rgba(230,57,70,0.1)' }}>
+                <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#E63946' }} />
+              </div>
+              <h2 className="text-xl font-bold mb-2">Coach Barrels is Analyzing</h2>
+              <p className="text-muted-foreground text-sm">
+                {analysisProgress.status === "extracting" && "Extracting frames from your videos..."}
+                {analysisProgress.status === "analyzing" && `Analyzing swing ${analysisCompleted + 1} of ${analysisTotal}...`}
+                {analysisProgress.status === "polling" && "Waiting for results..."}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>{analysisCompleted} of {analysisTotal} swings</span>
+                <span>{analysisPct}%</span>
+              </div>
+              <Progress value={analysisPct} className="h-2" />
+            </div>
+
+            <div className="bg-muted/50 rounded-lg p-4">
+              <p className="text-sm text-muted-foreground">
+                "Give me a sec — I'm looking at your hip lead, hand path, sequence, and finish position across every swing."
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">— Coach Barrels</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 4: Results Summary */}
+      {step === "results" && (
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="pt-6 space-y-6">
+              <div className="text-center">
+                <CheckCircle className="h-12 w-12 mx-auto mb-3" style={{ color: '#4ecdc4' }} />
+                <h2 className="text-xl font-bold mb-1">Analysis Complete!</h2>
+                <p className="text-muted-foreground text-sm">
+                  {analysisProgress.completed} swing{analysisProgress.completed !== 1 ? 's' : ''} analyzed
+                  {analysisProgress.failed > 0 ? ` · ${analysisProgress.failed} failed` : ''}
+                </p>
+              </div>
+
+              {/* Batch scores summary */}
+              {batchResults && (
+                <>
+                  {/* Composite */}
+                  {batchResults.avg_composite != null && (
+                    <div className="text-center rounded-xl p-4" style={{ background: '#111', border: '1px solid #222' }}>
+                      <div className="text-4xl font-bold" style={{ color: '#fff' }}>
+                        {Math.round(batchResults.avg_composite)}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">Composite Score (2D)</div>
+                    </div>
+                  )}
+
+                  {/* 4B Breakdown */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { key: 'avg_body', label: 'Body', icon: Activity },
+                      { key: 'avg_brain', label: 'Brain', icon: Brain },
+                      { key: 'avg_bat', label: 'Bat', icon: Target },
+                      { key: 'avg_ball', label: 'Ball', icon: Zap },
+                    ].map(({ key, label, icon: Icon }) => {
+                      const val = batchResults[key];
+                      return (
+                        <div key={key} className="flex flex-col items-center p-3 rounded-lg" style={{ background: '#111', border: '1px solid #222' }}>
+                          <Icon className="h-4 w-4 mb-1" style={{ color: '#555' }} />
+                          <span className="text-[10px] font-semibold uppercase" style={{ color: '#555' }}>{label}</span>
+                          <span className="text-lg font-bold" style={{ color: '#fff' }}>
+                            {val != null ? Math.round(val) : '—'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Leak & Motor Profile */}
+                  {(batchResults.primary_leak || batchResults.motor_profile) && (
+                    <div className="rounded-xl p-4 space-y-2" style={{ background: '#111', border: '1px solid #222' }}>
+                      {batchResults.primary_leak && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs" style={{ color: '#555' }}>Primary Leak:</span>
+                          <span className="text-sm font-semibold" style={{ color: '#E63946' }}>
+                            {batchResults.primary_leak.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                      )}
+                      {batchResults.motor_profile && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs" style={{ color: '#555' }}>Motor Profile:</span>
+                          <span className="text-sm font-semibold" style={{ color: '#4ecdc4' }}>
+                            {batchResults.motor_profile}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => navigate("/player/data?tab=sessions")}
+            >
+              View All Sessions
+            </Button>
+            <Button
+              className="flex-1"
+              style={{ background: '#E63946' }}
+              onClick={() => navigate("/player/session")}
+            >
+              See Prescribed Drills
+            </Button>
+          </div>
+        </div>
       )}
     </div>
     </div>
