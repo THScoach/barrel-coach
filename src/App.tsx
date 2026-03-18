@@ -81,6 +81,7 @@ import KnowledgeBaseEditor from "./pages/admin/KnowledgeBaseEditor";
 import ScenarioTrainer from "./pages/admin/ScenarioTrainer";
 import VideoScriptAnalyzer from "./pages/admin/VideoScriptAnalyzer";
 import AdminSeedSwingData from "./pages/AdminSeedSwingData";
+import AdminCalibration from "./pages/AdminCalibration";
 
 // Player pages (v2 rebuild)
 import PlayerHomeDashboard from "./pages/player-v2/PlayerHomeDashboard";
