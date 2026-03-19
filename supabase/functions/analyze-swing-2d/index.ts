@@ -15,7 +15,7 @@ const ANALYSIS_TOOL = {
       type: "object",
       properties: {
         body_score: { type: "integer", description: "Overall body mechanics score 0-80" },
-        brain_score: { type: "integer", description: "Timing/decision making score 0-55 (capped for 2D)" },
+        brain_score: { type: "integer", description: "Timing/decision making score 0-45 (capped for 2D)" },
         bat_score: { type: "integer", description: "Bat path/speed efficiency score 0-80" },
         ball_score: { type: "integer", description: "Estimated contact quality score 0-50 (capped for 2D)" },
         composite_score: { type: "integer", description: "Weighted overall score 0-80" },
