@@ -75,13 +75,14 @@ export function statusLabel(s: EnergyStatus): string {
   return s.replace('_', ' ');
 }
 
-/** Extract pelvis KE — try legacy avgLegsKE or avgTotalKE proxy */
+/** Extract pelvis KE — prefer new pelvis_ke field, fallback to legacy */
 export function getPelvisKE(m: RawMetrics): number | null {
-  return m.avgLegsKE ?? m.avgTotalKE ?? null;
+  return m.pelvis_ke ?? m.avgLegsKE ?? m.avgTotalKE ?? null;
 }
 
-/** Arms KE as percentage of total */
+/** Arms KE as percentage of total — prefer new arms_ke_pct, fallback to legacy */
 export function getArmsKEPct(m: RawMetrics): number | null {
+  if (m.arms_ke_pct != null) return m.arms_ke_pct;
   if (m.avgArmsKE != null && m.avgTotalKE != null && m.avgTotalKE > 0) {
     return (m.avgArmsKE / m.avgTotalKE) * 100;
   }
