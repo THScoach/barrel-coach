@@ -35,7 +35,7 @@ export function usePlayerData() {
 
       const { data } = await supabase
         .from("players")
-        .select("id, name, email, phone, level, team, position, handedness, throws, height_inches, weight_lbs, motor_profile_sensor, latest_composite_score, latest_body_score, latest_brain_score, latest_bat_score, latest_ball_score, account_status")
+        .select("id, name, email, phone, level, team, position, handedness, throws, height_inches, weight_lbs, motor_profile_sensor, latest_composite_score, latest_body_score, latest_brain_score, latest_bat_score, latest_ball_score, account_status, reboot_player_id, reboot_athlete_id")
         .eq("email", user.email)
         .single();
 
