@@ -148,9 +148,11 @@ export default function PlayerProgress() {
     );
   }
 
-  const baseline = sessions[0]?.overall_score ?? 0;
-  const current = sessions[sessions.length - 1]?.overall_score ?? 0;
-  const latestReboot = [...sessions].reverse().find(s => s.source === '3d');
+  // Only use scoreable sessions for baseline/current/projected calculations
+  const scoreableSessions = sessions.filter(s => s.scoreable !== false && s.overall_score != null);
+  const baseline = scoreableSessions[0]?.overall_score ?? 0;
+  const current = scoreableSessions[scoreableSessions.length - 1]?.overall_score ?? 0;
+  const latestReboot = [...scoreableSessions].reverse().find(s => s.source === '3d');
   const latestProjections = latestReboot?.projections;
   const projected = latestProjections?.projected_krs ?? current;
   const gain = current - baseline;
