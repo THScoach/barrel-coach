@@ -21,13 +21,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const checkAdminStatus = async (userId: string) => {
+    const cacheKey = `is_admin_${userId}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached !== null) {
+      return cached === 'true';
+    }
     try {
       const { data, error } = await supabase.rpc('is_admin');
       if (error) {
         console.error('Error checking admin status:', error);
         return false;
       }
-      return data === true;
+      const result = data === true;
+      sessionStorage.setItem(cacheKey, String(result));
+      return result;
     } catch (error) {
       console.error('Error in admin check:', error);
       return false;
