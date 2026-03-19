@@ -545,6 +545,8 @@ function parseRebootCSV(
     mass_total_kg,
     bat_energy_j,
     total_body_energy_j,
+  },
+  contactFrameIdx,
   };
 }
 
