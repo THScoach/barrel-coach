@@ -710,9 +710,29 @@ function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): R
     ? Math.round(result.transfer_efficiency * 1000) / 1000
     : null;
 
-  // Root cause analysis
+  // Root cause analysis — check ALL issues, prioritize worst
+  const isReversedSequence = !pelvisFirst;
+  const isBrakeFailure = brake_efficiency != null && brake_efficiency < 0.1;
+  const isTimingOutsideRange = pelvis_torso_gap_ms < 14 || pelvis_torso_gap_ms > 18;
+  const isTimingTooTight = pelvis_torso_gap_ms < 10;
+  const isTimingTooWide = pelvis_torso_gap_ms > 18;
+
   let rootCause: Record<string, string> = { issue: 'None detected', what: 'Swing is functioning well', build: '' };
-  if (pelvis_torso_gain != null && pelvis_torso_gain < 1.0) {
+
+  // Priority 1: Reversed sequence is the most critical issue
+  if (isReversedSequence) {
+    rootCause = {
+      issue: 'Reversed Sequence: Torso Leading Pelvis',
+      what: 'Torso is peaking before the pelvis — the kinetic chain is inverted. Energy cannot transfer efficiently when the sequence is reversed.',
+      build: 'Hip-lead sequencing drills — stride & hold, wall drills, hip-first tempo work. Focus on feeling hips initiate before any upper body rotation.',
+    };
+  } else if (isBrakeFailure) {
+    rootCause = {
+      issue: 'Brake System Failure',
+      what: 'Front side is not braking — energy is leaking through the front leg instead of transferring up the chain. Brake efficiency is near zero.',
+      build: 'Front-leg brace drills — step and turn, wall drill, post-up landing work. The front side must decelerate to accelerate the barrel.',
+    };
+  } else if (pelvis_torso_gain != null && pelvis_torso_gain < 1.0) {
     rootCause = {
       issue: 'Energy Loss: Hip → Torso',
       what: 'Torso is not amplifying hip rotation. Energy is dying at the core.',
@@ -730,11 +750,17 @@ function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): R
       what: 'Bat head is not releasing through the zone. Wrist snap is weak or early.',
       build: 'Wrist snap drills, overload/underload training, bat path work.',
     };
-  } else if (pelvis_torso_gap_ms < 10) {
+  } else if (isTimingTooTight) {
     rootCause = {
       issue: 'Timing: Simultaneous Rotation',
-      what: 'Hips and torso are firing together instead of sequentially.',
+      what: 'Hips and torso are firing together instead of sequentially. Gap is only ' + pelvis_torso_gap_ms + 'ms (target: 14-18ms).',
       build: 'Separation drills — stride & hold, wall drills, hip-lead tempo work.',
+    };
+  } else if (isTimingTooWide) {
+    rootCause = {
+      issue: 'Timing: Disconnected Sequence',
+      what: 'Pelvis-to-torso gap is too wide at ' + pelvis_torso_gap_ms + 'ms (target: 14-18ms). The upper body is lagging too far behind the hips, losing energy in the delay.',
+      build: 'Tempo connection drills — rhythm swings, quick-hips-to-contact work, reducing the gap between hip fire and trunk rotation.',
     };
   }
 
@@ -745,15 +771,38 @@ function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): R
     arms_to_barrel: flowLabel(arm_bat_gain),
   };
 
-  // Coaching story
+  // Coaching story — must reflect the SAME thresholds as flag detection
   const story: Record<string, string> = {};
-  story.base = `Pelvis peak velocity: ${Math.round(pelvis)}°/s. ${
-    pelvis >= 600 ? 'Strong foundation.' : 'Below target — needs more ground-force production.'
-  }`;
-  story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. ${
-    pelvis_torso_gap_ms >= 14 ? 'Good sequential timing.' : 'Gap is tight — work on separation.'
-  }`;
-  story.barrel = `Estimated bat speed: ${batSpeedMph > 0 ? Math.round(batSpeedMph) + ' mph' : 'N/A'}. Transfer ratio: ${input.transfer_ratio.toFixed(2)}.`;
+
+  // Base: pelvis velocity + sequence check
+  if (isReversedSequence) {
+    story.base = `Pelvis peak velocity: ${Math.round(pelvis)}°/s. ${
+      pelvis >= 600
+        ? 'Pelvis velocity looks adequate but sequence is reversed — torso is leading the pelvis. Raw velocity doesn\'t matter if the chain is inverted.'
+        : 'Below target AND sequence is reversed — needs ground-force production with proper hip-first initiation.'
+    }`;
+  } else {
+    story.base = `Pelvis peak velocity: ${Math.round(pelvis)}°/s. ${
+      pelvis >= 600 ? 'Strong foundation — hips are leading with good velocity.' : 'Below target — needs more ground-force production.'
+    }`;
+  }
+
+  // Rhythm: gap range check (14-18ms target)
+  if (isReversedSequence) {
+    story.rhythm = `Sequence is reversed (torso peaks before pelvis). P→T gap of ${pelvis_torso_gap_ms}ms is not meaningful when the sequence is inverted.`;
+  } else if (pelvis_torso_gap_ms >= 14 && pelvis_torso_gap_ms <= 18) {
+    story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. Good sequential timing — within the optimal 14-18ms window.`;
+  } else if (pelvis_torso_gap_ms < 14) {
+    story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. Gap is tight — below the 14-18ms target. Work on separation.`;
+  } else {
+    story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. Timing gap outside optimal range (${pelvis_torso_gap_ms}ms vs 14-18ms target) — upper body is lagging too far behind.`;
+  }
+
+  // Barrel + brake efficiency
+  const brakeNote = isBrakeFailure
+    ? ` Brake efficiency is critically low (${brake_efficiency != null ? Math.round(brake_efficiency * 100) + '%' : '0%'}) — front side is not decelerating.`
+    : '';
+  story.barrel = `Estimated bat speed: ${batSpeedMph > 0 ? Math.round(batSpeedMph) + ' mph' : 'N/A'}. Transfer ratio: ${input.transfer_ratio.toFixed(2)}.${brakeNote}`;
 
   return {
     avgPelvisVelocity: Math.round(pelvis),
