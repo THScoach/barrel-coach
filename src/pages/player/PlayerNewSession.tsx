@@ -414,6 +414,19 @@ export default function PlayerNewSession() {
                   )}
                 </>
               )}
+
+              {/* 3D Processing Badge */}
+              {(player?.reboot_player_id || player?.reboot_athlete_id) && (
+                <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'rgba(20,184,166,0.08)', border: '1px solid rgba(20,184,166,0.2)' }}>
+                  <Cpu className="h-5 w-5 animate-pulse" style={{ color: '#14B8A6' }} />
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: '#14B8A6' }}>3D Analysis Processing</p>
+                    <p className="text-xs" style={{ color: '#777' }}>
+                      Full biomechanical analysis will be ready in 30-60 minutes. We'll text you when it's done.
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
