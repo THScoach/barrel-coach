@@ -48,8 +48,8 @@ export function EnergyDeliveryReport({ sessionId, playerId, rawMetrics, existing
         if (data?.raw_metrics && typeof data.raw_metrics === 'object') {
           const m = data.raw_metrics as RawMetrics;
           setBaseline({
-            pelvisKE: getPelvisKE(m),
-            armsKEPct: getArmsKEPct(m),
+            pelvisKE: getPelvisKE(m).value,
+            armsKEPct: getArmsKEPct(m).value,
             totalKE: m.avgTotalKE ?? null,
           });
         }
