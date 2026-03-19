@@ -802,7 +802,7 @@ function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): R
 
   // Barrel + brake efficiency
   const brakeNote = isBrakeFailure
-    ? ` Brake efficiency is critically low (${brake_efficiency != null ? Math.round(brake_efficiency * 100) + '%' : '0%'}) — front side is not decelerating.`
+    ? ` Brake system offline (${brake_efficiency != null ? Math.round(brake_efficiency * 100) + '%' : '0%'} efficiency) — energy passes through like water through a pipe with no faucet. It never concentrates into the barrel.`
     : '';
   story.barrel = `Estimated bat speed: ${batSpeedMph > 0 ? Math.round(batSpeedMph) + ' mph' : 'N/A'}. Transfer ratio: ${input.transfer_ratio.toFixed(2)}.${brakeNote}`;
 
