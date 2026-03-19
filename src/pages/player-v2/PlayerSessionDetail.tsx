@@ -491,6 +491,7 @@ export default function PlayerSessionDetail() {
             sessionId={session3D.id}
             playerId={player?.id ?? ''}
             rawMetrics={session3D.raw_metrics}
+            isAdmin={isAdmin}
             existingMetricsContent={
               <div className="rounded-xl p-4 space-y-2" style={{ background: '#111', border: '1px solid #222' }}>
                 <p className="text-xs font-semibold uppercase mb-2" style={{ color: '#555' }}>Biomechanics Data</p>
