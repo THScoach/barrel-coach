@@ -8,6 +8,7 @@ import { usePlayerData } from "@/hooks/usePlayerData";
 import { PlayerTopBar } from "@/components/player-v2/PlayerTopBar";
 import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { Video2DAnalysisCard } from "@/components/admin/Video2DAnalysisCard";
+import { EnergyDeliveryReport } from "@/components/player-v2/session-report/EnergyDeliveryReport";
 import { Skeleton } from "@/components/ui/skeleton";
 import { scoreColor } from "@/lib/player-utils";
 import { ArrowLeft, Play, Cpu } from "lucide-react";
