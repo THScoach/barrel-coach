@@ -32,6 +32,8 @@ export default function PlayerNewSession() {
   const [batchResults, setBatchResults] = useState<any>(null);
   const [onformUrls, setOnformUrls] = useState("");
   const [importingOnform, setImportingOnform] = useState(false);
+  const [captureMethod, setCaptureMethod] = useState<CaptureMethod | null>(null);
+  const cameraAppInputRef = useRef<HTMLInputElement>(null);
 
   const { triggerAnalysis, progress: analysisProgress } = use2DAnalysisTrigger();
 
