@@ -131,7 +131,9 @@ export default function PlayerNewSession() {
     // Transition to analyzing step
     setStep("analyzing");
 
-    const resultBatchId = await triggerAnalysis(player.id, uploadedSwings);
+    // Pass reboot_player_id so the hook can fire 3D analysis automatically
+    const rebootId = player.reboot_player_id || player.reboot_athlete_id || null;
+    const resultBatchId = await triggerAnalysis(player.id, uploadedSwings, rebootId);
     setBatchId(resultBatchId);
 
     if (resultBatchId) {
