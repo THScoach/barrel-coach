@@ -71,6 +71,8 @@ export default function PlayerProgress() {
           overall_score: s.overall_score,
           projections: s.projections,
           source: '3d' as const,
+          scoreable: (s as any).scoreable ?? true,
+          swing_classification: (s as any).swing_classification ?? 'unknown',
         })));
       }
 
