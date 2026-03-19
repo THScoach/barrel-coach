@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VideoUploader, UploadedSwingData } from "@/components/VideoUploader";
 import { Environment, ENVIRONMENTS } from "@/types/analysis";
-import { ArrowLeft, Video, CheckCircle, Loader2, Brain, Activity, Target, Zap, Link2 } from "lucide-react";
+import { ArrowLeft, Video, CheckCircle, Loader2, Brain, Activity, Target, Zap, Link2, Cpu } from "lucide-react";
 import { use2DAnalysisTrigger } from "@/hooks/use2DAnalysisTrigger";
 import { usePlayerData } from "@/hooks/usePlayerData";
 

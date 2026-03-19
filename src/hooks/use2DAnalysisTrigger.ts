@@ -139,6 +139,59 @@ export function use2DAnalysisTrigger() {
   return { triggerAnalysis, progress };
 }
 
+/**
+ * Fire reboot-upload-video in the background for the first swing's video.
+ * Marks associated 2D sessions as pending_3d_analysis.
+ */
+async function fireRebootUpload(
+  playerId: string,
+  firstSwing: SwingFile,
+  sessionIds: string[],
+) {
+  try {
+    console.log("[2D Trigger] Firing reboot-upload-video for 3D analysis...");
+
+    // Get a signed URL for the video in swing-videos bucket
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from("swing-videos")
+      .createSignedUrl(firstSwing.storagePath, 3600);
+
+    if (signedError || !signedData?.signedUrl) {
+      console.error("[2D Trigger] Failed to get signed URL for Reboot upload:", signedError);
+      return;
+    }
+
+    // Call reboot-upload-video edge function
+    const { data, error } = await supabase.functions.invoke("reboot-upload-video", {
+      body: {
+        player_id: playerId,
+        video_url: signedData.signedUrl,
+        video_filename: firstSwing.file.name,
+        frame_rate: 240,
+      },
+    });
+
+    if (error) {
+      console.error("[2D Trigger] Reboot upload failed:", error.message);
+      return;
+    }
+
+    console.log("[2D Trigger] Reboot upload success, session:", data?.session_id);
+
+    // Mark all 2D sessions as pending 3D analysis
+    if (sessionIds.length > 0) {
+      await supabase
+        .from("video_2d_sessions")
+        .update({ pending_3d_analysis: true })
+        .in("id", sessionIds);
+    }
+
+    toast.info("🔬 3D analysis queued — results in 30-60 min", { duration: 6000 });
+  } catch (err) {
+    console.error("[2D Trigger] Reboot upload error:", err);
+  }
+}
+
 async function pollForCompletion(sessionIds: string[], maxWaitMs = 120000) {
   const startTime = Date.now();
   const pollInterval = 3000;
