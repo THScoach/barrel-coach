@@ -31,7 +31,7 @@ export function use2DAnalysisTrigger() {
   });
 
   const triggerAnalysis = useCallback(
-    async (playerId: string, swings: SwingFile[]) => {
+    async (playerId: string, swings: SwingFile[], rebootPlayerId?: string | null) => {
       if (swings.length === 0) return null;
 
       setProgress({ total: swings.length, completed: 0, failed: 0, status: "extracting", batchSessionId: null });
@@ -116,6 +116,13 @@ export function use2DAnalysisTrigger() {
           toast.warning(`Analysis complete: ${completed} succeeded, ${failed} failed`);
         } else {
           toast.success(`All ${completed} swings analyzed!`);
+        }
+
+        // 4. Fire Reboot 3D upload in background if player has a Reboot account
+        if (rebootPlayerId && swings.length > 0) {
+          fireRebootUpload(playerId, swings[0], sessionIds).catch((err) =>
+            console.error("[2D Trigger] Reboot upload background error:", err),
+          );
         }
 
         return batchSessionId;
