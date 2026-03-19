@@ -167,7 +167,9 @@ export default function PlayerNewSession() {
           variant="ghost"
           size="sm"
           onClick={() => {
-            if (step === "upload") setStep("environment");
+            if (step === "upload") setStep("capture_method");
+            else if (step === "record") setStep("capture_method");
+            else if (step === "capture_method") setStep("environment");
             else if (step === "results") navigate("/player/data?tab=sessions");
             else navigate("/player");
           }}
@@ -179,8 +181,9 @@ export default function PlayerNewSession() {
           <h1 className="text-2xl font-bold">New Swing Session</h1>
           <p className="text-muted-foreground text-sm">
             {step === "environment" ? "Step 1: Select your environment" 
-             : step === "upload" ? "Step 2: Upload your swings"
-             : step === "analyzing" ? "Step 3: Analyzing your swings..."
+             : step === "capture_method" ? "Step 2: Choose capture method"
+             : step === "upload" || step === "record" ? "Step 3: Capture your swings"
+             : step === "analyzing" ? "Analyzing your swings..."
              : "Analysis Complete"}
           </p>
         </div>
