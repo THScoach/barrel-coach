@@ -115,8 +115,8 @@ export default function PlayerNewSession() {
       setSessionId(data.sessionId);
       setSwingsRequired(data.swingsRequired || 5);
       setSwingsMaxAllowed(data.swingsMaxAllowed || 15);
-      setStep("upload");
-      toast.success("Session started! Upload your swings.");
+      setStep("capture_method");
+      toast.success("Session started! Choose how to capture.");
     } catch (error) {
       console.error("Failed to create session:", error);
       toast.error(error instanceof Error ? error.message : "Failed to start session");
