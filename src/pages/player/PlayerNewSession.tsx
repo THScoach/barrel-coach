@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VideoUploader, UploadedSwingData } from "@/components/VideoUploader";
 import { Environment, ENVIRONMENTS } from "@/types/analysis";
-import { ArrowLeft, Video, CheckCircle, Loader2, Brain, Activity, Target, Zap, Link2 } from "lucide-react";
+import { ArrowLeft, Video, CheckCircle, Loader2, Brain, Activity, Target, Zap, Link2, Cpu } from "lucide-react";
 import { use2DAnalysisTrigger } from "@/hooks/use2DAnalysisTrigger";
 import { usePlayerData } from "@/hooks/usePlayerData";
 
@@ -131,7 +131,9 @@ export default function PlayerNewSession() {
     // Transition to analyzing step
     setStep("analyzing");
 
-    const resultBatchId = await triggerAnalysis(player.id, uploadedSwings);
+    // Pass reboot_player_id so the hook can fire 3D analysis automatically
+    const rebootId = player.reboot_player_id || player.reboot_athlete_id || null;
+    const resultBatchId = await triggerAnalysis(player.id, uploadedSwings, rebootId);
     setBatchId(resultBatchId);
 
     if (resultBatchId) {
@@ -411,6 +413,19 @@ export default function PlayerNewSession() {
                     </div>
                   )}
                 </>
+              )}
+
+              {/* 3D Processing Badge */}
+              {(player?.reboot_player_id || player?.reboot_athlete_id) && (
+                <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'rgba(20,184,166,0.08)', border: '1px solid rgba(20,184,166,0.2)' }}>
+                  <Cpu className="h-5 w-5 animate-pulse" style={{ color: '#14B8A6' }} />
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: '#14B8A6' }}>3D Analysis Processing</p>
+                    <p className="text-xs" style={{ color: '#777' }}>
+                      Full biomechanical analysis will be ready in 30-60 minutes. We'll text you when it's done.
+                    </p>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>

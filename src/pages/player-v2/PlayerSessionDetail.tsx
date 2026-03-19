@@ -10,7 +10,7 @@ import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { Video2DAnalysisCard } from "@/components/admin/Video2DAnalysisCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { scoreColor } from "@/lib/player-utils";
-import { ArrowLeft, Play } from "lucide-react";
+import { ArrowLeft, Play, Cpu } from "lucide-react";
 import { format } from "date-fns";
 
 type SessionSource = '2d' | '3d' | null;
@@ -75,7 +75,7 @@ export default function PlayerSessionDetail() {
   // Fetch session data
   useEffect(() => {
     if (!sessionId) return;
-    const fetch = async () => {
+    const fetchData = async () => {
       setLoading(true);
 
       // Try both tables in parallel
@@ -99,13 +99,42 @@ export default function PlayerSessionDetail() {
         setSession3D(res3d.data);
         setSource('3d');
       } else {
-        // Might have been passed with a source hint
         setSource(null);
       }
       setLoading(false);
     };
-    fetch();
+    fetchData();
   }, [sessionId]);
+
+  // Poll for 3D analysis completion when pending
+  useEffect(() => {
+    if (source !== '2d' || !session2D?.pending_3d_analysis || !player?.id) return;
+
+    const interval = setInterval(async () => {
+      // Check if a player_session appeared for the same date
+      const { data: ps } = await supabase
+        .from("player_sessions")
+        .select("id, session_date, overall_score, body_score, brain_score, bat_score, ball_score, leak_type, raw_metrics")
+        .eq("player_id", player.id)
+        .eq("session_date", session2D.session_date)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (ps) {
+        setSession3D(ps);
+        // Clear the pending flag
+        await supabase
+          .from("video_2d_sessions")
+          .update({ pending_3d_analysis: false })
+          .eq("id", session2D.id);
+        setSession2D((prev) => prev ? { ...prev, pending_3d_analysis: false } : prev);
+        clearInterval(interval);
+      }
+    }, 30_000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [source, session2D?.pending_3d_analysis, session2D?.session_date, session2D?.id, player?.id]);
 
   // Fetch comparison data
   useEffect(() => {
@@ -353,6 +382,61 @@ export default function PlayerSessionDetail() {
             );
           })}
         </div>
+
+        {/* 3D Processing Status */}
+        {source === '2d' && session2D?.pending_3d_analysis && (
+          <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'rgba(20,184,166,0.08)', border: '1px solid rgba(20,184,166,0.2)' }}>
+            <Cpu className="h-5 w-5 animate-pulse" style={{ color: '#14B8A6' }} />
+            <div>
+              <p className="text-sm font-semibold" style={{ color: '#14B8A6' }}>3D Analysis Processing...</p>
+              <p className="text-xs" style={{ color: '#777' }}>
+                Full biomechanical data will appear here automatically when ready (~30-60 min).
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 3D Scores arrived alongside 2D */}
+        {source === '2d' && session3D && (
+          <div className="rounded-xl p-4 space-y-2" style={{ background: '#111', border: '1px solid rgba(20,184,166,0.2)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(20,184,166,0.15)', color: '#14B8A6' }}>
+                3D Analysis
+              </span>
+              <p className="text-xs font-semibold uppercase" style={{ color: '#555' }}>Biomechanics</p>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {(['body', 'brain', 'bat', 'ball'] as const).map(pillar => {
+                const val3d = pillar === 'body' ? session3D.body_score
+                  : pillar === 'brain' ? session3D.brain_score
+                  : pillar === 'bat' ? session3D.bat_score
+                  : session3D.ball_score;
+                return (
+                  <div key={`3d-${pillar}`} className="rounded-lg p-2 text-center" style={{ background: '#0a0a0a', border: '1px solid #222' }}>
+                    <p className="text-[9px] uppercase font-semibold" style={{ color: '#14B8A6' }}>{pillar}</p>
+                    <p className="text-lg font-bold mt-0.5" style={{ color: scoreColor(val3d) }}>{val3d ?? '—'}</p>
+                  </div>
+                );
+              })}
+            </div>
+            {session3D.raw_metrics && (
+              <div className="mt-2 space-y-1">
+                {[
+                  { label: 'Transfer Ratio', value: session3D.raw_metrics.transfer_ratio },
+                  { label: 'Pelvis KE', value: session3D.raw_metrics.pelvis_ke, unit: 'J' },
+                  { label: 'P→T Gap', value: session3D.raw_metrics.peak_timing_gap_ms, unit: 'ms' },
+                ].map(m => (
+                  <div key={m.label} className="flex justify-between py-1" style={{ borderBottom: '1px solid #1a1a1a' }}>
+                    <span className="text-xs" style={{ color: '#777' }}>{m.label}</span>
+                    <span className="text-xs font-bold" style={{ color: '#fff' }}>
+                      {m.value != null ? `${m.value}${m.unit ? ` ${m.unit}` : ''}` : '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 2D Analysis Card */}
         {source === '2d' && analysis2DProps && (
