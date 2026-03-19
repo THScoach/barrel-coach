@@ -544,6 +544,75 @@ function parseRebootCSV(
 }
 
 // ---------------------------------------------------------------------------
+// SWING DURATION GATING — classify swings before scoring
+// ---------------------------------------------------------------------------
+
+type SwingClassification = 'competitive' | 'load_overweight' | 'walkthrough' | 'partial_capture' | 'unknown';
+
+interface DurationGateResult {
+  swing_duration_ms: number;
+  classification: SwingClassification;
+  scoreable: boolean;
+}
+
+/**
+ * Calculate swing duration from IK data and classify the swing.
+ * Duration = time from first frame to frame of max dominant hand velocity (contact proxy).
+ * 
+ * Rules:
+ *   duration > 550ms AND r_elbow at contact < 50° → "load_overweight", scoreable=false
+ *   duration > 600ms → "walkthrough", scoreable=false
+ *   duration < 350ms → "partial_capture", scoreable=false
+ *   350-550ms → "competitive", scoreable=true
+ */
+function classifySwingDuration(
+  ikRows: Record<string, number>[],
+  contactFrameIdx: number
+): DurationGateResult {
+  if (ikRows.length === 0) {
+    return { swing_duration_ms: 0, classification: 'unknown', scoreable: true };
+  }
+
+  // Duration = frames from start to contact × ms_per_frame
+  const durationMs = contactFrameIdx * MS_PER_FRAME;
+  
+  console.log(`[Duration Gate] frames=${ikRows.length}, contactFrame=${contactFrameIdx}, duration=${durationMs.toFixed(0)}ms`);
+
+  // Check for partial capture first
+  if (durationMs < 350) {
+    console.log(`[Duration Gate] PARTIAL_CAPTURE: ${durationMs.toFixed(0)}ms < 350ms`);
+    return { swing_duration_ms: durationMs, classification: 'partial_capture', scoreable: false };
+  }
+
+  // Check walkthrough (> 600ms always)
+  if (durationMs > 600) {
+    console.log(`[Duration Gate] WALKTHROUGH: ${durationMs.toFixed(0)}ms > 600ms`);
+    return { swing_duration_ms: durationMs, classification: 'walkthrough', scoreable: false };
+  }
+
+  // Check load/overweight (> 550ms AND elbow angle < 50°)
+  if (durationMs > 550) {
+    // Check r_elbow angle at contact frame
+    const elbowAngle = ikRows[contactFrameIdx]?.['r_elbow'] ?? 
+                        ikRows[contactFrameIdx]?.['relbow'] ?? 
+                        ikRows[contactFrameIdx]?.['right_elbow'] ?? 999;
+    const elbowDeg = Math.abs(elbowAngle * RAD_TO_DEG);
+    
+    console.log(`[Duration Gate] Checking load: duration=${durationMs.toFixed(0)}ms, r_elbow_at_contact=${elbowDeg.toFixed(1)}°`);
+    
+    if (elbowDeg < 50) {
+      console.log(`[Duration Gate] LOAD_OVERWEIGHT: ${durationMs.toFixed(0)}ms > 550ms AND elbow ${elbowDeg.toFixed(1)}° < 50°`);
+      return { swing_duration_ms: durationMs, classification: 'load_overweight', scoreable: false };
+    }
+    // If elbow >= 50°, it might still be competitive despite being 550-600ms
+    // Fall through to competitive
+  }
+
+  console.log(`[Duration Gate] COMPETITIVE: ${durationMs.toFixed(0)}ms`);
+  return { swing_duration_ms: durationMs, classification: 'competitive', scoreable: true };
+}
+
+// ---------------------------------------------------------------------------
 // HELPER: 3D speed from position columns (fallback for arm omega)
 // ---------------------------------------------------------------------------
 
