@@ -19,6 +19,8 @@ interface SessionScore {
   overall_score: number | null;
   projections: any;
   source: '3d' | '2d';
+  scoreable?: boolean;
+  swing_classification?: string;
 }
 
 interface FlagHistory {
@@ -49,7 +51,7 @@ export default function PlayerProgress() {
       const [rebootRes, video2dRes] = await Promise.all([
         supabase
           .from("player_sessions")
-          .select("id, session_date, overall_score, projections")
+          .select("id, session_date, overall_score, projections, scoreable, swing_classification")
           .eq("player_id", player.id)
           .order("session_date", { ascending: true }),
         supabase
@@ -69,6 +71,8 @@ export default function PlayerProgress() {
           overall_score: s.overall_score,
           projections: s.projections,
           source: '3d' as const,
+          scoreable: (s as any).scoreable ?? true,
+          swing_classification: (s as any).swing_classification ?? 'unknown',
         })));
       }
 
@@ -144,9 +148,11 @@ export default function PlayerProgress() {
     );
   }
 
-  const baseline = sessions[0]?.overall_score ?? 0;
-  const current = sessions[sessions.length - 1]?.overall_score ?? 0;
-  const latestReboot = [...sessions].reverse().find(s => s.source === '3d');
+  // Only use scoreable sessions for baseline/current/projected calculations
+  const scoreableSessions = sessions.filter(s => s.scoreable !== false && s.overall_score != null);
+  const baseline = scoreableSessions[0]?.overall_score ?? 0;
+  const current = scoreableSessions[scoreableSessions.length - 1]?.overall_score ?? 0;
+  const latestReboot = [...scoreableSessions].reverse().find(s => s.source === '3d');
   const latestProjections = latestReboot?.projections;
   const projected = latestProjections?.projected_krs ?? current;
   const gain = current - baseline;
@@ -175,7 +181,7 @@ export default function PlayerProgress() {
           {gain !== 0 && (
             <div className="mt-3 text-center rounded-lg py-2" style={{ background: 'rgba(78,205,196,0.08)' }}>
               <span className="text-sm font-semibold" style={{ color: '#4ecdc4' }}>
-                +{gain} points over {sessions.length} sessions
+                +{gain} points over {scoreableSessions.length} sessions
               </span>
             </div>
           )}
@@ -187,6 +193,14 @@ export default function PlayerProgress() {
           <div className="space-y-2">
             {[...sessions].reverse().slice(0, 10).map((s) => {
               const score = s.overall_score ?? 0;
+              const isNonScoreable = s.scoreable === false;
+              const classificationBadge: Record<string, { color: string; label: string }> = {
+                load_overweight: { color: '#A855F7', label: 'Load' },
+                walkthrough: { color: '#6B7280', label: 'Walkthrough' },
+                partial_capture: { color: '#EAB308', label: 'Partial' },
+                competitive: { color: '#14B8A6', label: 'Competitive' },
+              };
+              const classBadge = s.swing_classification ? classificationBadge[s.swing_classification] : null;
               const badgeColor = s.source === '2d' ? '#3B82F6' : '#14B8A6';
               const badgeLabel = s.source === '2d' ? 'Video Analysis' : '3D Analysis';
               return (
@@ -194,24 +208,36 @@ export default function PlayerProgress() {
                   key={s.id}
                   onClick={() => navigate(`/player/session/${s.id}`)}
                   className="flex items-center gap-3 rounded-lg p-3 w-full text-left hover:opacity-80 transition-opacity"
-                  style={{ background: '#0a0a0a', border: '1px solid #222' }}
+                  style={{ background: '#0a0a0a', border: '1px solid #222', opacity: isNonScoreable ? 0.5 : 1 }}
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold" style={{ color: scoreColor(score) }}>{score}</span>
+                      <span className="text-sm font-bold" style={{ color: isNonScoreable ? '#555' : scoreColor(score) }}>
+                        {isNonScoreable ? '—' : score}
+                      </span>
                       <span
                         className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
                         style={{ background: `${badgeColor}20`, color: badgeColor }}
                       >
                         {badgeLabel}
                       </span>
+                      {classBadge && s.swing_classification !== 'competitive' && (
+                        <span
+                          className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: `${classBadge.color}20`, color: classBadge.color }}
+                        >
+                          {classBadge.label}
+                        </span>
+                      )}
                     </div>
                     <span className="text-[11px]" style={{ color: '#555' }}>{s.session_date}</span>
                   </div>
-                  <div
-                    className="h-6 rounded-sm"
-                    style={{ width: `${Math.max(score, 5)}%`, maxWidth: '120px', background: badgeColor, opacity: 0.6 }}
-                  />
+                  {!isNonScoreable && (
+                    <div
+                      className="h-6 rounded-sm"
+                      style={{ width: `${Math.max(score, 5)}%`, maxWidth: '120px', background: badgeColor, opacity: 0.6 }}
+                    />
+                  )}
                 </button>
               );
             })}
