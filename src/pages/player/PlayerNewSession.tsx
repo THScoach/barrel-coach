@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VideoUploader, UploadedSwingData } from "@/components/VideoUploader";
 import { Environment, ENVIRONMENTS } from "@/types/analysis";
-import { ArrowLeft, Video, CheckCircle, Loader2, Brain, Activity, Target, Zap, Link2, Cpu } from "lucide-react";
+import { ArrowLeft, Video, CheckCircle, Loader2, Brain, Activity, Target, Zap, Link2, Cpu, Camera, Smartphone, FolderOpen } from "lucide-react";
 import { use2DAnalysisTrigger } from "@/hooks/use2DAnalysisTrigger";
 import { usePlayerData } from "@/hooks/usePlayerData";
+import { SwingCaptureCamera } from "@/components/player-v2/SwingCaptureCamera";
 
-type Step = "environment" | "upload" | "analyzing" | "results";
+type CaptureMethod = "record" | "camera_app" | "upload" | "onform";
+type Step = "environment" | "capture_method" | "record" | "upload" | "analyzing" | "results";
 
 export default function PlayerNewSession() {
   const navigate = useNavigate();
