@@ -10,7 +10,7 @@ import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { Video2DAnalysisCard } from "@/components/admin/Video2DAnalysisCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { scoreColor } from "@/lib/player-utils";
-import { ArrowLeft, Play } from "lucide-react";
+import { ArrowLeft, Play, Cpu } from "lucide-react";
 import { format } from "date-fns";
 
 type SessionSource = '2d' | '3d' | null;
