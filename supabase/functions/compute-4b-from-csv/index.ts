@@ -995,7 +995,12 @@ serve(async (req: Request) => {
       }
     }
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({
+      ...result,
+      swing_duration_ms: Math.round(durationGate.swing_duration_ms),
+      swing_classification: durationGate.classification,
+      scoreable: durationGate.scoreable,
+    }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
