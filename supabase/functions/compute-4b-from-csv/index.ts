@@ -670,10 +670,306 @@ function smooth5(values: number[]): number[] {
 }
 
 // ---------------------------------------------------------------------------
+// PER-SWING HELPERS (grouped by org_movement_id)
+// ---------------------------------------------------------------------------
+
+/** Group rows by org_movement_id. Returns map of id → rows */
+function groupBySwing(rows: Record<string, number>[]): Map<number, Record<string, number>[]> {
+  const map = new Map<number, Record<string, number>[]>();
+  for (const row of rows) {
+    const id = row['org_movement_id'] ?? row['movement_id'] ?? 0;
+    if (!map.has(id)) map.set(id, []);
+    map.get(id)!.push(row);
+  }
+  return map;
+}
+
+/** Filter rows to delivery window (time_from_max_hand >= -0.600) */
+function deliveryWindow(rows: Record<string, number>[]): Record<string, number>[] {
+  const tfmhCol = rows.some(r => r['time_from_max_hand'] != null) ? 'time_from_max_hand' : 'time_from_contact';
+  const hasCol = rows.some(r => r[tfmhCol] != null);
+  if (!hasCol) return rows; // fallback: use all rows
+  return rows.filter(r => (r[tfmhCol] ?? -999) >= -0.600);
+}
+
+/** Find peak value of a column within rows */
+function peakValue(rows: Record<string, number>[], ...cols: string[]): number {
+  let peak = 0;
+  for (const row of rows) {
+    for (const col of cols) {
+      const v = row[col];
+      if (v != null && v > peak) peak = v;
+    }
+  }
+  return peak;
+}
+
+interface PerSwingKEResult {
+  pelvis_ke: number | null;
+  arms_ke: number | null;
+  total_ke: number | null;
+  arms_ke_pct: number | null;
+  swing_count: number;
+}
+
+function computePerSwingKE(meRows: Record<string, number>[]): PerSwingKEResult {
+  try {
+    const swings = groupBySwing(meRows);
+    const swingCount = swings.size;
+    if (swingCount === 0) return { pelvis_ke: null, arms_ke: null, total_ke: null, arms_ke_pct: null, swing_count: 0 };
+
+    let sumPelvisKE = 0, countPelvis = 0;
+    let sumArmsKE = 0, countArms = 0;
+    let sumTotalKE = 0, countTotal = 0;
+
+    for (const [, rows] of swings) {
+      const dw = deliveryWindow(rows);
+      if (dw.length === 0) continue;
+
+      const pke = peakValue(dw, 'pelvis_ke', 'lowerhalf_kinetic_energy', 'pelvis_kinetic_energy');
+      if (pke > 0) { sumPelvisKE += pke; countPelvis++; }
+
+      const ake = peakValue(dw, 'arms_kinetic_energy', 'arms_ke', 'upperlimb_kinetic_energy');
+      if (ake > 0) { sumArmsKE += ake; countArms++; }
+
+      // total_ke: try direct column, else sum segments
+      let tke = peakValue(dw, 'total_kinetic_energy', 'total_ke');
+      if (tke <= 0) {
+        // Sum segments at each frame, take peak
+        let maxSum = 0;
+        for (const r of dw) {
+          const s = (r['lowerhalf_kinetic_energy'] ?? r['pelvis_ke'] ?? 0)
+            + (r['upperhalf_kinetic_energy'] ?? r['torso_kinetic_energy'] ?? 0)
+            + (r['arms_kinetic_energy'] ?? r['arms_ke'] ?? 0)
+            + (r['bat_kinetic_energy'] ?? r['bat_rot_energy'] ?? 0);
+          if (s > maxSum) maxSum = s;
+        }
+        tke = maxSum;
+      }
+      if (tke > 0) { sumTotalKE += tke; countTotal++; }
+    }
+
+    const pelvis_ke = countPelvis > 0 ? Math.round((sumPelvisKE / countPelvis) * 10) / 10 : null;
+    const arms_ke = countArms > 0 ? Math.round((sumArmsKE / countArms) * 10) / 10 : null;
+    const total_ke = countTotal > 0 ? Math.round((sumTotalKE / countTotal) * 10) / 10 : null;
+    const arms_ke_pct = (arms_ke != null && total_ke != null && total_ke > 0)
+      ? Math.round((arms_ke / total_ke) * 1000) / 10
+      : null;
+
+    console.log(`[KE] swings=${swingCount} pelvis_ke=${pelvis_ke} arms_ke=${arms_ke} total_ke=${total_ke} arms_ke_pct=${arms_ke_pct}`);
+    return { pelvis_ke, arms_ke, total_ke, arms_ke_pct, swing_count: swingCount };
+  } catch (err) {
+    console.error('[KE] Per-swing KE computation failed:', err);
+    return { pelvis_ke: null, arms_ke: null, total_ke: null, arms_ke_pct: null, swing_count: 0 };
+  }
+}
+
+/** Trunk tilt at contact from IK CSV torso_side column */
+function computeTrunkTiltContact(ikRows: Record<string, number>[], meRows: Record<string, number>[]): number | null {
+  try {
+    const hasCol = ikRows.some(r => r['torso_side'] != null);
+    if (!hasCol) return null;
+
+    const swingsIK = groupBySwing(ikRows);
+    const swingsME = groupBySwing(meRows);
+    let sumTilt = 0, count = 0;
+
+    // For each swing, find the contact frame (time_from_max_hand closest to 0)
+    for (const [swingId, meSwingRows] of swingsME) {
+      const ikSwingRows = swingsIK.get(swingId);
+      if (!ikSwingRows) continue;
+
+      // Find contact index in IK rows for this swing
+      const ikTfmh = ikSwingRows.map(r => r['time_from_max_hand'] ?? r['time_from_contact'] ?? null);
+      let contactIdx = -1;
+      let minAbs = Infinity;
+      for (let i = 0; i < ikTfmh.length; i++) {
+        if (ikTfmh[i] === null) continue;
+        const a = Math.abs(ikTfmh[i]!);
+        if (a < minAbs) { minAbs = a; contactIdx = i; }
+      }
+
+      // Fallback: use ME contact ratio
+      if (contactIdx < 0) {
+        const meTfmh = meSwingRows.map(r => r['time_from_max_hand'] ?? null);
+        let meContactIdx = -1;
+        let meMinAbs = Infinity;
+        for (let i = 0; i < meTfmh.length; i++) {
+          if (meTfmh[i] === null) continue;
+          const a = Math.abs(meTfmh[i]!);
+          if (a < meMinAbs) { meMinAbs = a; meContactIdx = i; }
+        }
+        if (meContactIdx >= 0 && meSwingRows.length > 1 && ikSwingRows.length > 1) {
+          contactIdx = Math.round((meContactIdx / (meSwingRows.length - 1)) * (ikSwingRows.length - 1));
+        }
+      }
+
+      if (contactIdx < 0 || contactIdx >= ikSwingRows.length) continue;
+      const torsoSideRad = ikSwingRows[contactIdx]['torso_side'];
+      if (torsoSideRad == null) continue;
+
+      const tiltDeg = Math.abs(torsoSideRad) * RAD_TO_DEG;
+      sumTilt += tiltDeg;
+      count++;
+    }
+
+    if (count === 0) {
+      // Fallback: use global contact frame approach
+      const tfmh = ikRows.map(r => r['time_from_max_hand'] ?? r['time_from_contact'] ?? null);
+      let contactIdx = -1;
+      let minAbs = Infinity;
+      for (let i = 0; i < tfmh.length; i++) {
+        if (tfmh[i] === null) continue;
+        const a = Math.abs(tfmh[i]!);
+        if (a < minAbs) { minAbs = a; contactIdx = i; }
+      }
+      if (contactIdx >= 0 && ikRows[contactIdx]['torso_side'] != null) {
+        return Math.round(Math.abs(ikRows[contactIdx]['torso_side']) * RAD_TO_DEG * 10) / 10;
+      }
+      return null;
+    }
+
+    return Math.round((sumTilt / count) * 10) / 10;
+  } catch (err) {
+    console.error('[TrunkTilt] Computation failed:', err);
+    return null;
+  }
+}
+
+/** TKE shape classification */
+function classifyTKEShape(meRows: Record<string, number>[]): string | null {
+  try {
+    const swings = groupBySwing(meRows);
+    if (swings.size === 0) return null;
+
+    const classifications: string[] = [];
+
+    for (const [, rows] of swings) {
+      const dw = deliveryWindow(rows);
+      if (dw.length < 5) continue;
+
+      // Read total KE values
+      let tkeValues = dw.map(r => r['total_kinetic_energy'] ?? r['total_ke'] ?? 0);
+
+      // 5-point moving average smoothing
+      const smoothed: number[] = [];
+      for (let i = 0; i < tkeValues.length; i++) {
+        const start = Math.max(0, i - 2);
+        const end = Math.min(tkeValues.length - 1, i + 2);
+        let sum = 0, cnt = 0;
+        for (let j = start; j <= end; j++) { sum += tkeValues[j]; cnt++; }
+        smoothed.push(sum / cnt);
+      }
+      tkeValues = smoothed;
+
+      const globalMax = Math.max(...tkeValues);
+      if (globalMax <= 0) continue;
+
+      // Find local maxima
+      const peaks: { idx: number; val: number }[] = [];
+      for (let i = 1; i < tkeValues.length - 1; i++) {
+        if (tkeValues[i] > tkeValues[i - 1] && tkeValues[i] > tkeValues[i + 1]) {
+          peaks.push({ idx: i, val: tkeValues[i] });
+        }
+      }
+
+      // Filter minor peaks (< 60% of global max)
+      const significantPeaks = peaks.filter(p => p.val >= globalMax * 0.60);
+
+      // Check for plateau: region within 95% of max spans > 50ms (12 frames at 240fps)
+      const plateauThreshold = globalMax * 0.95;
+      let plateauFrames = 0;
+      for (const v of tkeValues) {
+        if (v >= plateauThreshold) plateauFrames++;
+      }
+      if (plateauFrames > 12) {
+        classifications.push('plateau');
+        continue;
+      }
+
+      if (significantPeaks.length <= 1) {
+        classifications.push('single_spike');
+      } else {
+        classifications.push('double_bump');
+      }
+    }
+
+    if (classifications.length === 0) return null;
+
+    // Mode, prefer double_bump on tie
+    const counts: Record<string, number> = {};
+    for (const c of classifications) counts[c] = (counts[c] ?? 0) + 1;
+    let best = '';
+    let bestCount = 0;
+    for (const [k, v] of Object.entries(counts)) {
+      if (v > bestCount || (v === bestCount && k === 'double_bump')) {
+        best = k;
+        bestCount = v;
+      }
+    }
+    console.log(`[TKE Shape] classifications=${JSON.stringify(counts)} → ${best}`);
+    return best;
+  } catch (err) {
+    console.error('[TKE Shape] Classification failed:', err);
+    return null;
+  }
+}
+
+/** Per-swing correct sequence count */
+function computeCorrectSequenceCount(meRows: Record<string, number>[]): number {
+  try {
+    const swings = groupBySwing(meRows);
+    let correctCount = 0;
+
+    for (const [, rows] of swings) {
+      const dw = deliveryWindow(rows);
+      if (dw.length < 3) continue;
+
+      // Find time of peak pelvis angular momentum
+      let pelvisPeakTime = -Infinity;
+      let pelvisPeakVal = 0;
+      let torsoPeakTime = -Infinity;
+      let torsoPeakVal = 0;
+
+      for (const r of dw) {
+        const tfmh = r['time_from_max_hand'] ?? r['time_from_contact'] ?? 0;
+        const pam = r['lowertorso_angular_momentum_mag'] ?? r['pelvis_angular_momentum'] ?? r['lowertorso_angmom_mag'] ?? 0;
+        if (pam > pelvisPeakVal) { pelvisPeakVal = pam; pelvisPeakTime = tfmh; }
+        const tam = r['torso_angular_momentum_mag'] ?? r['uppertorso_angular_momentum_mag'] ?? r['torso_angmom_mag'] ?? 0;
+        if (tam > torsoPeakVal) { torsoPeakVal = tam; torsoPeakTime = tfmh; }
+      }
+
+      if (pelvisPeakTime < torsoPeakTime) correctCount++;
+    }
+
+    console.log(`[Sequence] correct_sequence_count=${correctCount}/${swings.size}`);
+    return correctCount;
+  } catch (err) {
+    console.error('[Sequence] Correct sequence detection failed:', err);
+    return 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // BUILD RAW_METRICS for Kinetic Sequence / Stability tabs
 // ---------------------------------------------------------------------------
 
-function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): Record<string, unknown> {
+interface ExtraSwingData {
+  pelvis_ke: number | null;
+  arms_ke: number | null;
+  total_ke: number | null;
+  arms_ke_pct: number | null;
+  trunk_tilt_contact: number | null;
+  tke_shape: string | null;
+  swing_count: number;
+  correct_sequence_count: number;
+}
+
+function buildRawMetrics(
+  input: ScoreCalculationInput,
+  result: ScoringResult,
+  extra: ExtraSwingData
+): Record<string, unknown> {
   const pelvis = input.pelvis_omega_peak;
   const torso = input.trunk_omega_peak;
   const arm = input.arm_omega_peak;
@@ -684,7 +980,6 @@ function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): R
   
   // Estimate bat omega (from KE or predicted bat speed)
   const batSpeedMph = result.bat_speed_mph || result.predicted_bat_speed_mph || 0;
-  // Convert mph to deg/s approximation: bat speed mph × ~30 ≈ deg/s (rough)
   const estimatedBatOmega = batSpeedMph > 0 ? batSpeedMph * 30 : arm * 1.3;
   const arm_bat_gain = arm > 0 ? Math.round((estimatedBatOmega / arm) * 100) / 100 : null;
 
@@ -704,64 +999,55 @@ function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): R
   const beat = pelvisFirst ? 'Hips → Torso → Arms' : 'Torso → Hips (reversed)';
 
   // KE cascade timing estimates from load/launch durations
-  const ke_brake_ms = Math.round(input.load_duration_ms * 0.03); // ~3% of load phase
-  const ke_cascade_ms = Math.round(input.launch_duration_ms * 0.8); // ~80% of launch
+  const ke_brake_ms = Math.round(input.load_duration_ms * 0.03);
+  const ke_cascade_ms = Math.round(input.launch_duration_ms * 0.8);
   const brake_efficiency = result.transfer_efficiency != null
     ? Math.round(result.transfer_efficiency * 1000) / 1000
     : null;
 
-  // Root cause analysis — check ALL issues, prioritize worst
-  const isReversedSequence = !pelvisFirst;
-  const isBrakeFailure = brake_efficiency != null && brake_efficiency < 0.1;
-  const isTimingOutsideRange = pelvis_torso_gap_ms < 14 || pelvis_torso_gap_ms > 18;
-  const isTimingTooTight = pelvis_torso_gap_ms < 10;
-  const isTimingTooWide = pelvis_torso_gap_ms > 18;
+  // ── FIXED root_cause logic ──
+  const isInverted = !pelvisFirst;
+  const pelvisVelocity = Math.round(pelvis);
+  const hasBrakeFailure = brake_efficiency != null && brake_efficiency === 0;
 
-  let rootCause: Record<string, string> = { issue: 'None detected', what: 'Swing is functioning well', build: '' };
+  let rootCause: Record<string, string>;
 
-  // Priority 1: Reversed sequence is the most critical issue
-  if (isReversedSequence) {
+  if (isInverted && pelvisVelocity > 600) {
     rootCause = {
-      issue: 'Energy Arriving Late: Pelvis Fires After Torso',
-      what: `Your pelvis has real velocity (${Math.round(pelvis)}°/s) but it peaks AFTER your torso. That means the energy shows up after the barrel is already on its way. Instead of going into the ball, that late pelvis energy pushes your body open toward the pull side. This is a LATE pelvis, not a weak pelvis — the fix is about WHEN it fires, not how hard.`,
-      build: 'Hip-lead initiation drills — stride and hold, wall drills, Synapse hip-first constraint. The pelvis needs to fire EARLIER, not harder.',
+      issue: 'Late pelvis — timing problem, not force problem',
+      what: `Pelvis has velocity (${pelvisVelocity}°/s) but fires after the torso. Energy sequence is inverted — the power arrives after the barrel is already on its way.`,
+      build: 'pelvis_initiation',
     };
-  } else if (isBrakeFailure) {
+  } else if (isInverted && pelvisVelocity <= 600) {
     rootCause = {
-      issue: 'Energy Not Concentrating: Brake System Offline',
-      what: "Your front side isn't decelerating. When the lower body doesn't brake, energy passes through your body like water through a pipe with no faucet — it never concentrates into the barrel. Brake efficiency is near zero.",
-      build: 'Front-leg brace drills — post-up landing, wall drill, step and turn. The front side has to STOP so the energy has somewhere to go.',
+      issue: 'Dead pelvis — force production deficit',
+      what: `Pelvis is not generating enough force (${pelvisVelocity}°/s) AND sequence is inverted. Energy is both low and late.`,
+      build: 'pelvis_force',
     };
-  } else if (pelvis_torso_gain != null && pelvis_torso_gain < 1.0) {
+  } else if (!isInverted && pelvisVelocity <= 600) {
     rootCause = {
-      issue: 'Energy Leaking At Hips → Torso',
-      what: 'Energy drops from hips to torso. The torso isn\'t amplifying — it\'s absorbing. Each link in the chain should ADD energy, not lose it.',
-      build: 'Core connection drills — medicine ball rotations, plank anti-rotation holds. Focus on hips decelerating so torso can accelerate.',
+      issue: 'Dead pelvis — force production deficit',
+      what: `Pelvis sequence is correct but force production is low (${pelvisVelocity}°/s). The engine needs more fuel.`,
+      build: 'pelvis_force',
     };
-  } else if (torso_arm_gain != null && torso_arm_gain < 1.0) {
+  } else if (hasBrakeFailure) {
     rootCause = {
-      issue: 'Energy Leaking At Torso → Arms',
-      what: 'Energy drops from torso to arms. The arms aren\'t amplifying — they\'re absorbing. Each link in the chain should ADD energy, not lose it.',
-      build: 'Connection drills — knob-to-ball, short bat work, towel drills for lag. Focus on torso decelerating so arms can accelerate.',
+      issue: 'Brake failure — energy not transferring',
+      what: 'Pelvis fires correctly but does not decelerate to transfer energy. The front side isn\'t stopping, so energy passes through without concentrating into the barrel.',
+      build: 'brake_mechanism',
     };
-  } else if (arm_bat_gain != null && arm_bat_gain < 1.0) {
+  } else {
+    // Only here if: sequence correct, pelvisVelocity > 600, brake working
     rootCause = {
-      issue: 'Energy Leaking At Arms → Barrel',
-      what: 'Energy drops from arms to barrel. The bat head isn\'t amplifying — it\'s absorbing. Each link in the chain should ADD energy, not lose it.',
-      build: 'Wrist snap drills, overload/underload training. Focus on arms decelerating so the barrel can accelerate through the zone.',
+      issue: 'None detected',
+      what: 'Swing is functioning well',
+      build: '',
     };
-  } else if (isTimingTooTight) {
-    rootCause = {
-      issue: 'Energy Arriving As A Block: No Whip Effect',
-      what: `Your hips and torso are firing within ${pelvis_torso_gap_ms}ms of each other — nearly simultaneous. The gap between segments is what creates the whip. Without it, energy arrives as one block instead of a wave. It's like cracking a whip with a stiff rope — no snap.`,
-      build: 'Separation drills — hip-lead tempo work, stride and hold, constraint training to create the gap between hip fire and trunk rotation.',
-    };
-  } else if (isTimingTooWide) {
-    rootCause = {
-      issue: 'Energy Dying In Transit: Sequence Disconnected',
-      what: `Your pelvis fires ${pelvis_torso_gap_ms}ms before your torso — too much gap. The energy wave loses momentum in transit. By the time the torso picks up, the pelvis energy has already dissipated. It's like a relay race where the second runner starts too late — the baton handoff fails.`,
-      build: 'Tempo connection drills — rhythm swings, quick-hips-to-contact, reducing the delay between hip fire and trunk rotation while keeping the sequence correct.',
-    };
+  }
+
+  // Append brake flag if brake is zero and not already the primary issue
+  if (hasBrakeFailure && !rootCause.issue.includes('Brake') && !rootCause.issue.includes('brake')) {
+    rootCause.issue += ' + Brake failure (0% efficiency)';
   }
 
   // Energy flow
@@ -774,21 +1060,19 @@ function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): R
   // Coaching story — must reflect the SAME thresholds as flag detection
   const story: Record<string, string> = {};
 
-  // Base: pelvis velocity + sequence check
-  if (isReversedSequence) {
-    story.base = `Pelvis peak velocity: ${Math.round(pelvis)}°/s. ${
-      pelvis >= 600
+  if (isInverted) {
+    story.base = `Pelvis peak velocity: ${pelvisVelocity}°/s. ${
+      pelvisVelocity >= 600
         ? 'Your hips have real energy but it arrives LATE — after your torso has already fired. This is a late pelvis, not a dead pelvis. The energy exists but shows up after the barrel is already on its way.'
         : 'Below target AND sequence is reversed — needs ground-force production with proper hip-first initiation. Energy is both low and late.'
     }`;
   } else {
-    story.base = `Pelvis peak velocity: ${Math.round(pelvis)}°/s. ${
-      pelvis >= 600 ? 'Good energy production — hips are leading and delivering energy in the right order.' : 'Below target — the body isn\'t producing enough energy at the source. Needs ground-force production work.'
+    story.base = `Pelvis peak velocity: ${pelvisVelocity}°/s. ${
+      pelvisVelocity >= 600 ? 'Good energy production — hips are leading and delivering energy in the right order.' : 'Below target — the body isn\'t producing enough energy at the source. Needs ground-force production work.'
     }`;
   }
 
-  // Rhythm: gap range check (14-18ms target)
-  if (isReversedSequence) {
+  if (isInverted) {
     story.rhythm = `Sequence is reversed (torso peaks before pelvis). The P→T gap of ${pelvis_torso_gap_ms}ms is between the wrong peaks — timing measurement isn't meaningful when the energy chain is inverted.`;
   } else if (pelvis_torso_gap_ms >= 14 && pelvis_torso_gap_ms <= 18) {
     story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. Energy is flowing in the right order with good timing — within the 14-18ms window that creates the whip effect.`;
@@ -800,14 +1084,15 @@ function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): R
     story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. Energy is dying in transit — the wave loses momentum before the torso picks it up. Like a relay baton handoff where the second runner starts too late. Target: 14-18ms.`;
   }
 
-  // Barrel + brake efficiency
+  const isBrakeFailure = hasBrakeFailure;
   const brakeNote = isBrakeFailure
     ? ` Brake system offline (${brake_efficiency != null ? Math.round(brake_efficiency * 100) + '%' : '0%'} efficiency) — energy passes through like water through a pipe with no faucet. It never concentrates into the barrel.`
     : '';
   story.barrel = `Estimated bat speed: ${batSpeedMph > 0 ? Math.round(batSpeedMph) + ' mph' : 'N/A'}. Transfer ratio: ${input.transfer_ratio.toFixed(2)}.${brakeNote}`;
 
   return {
-    avgPelvisVelocity: Math.round(pelvis),
+    avgPelvisVelocity: pelvisVelocity,
+    pelvis_angular_velocity: pelvisVelocity, // alias for naming consistency
     pelvis_torso_gain,
     torso_arm_gain,
     arm_bat_gain,
@@ -828,6 +1113,15 @@ function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): R
     transfer_efficiency: result.transfer_efficiency,
     bat_speed_mph: result.bat_speed_mph || result.predicted_bat_speed_mph,
     exit_velocity_mph: result.exit_velocity_mph || result.predicted_exit_velocity_mph,
+    // NEW: Energy Delivery Report fields
+    pelvis_ke: extra.pelvis_ke,
+    arms_ke: extra.arms_ke,
+    total_ke: extra.total_ke,
+    arms_ke_pct: extra.arms_ke_pct,
+    trunk_tilt_contact: extra.trunk_tilt_contact,
+    tke_shape: extra.tke_shape,
+    swing_count: extra.swing_count,
+    correct_sequence_count: extra.correct_sequence_count,
   };
 }
 
@@ -907,12 +1201,28 @@ serve(async (req: Request) => {
     // 2. Score — HTTP call to shared engine (always score, but mark non-scoreable)
     const result = await computeScoringResult(input);
 
-    // 2b. Build raw_metrics for Kinetic Sequence / Stability tabs
-    const rawMetrics = buildRawMetrics(input, result);
+    // 2b. Compute per-swing extra data for Energy Delivery Report
+    const keResult = computePerSwingKE(meRows);
+    const trunkTilt = computeTrunkTiltContact(ikRows, meRows);
+    const tkeShape = classifyTKEShape(meRows);
+    const correctSeqCount = computeCorrectSequenceCount(meRows);
+
+    const extraSwingData: ExtraSwingData = {
+      pelvis_ke: keResult.pelvis_ke,
+      arms_ke: keResult.arms_ke,
+      total_ke: keResult.total_ke,
+      arms_ke_pct: keResult.arms_ke_pct,
+      trunk_tilt_contact: trunkTilt,
+      tke_shape: tkeShape,
+      swing_count: keResult.swing_count || 1,
+      correct_sequence_count: correctSeqCount,
+    };
+
+    // 2c. Build raw_metrics for Kinetic Sequence / Stability tabs
+    const rawMetrics = buildRawMetrics(input, result, extraSwingData);
     // Add duration gate info to raw_metrics
     rawMetrics.swing_duration_ms = Math.round(durationGate.swing_duration_ms);
     rawMetrics.swing_classification = durationGate.classification;
-
     // If not scoreable, zero out the scores for DB storage (but keep raw_metrics for reference)
     const effectiveScore = durationGate.scoreable ? result.score_4bkrs : null;
     const effectiveBody = durationGate.scoreable ? result.body : null;

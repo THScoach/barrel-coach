@@ -57,7 +57,7 @@ export function EnergyDeliveryReport({ sessionId, playerId, rawMetrics, existing
   }, [sessionId, playerId]);
 
   // Detect TKE shape from raw_metrics or story
-  const tkeShape = (rawMetrics as any).tke_shape as string | undefined;
+  const tkeShape = rawMetrics.tke_shape;
 
   return (
     <div className="space-y-4">
