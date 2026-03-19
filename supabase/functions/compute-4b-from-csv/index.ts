@@ -1201,11 +1201,25 @@ serve(async (req: Request) => {
     // 2. Score — HTTP call to shared engine (always score, but mark non-scoreable)
     const result = await computeScoringResult(input);
 
-    // 2b. Build raw_metrics for Kinetic Sequence / Stability tabs
-    const rawMetrics = buildRawMetrics(input, result);
-    // Add duration gate info to raw_metrics
-    rawMetrics.swing_duration_ms = Math.round(durationGate.swing_duration_ms);
-    rawMetrics.swing_classification = durationGate.classification;
+    // 2b. Compute per-swing extra data for Energy Delivery Report
+    const keResult = computePerSwingKE(meRows);
+    const trunkTilt = computeTrunkTiltContact(ikRows, meRows);
+    const tkeShape = classifyTKEShape(meRows);
+    const correctSeqCount = computeCorrectSequenceCount(meRows);
+
+    const extraSwingData: ExtraSwingData = {
+      pelvis_ke: keResult.pelvis_ke,
+      arms_ke: keResult.arms_ke,
+      total_ke: keResult.total_ke,
+      arms_ke_pct: keResult.arms_ke_pct,
+      trunk_tilt_contact: trunkTilt,
+      tke_shape: tkeShape,
+      swing_count: keResult.swing_count || 1,
+      correct_sequence_count: correctSeqCount,
+    };
+
+    // 2c. Build raw_metrics for Kinetic Sequence / Stability tabs
+    const rawMetrics = buildRawMetrics(input, result, extraSwingData);
 
     // If not scoreable, zero out the scores for DB storage (but keep raw_metrics for reference)
     const effectiveScore = durationGate.scoreable ? result.score_4bkrs : null;
