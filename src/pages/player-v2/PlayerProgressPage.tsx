@@ -19,6 +19,8 @@ interface SessionScore {
   overall_score: number | null;
   projections: any;
   source: '3d' | '2d';
+  scoreable?: boolean;
+  swing_classification?: string;
 }
 
 interface FlagHistory {
