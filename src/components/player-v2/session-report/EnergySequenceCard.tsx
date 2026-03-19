@@ -7,9 +7,8 @@ interface Props {
 
 export function EnergySequenceCard({ metrics }: Props) {
   const reversed = isSequenceReversed(metrics);
-  const totalSwings = metrics.swingCount ?? 1;
-  // If reversed, assume all swings were inverted (we don't have per-swing data in aggregated metrics)
-  const correctCount = reversed ? 0 : totalSwings;
+  const totalSwings = metrics.swing_count ?? metrics.swingCount ?? 1;
+  const correctCount = metrics.correct_sequence_count ?? (reversed ? 0 : totalSwings);
 
   let status: EnergyStatus;
   if (correctCount === totalSwings) status = 'ON_TARGET';
