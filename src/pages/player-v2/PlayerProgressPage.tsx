@@ -181,7 +181,7 @@ export default function PlayerProgress() {
           {gain !== 0 && (
             <div className="mt-3 text-center rounded-lg py-2" style={{ background: 'rgba(78,205,196,0.08)' }}>
               <span className="text-sm font-semibold" style={{ color: '#4ecdc4' }}>
-                +{gain} points over {sessions.length} sessions
+                +{gain} points over {scoreableSessions.length} sessions
               </span>
             </div>
           )}
