@@ -12,8 +12,11 @@ export function EnergyDirectionCard({ metrics, baselineArmsKEPct }: Props) {
   const armsKEPct = getArmsKEPct(metrics);
   if (armsKEPct == null) return null;
 
+  const trunkTilt = metrics.trunk_tilt_contact;
+  const TARGET_TILT_MIN = 25;
+
   let status: EnergyStatus;
-  if (armsKEPct <= TARGET_ARMS_PCT) status = 'ON_TARGET';
+  if (armsKEPct <= TARGET_ARMS_PCT && (trunkTilt == null || trunkTilt >= TARGET_TILT_MIN)) status = 'ON_TARGET';
   else if (armsKEPct <= 50) status = 'WORKING';
   else status = 'PRIORITY';
 
@@ -24,6 +27,9 @@ export function EnergyDirectionCard({ metrics, baselineArmsKEPct }: Props) {
     text = `Your arms are doing ${Math.round(armsKEPct)}% of the work (target: under ${TARGET_ARMS_PCT}%). `;
     if (reversed) {
       text += `Because your hips fire late, the energy pushes your body toward the pull side instead of staying through the middle of the field. `;
+    }
+    if (trunkTilt != null && trunkTilt < TARGET_TILT_MIN) {
+      text += `Your trunk tilt at contact is ${trunkTilt.toFixed(1)}° (target: ${TARGET_TILT_MIN}-30°). Without enough tilt, your swing plane doesn't match the pitch plane. `;
     }
     text += `The goal is for the body to deliver energy so your arms just steer — not generate.`;
   } else {
