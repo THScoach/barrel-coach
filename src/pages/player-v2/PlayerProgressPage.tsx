@@ -51,7 +51,7 @@ export default function PlayerProgress() {
       const [rebootRes, video2dRes] = await Promise.all([
         supabase
           .from("player_sessions")
-          .select("id, session_date, overall_score, projections")
+          .select("id, session_date, overall_score, projections, scoreable, swing_classification")
           .eq("player_id", player.id)
           .order("session_date", { ascending: true }),
         supabase
