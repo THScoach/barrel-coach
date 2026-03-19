@@ -67,6 +67,7 @@ export default function PlayerSessionDetail() {
   const { source: sourceParam } = Object.fromEntries(new URLSearchParams(window.location.search));
   const navigate = useNavigate();
   const { player, loading: playerLoading } = usePlayerData();
+  const { isAdmin } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
 
