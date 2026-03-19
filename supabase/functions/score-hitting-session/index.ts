@@ -13,6 +13,9 @@ const THRESHOLDS = {
   plane_trunk_frontal: 15,      // degrees
   range_timing_gap_pct: 8,      // percent
   balance_com_drift: 3.5,       // inches
+  timing_gap_min_ms: 14,        // P→T gap optimal range lower bound
+  timing_gap_max_ms: 18,        // P→T gap optimal range upper bound
+  brake_efficiency_min: 0.1,    // below this = brake failure
 };
 
 const EXPECTED_SEQUENCE = "pelvis-torso-arm-bat";
@@ -27,8 +30,13 @@ function evaluateFlags(ps: any, rss: any) {
     has_balance_stability_issue: false,
   };
 
-  // Sequence
+  const rm = ps.raw_metrics || {};
+
+  // Sequence — check sequence_order string OR reversed beat from raw_metrics
   if (ps.sequence_order && ps.sequence_order !== EXPECTED_SEQUENCE) {
+    flags.has_sequence_issue = true;
+  }
+  if (rm.beat && typeof rm.beat === 'string' && rm.beat.toLowerCase().includes('reversed')) {
     flags.has_sequence_issue = true;
   }
 
@@ -52,8 +60,18 @@ function evaluateFlags(ps: any, rss: any) {
     }
   }
 
-  // Range/Timing
+  // Brake efficiency — check raw_metrics
+  if (rm.brake_efficiency != null && rm.brake_efficiency < THRESHOLDS.brake_efficiency_min) {
+    flags.has_momentum_issue = true; // brake failure is a momentum/energy issue
+  }
+
+  // Range/Timing — check timing_gap_pct AND P→T gap ms from raw_metrics
   if (ps.timing_gap_pct != null && ps.timing_gap_pct < THRESHOLDS.range_timing_gap_pct) {
+    flags.has_range_usage_issue = true;
+  }
+  // Also flag if P→T gap is outside the 14-18ms optimal range
+  const gapMs = rm.pelvis_torso_gap_ms;
+  if (gapMs != null && (gapMs < THRESHOLDS.timing_gap_min_ms || gapMs > THRESHOLDS.timing_gap_max_ms)) {
     flags.has_range_usage_issue = true;
   }
 
