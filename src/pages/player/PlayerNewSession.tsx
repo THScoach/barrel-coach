@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VideoUploader, UploadedSwingData } from "@/components/VideoUploader";
 import { Environment, ENVIRONMENTS } from "@/types/analysis";
-import { ArrowLeft, Video, CheckCircle, Loader2, Brain, Activity, Target, Zap, Link2, Cpu } from "lucide-react";
+import { ArrowLeft, Video, CheckCircle, Loader2, Brain, Activity, Target, Zap, Link2, Cpu, Camera, Smartphone, FolderOpen } from "lucide-react";
 import { use2DAnalysisTrigger } from "@/hooks/use2DAnalysisTrigger";
 import { usePlayerData } from "@/hooks/usePlayerData";
+import { SwingCaptureCamera } from "@/components/player-v2/SwingCaptureCamera";
 
-type Step = "environment" | "upload" | "analyzing" | "results";
+type CaptureMethod = "record" | "camera_app" | "upload" | "onform";
+type Step = "environment" | "capture_method" | "record" | "upload" | "analyzing" | "results";
 
 export default function PlayerNewSession() {
   const navigate = useNavigate();
@@ -30,6 +32,8 @@ export default function PlayerNewSession() {
   const [batchResults, setBatchResults] = useState<any>(null);
   const [onformUrls, setOnformUrls] = useState("");
   const [importingOnform, setImportingOnform] = useState(false);
+  const [captureMethod, setCaptureMethod] = useState<CaptureMethod | null>(null);
+  const cameraAppInputRef = useRef<HTMLInputElement>(null);
 
   const { triggerAnalysis, progress: analysisProgress } = use2DAnalysisTrigger();
 
@@ -111,8 +115,8 @@ export default function PlayerNewSession() {
       setSessionId(data.sessionId);
       setSwingsRequired(data.swingsRequired || 5);
       setSwingsMaxAllowed(data.swingsMaxAllowed || 15);
-      setStep("upload");
-      toast.success("Session started! Upload your swings.");
+      setStep("capture_method");
+      toast.success("Session started! Choose how to capture.");
     } catch (error) {
       console.error("Failed to create session:", error);
       toast.error(error instanceof Error ? error.message : "Failed to start session");
@@ -163,7 +167,9 @@ export default function PlayerNewSession() {
           variant="ghost"
           size="sm"
           onClick={() => {
-            if (step === "upload") setStep("environment");
+            if (step === "upload") setStep("capture_method");
+            else if (step === "record") setStep("capture_method");
+            else if (step === "capture_method") setStep("environment");
             else if (step === "results") navigate("/player/data?tab=sessions");
             else navigate("/player");
           }}
@@ -175,8 +181,9 @@ export default function PlayerNewSession() {
           <h1 className="text-2xl font-bold">New Swing Session</h1>
           <p className="text-muted-foreground text-sm">
             {step === "environment" ? "Step 1: Select your environment" 
-             : step === "upload" ? "Step 2: Upload your swings"
-             : step === "analyzing" ? "Step 3: Analyzing your swings..."
+             : step === "capture_method" ? "Step 2: Choose capture method"
+             : step === "upload" || step === "record" ? "Step 3: Capture your swings"
+             : step === "analyzing" ? "Analyzing your swings..."
              : "Analysis Complete"}
           </p>
         </div>
@@ -246,7 +253,106 @@ export default function PlayerNewSession() {
         </Card>
       )}
 
-      {/* Step 2: Video Upload */}
+      {/* Step 2: Capture Method Selection */}
+      {step === "capture_method" && sessionId && (
+        <div className="space-y-3">
+          <p className="text-[15px] font-bold" style={{ color: '#fff' }}>How do you want to capture?</p>
+
+          {/* Record Swing */}
+          <button
+            onClick={() => setStep("record")}
+            className="w-full flex items-start gap-4 rounded-xl p-4 text-left transition-all hover:opacity-90"
+            style={{ background: '#111', border: '1px solid rgba(230,57,70,0.3)' }}
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: '#E63946' }}>
+              <Camera className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <p className="text-[14px] font-bold" style={{ color: '#fff' }}>Record Swing</p>
+              <p className="text-[12px]" style={{ color: '#a0a0a0' }}>Use the in-app camera with instant capture</p>
+              <p className="text-[11px] mt-1" style={{ color: '#555' }}>30/60fps</p>
+            </div>
+          </button>
+
+          {/* Camera App */}
+          <button
+            onClick={() => cameraAppInputRef.current?.click()}
+            className="w-full flex items-start gap-4 rounded-xl p-4 text-left transition-all hover:opacity-90"
+            style={{ background: '#111', border: '1px solid #222' }}
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: '#333' }}>
+              <Smartphone className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <p className="text-[14px] font-bold" style={{ color: '#fff' }}>Camera App</p>
+              <p className="text-[12px]" style={{ color: '#a0a0a0' }}>Open iPhone camera for 120/240fps slo-mo</p>
+              <p className="text-[11px] mt-1" style={{ color: '#555' }}>High frame rate</p>
+            </div>
+          </button>
+          <input
+            ref={cameraAppInputRef}
+            type="file"
+            accept="video/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.length) {
+                // Transition to upload step with the captured file pre-selected
+                setStep("upload");
+              }
+            }}
+          />
+
+          {/* Upload Video */}
+          <button
+            onClick={() => setStep("upload")}
+            className="w-full flex items-start gap-4 rounded-xl p-4 text-left transition-all hover:opacity-90"
+            style={{ background: '#111', border: '1px solid #222' }}
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: '#333' }}>
+              <FolderOpen className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <p className="text-[14px] font-bold" style={{ color: '#fff' }}>Upload Video</p>
+              <p className="text-[12px]" style={{ color: '#a0a0a0' }}>Pick from camera roll or files</p>
+              <p className="text-[11px] mt-1" style={{ color: '#555' }}>Any source</p>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* Step 2b: In-App Recording */}
+      {step === "record" && sessionId && (
+        <SwingCaptureCamera
+          maxSwings={swingsMaxAllowed}
+          onSwingsReady={async (files) => {
+            // Convert files to UploadedSwingData via standard upload pipeline
+            // First upload each file to storage, then trigger analysis
+            const uploadedSwings: UploadedSwingData[] = [];
+            for (let i = 0; i < files.length; i++) {
+              const file = files[i];
+              const path = `${sessionId}/${Date.now()}_${i}.${file.name.split('.').pop()}`;
+              const { error } = await supabase.storage
+                .from('swing-videos')
+                .upload(path, file, { contentType: file.type });
+              if (error) {
+                console.error('Upload error:', error);
+                toast.error(`Failed to upload swing ${i + 1}`);
+                continue;
+              }
+              uploadedSwings.push({ file, storagePath: path, swingIndex: i });
+            }
+            if (uploadedSwings.length > 0) {
+              await handleUploadComplete(uploadedSwings);
+            } else {
+              toast.error('No swings uploaded successfully');
+            }
+          }}
+          onCancel={() => setStep("capture_method")}
+        />
+      )}
+
+      {/* Step 3: Video Upload */}
       {step === "upload" && sessionId && (
         <Card>
           <CardContent className="pt-6">
