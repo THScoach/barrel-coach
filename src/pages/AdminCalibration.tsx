@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { BackfillPairsButton, ManualPairDialog } from "@/components/admin/calibration/CalibrationPairingTools";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminHeader } from "@/components/AdminHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -279,9 +280,15 @@ export default function AdminCalibration() {
     <div className="min-h-screen bg-[#0A0D1A]">
       <AdminHeader />
       <div className="container py-8 space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Calibration Dashboard</h1>
-          <p className="text-slate-400 text-sm mt-1">Compare 2D video estimates (Gemini) against 3D Reboot ground truth</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Calibration Dashboard</h1>
+            <p className="text-slate-400 text-sm mt-1">Compare 2D video estimates (Gemini) against 3D Reboot ground truth</p>
+          </div>
+          <div className="flex gap-2">
+            <BackfillPairsButton />
+            <ManualPairDialog />
+          </div>
         </div>
 
         {isLoading ? (
