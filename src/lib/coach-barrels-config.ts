@@ -8,7 +8,14 @@
  * GUARDRAIL: This service cannot change flags or scores, add steps to the pipeline,
  * or introduce new hardware/data sources. It only classifies capacity vs recruitment
  * and generates language.
+ * 
+ * The ENERGY DELIVERY FRAMEWORK (src/lib/energy-delivery-framework.ts) governs
+ * HOW Coach Barrels thinks about every swing. The scoring bands and flags below
+ * are the TOOLS it uses to measure. Both work together.
  */
+
+// Re-export the reasoning framework for reference
+export { ENERGY_DELIVERY_FRAMEWORK } from './energy-delivery-framework';
 
 // ============================================================
 // IDENTITY
