@@ -345,6 +345,11 @@ function parseMassFromMERow(meRows: Record<string, number>[]): number {
 // NORMALIZE CSV → ScoreCalculationInput
 // ---------------------------------------------------------------------------
 
+interface ParseResult {
+  input: ScoreCalculationInput;
+  contactFrameIdx: number;
+}
+
 function parseRebootCSV(
   ikRows: Record<string, number>[],
   meRows: Record<string, number>[],
@@ -358,7 +363,7 @@ function parseRebootCSV(
     measured_bat_speed_mph?: number | null;
     measured_ev_mph?: number | null;
   }
-): ScoreCalculationInput {
+): ParseResult {
   // --- Angular velocities from IK (5-frame centred finite difference) ---
   // Initial full-capture peaks (used only for fallback/magnitude)
   const pelvisOmegaFull = peakAngularVelocity5Frame(ikRows, 'pelvis_rot');
@@ -515,32 +520,104 @@ function parseRebootCSV(
   console.log(`[CSV→Score] bat_omega_from_ke=${bat_omega_from_ke ?? 'null'}, mass=${mass_total_kg}kg`);
 
   return {
-    source: 'reboot_csv',
-    pelvis_omega_peak: pelvisOmega.peak,
-    trunk_omega_peak: torsoOmega.peak,
-    arm_omega_peak: armOmega.peak,
-    arm_omega_source: armSourceColumn,
-    bat_omega_from_ke,
-    measured_bat_speed_mph: context.measured_bat_speed_mph ?? null,
-    measured_ev_mph: context.measured_ev_mph ?? null,
-    pelvis_omega_time: final_pelvis_omega_time,
-    trunk_omega_time: final_trunk_omega_time,
-    hip_shoulder_sep_max_deg,
-    stride_length_rel_hip: 0.85,
-    front_foot_angle_deg: 20,
-    load_duration_ms,
-    launch_duration_ms,
-    transfer_ratio,
-    exit_velocity_mph:   context.exit_velocity_mph,
-    launch_angle_deg:    context.launch_angle_deg,
-    spray_angle_deg:     context.spray_angle_deg,
-    hard_hit_rate:       context.hard_hit_rate,
-    player_level:        context.player_level,
-    motor_profile:       context.motor_profile,
-    mass_total_kg,
-    bat_energy_j,
-    total_body_energy_j,
+    input: {
+      source: 'reboot_csv',
+      pelvis_omega_peak: pelvisOmega.peak,
+      trunk_omega_peak: torsoOmega.peak,
+      arm_omega_peak: armOmega.peak,
+      arm_omega_source: armSourceColumn,
+      bat_omega_from_ke,
+      measured_bat_speed_mph: context.measured_bat_speed_mph ?? null,
+      measured_ev_mph: context.measured_ev_mph ?? null,
+      pelvis_omega_time: final_pelvis_omega_time,
+      trunk_omega_time: final_trunk_omega_time,
+      hip_shoulder_sep_max_deg,
+      stride_length_rel_hip: 0.85,
+      front_foot_angle_deg: 20,
+      load_duration_ms,
+      launch_duration_ms,
+      transfer_ratio,
+      exit_velocity_mph:   context.exit_velocity_mph,
+      launch_angle_deg:    context.launch_angle_deg,
+      spray_angle_deg:     context.spray_angle_deg,
+      hard_hit_rate:       context.hard_hit_rate,
+      player_level:        context.player_level,
+      motor_profile:       context.motor_profile,
+      mass_total_kg,
+      bat_energy_j,
+      total_body_energy_j,
+    },
+    contactFrameIdx,
   };
+}
+
+// ---------------------------------------------------------------------------
+// SWING DURATION GATING — classify swings before scoring
+// ---------------------------------------------------------------------------
+
+type SwingClassification = 'competitive' | 'load_overweight' | 'walkthrough' | 'partial_capture' | 'unknown';
+
+interface DurationGateResult {
+  swing_duration_ms: number;
+  classification: SwingClassification;
+  scoreable: boolean;
+}
+
+/**
+ * Calculate swing duration from IK data and classify the swing.
+ * Duration = time from first frame to frame of max dominant hand velocity (contact proxy).
+ * 
+ * Rules:
+ *   duration > 550ms AND r_elbow at contact < 50° → "load_overweight", scoreable=false
+ *   duration > 600ms → "walkthrough", scoreable=false
+ *   duration < 350ms → "partial_capture", scoreable=false
+ *   350-550ms → "competitive", scoreable=true
+ */
+function classifySwingDuration(
+  ikRows: Record<string, number>[],
+  contactFrameIdx: number
+): DurationGateResult {
+  if (ikRows.length === 0) {
+    return { swing_duration_ms: 0, classification: 'unknown', scoreable: true };
+  }
+
+  // Duration = frames from start to contact × ms_per_frame
+  const durationMs = contactFrameIdx * MS_PER_FRAME;
+  
+  console.log(`[Duration Gate] frames=${ikRows.length}, contactFrame=${contactFrameIdx}, duration=${durationMs.toFixed(0)}ms`);
+
+  // Check for partial capture first
+  if (durationMs < 350) {
+    console.log(`[Duration Gate] PARTIAL_CAPTURE: ${durationMs.toFixed(0)}ms < 350ms`);
+    return { swing_duration_ms: durationMs, classification: 'partial_capture', scoreable: false };
+  }
+
+  // Check walkthrough (> 600ms always)
+  if (durationMs > 600) {
+    console.log(`[Duration Gate] WALKTHROUGH: ${durationMs.toFixed(0)}ms > 600ms`);
+    return { swing_duration_ms: durationMs, classification: 'walkthrough', scoreable: false };
+  }
+
+  // Check load/overweight (> 550ms AND elbow angle < 50°)
+  if (durationMs > 550) {
+    // Check r_elbow angle at contact frame
+    const elbowAngle = ikRows[contactFrameIdx]?.['r_elbow'] ?? 
+                        ikRows[contactFrameIdx]?.['relbow'] ?? 
+                        ikRows[contactFrameIdx]?.['right_elbow'] ?? 999;
+    const elbowDeg = Math.abs(elbowAngle * RAD_TO_DEG);
+    
+    console.log(`[Duration Gate] Checking load: duration=${durationMs.toFixed(0)}ms, r_elbow_at_contact=${elbowDeg.toFixed(1)}°`);
+    
+    if (elbowDeg < 50) {
+      console.log(`[Duration Gate] LOAD_OVERWEIGHT: ${durationMs.toFixed(0)}ms > 550ms AND elbow ${elbowDeg.toFixed(1)}° < 50°`);
+      return { swing_duration_ms: durationMs, classification: 'load_overweight', scoreable: false };
+    }
+    // If elbow >= 50°, it might still be competitive despite being 550-600ms
+    // Fall through to competitive
+  }
+
+  console.log(`[Duration Gate] COMPETITIVE: ${durationMs.toFixed(0)}ms`);
+  return { swing_duration_ms: durationMs, classification: 'competitive', scoreable: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -756,8 +833,8 @@ serve(async (req: Request) => {
         ? player_level
         : 'pro';
 
-    // 1. Normalize CSV → ScoreCalculationInput
-    const input: ScoreCalculationInput = parseRebootCSV(
+    // 1. Normalize CSV → ScoreCalculationInput + contact frame
+    const { input, contactFrameIdx } = parseRebootCSV(
       ikRows,
       meRows,
       {
@@ -772,11 +849,25 @@ serve(async (req: Request) => {
       }
     );
 
-    // 2. Score — HTTP call to shared engine
+    // 1b. Swing duration gating — classify before scoring
+    const durationGate = classifySwingDuration(ikRows, contactFrameIdx);
+    console.log(`[compute-4b-from-csv] Duration gate: ${durationGate.swing_duration_ms.toFixed(0)}ms → ${durationGate.classification} (scoreable=${durationGate.scoreable})`);
+
+    // 2. Score — HTTP call to shared engine (always score, but mark non-scoreable)
     const result = await computeScoringResult(input);
 
     // 2b. Build raw_metrics for Kinetic Sequence / Stability tabs
     const rawMetrics = buildRawMetrics(input, result);
+    // Add duration gate info to raw_metrics
+    rawMetrics.swing_duration_ms = Math.round(durationGate.swing_duration_ms);
+    rawMetrics.swing_classification = durationGate.classification;
+
+    // If not scoreable, zero out the scores for DB storage (but keep raw_metrics for reference)
+    const effectiveScore = durationGate.scoreable ? result.score_4bkrs : null;
+    const effectiveBody = durationGate.scoreable ? result.body : null;
+    const effectiveBrain = durationGate.scoreable ? result.brain : null;
+    const effectiveBat = durationGate.scoreable ? result.bat : null;
+    const effectiveBall = durationGate.scoreable ? result.ball : null;
 
     // 3. Persist to player_sessions if session context provided
     if (session_id && player_id) {
@@ -789,18 +880,18 @@ serve(async (req: Request) => {
         player_id,
         reboot_session_id: session_id,
         session_date: session_date ?? new Date().toISOString(),
-        overall_score: result.score_4bkrs,
-        score_4bkrs: result.score_4bkrs,
+        overall_score: effectiveScore,
+        score_4bkrs: effectiveScore,
         scoring_mode: result.mode,
         scoring_version: result.version,
-        body_score: result.body,
-        brain_score: result.brain,
-        bat_score: result.bat,
-        ball_score: result.ball,
-        creation_score: result.creation,
-        transfer_score: result.transfer,
-        rating: result.rating,
-        rating_color: result.color,
+        body_score: effectiveBody,
+        brain_score: effectiveBrain,
+        bat_score: effectiveBat,
+        ball_score: effectiveBall,
+        creation_score: durationGate.scoreable ? result.creation : null,
+        transfer_score: durationGate.scoreable ? result.transfer : null,
+        rating: durationGate.scoreable ? result.rating : 'Excluded',
+        rating_color: durationGate.scoreable ? result.color : '#888',
         transfer_ratio: result.transfer_ratio,
         timing_gap_pct: result.timing_gap_pct,
         bat_speed_mph: result.bat_speed_mph,
@@ -816,6 +907,9 @@ serve(async (req: Request) => {
         scoring_timestamp: result.scoring_timestamp,
         scored_at: new Date().toISOString(),
         raw_metrics: rawMetrics,
+        swing_duration_ms: Math.round(durationGate.swing_duration_ms),
+        swing_classification: durationGate.classification,
+        scoreable: durationGate.scoreable,
       };
 
       let playerSessionId: string | null = null;
@@ -902,7 +996,12 @@ serve(async (req: Request) => {
       }
     }
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({
+      ...result,
+      swing_duration_ms: Math.round(durationGate.swing_duration_ms),
+      swing_classification: durationGate.classification,
+      scoreable: durationGate.scoreable,
+    }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

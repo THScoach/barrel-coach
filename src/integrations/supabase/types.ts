@@ -3207,6 +3207,7 @@ export type Database = {
           raw_metrics: Json | null
           reboot_session_id: string | null
           score_4bkrs: number | null
+          scoreable: boolean | null
           scored_at: string | null
           scoring_mode: string | null
           scoring_timestamp: string | null
@@ -3214,7 +3215,9 @@ export type Database = {
           sequence_order: string | null
           session_date: string
           session_source: string | null
+          swing_classification: string | null
           swing_count: number | null
+          swing_duration_ms: number | null
           tempo_ratio: number | null
           timing_gap_pct: number | null
           transfer_ratio: number | null
@@ -3265,6 +3268,7 @@ export type Database = {
           raw_metrics?: Json | null
           reboot_session_id?: string | null
           score_4bkrs?: number | null
+          scoreable?: boolean | null
           scored_at?: string | null
           scoring_mode?: string | null
           scoring_timestamp?: string | null
@@ -3272,7 +3276,9 @@ export type Database = {
           sequence_order?: string | null
           session_date?: string
           session_source?: string | null
+          swing_classification?: string | null
           swing_count?: number | null
+          swing_duration_ms?: number | null
           tempo_ratio?: number | null
           timing_gap_pct?: number | null
           transfer_ratio?: number | null
@@ -3323,6 +3329,7 @@ export type Database = {
           raw_metrics?: Json | null
           reboot_session_id?: string | null
           score_4bkrs?: number | null
+          scoreable?: boolean | null
           scored_at?: string | null
           scoring_mode?: string | null
           scoring_timestamp?: string | null
@@ -3330,7 +3337,9 @@ export type Database = {
           sequence_order?: string | null
           session_date?: string
           session_source?: string | null
+          swing_classification?: string | null
           swing_count?: number | null
+          swing_duration_ms?: number | null
           tempo_ratio?: number | null
           timing_gap_pct?: number | null
           transfer_ratio?: number | null
