@@ -778,24 +778,26 @@ function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): R
   if (isReversedSequence) {
     story.base = `Pelvis peak velocity: ${Math.round(pelvis)}°/s. ${
       pelvis >= 600
-        ? 'Pelvis velocity looks adequate but sequence is reversed — torso is leading the pelvis. Raw velocity doesn\'t matter if the chain is inverted.'
-        : 'Below target AND sequence is reversed — needs ground-force production with proper hip-first initiation.'
+        ? 'Your hips have real energy but it arrives LATE — after your torso has already fired. This is a late pelvis, not a dead pelvis. The energy exists but shows up after the barrel is already on its way.'
+        : 'Below target AND sequence is reversed — needs ground-force production with proper hip-first initiation. Energy is both low and late.'
     }`;
   } else {
     story.base = `Pelvis peak velocity: ${Math.round(pelvis)}°/s. ${
-      pelvis >= 600 ? 'Strong foundation — hips are leading with good velocity.' : 'Below target — needs more ground-force production.'
+      pelvis >= 600 ? 'Good energy production — hips are leading and delivering energy in the right order.' : 'Below target — the body isn\'t producing enough energy at the source. Needs ground-force production work.'
     }`;
   }
 
   // Rhythm: gap range check (14-18ms target)
   if (isReversedSequence) {
-    story.rhythm = `Sequence is reversed (torso peaks before pelvis). P→T gap of ${pelvis_torso_gap_ms}ms is not meaningful when the sequence is inverted.`;
+    story.rhythm = `Sequence is reversed (torso peaks before pelvis). The P→T gap of ${pelvis_torso_gap_ms}ms is between the wrong peaks — timing measurement isn't meaningful when the energy chain is inverted.`;
   } else if (pelvis_torso_gap_ms >= 14 && pelvis_torso_gap_ms <= 18) {
-    story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. Good sequential timing — within the optimal 14-18ms window.`;
+    story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. Energy is flowing in the right order with good timing — within the 14-18ms window that creates the whip effect.`;
+  } else if (pelvis_torso_gap_ms < 10) {
+    story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. Energy is arriving as a block — nearly simultaneous firing. The gap creates the whip; without it, there's no snap. Target: 14-18ms.`;
   } else if (pelvis_torso_gap_ms < 14) {
-    story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. Gap is tight — below the 14-18ms target. Work on separation.`;
+    story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. Slightly tight — the whip effect is reduced. Energy needs a wider gap (14-18ms) to build the wave.`;
   } else {
-    story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. Timing gap outside optimal range (${pelvis_torso_gap_ms}ms vs 14-18ms target) — upper body is lagging too far behind.`;
+    story.rhythm = `Pelvis→Torso gap: ${pelvis_torso_gap_ms}ms. Energy is dying in transit — the wave loses momentum before the torso picks it up. Like a relay baton handoff where the second runner starts too late. Target: 14-18ms.`;
   }
 
   // Barrel + brake efficiency
