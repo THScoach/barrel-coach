@@ -722,45 +722,45 @@ function buildRawMetrics(input: ScoreCalculationInput, result: ScoringResult): R
   // Priority 1: Reversed sequence is the most critical issue
   if (isReversedSequence) {
     rootCause = {
-      issue: 'Reversed Sequence: Torso Leading Pelvis',
-      what: 'Torso is peaking before the pelvis — the kinetic chain is inverted. Energy cannot transfer efficiently when the sequence is reversed.',
-      build: 'Hip-lead sequencing drills — stride & hold, wall drills, hip-first tempo work. Focus on feeling hips initiate before any upper body rotation.',
+      issue: 'Energy Arriving Late: Pelvis Fires After Torso',
+      what: `Your pelvis has real velocity (${Math.round(pelvis)}°/s) but it peaks AFTER your torso. That means the energy shows up after the barrel is already on its way. Instead of going into the ball, that late pelvis energy pushes your body open toward the pull side. This is a LATE pelvis, not a weak pelvis — the fix is about WHEN it fires, not how hard.`,
+      build: 'Hip-lead initiation drills — stride and hold, wall drills, Synapse hip-first constraint. The pelvis needs to fire EARLIER, not harder.',
     };
   } else if (isBrakeFailure) {
     rootCause = {
-      issue: 'Brake System Failure',
-      what: 'Front side is not braking — energy is leaking through the front leg instead of transferring up the chain. Brake efficiency is near zero.',
-      build: 'Front-leg brace drills — step and turn, wall drill, post-up landing work. The front side must decelerate to accelerate the barrel.',
+      issue: 'Energy Not Concentrating: Brake System Offline',
+      what: "Your front side isn't decelerating. When the lower body doesn't brake, energy passes through your body like water through a pipe with no faucet — it never concentrates into the barrel. Brake efficiency is near zero.",
+      build: 'Front-leg brace drills — post-up landing, wall drill, step and turn. The front side has to STOP so the energy has somewhere to go.',
     };
   } else if (pelvis_torso_gain != null && pelvis_torso_gain < 1.0) {
     rootCause = {
-      issue: 'Energy Loss: Hip → Torso',
-      what: 'Torso is not amplifying hip rotation. Energy is dying at the core.',
-      build: 'Core connection drills — medicine ball rotations, plank anti-rotation holds, hip-lead sequencing.',
+      issue: 'Energy Leaking At Hips → Torso',
+      what: 'Energy drops from hips to torso. The torso isn\'t amplifying — it\'s absorbing. Each link in the chain should ADD energy, not lose it.',
+      build: 'Core connection drills — medicine ball rotations, plank anti-rotation holds. Focus on hips decelerating so torso can accelerate.',
     };
   } else if (torso_arm_gain != null && torso_arm_gain < 1.0) {
     rootCause = {
-      issue: 'Energy Loss: Torso → Arms',
-      what: 'Arm action is decoupled from trunk rotation. Upper body is casting.',
-      build: 'Connection drills — knob-to-ball, short bat work, towel drills for lag.',
+      issue: 'Energy Leaking At Torso → Arms',
+      what: 'Energy drops from torso to arms. The arms aren\'t amplifying — they\'re absorbing. Each link in the chain should ADD energy, not lose it.',
+      build: 'Connection drills — knob-to-ball, short bat work, towel drills for lag. Focus on torso decelerating so arms can accelerate.',
     };
   } else if (arm_bat_gain != null && arm_bat_gain < 1.0) {
     rootCause = {
-      issue: 'Energy Loss: Arms → Barrel',
-      what: 'Bat head is not releasing through the zone. Wrist snap is weak or early.',
-      build: 'Wrist snap drills, overload/underload training, bat path work.',
+      issue: 'Energy Leaking At Arms → Barrel',
+      what: 'Energy drops from arms to barrel. The bat head isn\'t amplifying — it\'s absorbing. Each link in the chain should ADD energy, not lose it.',
+      build: 'Wrist snap drills, overload/underload training. Focus on arms decelerating so the barrel can accelerate through the zone.',
     };
   } else if (isTimingTooTight) {
     rootCause = {
-      issue: 'Timing: Simultaneous Rotation',
-      what: 'Hips and torso are firing together instead of sequentially. Gap is only ' + pelvis_torso_gap_ms + 'ms (target: 14-18ms).',
-      build: 'Separation drills — stride & hold, wall drills, hip-lead tempo work.',
+      issue: 'Energy Arriving As A Block: No Whip Effect',
+      what: `Your hips and torso are firing within ${pelvis_torso_gap_ms}ms of each other — nearly simultaneous. The gap between segments is what creates the whip. Without it, energy arrives as one block instead of a wave. It's like cracking a whip with a stiff rope — no snap.`,
+      build: 'Separation drills — hip-lead tempo work, stride and hold, constraint training to create the gap between hip fire and trunk rotation.',
     };
   } else if (isTimingTooWide) {
     rootCause = {
-      issue: 'Timing: Disconnected Sequence',
-      what: 'Pelvis-to-torso gap is too wide at ' + pelvis_torso_gap_ms + 'ms (target: 14-18ms). The upper body is lagging too far behind the hips, losing energy in the delay.',
-      build: 'Tempo connection drills — rhythm swings, quick-hips-to-contact work, reducing the gap between hip fire and trunk rotation.',
+      issue: 'Energy Dying In Transit: Sequence Disconnected',
+      what: `Your pelvis fires ${pelvis_torso_gap_ms}ms before your torso — too much gap. The energy wave loses momentum in transit. By the time the torso picks up, the pelvis energy has already dissipated. It's like a relay race where the second runner starts too late — the baton handoff fails.`,
+      build: 'Tempo connection drills — rhythm swings, quick-hips-to-contact, reducing the delay between hip fire and trunk rotation while keeping the sequence correct.',
     };
   }
 
