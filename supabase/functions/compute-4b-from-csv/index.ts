@@ -345,6 +345,11 @@ function parseMassFromMERow(meRows: Record<string, number>[]): number {
 // NORMALIZE CSV → ScoreCalculationInput
 // ---------------------------------------------------------------------------
 
+interface ParseResult {
+  input: ScoreCalculationInput;
+  contactFrameIdx: number;
+}
+
 function parseRebootCSV(
   ikRows: Record<string, number>[],
   meRows: Record<string, number>[],
@@ -358,7 +363,7 @@ function parseRebootCSV(
     measured_bat_speed_mph?: number | null;
     measured_ev_mph?: number | null;
   }
-): ScoreCalculationInput {
+): ParseResult {
   // --- Angular velocities from IK (5-frame centred finite difference) ---
   // Initial full-capture peaks (used only for fallback/magnitude)
   const pelvisOmegaFull = peakAngularVelocity5Frame(ikRows, 'pelvis_rot');
