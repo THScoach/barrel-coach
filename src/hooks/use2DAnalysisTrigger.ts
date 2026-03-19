@@ -196,6 +196,26 @@ async function fireRebootUpload(
   }
 }
 
+/**
+ * Detect frame rate from video file using size/duration heuristic.
+ * Browsers don't expose actual FPS from video metadata.
+ */
+function detectFrameRate(file: File): Promise<number> {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.src = URL.createObjectURL(file);
+    video.onloadedmetadata = () => {
+      const isHighSpeed = file.size > 50 * 1024 * 1024 || video.duration < 3;
+      URL.revokeObjectURL(video.src);
+      resolve(isHighSpeed ? 240 : 30);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src);
+      resolve(240); // Default to 240 for swing videos
+    };
+  });
+}
+
 async function pollForCompletion(sessionIds: string[], maxWaitMs = 120000) {
   const startTime = Date.now();
   const pollInterval = 3000;
