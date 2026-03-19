@@ -281,6 +281,18 @@ export default function PlayerSessionDetail() {
   const badgeColor = source === '2d' ? '#3B82F6' : '#14B8A6';
   const badgeLabel = source === '2d' ? 'Video Analysis' : '3D Analysis';
 
+  // Swing classification badge config
+  const classificationConfig: Record<string, { color: string; label: string }> = {
+    competitive: { color: '#14B8A6', label: 'Competitive' },
+    load_overweight: { color: '#A855F7', label: 'Load / Overweight' },
+    walkthrough: { color: '#6B7280', label: 'Walkthrough' },
+    partial_capture: { color: '#EAB308', label: 'Partial Capture' },
+  };
+  const swingClass = source === '3d' && session3D?.swing_classification
+    ? classificationConfig[session3D.swing_classification] ?? null
+    : null;
+  const isExcluded = source === '3d' && session3D?.scoreable === false;
+
   return (
     <div style={{ background: '#000', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
       <PlayerTopBar playerName={player?.name ?? null} motorProfile={player?.motor_profile_sensor ?? null} />
@@ -295,14 +307,34 @@ export default function PlayerSessionDetail() {
             <p className="text-base font-bold" style={{ color: '#fff' }}>
               {format(new Date(sessionDate), 'MMMM d, yyyy')}
             </p>
-            <span
-              className="text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-block mt-0.5"
-              style={{ background: `${badgeColor}20`, color: badgeColor }}
-            >
-              {badgeLabel}
-            </span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span
+                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-block"
+                style={{ background: `${badgeColor}20`, color: badgeColor }}
+              >
+                {badgeLabel}
+              </span>
+              {swingClass && (
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-block"
+                  style={{ background: `${swingClass.color}20`, color: swingClass.color }}
+                >
+                  {swingClass.label}
+                  {session3D?.swing_duration_ms ? ` · ${Math.round(session3D.swing_duration_ms)}ms` : ''}
+                </span>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Excluded swing notice */}
+        {isExcluded && (
+          <div className="rounded-lg p-3" style={{ background: '#1a1a2e', border: '1px solid #333' }}>
+            <p className="text-xs" style={{ color: '#a0a0a0' }}>
+              ⚠️ This swing was classified as <strong style={{ color: swingClass?.color }}>{swingClass?.label?.toLowerCase()}</strong> ({Math.round(session3D?.swing_duration_ms ?? 0)}ms) and excluded from your 4B scores. These are great for pattern work but don't represent your competitive swing.
+            </p>
+          </div>
+        )}
 
         {/* Video Player */}
         {videoUrl ? (
