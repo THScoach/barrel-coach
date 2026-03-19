@@ -47,6 +47,9 @@ interface Session3D {
   ball_score: number | null;
   leak_type: string | null;
   raw_metrics: any;
+  swing_duration_ms: number | null;
+  swing_classification: string | null;
+  scoreable: boolean | null;
 }
 
 interface ComparisonScores {
