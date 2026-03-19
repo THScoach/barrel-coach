@@ -20,6 +20,8 @@ export interface PlayerInfo {
   latest_bat_score: number | null;
   latest_ball_score: number | null;
   account_status: string | null;
+  reboot_player_id: string | null;
+  reboot_athlete_id: string | null;
 }
 
 export function usePlayerData() {
