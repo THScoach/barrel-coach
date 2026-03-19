@@ -1,4 +1,5 @@
-import { RawMetrics, EnergyStatus, STATUS_COLORS, statusLabel, isSequenceReversed } from './types';
+import { RawMetrics, STATUS_COLORS, statusLabel, isSequenceReversed } from './types';
+import type { EnergyStatus } from './types';
 import { SequenceDots } from './SequenceDots';
 
 interface Props {
@@ -7,17 +8,26 @@ interface Props {
 
 export function EnergySequenceCard({ metrics }: Props) {
   const reversed = isSequenceReversed(metrics);
-  const totalSwings = metrics.swing_count ?? metrics.swingCount ?? 1;
-  const correctCount = metrics.correct_sequence_count ?? (reversed ? 0 : totalSwings);
+
+  const sequenceCount = metrics.correct_sequence_count;
+  const swingCount = metrics.swing_count ?? metrics.swingCount;
+  const showCounts = sequenceCount != null && swingCount != null && swingCount > 0;
+
+  const totalSwings = showCounts ? swingCount! : 1;
+  const correctCount = showCounts ? sequenceCount! : (reversed ? 0 : 1);
 
   let status: EnergyStatus;
-  if (correctCount === totalSwings) status = 'ON_TARGET';
-  else if (correctCount > totalSwings * 0.5) status = 'WORKING';
-  else status = 'PRIORITY';
+  if (showCounts) {
+    if (correctCount === totalSwings) status = 'ON_TARGET';
+    else if (correctCount > totalSwings * 0.5) status = 'WORKING';
+    else status = 'PRIORITY';
+  } else {
+    status = reversed ? 'PRIORITY' : 'ON_TARGET';
+  }
 
   let text: string;
   if (reversed) {
-    text = `In this session, your chest started turning before your hips. When your chest goes first, your hips have to play catch-up. The energy you created gets stuck and can't travel up to your bat. We call this a "late pelvis" — the energy exists, but it shows up after the barrel is already on its way.`;
+    text = `Your chest started turning before your hips. When your chest goes first, your hips have to play catch-up. The energy you created gets stuck and can't travel up to your bat. We call this a "late pelvis" — the energy exists, but it shows up after the barrel is already on its way.`;
   } else {
     text = `Your hips fired first this session. The energy chain is in the right order — hips lead, chest follows, arms deliver. This is how energy travels efficiently from the ground to the barrel.`;
   }
@@ -48,7 +58,9 @@ export function EnergySequenceCard({ metrics }: Props) {
         </span>
       </div>
       <p className="text-sm leading-relaxed" style={{ color: '#ccc' }}>{text}</p>
-      <SequenceDots totalSwings={totalSwings} correctCount={correctCount} isReversed={reversed} />
+      {showCounts && (
+        <SequenceDots totalSwings={totalSwings} correctCount={correctCount} isReversed={reversed} />
+      )}
     </div>
   );
 }

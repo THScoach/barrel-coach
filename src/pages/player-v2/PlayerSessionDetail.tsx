@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlayerData } from "@/hooks/usePlayerData";
+import { useAuth } from "@/contexts/AuthContext";
 import { PlayerTopBar } from "@/components/player-v2/PlayerTopBar";
 import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { Video2DAnalysisCard } from "@/components/admin/Video2DAnalysisCard";
@@ -66,6 +67,7 @@ export default function PlayerSessionDetail() {
   const { source: sourceParam } = Object.fromEntries(new URLSearchParams(window.location.search));
   const navigate = useNavigate();
   const { player, loading: playerLoading } = usePlayerData();
+  const { isAdmin } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
 
@@ -489,6 +491,7 @@ export default function PlayerSessionDetail() {
             sessionId={session3D.id}
             playerId={player?.id ?? ''}
             rawMetrics={session3D.raw_metrics}
+            isAdmin={isAdmin}
             existingMetricsContent={
               <div className="rounded-xl p-4 space-y-2" style={{ background: '#111', border: '1px solid #222' }}>
                 <p className="text-xs font-semibold uppercase mb-2" style={{ color: '#555' }}>Biomechanics Data</p>
