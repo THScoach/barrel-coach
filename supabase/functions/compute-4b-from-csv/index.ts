@@ -1220,7 +1220,9 @@ serve(async (req: Request) => {
 
     // 2c. Build raw_metrics for Kinetic Sequence / Stability tabs
     const rawMetrics = buildRawMetrics(input, result, extraSwingData);
-
+    // Add duration gate info to raw_metrics
+    rawMetrics.swing_duration_ms = Math.round(durationGate.swing_duration_ms);
+    rawMetrics.swing_classification = durationGate.classification;
     // If not scoreable, zero out the scores for DB storage (but keep raw_metrics for reference)
     const effectiveScore = durationGate.scoreable ? result.score_4bkrs : null;
     const effectiveBody = durationGate.scoreable ? result.body : null;
