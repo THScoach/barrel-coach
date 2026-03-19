@@ -483,24 +483,40 @@ export default function PlayerSessionDetail() {
           />
         )}
 
-        {/* 3D Raw Metrics */}
+        {/* 3D Energy Delivery Report */}
         {source === '3d' && session3D?.raw_metrics && (
-          <div className="rounded-xl p-4 space-y-2" style={{ background: '#111', border: '1px solid #222' }}>
-            <p className="text-xs font-semibold uppercase mb-2" style={{ color: '#555' }}>Biomechanics Data</p>
-            {[
-              { label: 'Pelvis Peak Velocity', value: session3D.raw_metrics.pelvis_velocity, unit: 'deg/s' },
-              { label: 'Torso Peak Velocity', value: session3D.raw_metrics.torso_velocity, unit: 'deg/s' },
-              { label: 'X-Factor', value: session3D.raw_metrics.x_factor, unit: 'deg' },
-              { label: 'Transfer Efficiency', value: session3D.raw_metrics.transfer_efficiency, unit: '%' },
-            ].map(m => (
-              <div key={m.label} className="flex justify-between py-1.5" style={{ borderBottom: '1px solid #222' }}>
-                <span className="text-xs" style={{ color: '#777' }}>{m.label}</span>
-                <span className="text-xs font-bold" style={{ color: '#fff' }}>
-                  {m.value != null ? `${m.value} ${m.unit}` : '—'}
-                </span>
+          <EnergyDeliveryReport
+            sessionId={session3D.id}
+            playerId={player?.id ?? ''}
+            rawMetrics={session3D.raw_metrics}
+            existingMetricsContent={
+              <div className="rounded-xl p-4 space-y-2" style={{ background: '#111', border: '1px solid #222' }}>
+                <p className="text-xs font-semibold uppercase mb-2" style={{ color: '#555' }}>Biomechanics Data</p>
+                {[
+                  { label: 'Pelvis Peak Velocity', value: session3D.raw_metrics.pelvis_velocity ?? session3D.raw_metrics.avgPelvisVelocity, unit: 'deg/s' },
+                  { label: 'Torso Peak Velocity', value: session3D.raw_metrics.torso_velocity ?? session3D.raw_metrics.avgTorsoVelocity, unit: 'deg/s' },
+                  { label: 'X-Factor', value: session3D.raw_metrics.x_factor_deg ?? session3D.raw_metrics.avgXFactor, unit: 'deg' },
+                  { label: 'Transfer Efficiency', value: session3D.raw_metrics.transfer_efficiency, unit: '%' },
+                  { label: 'Transfer Ratio', value: session3D.raw_metrics.transfer_ratio },
+                  { label: 'P→T Gap', value: session3D.raw_metrics.pelvis_torso_gap_ms, unit: 'ms' },
+                  { label: 'Brake Efficiency', value: session3D.raw_metrics.brake_efficiency != null ? `${Math.round(session3D.raw_metrics.brake_efficiency * 100)}%` : null },
+                  { label: 'Bat Speed', value: session3D.raw_metrics.bat_speed_mph, unit: 'mph' },
+                  { label: 'Exit Velocity', value: session3D.raw_metrics.exit_velocity_mph, unit: 'mph' },
+                  { label: 'Pelvis→Torso Gain', value: session3D.raw_metrics.pelvis_torso_gain },
+                  { label: 'Torso→Arms Gain', value: session3D.raw_metrics.torso_arm_gain },
+                  { label: 'Arms→Bat Gain', value: session3D.raw_metrics.arm_bat_gain },
+                  { label: 'Beat', value: session3D.raw_metrics.beat },
+                ].map(m => (
+                  <div key={m.label} className="flex justify-between py-1.5" style={{ borderBottom: '1px solid #222' }}>
+                    <span className="text-xs" style={{ color: '#777' }}>{m.label}</span>
+                    <span className="text-xs font-bold" style={{ color: '#fff' }}>
+                      {m.value != null ? `${m.value}${m.unit ? ` ${m.unit}` : ''}` : '—'}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            }
+          />
         )}
       </main>
 
