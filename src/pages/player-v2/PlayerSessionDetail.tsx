@@ -90,7 +90,7 @@ export default function PlayerSessionDetail() {
           .maybeSingle(),
         supabase
           .from("player_sessions")
-          .select("id, session_date, overall_score, body_score, brain_score, bat_score, ball_score, leak_type, raw_metrics")
+          .select("id, session_date, overall_score, body_score, brain_score, bat_score, ball_score, leak_type, raw_metrics, swing_duration_ms, swing_classification, scoreable")
           .eq("id", sessionId)
           .maybeSingle(),
       ]);
