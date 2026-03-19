@@ -832,8 +832,8 @@ serve(async (req: Request) => {
         ? player_level
         : 'pro';
 
-    // 1. Normalize CSV → ScoreCalculationInput
-    const input: ScoreCalculationInput = parseRebootCSV(
+    // 1. Normalize CSV → ScoreCalculationInput + contact frame
+    const { input, contactFrameIdx } = parseRebootCSV(
       ikRows,
       meRows,
       {
@@ -848,11 +848,25 @@ serve(async (req: Request) => {
       }
     );
 
-    // 2. Score — HTTP call to shared engine
+    // 1b. Swing duration gating — classify before scoring
+    const durationGate = classifySwingDuration(ikRows, contactFrameIdx);
+    console.log(`[compute-4b-from-csv] Duration gate: ${durationGate.swing_duration_ms.toFixed(0)}ms → ${durationGate.classification} (scoreable=${durationGate.scoreable})`);
+
+    // 2. Score — HTTP call to shared engine (always score, but mark non-scoreable)
     const result = await computeScoringResult(input);
 
     // 2b. Build raw_metrics for Kinetic Sequence / Stability tabs
     const rawMetrics = buildRawMetrics(input, result);
+    // Add duration gate info to raw_metrics
+    rawMetrics.swing_duration_ms = Math.round(durationGate.swing_duration_ms);
+    rawMetrics.swing_classification = durationGate.classification;
+
+    // If not scoreable, zero out the scores for DB storage (but keep raw_metrics for reference)
+    const effectiveScore = durationGate.scoreable ? result.score_4bkrs : null;
+    const effectiveBody = durationGate.scoreable ? result.body : null;
+    const effectiveBrain = durationGate.scoreable ? result.brain : null;
+    const effectiveBat = durationGate.scoreable ? result.bat : null;
+    const effectiveBall = durationGate.scoreable ? result.ball : null;
 
     // 3. Persist to player_sessions if session context provided
     if (session_id && player_id) {
@@ -865,18 +879,18 @@ serve(async (req: Request) => {
         player_id,
         reboot_session_id: session_id,
         session_date: session_date ?? new Date().toISOString(),
-        overall_score: result.score_4bkrs,
-        score_4bkrs: result.score_4bkrs,
+        overall_score: effectiveScore,
+        score_4bkrs: effectiveScore,
         scoring_mode: result.mode,
         scoring_version: result.version,
-        body_score: result.body,
-        brain_score: result.brain,
-        bat_score: result.bat,
-        ball_score: result.ball,
-        creation_score: result.creation,
-        transfer_score: result.transfer,
-        rating: result.rating,
-        rating_color: result.color,
+        body_score: effectiveBody,
+        brain_score: effectiveBrain,
+        bat_score: effectiveBat,
+        ball_score: effectiveBall,
+        creation_score: durationGate.scoreable ? result.creation : null,
+        transfer_score: durationGate.scoreable ? result.transfer : null,
+        rating: durationGate.scoreable ? result.rating : 'Excluded',
+        rating_color: durationGate.scoreable ? result.color : '#888',
         transfer_ratio: result.transfer_ratio,
         timing_gap_pct: result.timing_gap_pct,
         bat_speed_mph: result.bat_speed_mph,
@@ -892,6 +906,9 @@ serve(async (req: Request) => {
         scoring_timestamp: result.scoring_timestamp,
         scored_at: new Date().toISOString(),
         raw_metrics: rawMetrics,
+        swing_duration_ms: Math.round(durationGate.swing_duration_ms),
+        swing_classification: durationGate.classification,
+        scoreable: durationGate.scoreable,
       };
 
       let playerSessionId: string | null = null;
