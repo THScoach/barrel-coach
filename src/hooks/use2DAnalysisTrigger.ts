@@ -151,6 +151,10 @@ async function fireRebootUpload(
   try {
     console.log("[2D Trigger] Firing reboot-upload-video for 3D analysis...");
 
+    // Detect frame rate from video file heuristic
+    const frameRate = await detectFrameRate(firstSwing.file);
+    console.log(`[2D Trigger] Detected frame rate: ${frameRate}fps`);
+
     // Get a signed URL for the video in swing-videos bucket
     const { data: signedData, error: signedError } = await supabase.storage
       .from("swing-videos")
@@ -167,7 +171,7 @@ async function fireRebootUpload(
         player_id: playerId,
         video_url: signedData.signedUrl,
         video_filename: firstSwing.file.name,
-        frame_rate: 240,
+        frame_rate: frameRate,
       },
     });
 
