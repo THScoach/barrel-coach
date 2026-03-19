@@ -75,7 +75,7 @@ export default function PlayerSessionDetail() {
   // Fetch session data
   useEffect(() => {
     if (!sessionId) return;
-    const fetch = async () => {
+    const fetchData = async () => {
       setLoading(true);
 
       // Try both tables in parallel
@@ -99,13 +99,42 @@ export default function PlayerSessionDetail() {
         setSession3D(res3d.data);
         setSource('3d');
       } else {
-        // Might have been passed with a source hint
         setSource(null);
       }
       setLoading(false);
     };
-    fetch();
+    fetchData();
   }, [sessionId]);
+
+  // Poll for 3D analysis completion when pending
+  useEffect(() => {
+    if (source !== '2d' || !session2D?.pending_3d_analysis || !player?.id) return;
+
+    const interval = setInterval(async () => {
+      // Check if a player_session appeared for the same date
+      const { data: ps } = await supabase
+        .from("player_sessions")
+        .select("id, session_date, overall_score, body_score, brain_score, bat_score, ball_score, leak_type, raw_metrics")
+        .eq("player_id", player.id)
+        .eq("session_date", session2D.session_date)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (ps) {
+        setSession3D(ps);
+        // Clear the pending flag
+        await supabase
+          .from("video_2d_sessions")
+          .update({ pending_3d_analysis: false })
+          .eq("id", session2D.id);
+        setSession2D((prev) => prev ? { ...prev, pending_3d_analysis: false } : prev);
+        clearInterval(interval);
+      }
+    }, 30_000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [source, session2D?.pending_3d_analysis, session2D?.session_date, session2D?.id, player?.id]);
 
   // Fetch comparison data
   useEffect(() => {
