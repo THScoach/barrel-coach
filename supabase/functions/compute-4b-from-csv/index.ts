@@ -431,7 +431,11 @@ function parseRebootCSV(
   // peakIdx is within the delivery window; subtract contactFrameIdx to get relative ms
   const final_pelvis_omega_time = (pelvisOmega.peakIdx - contactFrameIdx) * MS_PER_FRAME;
   const final_trunk_omega_time  = (torsoOmega.peakIdx - contactFrameIdx) * MS_PER_FRAME;
-  const timingGapPct = Math.abs(final_pelvis_omega_time - final_trunk_omega_time) / 200 * 100;
+  // Delivery window = actual foot plant to contact duration (Section E appendix)
+  // DO NOT use hardcoded 200ms — calculate per swing
+  const deliveryDurationMs = Math.max(1, contactFrameIdx * MS_PER_FRAME - (deliveryStart * MS_PER_FRAME));
+  const effectiveDeliveryWindow = deliveryDurationMs > 0 ? deliveryDurationMs : 200; // fallback only if no data
+  const timingGapPct = Math.abs(final_pelvis_omega_time - final_trunk_omega_time) / effectiveDeliveryWindow * 100;
 
   console.log(`[CSV→Score] TIMING: { contactFrameIndex: ${contactFrameIdx}, pelvis_omega_time_ms: ${final_pelvis_omega_time.toFixed(1)}, trunk_omega_time_ms: ${final_trunk_omega_time.toFixed(1)}, timingGapPct: ${timingGapPct.toFixed(1)} }`);
 
@@ -1005,39 +1009,41 @@ function buildRawMetrics(
     ? Math.round(result.transfer_efficiency * 1000) / 1000
     : null;
 
-  // ── FIXED root_cause logic ──
+  // ── FIXED root_cause logic (Section A — 3-tier pelvis classification) ──
   const isInverted = !pelvisFirst;
   const pelvisVelocity = Math.round(pelvis);
   const hasBrakeFailure = brake_efficiency != null && brake_efficiency === 0;
 
   let rootCause: Record<string, string>;
 
-  if (isInverted && pelvisVelocity > 600) {
+  // HARD CONSTRAINT: NEVER call pelvis "dead" if velocity >= 600°/s
+  if (pelvisVelocity < 600) {
+    // DEAD PELVIS — insufficient force production (regardless of sequence)
     rootCause = {
-      issue: 'Late pelvis — timing problem, not force problem',
-      what: `Pelvis has velocity (${pelvisVelocity}°/s) but fires after the torso. Energy sequence is inverted — the power arrives after the barrel is already on its way.`,
+      issue: isInverted
+        ? 'Dead pelvis — force production deficit + inverted sequence'
+        : 'Dead pelvis — force production deficit',
+      what: isInverted
+        ? `Pelvis is not generating enough force (${pelvisVelocity}°/s) AND sequence is inverted. Energy is both low and late.`
+        : `Pelvis sequence is correct but force production is low (${pelvisVelocity}°/s). The engine needs more fuel.`,
+      build: 'pelvis_force',
+    };
+  } else if (isInverted) {
+    // LATE PELVIS — velocity >= 600 but timing wrong
+    rootCause = {
+      issue: 'Energy Arriving Late: Pelvis Fires After Torso',
+      what: `Your pelvis has real velocity (${pelvisVelocity}°/s) but it peaks AFTER your torso. That means the energy shows up after the barrel is already on its way. Instead of going into the ball, that late pelvis energy pushes your body open toward the pull side. This is a LATE pelvis, not a weak pelvis — the fix is about WHEN it fires, not how hard.`,
       build: 'pelvis_initiation',
     };
-  } else if (isInverted && pelvisVelocity <= 600) {
-    rootCause = {
-      issue: 'Dead pelvis — force production deficit',
-      what: `Pelvis is not generating enough force (${pelvisVelocity}°/s) AND sequence is inverted. Energy is both low and late.`,
-      build: 'pelvis_force',
-    };
-  } else if (!isInverted && pelvisVelocity <= 600) {
-    rootCause = {
-      issue: 'Dead pelvis — force production deficit',
-      what: `Pelvis sequence is correct but force production is low (${pelvisVelocity}°/s). The engine needs more fuel.`,
-      build: 'pelvis_force',
-    };
   } else if (hasBrakeFailure) {
+    // Brake failure — correct sequence but no deceleration
     rootCause = {
-      issue: 'Brake failure — energy not transferring',
-      what: 'Pelvis fires correctly but does not decelerate to transfer energy. The front side isn\'t stopping, so energy passes through without concentrating into the barrel.',
+      issue: 'Energy Not Concentrating: Brake System Offline',
+      what: `Your front side isn't decelerating. When the lower body doesn't brake, energy passes through your body like water through a pipe with no faucet — it never concentrates into the barrel. Brake efficiency is near zero.`,
       build: 'brake_mechanism',
     };
   } else {
-    // Only here if: sequence correct, pelvisVelocity > 600, brake working
+    // Healthy: correct sequence, velocity > 600, brake working
     rootCause = {
       issue: 'None detected',
       what: 'Swing is functioning well',
