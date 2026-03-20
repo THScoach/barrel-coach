@@ -1,635 +1,1209 @@
 /**
  * supabase/functions/calculate-4b-scores/index.ts
  *
- * THE single authoritative 4B scoring engine.
- * All paths (Reboot CSV, DK sensor, manual) funnel here.
- * Returns ScoringResult — no other shape is allowed.
+ * 4B Scoring Engine v2.0 — Energy Flow Architecture
+ * Master spec: 4b_scoring_engine_v2_spec.pdf
  *
- * Formula (v2.2):
- *   Full mode     : score_4bkrs = Body×0.45 + Brain×0.15 + Bat×0.25 + Ball×0.15
- *   Training mode : score_4bkrs = Body×0.55 + Brain×0.15 + Bat×0.30
+ * PRIMARY input: ME (Momentum-Energy) CSV data
+ * SECONDARY input: IK CSV data (3 angle measurements only)
+ * BACKWARD COMPAT: IK-only input falls back to v1 logic
  *
- * Body  = Creation×0.40 + Transfer×0.60
- * Brain = Tempo×0.40 + Sequence Timing×0.35 + Rhythm×0.25
- * Bat   = (Bat Speed×0.30 + Acceleration×0.25 + Lag×0.25 + Attack Angle×0.20) × transferFactor
- * Ball  = Exit Velo×0.40 + Launch Angle×0.25 + Spray×0.20 + Hard Hit×0.15
+ * Three-Score System (player-facing):
+ *   Ground Flow (Containment) — Steps 1-2
+ *   Core Flow (Concentration) — Steps 3-4
+ *   Arm Flow (Timing of Release) — Steps 5-6
  *
- * v2.2 bat speed + exit velo corrections:
- *   FIX 1: Conversion constant 0.0236 → 0.02732
- *   FIX 2: Three-tier path: measured → KE-direct → estimation
- *   FIX 3: No chain modifiers on direct/measured paths
- *   FIX 4: Mass factor √(mass/80), clamped per path
- *   FIX 5: Nathan (2003) collision model for EV
- *   NEW:   bat_omega derived from bat_rot_energy KE inversion (I_BAT = 0.048)
- *   NEW:   MAX_BAT_OMEGA cap at 2800 deg/s
- *   NEW:   Hawk-Eye / DK measured bat speed as highest-priority path
+ * Six Loss Points (coach-facing diagnostics)
+ * Pelvis Classification (Dead / Late / Early / Healthy)
+ * TKE Shape Classification
+ * Motor Profile Detection
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 
-// ---------------------------------------------------------------------------
-// TYPES (inlined — edge functions cannot import from src/)
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// TYPES
+// ===========================================================================
 
-type ScoringMode    = 'full' | 'training';
-type ScoringVersion = 'v1_legacy' | 'v2';
-type FourBRating    = 'Elite' | 'Good' | 'Working' | 'Priority';
-type ScoreSource    = 'reboot_csv' | 'sensor' | 'manual';
-type PlayerLevel    = 'youth' | 'high_school' | 'college' | 'pro';
+type ScoringMethod = 'me_primary' | 'ik_fallback';
+type ScoringMode = 'full' | 'training';
+type FourBRating = 'Elite' | 'Good' | 'Working' | 'Priority';
+type ScoreLabel = 'Elite' | 'Good' | 'Working' | 'Priority';
+type PelvisClassification = 'DEAD_PELVIS' | 'LATE_PELVIS' | 'EARLY_PELVIS' | 'HEALTHY_PELVIS';
+type TKEShape = 'SHARP_SPIKE' | 'PLATEAU' | 'DOUBLE_BUMP' | 'UNKNOWN';
+type Severity = 'LOW' | 'MEDIUM' | 'HIGH';
+type MotorProfile = 'SPINNER' | 'TILT_WHIPPER' | 'LOAD_WHIPPER' | 'AMBIGUOUS_WHIPPER' | 'SLINGSHOTTER' | 'TITAN' | 'UNKNOWN';
+type PlayerLevel = 'youth' | 'high_school' | 'college' | 'pro';
 
-interface FourBScores {
-  score_4bkrs: number;
-  mode: ScoringMode;
-  version: ScoringVersion;
-  body: number;
-  brain: number;
-  bat: number;
-  ball: number | null;
-  rating: FourBRating;
-  color: string;
-  creation: number;
-  transfer: number;
-  transfer_ratio: number;
-  timing_gap_pct: number;
-  bat_speed_mph: number | null;
-  exit_velocity_mph: number | null;
+interface MEData {
+  // Time-series arrays (frame-indexed)
+  LowerTorso_Kinetic_Energy: number[];
+  Torso_Kinetic_Energy?: number[];
+  Arms_Kinetic_Energy: number[];
+  Total_Kinetic_Energy: number[];
+  Bat_Kinetic_Energy?: number[];
+  LowerTorso_Angular_Momentum_Mag: number[];
+  Torso_Angular_Momentum_Mag: number[];
+  LowerHalf_Angular_Momentum_Proj: number[];
+  Total_Angular_Momentum_Proj: number[];
+  Torso_Angular_Momentum_Proj?: number[];
+  Arms_Angular_Momentum_Proj?: number[];
+  Center_of_Mass_Y?: number[];
+  _side_max_percent?: number[];
+  _side_min_percent?: number[];
+  LowerTorso_vert_ang?: number[];
+  Torso_vert_ang?: number[];
+  // Timing
+  time?: number[];           // absolute time in seconds
+  norm_time?: number[];      // 0 at foot plant, 100 at contact
+  rel_frame?: number[];
 }
 
-interface ScoreCalculationInput {
-  source: ScoreSource;
-  pelvis_omega_peak: number;        // deg/s
-  trunk_omega_peak: number;         // deg/s
-  arm_omega_peak: number;           // deg/s — most distal IK segment (hand > arm > torso)
-  arm_omega_source?: string;        // source column name (e.g. 'left_elbow', 'rhand_rot')
+interface IKData {
+  torso_side: number[];      // trunk lateral tilt (radians)
+  pelvis_rot: number[];      // pelvis rotation (radians)
+  torso_rot: number[];       // torso rotation relative to pelvis (radians)
+  pelvis_side?: number[];
+  // Event indices
+  max_stride_frame?: number; // foot plant frame index
+  contact_frame?: number;    // contact frame index
+}
 
-  // Three-tier bat speed inputs (use highest available)
-  measured_bat_speed_mph?: number | null;  // Hawk-Eye or DK sensor — TIER 1
-  bat_omega_from_ke?: number | null;       // From bat_rot_energy KE inversion — TIER 2
-  bat_omega_peak?: number;                 // Legacy field (treated as bat_omega_from_ke)
+interface PlayerMetadata {
+  handedness: 'left' | 'right';
+  player_level: PlayerLevel;
+  injury_history?: string[];
+  mass_kg?: number;
+  height_inches?: number;
+  motor_profile_override?: string;
+}
 
-  pelvis_omega_time: number;        // ms from FFC
-  trunk_omega_time: number;         // ms from FFC
-
+// Legacy input format (backward compat)
+interface LegacyInput {
+  source: string;
+  pelvis_omega_peak: number;
+  trunk_omega_peak: number;
+  arm_omega_peak: number;
+  arm_omega_source?: string;
+  measured_bat_speed_mph?: number | null;
+  bat_omega_from_ke?: number | null;
+  bat_omega_peak?: number;
+  pelvis_omega_time: number;
+  trunk_omega_time: number;
   hip_shoulder_sep_max_deg: number;
   stride_length_rel_hip: number;
   front_foot_angle_deg: number;
   load_duration_ms: number;
   launch_duration_ms: number;
   transfer_ratio: number;
-
-  exit_velocity_mph?: number;       // Measured EV (Hawk-Eye / launch monitor)
-  measured_ev_mph?: number | null;  // Alias for exit_velocity_mph
+  exit_velocity_mph?: number;
+  measured_ev_mph?: number | null;
   launch_angle_deg?: number;
   spray_angle_deg?: number;
   hard_hit_rate?: number;
-
   player_level: PlayerLevel;
   motor_profile?: string;
-
-  // ME-derived fields
-  mass_total_kg?: number;           // total body mass from ME
-  bat_energy_j?: number;            // KE at barrel from ME
-  total_body_energy_j?: number;     // sum of all segment KE from ME
-
-  // Delivery window timing (for P→T gap denominator)
-  foot_plant_time_ms?: number | null;  // ms from FFC at foot-plant
-  contact_time_ms?: number | null;     // ms from FFC at contact
+  mass_total_kg?: number;
+  bat_energy_j?: number;
+  total_body_energy_j?: number;
+  foot_plant_time_ms?: number | null;
+  contact_time_ms?: number | null;
 }
 
-/** Actual delivery duration from foot-plant to contact, falling back to 200ms */
-function getDeliveryDurationMs(input: ScoreCalculationInput): number {
-  if (input.foot_plant_time_ms != null && input.contact_time_ms != null) {
-    const dur = input.contact_time_ms - input.foot_plant_time_ms;
-    if (dur > 0) return dur;
-  }
-  return 200; // default ≈ typical pro delivery window
+interface V2Input {
+  me_data: MEData;
+  ik_data?: IKData;
+  player_metadata: PlayerMetadata;
+  timing?: {
+    swing_start_ms?: number;
+    foot_plant_time_ms?: number;
+    contact_time_ms?: number;
+  };
+  // Optional measured ball data
+  exit_velocity_mph?: number;
+  launch_angle_deg?: number;
+  spray_angle_deg?: number;
 }
 
-interface ScoringResult extends FourBScores {
-  predicted_bat_speed_mph?: number | null;
-  predicted_exit_velocity_mph?: number | null;
-  predicted_entry_bucket?: string | null;
-  actual_bat_speed_mph?: number | null;
-  actual_exit_velocity_mph?: number | null;
-  actual_entry_bucket?: string | null;
-  transfer_efficiency?: number | null;
-  bat_speed_path?: string | null;
-  bat_speed_confidence?: string | null;
+// ===========================================================================
+// OUTPUT SCHEMA
+// ===========================================================================
+
+interface ScoreComponent {
+  score: number;
+  color: string;
+  label: ScoreLabel;
+  components: Record<string, number>;
+}
+
+interface LossPoint {
+  ratio?: number;
+  value?: number;
+  severity: Severity;
+  label: string;
+  gap_ms?: number;
+  gap_pct?: number;
+  sequence_correct?: boolean;
+  cosine_efficiency?: number;
+  arms_ke_ratio?: number;
+  side_bleed_pct?: number;
+}
+
+interface PelvisResult {
+  classification: PelvisClassification;
+  problem: string | null;
+  prescription: string[];
+  anchor: string | null;
+}
+
+interface ScoringOutput {
+  version: string;
+  scoring_method: ScoringMethod;
+
+  pre_processing: {
+    swing_duration_ms: number;
+    swing_category: 'COMPETITIVE' | 'WALKTHROUGH';
+    delivery_window_ms: number;
+    handedness_correction_applied: boolean;
+    flags: string[];
+  };
+
+  scores: {
+    ground_flow: ScoreComponent;
+    core_flow: ScoreComponent;
+    arm_flow: ScoreComponent;
+  };
+
+  pelvis_classification: PelvisResult;
+
+  loss_points: {
+    lp1_ground_to_pelvis: LossPoint;
+    lp2_transfer_ratio: LossPoint;
+    lp3_sequence_timing: LossPoint;
+    lp4_plane_misalignment: LossPoint;
+    lp5_arms_absorbing: LossPoint;
+    lp6_side_bleed: LossPoint;
+  };
+
+  tke_shape: TKEShape;
+  motor_profile: MotorProfile;
+
+  energy_ledger: {
+    pelvis_ke: number;
+    torso_ke: number;
+    arms_ke: number;
+    bat_ke: number;
+    total_ke: number;
+    lower_half_ke: number;
+    sequence_correct: boolean;
+    x_factor_degrees: number;
+    trunk_tilt_degrees: number;
+    pelvis_rot_at_fp_degrees: number;
+    transfer_ratio: number;
+    p_to_t_gap_ms: number;
+    arms_ke_ratio: number;
+    delivery_window_ms: number;
+  };
+
+  // Legacy 4B scores for backward compat with display components
+  legacy_4b?: {
+    body: number;
+    brain: number;
+    bat: number;
+    ball: number | null;
+    score_4bkrs: number;
+    rating: FourBRating;
+    color: string;
+  };
+
   scoring_timestamp: string;
 }
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // CONSTANTS
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
-const WEIGHTS = {
-  full:     { body: 0.45, brain: 0.15, bat: 0.25, ball: 0.15 },
-  training: { body: 0.55, brain: 0.15, bat: 0.30, ball: 0    },
+const DEAD_PELVIS_KE_THRESHOLD = 120; // Joules
+const EARLY_PELVIS_ROT_THRESHOLD = -10.0; // Degrees
+const SWING_DURATION_WALKTHROUGH_MS = 550;
+const X_FACTOR_NOISE_THRESHOLD = 60; // Degrees absolute
+
+const SCORE_COLORS = {
+  elite: '#4ecdc4',
+  working: '#ffa500',
+  priority: '#ff6b6b',
 } as const;
 
-const RATING_THRESHOLDS = { elite: 90, good: 80, working: 60 } as const;
-const RATING_COLORS = { elite: '#4ecdc4', good: '#4ecdc4', working: '#ffa500', priority: '#ff6b6b' } as const;
+const REQUIRED_ME_COLUMNS: (keyof MEData)[] = [
+  'LowerTorso_Kinetic_Energy',
+  'Torso_Angular_Momentum_Mag',
+  'LowerTorso_Angular_Momentum_Mag',
+  'LowerHalf_Angular_Momentum_Proj',
+  'Total_Angular_Momentum_Proj',
+  'Arms_Kinetic_Energy',
+  'Total_Kinetic_Energy',
+];
 
-const TRANSFER_RATIO_ELITE = { min: 1.5, max: 1.8 } as const;
-const TIMING_GAP_ELITE = { min: 14, max: 18 } as const;
-
-/** v_mph = ω_deg/s × OMEGA_TO_MPH
- *  FIX 1: (π/180) × 0.70m lever × 2.23694 mph/(m/s) = 0.02732 */
-const OMEGA_TO_MPH = (Math.PI / 180) * 0.70 * 2.23694; // 0.02732
-
-/** Moment of inertia for standard wood bat (32oz) about knob: 0.048 kg·m² */
-const I_BAT_KGM2 = 0.048;
-
-/** Cap bat omega at 2800 deg/s ≈ 76.5 mph (via OMEGA_TO_MPH direct, before chain multiplier) */
-const MAX_BAT_OMEGA_DEGS = 2800;
-
-/** Default body mass (kg) when ME masstotal not available */
-const DEFAULT_MASS_KG: Record<PlayerLevel, number> = {
-  youth: 45,
-  high_school: 75,
-  college: 85,
-  pro: 90,
-};
-
-/** Estimated pitch speed for Nathan collision model */
-const EST_PITCH_SPEED_MPH: Record<string, number> = {
-  youth: 50,
-  middle_school: 60,
-  high_school: 75,
-  college: 82,
-  pro: 90,
-};
-
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // HELPERS
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 function clamp(v: number, min = 0, max = 100): number {
   return Math.max(min, Math.min(max, v));
 }
+
+function getColor(score: number): string {
+  if (score >= 80) return SCORE_COLORS.elite;
+  if (score >= 60) return SCORE_COLORS.working;
+  return SCORE_COLORS.priority;
+}
+
+function getLabel(score: number): ScoreLabel {
+  if (score >= 90) return 'Elite';
+  if (score >= 80) return 'Good';
+  if (score >= 60) return 'Working';
+  return 'Priority';
+}
+
+function toRating(score: number): FourBRating {
+  if (score >= 90) return 'Elite';
+  if (score >= 80) return 'Good';
+  if (score >= 60) return 'Working';
+  return 'Priority';
+}
+
+/** Scale a raw metric to 0-100 score using three thresholds */
+function scaleToScore(
+  value: number,
+  thresholds: { elite: number; working: number; priority: number },
+  options?: { inverted?: boolean }
+): number {
+  const { elite, working, priority } = thresholds;
+  const inv = options?.inverted ?? false;
+
+  if (inv) {
+    // Lower value = higher score
+    if (value <= elite) return 95;
+    if (value <= working) return 60 + 35 * ((working - value) / (working - elite));
+    if (value <= priority) return 30 + 30 * ((priority - value) / (priority - working));
+    return 20;
+  } else {
+    // Higher value = higher score
+    if (value >= elite) return 95;
+    if (value >= working) return 60 + 35 * ((value - working) / (elite - working));
+    if (value >= priority) return 30 + 30 * ((value - priority) / (working - priority));
+    return 20;
+  }
+}
+
+function getPeak(series: number[]): number {
+  if (!series || series.length === 0) return 0;
+  return Math.max(...series);
+}
+
+function getPeakIndex(series: number[]): number {
+  if (!series || series.length === 0) return 0;
+  let maxIdx = 0;
+  for (let i = 1; i < series.length; i++) {
+    if (series[i] > series[maxIdx]) maxIdx = i;
+  }
+  return maxIdx;
+}
+
+function getValueAtIndex(series: number[], idx: number): number {
+  if (!series || idx < 0 || idx >= series.length) return 0;
+  return series[idx];
+}
+
+/** Get IK value at a specific event frame */
+function getIKValueAtEvent(ikSeries: number[], eventFrame: number): number {
+  if (!ikSeries || eventFrame < 0 || eventFrame >= ikSeries.length) return 0;
+  return ikSeries[eventFrame];
+}
+
+/** Find peaks in a series with minimum prominence */
+function findPeaks(series: number[], minProminence = 0.1): number[] {
+  if (!series || series.length < 3) return [];
+  const maxVal = getPeak(series);
+  if (maxVal === 0) return [];
+  const threshold = maxVal * minProminence;
+  const peaks: number[] = [];
+  for (let i = 1; i < series.length - 1; i++) {
+    if (series[i] > series[i - 1] && series[i] > series[i + 1] && series[i] > threshold) {
+      peaks.push(i);
+    }
+  }
+  return peaks;
+}
+
+/** Compute deceleration slope after peak (units per frame) */
+function computeDecelerationSlope(series: number[], peakIdx: number): number {
+  if (!series || peakIdx >= series.length - 2) return 0;
+  const windowEnd = Math.min(peakIdx + 5, series.length - 1);
+  const drop = series[peakIdx] - series[windowEnd];
+  const frames = windowEnd - peakIdx;
+  return frames > 0 ? drop / frames : 0;
+}
+
+/** Compute FWHM (full width at half maximum) of the peak */
+function computePeakWidth(series: number[], peakIdx: number): number {
+  if (!series || series.length === 0) return 0;
+  const halfMax = series[peakIdx] / 2;
+  let left = peakIdx;
+  let right = peakIdx;
+  while (left > 0 && series[left] > halfMax) left--;
+  while (right < series.length - 1 && series[right] > halfMax) right++;
+  return right - left;
+}
+
+/** Simple second derivative approximation */
+function computeSecondDerivative(series: number[]): number[] {
+  if (!series || series.length < 3) return [];
+  const result: number[] = [0];
+  for (let i = 1; i < series.length - 1; i++) {
+    result.push(series[i + 1] - 2 * series[i] + series[i - 1]);
+  }
+  result.push(0);
+  return result;
+}
+
+// ===========================================================================
+// PRE-PROCESSING PIPELINE
+// ===========================================================================
+
+interface PreProcessed {
+  swing_duration_ms: number;
+  swing_category: 'COMPETITIVE' | 'WALKTHROUGH';
+  delivery_window_ms: number;
+  handedness_correction_applied: boolean;
+  flags: string[];
+  contact_frame: number;
+  foot_plant_frame: number;
+}
+
+function preProcess(
+  meData: MEData,
+  ikData: IKData | undefined,
+  metadata: PlayerMetadata,
+  timing?: V2Input['timing']
+): PreProcessed {
+  const flags: string[] = [];
+  let handednessCorrected = false;
+
+  // Swing duration filter
+  let swingDurationMs = 0;
+  if (timing?.swing_start_ms != null && timing?.contact_time_ms != null) {
+    swingDurationMs = timing.contact_time_ms - timing.swing_start_ms;
+  } else if (meData.norm_time && meData.norm_time.length > 0) {
+    // Approximate from normalized time range (0=FP, 100=contact)
+    swingDurationMs = 400; // reasonable default
+  }
+
+  const swingCategory = swingDurationMs > SWING_DURATION_WALKTHROUGH_MS ? 'WALKTHROUGH' : 'COMPETITIVE';
+  if (swingCategory === 'WALKTHROUGH') {
+    flags.push('WALKTHROUGH_SWING');
+  }
+
+  // Delivery window (contact - foot plant)
+  let deliveryWindowMs = 200; // fallback
+  if (timing?.foot_plant_time_ms != null && timing?.contact_time_ms != null) {
+    const dw = timing.contact_time_ms - timing.foot_plant_time_ms;
+    if (dw > 0) deliveryWindowMs = dw;
+  }
+
+  // Determine contact and foot plant frames
+  let contactFrame = meData.LowerTorso_Kinetic_Energy.length - 1;
+  let footPlantFrame = 0;
+  if (meData.norm_time) {
+    for (let i = 0; i < meData.norm_time.length; i++) {
+      if (meData.norm_time[i] >= 0 && footPlantFrame === 0) footPlantFrame = i;
+      if (meData.norm_time[i] >= 100) { contactFrame = i; break; }
+    }
+  }
+  if (ikData?.contact_frame != null) contactFrame = ikData.contact_frame;
+  if (ikData?.max_stride_frame != null) footPlantFrame = ikData.max_stride_frame;
+
+  // Handedness correction on IK data
+  if (ikData && metadata.handedness === 'left') {
+    handednessCorrected = true;
+    ikData.pelvis_rot = ikData.pelvis_rot.map(v => -(v - Math.PI));
+    if (ikData.pelvis_side) {
+      ikData.pelvis_side = ikData.pelvis_side.map(v => -v);
+    }
+    ikData.torso_rot = ikData.torso_rot.map(v => -v);
+  }
+
+  // X-Factor validation
+  if (ikData) {
+    const xFactorDeg = getPeak(ikData.torso_rot.map(v => Math.abs(v * (180 / Math.PI))));
+    if (xFactorDeg > X_FACTOR_NOISE_THRESHOLD) {
+      flags.push('X_FACTOR_NOISE');
+    }
+  }
+
+  // ME file column validation
+  for (const col of REQUIRED_ME_COLUMNS) {
+    if (!meData[col] || (meData[col] as number[]).length === 0) {
+      flags.push(`MISSING_ME_COLUMN_${col}`);
+    }
+  }
+
+  return {
+    swing_duration_ms: swingDurationMs,
+    swing_category: swingCategory,
+    delivery_window_ms: deliveryWindowMs,
+    handedness_correction_applied: handednessCorrected,
+    flags,
+    contact_frame: contactFrame,
+    foot_plant_frame: footPlantFrame,
+  };
+}
+
+// ===========================================================================
+// PELVIS CLASSIFICATION
+// ===========================================================================
+
+function classifyPelvis(
+  meData: MEData,
+  ikData: IKData | undefined,
+  preProc: PreProcessed
+): PelvisResult {
+  const pelvisKE = getPeak(meData.LowerTorso_Kinetic_Energy);
+
+  // Sequence check from momentum peaks
+  const pelvisPeakTime = getPeakIndex(meData.LowerHalf_Angular_Momentum_Proj);
+  const torsoProjSeries = meData.Torso_Angular_Momentum_Proj ?? meData.Torso_Angular_Momentum_Mag;
+  const torsoPeakTime = getPeakIndex(torsoProjSeries);
+  const isSequenceInverted = torsoPeakTime < pelvisPeakTime;
+
+  // Pelvis rotation at foot plant from IK
+  let pelvisRotAtFP = -20; // default healthy
+  if (ikData && preProc.foot_plant_frame >= 0) {
+    pelvisRotAtFP = getIKValueAtEvent(ikData.pelvis_rot, preProc.foot_plant_frame) * (180 / Math.PI);
+  }
+
+  // Classification tree
+  if (pelvisKE < DEAD_PELVIS_KE_THRESHOLD) {
+    return {
+      classification: 'DEAD_PELVIS',
+      problem: 'Insufficient force production — pelvis is a nearly empty fuel tank',
+      prescription: [
+        'Ground force drills (Pull Out of Ground band drill)',
+        'Posterior chain loading',
+        'Synapse pelvis-first assisted rotation',
+      ],
+      anchor: `Vazquez (~100J pelvis KE). Current: ${Math.round(pelvisKE)}J`,
+    };
+  }
+
+  if (isSequenceInverted) {
+    return {
+      classification: 'LATE_PELVIS',
+      problem: 'Force produced but timing is wrong — torso fires before pelvis delivers',
+      prescription: [
+        'Constraint drills forcing pelvis to fire first',
+        'Synapse posterior chain eccentric load',
+        'Single-leg drill (produces 86ms P→T gap vs 51ms regular)',
+      ],
+      anchor: `Huff Session 7 (pelvis velocity present, torso leads). Current pelvis KE: ${Math.round(pelvisKE)}J`,
+    };
+  }
+
+  if (pelvisRotAtFP > EARLY_PELVIS_ROT_THRESHOLD) {
+    return {
+      classification: 'EARLY_PELVIS',
+      problem: `Rotation budget spent before foot plant — pelvis already open at ${pelvisRotAtFP.toFixed(1)}° (ideal: -10° to -30°)`,
+      prescription: [
+        'Balance disc work (foot-ground stability before pelvis can fire)',
+        'Synapse hip lock under eccentric load',
+        "Welch's Pelvis Inward Turn cue",
+        "Bosch's SAVAGE chaos drills",
+      ],
+      anchor: `Wilson (+7.3° at FP, 868°/s velocity — high but spent)`,
+    };
+  }
+
+  return {
+    classification: 'HEALTHY_PELVIS',
+    problem: null,
+    prescription: [],
+    anchor: null,
+  };
+}
+
+// ===========================================================================
+// TKE SHAPE CLASSIFICATION
+// ===========================================================================
+
+function classifyTKEShape(tke_series: number[]): TKEShape {
+  if (!tke_series || tke_series.length < 5) return 'UNKNOWN';
+
+  const peaks = findPeaks(tke_series, 0.3);
+  if (peaks.length === 0) return 'UNKNOWN';
+
+  if (peaks.length >= 2) return 'DOUBLE_BUMP';
+
+  // Single peak — check width
+  const peakWidth = computePeakWidth(tke_series, peaks[0]);
+  const totalLength = tke_series.length;
+  const widthRatio = peakWidth / totalLength;
+
+  if (widthRatio < 0.35) return 'SHARP_SPIKE';
+  return 'PLATEAU';
+}
+
+// ===========================================================================
+// MOTOR PROFILE DETECTION
+// ===========================================================================
+
+function detectMotorProfile(
+  meData: MEData,
+  ikData: IKData | undefined,
+  ptGapPct: number,
+  transferRatio: number,
+  preProc: PreProcessed
+): MotorProfile {
+  const tkeShape = classifyTKEShape(meData.LowerTorso_Kinetic_Energy);
+
+  // Spinner: compact rotation, tight gap
+  if (ptGapPct >= 5 && ptGapPct <= 10 && transferRatio >= 1.3 && transferRatio <= 1.5) {
+    return 'SPINNER';
+  }
+
+  // Whipper variants (wide gap + high transfer)
+  if (ptGapPct >= 15 && ptGapPct <= 22 && transferRatio >= 1.6 && transferRatio <= 1.9) {
+    if (ikData && tkeShape === 'SHARP_SPIKE') {
+      return distinguishWhipperType(ikData, preProc);
+    }
+    return 'AMBIGUOUS_WHIPPER';
+  }
+
+  // Slingshotter: moderate gap, moderate transfer
+  if (ptGapPct >= 12 && ptGapPct <= 16 && transferRatio >= 1.4 && transferRatio <= 1.6) {
+    return 'SLINGSHOTTER';
+  }
+
+  // Titan: very high transfer
+  if (transferRatio > 1.8) {
+    return 'TITAN';
+  }
+
+  return 'UNKNOWN';
+}
+
+function distinguishWhipperType(ikData: IKData, preProc: PreProcessed): MotorProfile {
+  // Trunk tilt: get peak in FP-to-contact window
+  const fpFrame = preProc.foot_plant_frame;
+  const contactFrame = preProc.contact_frame;
+
+  let trunkTiltDeg = 0;
+  if (ikData.torso_side) {
+    const window = ikData.torso_side.slice(fpFrame, contactFrame + 1);
+    trunkTiltDeg = getPeak(window.map(v => Math.abs(v * (180 / Math.PI))));
+  }
+
+  // X-Factor
+  const xFactorDeg = getPeak(
+    ikData.torso_rot.slice(fpFrame, contactFrame + 1).map(v => Math.abs(v * (180 / Math.PI)))
+  );
+
+  if (trunkTiltDeg > 35 && xFactorDeg < 25) return 'TILT_WHIPPER';
+  if (trunkTiltDeg < 30 && xFactorDeg > 30) return 'LOAD_WHIPPER';
+  return 'AMBIGUOUS_WHIPPER';
+}
+
+// ===========================================================================
+// THREE-SCORE SYSTEM
+// ===========================================================================
+
+function calculateGroundFlow(meData: MEData, preProc: PreProcessed): ScoreComponent {
+  // Component 1: Lower Half Momentum Contribution
+  const lhPeakIdx = getPeakIndex(meData.LowerHalf_Angular_Momentum_Proj);
+  const lhMomentumPeak = getPeak(meData.LowerHalf_Angular_Momentum_Proj);
+  const totalMomentumAtLHPeak = getValueAtIndex(meData.Total_Angular_Momentum_Proj, lhPeakIdx);
+  const momentumRatio = totalMomentumAtLHPeak > 0 ? lhMomentumPeak / totalMomentumAtLHPeak : 0;
+  const momentumScore = scaleToScore(momentumRatio, { elite: 0.65, working: 0.45, priority: 0.30 });
+
+  // Component 2: Pelvis KE (raw fuel)
+  const pelvisKE = getPeak(meData.LowerTorso_Kinetic_Energy);
+  const pelvisKEScore = scaleToScore(pelvisKE, { elite: 200, working: 120, priority: 80 });
+
+  // Component 3: COG Vertical Control
+  let cogScore = 70; // default
+  if (meData.Center_of_Mass_Y && meData.Center_of_Mass_Y.length > 3) {
+    const d2 = computeSecondDerivative(meData.Center_of_Mass_Y);
+    const maxAccel = getPeak(d2.map(Math.abs));
+    // Pattern-based: low acceleration = controlled load = good
+    cogScore = scaleToScore(maxAccel, { elite: 0.001, working: 0.005, priority: 0.01 }, { inverted: true });
+  }
+
+  // Component 4: Side-to-Side Bleed (penalty)
+  let bleedPenalty = 85; // default: no bleed data = assume ok
+  if (meData._side_max_percent && meData._side_min_percent) {
+    const sideBleed = Math.max(
+      getPeak(meData._side_max_percent.map(Math.abs)),
+      getPeak(meData._side_min_percent.map(Math.abs))
+    );
+    bleedPenalty = scaleToScore(sideBleed, { elite: 5, working: 15, priority: 25 }, { inverted: true });
+  }
+
+  const score = Math.round(clamp(
+    momentumScore * 0.30 +
+    pelvisKEScore * 0.35 +
+    cogScore * 0.20 +
+    bleedPenalty * 0.15
+  ));
+
+  return {
+    score,
+    color: getColor(score),
+    label: getLabel(score),
+    components: {
+      momentum_ratio: Math.round(momentumRatio * 100) / 100,
+      pelvis_ke_joules: Math.round(pelvisKE),
+      cog_score: Math.round(cogScore),
+      side_bleed_score: Math.round(bleedPenalty),
+    },
+  };
+}
+
+function calculateCoreFlow(
+  meData: MEData,
+  preProc: PreProcessed
+): ScoreComponent & { transfer_ratio: number; pt_gap_ms: number; pt_gap_pct: number; decel_slope: number } {
+  // Component 1: Transfer Ratio
+  const torsoMomentumPeak = getPeak(meData.Torso_Angular_Momentum_Mag);
+  const pelvisMomentumPeak = getPeak(meData.LowerTorso_Angular_Momentum_Mag);
+  const transferRatio = pelvisMomentumPeak > 0 ? torsoMomentumPeak / pelvisMomentumPeak : 0;
+
+  // CRITICAL: Do NOT apply Math.abs(). Torso-led = score zero.
+  let transferScore: number;
+  if (transferRatio >= 1.5 && transferRatio <= 1.8) {
+    transferScore = 95;
+  } else if (transferRatio > 1.8) {
+    transferScore = Math.max(50, 95 - (transferRatio - 1.8) * 50); // Runaway penalty
+  } else if (transferRatio >= 1.0) {
+    transferScore = scaleToScore(transferRatio, { elite: 1.5, working: 1.2, priority: 1.0 });
+  } else {
+    transferScore = 15; // Broken handoff
+  }
+
+  // Component 2: Pelvis Deceleration Slope
+  const pelvisMomSeries = meData.LowerTorso_Angular_Momentum_Mag;
+  const pelvisPeakIdx = getPeakIndex(pelvisMomSeries);
+  const decelSlope = computeDecelerationSlope(pelvisMomSeries, pelvisPeakIdx);
+  const decelScore = scaleToScore(Math.abs(decelSlope), { elite: 500, working: 300, priority: 150 });
+
+  // Component 3: P→T Gap Timing
+  const pelvisPeakFrame = getPeakIndex(meData.LowerHalf_Angular_Momentum_Proj);
+  const torsoProjSeries = meData.Torso_Angular_Momentum_Proj ?? meData.Torso_Angular_Momentum_Mag;
+  const torsoPeakFrame = getPeakIndex(torsoProjSeries);
+
+  // Convert frames to ms if time data available, otherwise use frame difference
+  let ptGapMs = (torsoPeakFrame - pelvisPeakFrame); // frame difference
+  if (meData.time && meData.time.length > Math.max(pelvisPeakFrame, torsoPeakFrame)) {
+    ptGapMs = (meData.time[torsoPeakFrame] - meData.time[pelvisPeakFrame]) * 1000;
+  }
+  const ptGapPct = preProc.delivery_window_ms > 0
+    ? (ptGapMs / preProc.delivery_window_ms) * 100
+    : 0;
+
+  let gapScore: number;
+  if (ptGapPct >= 14 && ptGapPct <= 18) {
+    gapScore = 95;
+  } else if (ptGapPct > 0) {
+    gapScore = scaleToScore(ptGapPct, { elite: 16, working: 10, priority: 5 });
+  } else {
+    gapScore = 10; // Inverted sequence
+  }
+
+  // Component 4: Rotational Plane Alignment
+  let alignmentScore = 70; // default
+  if (meData.LowerTorso_vert_ang && meData.Torso_vert_ang) {
+    const pelvisPlane = getValueAtIndex(meData.LowerTorso_vert_ang, pelvisPeakIdx);
+    const torsoPlane = getValueAtIndex(meData.Torso_vert_ang, getPeakIndex(meData.Torso_Angular_Momentum_Mag));
+    const planeAngleDiff = Math.abs(pelvisPlane - torsoPlane);
+    const cosineEff = Math.cos(planeAngleDiff * Math.PI / 180);
+    alignmentScore = scaleToScore(cosineEff, { elite: 0.95, working: 0.85, priority: 0.70 });
+  }
+
+  const score = Math.round(clamp(
+    transferScore * 0.35 +
+    decelScore * 0.25 +
+    gapScore * 0.25 +
+    alignmentScore * 0.15
+  ));
+
+  return {
+    score,
+    color: getColor(score),
+    label: getLabel(score),
+    components: {
+      transfer_ratio: Math.round(transferRatio * 100) / 100,
+      decel_slope: Math.round(decelSlope),
+      pt_gap_ms: Math.round(ptGapMs * 10) / 10,
+      pt_gap_pct: Math.round(ptGapPct * 10) / 10,
+      plane_alignment: Math.round(alignmentScore),
+    },
+    transfer_ratio: transferRatio,
+    pt_gap_ms: ptGapMs,
+    pt_gap_pct: ptGapPct,
+    decel_slope: decelSlope,
+  };
+}
+
+function calculateArmFlow(
+  meData: MEData,
+  preProc: PreProcessed
+): ScoreComponent & { arms_ke_ratio: number } {
+  // Component 1: Arms KE Ratio (lower is better)
+  const armsKEPeak = getPeak(meData.Arms_Kinetic_Energy);
+  const totalKEPeak = getPeak(meData.Total_Kinetic_Energy);
+  const armsKERatio = totalKEPeak > 0 ? armsKEPeak / totalKEPeak : 0;
+  const armsRatioScore = scaleToScore(armsKERatio, { elite: 0.15, working: 0.30, priority: 0.45 }, { inverted: true });
+
+  // Component 2: Delivery Window Quality
+  const dw = preProc.delivery_window_ms;
+  let windowScore: number;
+  if (dw >= 140 && dw <= 220) windowScore = 90;
+  else if (dw >= 120 && dw <= 250) windowScore = 70;
+  else windowScore = 45;
+
+  // Component 3: Bat KE Peak Timing
+  let batTimingScore = 65; // default
+  if (meData.Bat_Kinetic_Energy && meData.Bat_Kinetic_Energy.length > 0) {
+    const batKEPeakIdx = getPeakIndex(meData.Bat_Kinetic_Energy);
+    const contactIdx = preProc.contact_frame;
+    const frameOffset = Math.abs(batKEPeakIdx - contactIdx);
+    batTimingScore = scaleToScore(frameOffset, { elite: 1, working: 3, priority: 6 }, { inverted: true });
+  }
+
+  const score = Math.round(clamp(
+    armsRatioScore * 0.45 +
+    windowScore * 0.25 +
+    batTimingScore * 0.30
+  ));
+
+  return {
+    score,
+    color: getColor(score),
+    label: getLabel(score),
+    components: {
+      arms_ke_ratio: Math.round(armsKERatio * 100) / 100,
+      delivery_window_ms: Math.round(dw),
+      bat_timing_score: Math.round(batTimingScore),
+    },
+    arms_ke_ratio: armsKERatio,
+  };
+}
+
+// ===========================================================================
+// SIX LOSS POINTS (COACH-FACING)
+// ===========================================================================
+
+function computeLossPoints(
+  meData: MEData,
+  coreFlow: ReturnType<typeof calculateCoreFlow>,
+  armFlow: ReturnType<typeof calculateArmFlow>,
+  preProc: PreProcessed
+) {
+  // LP1: Ground to Pelvis
+  const lhPeakIdx = getPeakIndex(meData.LowerHalf_Angular_Momentum_Proj);
+  const lhPeak = getPeak(meData.LowerHalf_Angular_Momentum_Proj);
+  const totalAtLH = getValueAtIndex(meData.Total_Angular_Momentum_Proj, lhPeakIdx);
+  const lp1Ratio = totalAtLH > 0 ? lhPeak / totalAtLH : 0;
+  const lp1Severity: Severity = lp1Ratio > 0.65 ? 'LOW' : lp1Ratio > 0.45 ? 'MEDIUM' : 'HIGH';
+
+  // LP2: Transfer Ratio
+  const tr = coreFlow.transfer_ratio;
+  const lp2Severity: Severity = (tr >= 1.5 && tr <= 1.8) ? 'LOW' : tr >= 1.0 ? 'MEDIUM' : 'HIGH';
+
+  // LP3: Sequence Timing
+  const ptGapMs = coreFlow.pt_gap_ms;
+  const ptGapPct = coreFlow.pt_gap_pct;
+  const seqCorrect = ptGapMs > 0;
+  const lp3Severity: Severity = (ptGapPct >= 14 && ptGapPct <= 18 && seqCorrect) ? 'LOW' :
+    (seqCorrect && ptGapPct > 0) ? 'MEDIUM' : 'HIGH';
+
+  // LP4: Plane Misalignment
+  let cosineEff = 1.0;
+  if (meData.LowerTorso_vert_ang && meData.Torso_vert_ang) {
+    const pelvisPlane = getValueAtIndex(meData.LowerTorso_vert_ang, getPeakIndex(meData.LowerTorso_Angular_Momentum_Mag));
+    const torsoPlane = getValueAtIndex(meData.Torso_vert_ang, getPeakIndex(meData.Torso_Angular_Momentum_Mag));
+    cosineEff = Math.cos(Math.abs(pelvisPlane - torsoPlane) * Math.PI / 180);
+  }
+  const lp4Severity: Severity = cosineEff > 0.95 ? 'LOW' : cosineEff > 0.85 ? 'MEDIUM' : 'HIGH';
+
+  // LP5: Arms Absorbing
+  const armsRatio = armFlow.arms_ke_ratio;
+  const lp5Severity: Severity = armsRatio < 0.20 ? 'LOW' : armsRatio < 0.35 ? 'MEDIUM' : 'HIGH';
+
+  // LP6: Side-to-Side Bleed
+  let totalSideBleed = 0;
+  if (meData._side_max_percent && meData._side_min_percent) {
+    totalSideBleed = getPeak(meData._side_max_percent.map(Math.abs)) +
+      getPeak(meData._side_min_percent.map(Math.abs));
+  }
+  const lp6Severity: Severity = totalSideBleed < 10 ? 'LOW' : totalSideBleed < 20 ? 'MEDIUM' : 'HIGH';
+
+  return {
+    lp1_ground_to_pelvis: {
+      ratio: Math.round(lp1Ratio * 100) / 100,
+      severity: lp1Severity,
+      label: lp1Severity === 'LOW' ? 'Healthy ground connection' :
+        lp1Severity === 'MEDIUM' ? 'Reduced ground force' : 'Dead pelvis — energy never entered the system',
+    },
+    lp2_transfer_ratio: {
+      ratio: Math.round(tr * 100) / 100,
+      severity: lp2Severity,
+      label: tr > 1.8 ? 'Runaway torso' : tr >= 1.5 ? 'Elite transfer' :
+        tr >= 1.0 ? 'Underperforming handoff' : 'Broken handoff — torso losing energy',
+    },
+    lp3_sequence_timing: {
+      gap_ms: Math.round(ptGapMs * 10) / 10,
+      gap_pct: Math.round(ptGapPct * 10) / 10,
+      sequence_correct: seqCorrect,
+      severity: lp3Severity,
+      label: !seqCorrect ? 'Inverted sequence — torso fires before pelvis' :
+        lp3Severity === 'LOW' ? 'Elite timing window' : 'Timing gap outside optimal range',
+    },
+    lp4_plane_misalignment: {
+      cosine_efficiency: Math.round(cosineEff * 1000) / 1000,
+      severity: lp4Severity,
+      label: lp4Severity === 'LOW' ? 'Planes aligned' :
+        lp4Severity === 'MEDIUM' ? 'Some plane misalignment' : 'Significant plane divergence',
+    },
+    lp5_arms_absorbing: {
+      arms_ke_ratio: Math.round(armsRatio * 100) / 100,
+      severity: lp5Severity,
+      label: lp5Severity === 'LOW' ? 'Arms receiving efficiently' :
+        lp5Severity === 'MEDIUM' ? 'Arms partially compensating' : 'Arms dominant — chain failed to deliver',
+    },
+    lp6_side_bleed: {
+      side_bleed_pct: Math.round(totalSideBleed * 10) / 10,
+      severity: lp6Severity,
+      label: lp6Severity === 'LOW' ? 'Energy on pitch plane' :
+        lp6Severity === 'MEDIUM' ? 'Some lateral energy loss' : 'High sideways bleed — energy leaking off plane',
+    },
+  };
+}
+
+// ===========================================================================
+// ENERGY LEDGER
+// ===========================================================================
+
+function buildEnergyLedger(
+  meData: MEData,
+  ikData: IKData | undefined,
+  coreFlow: ReturnType<typeof calculateCoreFlow>,
+  armFlow: ReturnType<typeof calculateArmFlow>,
+  preProc: PreProcessed
+) {
+  const pelvisKE = getPeak(meData.LowerTorso_Kinetic_Energy);
+  const torsoKE = meData.Torso_Kinetic_Energy ? getPeak(meData.Torso_Kinetic_Energy) : 0;
+  const armsKE = getPeak(meData.Arms_Kinetic_Energy);
+  const totalKE = getPeak(meData.Total_Kinetic_Energy);
+  const batKE = meData.Bat_Kinetic_Energy ? getPeak(meData.Bat_Kinetic_Energy) : 0;
+  const lowerHalfKE = pelvisKE; // LowerTorso is pelvis segment
+
+  // IK angles
+  let xFactorDeg = 0;
+  let trunkTiltDeg = 0;
+  let pelvisRotAtFPDeg = 0;
+
+  if (ikData) {
+    const fpFrame = preProc.foot_plant_frame;
+    const contactFrame = preProc.contact_frame;
+
+    // X-Factor: peak torso_rot between FP and contact
+    const xFactorWindow = ikData.torso_rot.slice(fpFrame, contactFrame + 1);
+    xFactorDeg = getPeak(xFactorWindow.map(v => Math.abs(v * (180 / Math.PI))));
+
+    // Trunk tilt at contact
+    if (ikData.torso_side && contactFrame < ikData.torso_side.length) {
+      trunkTiltDeg = ikData.torso_side[contactFrame] * (180 / Math.PI);
+    }
+
+    // Pelvis rotation at FP
+    if (fpFrame < ikData.pelvis_rot.length) {
+      pelvisRotAtFPDeg = ikData.pelvis_rot[fpFrame] * (180 / Math.PI);
+    }
+  }
+
+  const seqCorrect = coreFlow.pt_gap_ms > 0;
+
+  return {
+    pelvis_ke: Math.round(pelvisKE * 10) / 10,
+    torso_ke: Math.round(torsoKE * 10) / 10,
+    arms_ke: Math.round(armsKE * 10) / 10,
+    bat_ke: Math.round(batKE * 10) / 10,
+    total_ke: Math.round(totalKE * 10) / 10,
+    lower_half_ke: Math.round(lowerHalfKE * 10) / 10,
+    sequence_correct: seqCorrect,
+    x_factor_degrees: Math.round(xFactorDeg * 10) / 10,
+    trunk_tilt_degrees: Math.round(trunkTiltDeg * 10) / 10,
+    pelvis_rot_at_fp_degrees: Math.round(pelvisRotAtFPDeg * 10) / 10,
+    transfer_ratio: Math.round(coreFlow.transfer_ratio * 100) / 100,
+    p_to_t_gap_ms: Math.round(coreFlow.pt_gap_ms * 10) / 10,
+    arms_ke_ratio: Math.round(armFlow.arms_ke_ratio * 100) / 100,
+    delivery_window_ms: Math.round(preProc.delivery_window_ms),
+  };
+}
+
+// ===========================================================================
+// LEGACY 4B MAPPING (for backward compat with UI)
+// ===========================================================================
+
+function mapToLegacy4B(
+  groundFlow: ScoreComponent,
+  coreFlow: ScoreComponent,
+  armFlow: ScoreComponent
+): ScoringOutput['legacy_4b'] {
+  // Map Ground → Body, Core → Brain, Arm → Bat
+  const body = groundFlow.score;
+  const brain = coreFlow.score;
+  const bat = armFlow.score;
+  const ball = null; // Not available without ball data
+
+  const composite = Math.round(body * 0.40 + brain * 0.30 + bat * 0.30);
+  const rating = toRating(composite);
+  const color = getColor(composite);
+
+  return { body, brain, bat, ball, score_4bkrs: composite, rating, color };
+}
+
+// ===========================================================================
+// MAIN V2 SCORING PIPELINE
+// ===========================================================================
+
+function computeV2Scores(input: V2Input): ScoringOutput {
+  const { me_data, ik_data, player_metadata, timing } = input;
+
+  // Step 1: Pre-processing
+  const preProc = preProcess(me_data, ik_data, player_metadata, timing);
+
+  // Step 2: Pelvis Classification
+  const pelvisResult = classifyPelvis(me_data, ik_data, preProc);
+
+  // Step 3: Three-Score Calculation
+  const groundFlow = calculateGroundFlow(me_data, preProc);
+  const coreFlow = calculateCoreFlow(me_data, preProc);
+  const armFlow = calculateArmFlow(me_data, preProc);
+
+  // Step 4: TKE Shape
+  const tkeShape = classifyTKEShape(me_data.LowerTorso_Kinetic_Energy);
+
+  // Step 5: Motor Profile
+  const motorProfile = detectMotorProfile(
+    me_data, ik_data, coreFlow.pt_gap_pct, coreFlow.transfer_ratio, preProc
+  );
+
+  // Step 6: Loss Points
+  const lossPoints = computeLossPoints(me_data, coreFlow, armFlow, preProc);
+
+  // Step 7: Energy Ledger
+  const energyLedger = buildEnergyLedger(me_data, ik_data, coreFlow, armFlow, preProc);
+
+  // Step 8: Legacy mapping
+  const legacy4B = mapToLegacy4B(groundFlow, coreFlow, armFlow);
+
+  console.log(`[4B-v2] Ground=${groundFlow.score} Core=${coreFlow.score} Arm=${armFlow.score} ` +
+    `Pelvis=${pelvisResult.classification} TKE=${tkeShape} Motor=${motorProfile} ` +
+    `TR=${coreFlow.transfer_ratio.toFixed(2)} P→T=${coreFlow.pt_gap_ms.toFixed(1)}ms`);
+
+  return {
+    version: '2.0',
+    scoring_method: 'me_primary',
+    pre_processing: {
+      swing_duration_ms: preProc.swing_duration_ms,
+      swing_category: preProc.swing_category,
+      delivery_window_ms: preProc.delivery_window_ms,
+      handedness_correction_applied: preProc.handedness_correction_applied,
+      flags: preProc.flags,
+    },
+    scores: {
+      ground_flow: groundFlow,
+      core_flow: { score: coreFlow.score, color: coreFlow.color, label: coreFlow.label, components: coreFlow.components },
+      arm_flow: { score: armFlow.score, color: armFlow.color, label: armFlow.label, components: armFlow.components },
+    },
+    pelvis_classification: pelvisResult,
+    loss_points: lossPoints,
+    tke_shape: tkeShape,
+    motor_profile: motorProfile,
+    energy_ledger: energyLedger,
+    legacy_4b: legacy4B,
+    scoring_timestamp: new Date().toISOString(),
+  };
+}
+
+// ===========================================================================
+// LEGACY V1 SCORING (IK FALLBACK) — preserved from previous implementation
+// ===========================================================================
+
+const LEGACY_WEIGHTS = {
+  full:     { body: 0.45, brain: 0.15, bat: 0.25, ball: 0.15 },
+  training: { body: 0.55, brain: 0.15, bat: 0.30, ball: 0    },
+} as const;
+
+const OMEGA_TO_MPH = (Math.PI / 180) * 0.70 * 2.23694;
+const I_BAT_KGM2 = 0.048;
+const MAX_BAT_OMEGA_DEGS = 2800;
+const DEFAULT_MASS_KG: Record<PlayerLevel, number> = { youth: 45, high_school: 75, college: 85, pro: 90 };
+const EST_PITCH_SPEED_MPH: Record<string, number> = { youth: 50, middle_school: 60, high_school: 75, college: 82, pro: 90 };
 
 function lerp(value: number, inMin: number, inMax: number, outMin: number, outMax: number): number {
   if (inMax === inMin) return outMin;
   return clamp(outMin + ((value - inMin) / (inMax - inMin)) * (outMax - outMin));
 }
 
-function toRating(score: number): FourBRating {
-  if (score >= RATING_THRESHOLDS.elite)   return 'Elite';
-  if (score >= RATING_THRESHOLDS.good)    return 'Good';
-  if (score >= RATING_THRESHOLDS.working) return 'Working';
-  return 'Priority';
-}
-
-function toColor(rating: FourBRating): string {
-  if (rating === 'Elite' || rating === 'Good') return RATING_COLORS.elite;
-  if (rating === 'Working') return RATING_COLORS.working;
-  return RATING_COLORS.priority;
-}
-
-// ---------------------------------------------------------------------------
-// STEP 1: TRANSFER EFFICIENCY (0–1)
-// ---------------------------------------------------------------------------
-
-function computeTransferEfficiency(input: ScoreCalculationInput): number {
-  // ── Sequence score: did pelvis peak BEFORE trunk? ──────────────────────
+function computeLegacyScores(input: LegacyInput): ScoringOutput {
+  // Transfer efficiency
   const sequenceScore = input.pelvis_omega_time < input.trunk_omega_time ? 1.0 : 0.0;
-
-  // ── Timing score: signed gap (trunk − pelvis). Negative = torso-led = 0 reward ──
   const timingGapMs = input.trunk_omega_time - input.pelvis_omega_time;
+  let deliveryMs = 200;
+  if (input.foot_plant_time_ms != null && input.contact_time_ms != null) {
+    const d = input.contact_time_ms - input.foot_plant_time_ms;
+    if (d > 0) deliveryMs = d;
+  }
 
   let timingScore: number;
   if (timingGapMs <= 0) {
-    // Torso-led swing — no timing credit
     timingScore = 0;
   } else {
-    const deliveryDurationMs = getDeliveryDurationMs(input);
-    const timingGapPct = (timingGapMs / deliveryDurationMs) * 100;
-    timingScore = Math.max(0, 1 - timingGapPct / 50);
+    const gapPct = (timingGapMs / deliveryMs) * 100;
+    timingScore = Math.max(0, 1 - gapPct / 50);
   }
-
-  console.log(
-    `[4B-Score] transferEff DEBUG: { pelvis_omega_time_ms: ${input.pelvis_omega_time.toFixed(1)}, ` +
-    `trunk_omega_time_ms: ${input.trunk_omega_time.toFixed(1)}, timingGapMs: ${timingGapMs.toFixed(1)} }`
-  );
-  console.log(
-    `[4B-Score] transferEfficiency=${(0.5 * sequenceScore + 0.5 * timingScore).toFixed(3)} ` +
-    `(sequenceScore=${sequenceScore}, timingScore=${timingScore.toFixed(3)})`
-  );
-
   const transferEfficiency = 0.5 * sequenceScore + 0.5 * timingScore;
-  return Math.max(0, Math.min(1, transferEfficiency));
-}
 
-// ---------------------------------------------------------------------------
-// STEP 2: BAT SPEED PREDICTION — THREE-TIER PATH
-// ---------------------------------------------------------------------------
-
-interface BatSpeedResult {
-  bat_speed_mph: number;
-  path: 'measured' | 'ke_direct' | 'estimation';
-  confidence: 'high' | 'medium' | 'low';
-  mass_mod: number;
-  warning?: string;
-}
-
-/** Sanity check: does the predicted mph fall in plausible range for player level? */
-function batSpeedSane(mph: number, playerLevel: string): boolean {
-  const ranges: Record<string, [number, number]> = {
-    youth:        [25, 55],
-    high_school:  [40, 75],
-    college:      [50, 82],
-    pro:          [40, 90],
-  };
-  const [lo, hi] = ranges[playerLevel] ?? ranges.pro;
-  return mph >= lo && mph <= hi;
-}
-
-function predictBatSpeed(
-  input: ScoreCalculationInput,
-  transferEfficiency: number
-): BatSpeedResult {
-  const massKg = input.mass_total_kg ?? DEFAULT_MASS_KG[input.player_level] ?? 80;
-
-  // ── TIER 1: MEASURED (Hawk-Eye or DK sensor) ───────────────────────────
-  const measuredBs = input.measured_bat_speed_mph;
-  if (measuredBs != null && measuredBs > 0) {
-    const massMod = 0.95 + 0.05 * Math.min(1.2, Math.sqrt(massKg / 80));
-    return {
-      bat_speed_mph: Math.round(measuredBs * massMod * 10) / 10,
-      path: 'measured',
-      confidence: 'high',
-      mass_mod: Math.round(massMod * 1000) / 1000,
-    };
-  }
-
-  // ── TIER 2: KE DIRECT (bat_rot_energy → omega via I_BAT) ──────────────
-  const batOmegaKE = input.bat_omega_from_ke ?? input.bat_omega_peak;
-  if (batOmegaKE != null && batOmegaKE > 100) {
-    const cappedOmega = Math.min(batOmegaKE, MAX_BAT_OMEGA_DEGS);
-    const mph = cappedOmega * OMEGA_TO_MPH;
-
-    if (batSpeedSane(mph, input.player_level)) {
-      // FIX 3: No chain modifiers — bat KE already reflects full transfer
-      // FIX 4: √ scaling, range 0.95–1.01
-      const massMod = 0.95 + 0.05 * Math.min(1.2, Math.sqrt(massKg / 80));
-      return {
-        bat_speed_mph: Math.round(mph * massMod * 10) / 10,
-        path: 'ke_direct',
-        confidence: 'medium',
-        mass_mod: Math.round(massMod * 1000) / 1000,
-      };
-    }
-
-    console.warn(
-      `[bat-speed] bat_omega=${batOmegaKE} → ${Math.round(mph * 10) / 10} mph outside sane range for ${input.player_level}. Falling to estimation.`
-    );
-  }
-
-  // ── TIER 3: ESTIMATION (arm IK derivative — lowest confidence) ─────────
-  // OMEGA_TO_MPH uses 0.70m bat lever arm. For segment-level sources (elbow/
-  // shoulder), the angular velocity is of the arm joint, NOT the bat — so the
-  // 0.70m lever already overstates the arm's linear speed.  The chain
-  // multiplier must therefore be modest (~1.25–1.40) rather than the prior
-  // 2.10–2.40, which produced ~115 mph outputs (impossible).
-  const armSpeed = input.arm_omega_peak * OMEGA_TO_MPH;
-
-  const segmentSources = ['right_shoulder_rot', 'right_elbow', 'left_elbow', 'rshoulder_rot', 'relbow_rot', 'lelbow_rot', 'torso_fallback'];
-  const isSegmentLevel = !input.arm_omega_source || segmentSources.includes(input.arm_omega_source);
-  const chainMultiplier = isSegmentLevel
-    ? 1.25 + 0.15 * Math.max(0, Math.min(1, transferEfficiency))   // 1.25–1.40 for segment
-    : 1.10 + 0.20 * Math.max(0, Math.min(1, transferEfficiency));  // 1.10–1.30 for hand/wrist
-
-  // FIX 4: √ scaling, range 0.80–1.15
-  const massFactor = Math.max(0.80, Math.min(1.15, Math.sqrt(massKg / 80)));
-
-  // Transfer ratio bonus
-  const tr = input.transfer_ratio;
-  const trBonus = (tr >= 1.3 && tr <= 2.0) ? 1.00
-    : (tr >= 1.0 && tr <= 2.5) ? 0.95
-    : 0.85;
-
-  let estimated = armSpeed * chainMultiplier * massFactor * trBonus;
-
-  // Hard clamp: no bat speed can exceed physical limits
-  const HARD_MAX_BAT_SPEED: Record<string, number> = {
-    youth: 55, high_school: 75, college: 82, pro: 85,
-  };
-  const hardMax = HARD_MAX_BAT_SPEED[input.player_level] ?? 85;
-  if (estimated > hardMax) {
-    console.warn(`[4B-Score] estimation clamped: ${estimated.toFixed(1)} → ${hardMax} mph (max for ${input.player_level})`);
-    estimated = hardMax;
-  }
-
-  console.log(`[4B-Score] estimation: { arm_omega: ${input.arm_omega_peak.toFixed(1)}, source_column: "${input.arm_omega_source ?? 'unknown'}", chainMultiplier: ${chainMultiplier.toFixed(3)}, bat_speed_mph: ${(Math.round(estimated * 10) / 10)} }`);
-
-  return {
-    bat_speed_mph: Math.round(estimated * 10) / 10,
-    path: 'estimation',
-    confidence: 'low',
-    mass_mod: Math.round(massFactor * 1000) / 1000,
-    warning: 'Estimated from IK arm velocity — expect ±8 mph uncertainty.',
-  };
-}
-
-// ---------------------------------------------------------------------------
-// STEP 3: EXIT VELOCITY — Nathan (2003) collision model
-// ---------------------------------------------------------------------------
-
-interface ExitVeloResult {
-  exit_velocity_mph: number;
-  source: 'measured' | 'predicted';
-  collision_efficiency?: number;
-}
-
-function predictExitVelocity(
-  predictedBatSpeed: number,
-  transferEfficiency: number,
-  playerLevel: string,
-  measuredEV?: number | null
-): ExitVeloResult {
-  // Ground truth if available
-  if (measuredEV != null && measuredEV > 0) {
-    return { exit_velocity_mph: Math.round(measuredEV * 10) / 10, source: 'measured' };
-  }
-
-  const pitchSpeed = EST_PITCH_SPEED_MPH[playerLevel] ?? 90;
-  const collisionEff = 0.70 + 0.20 * Math.min(1, Math.max(0, transferEfficiency));
-  const ev = 1.2 * predictedBatSpeed * collisionEff + 0.2 * pitchSpeed;
-
-  console.log(
-    `[4B-Score] predictExitVelocity: transferEfficiency=${transferEfficiency.toFixed(3)}, ` +
-    `collisionEff=${collisionEff.toFixed(3)}, batSpeed=${predictedBatSpeed.toFixed(1)}, ` +
-    `pitchSpeed=${pitchSpeed}, EV=${ev.toFixed(1)} mph`
-  );
-
-  return {
-    exit_velocity_mph: Math.round(ev * 10) / 10,
-    source: 'predicted',
-    collision_efficiency: Math.round(collisionEff * 1000) / 1000,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// PILLAR CALCULATORS
-// ---------------------------------------------------------------------------
-
-/** BODY — Creation (40%) + Transfer (60%) */
-function calculateBody(input: ScoreCalculationInput): { body: number; creation: number; transfer: number } {
+  // Body
   const pelvisVelScore = lerp(input.pelvis_omega_peak, 300, 900, 0, 100);
   const xFactorScore = lerp(input.hip_shoulder_sep_max_deg, 20, 55, 0, 100);
   const tempoRatio = input.load_duration_ms / Math.max(input.launch_duration_ms, 1);
-  const loadScore  = lerp(tempoRatio, 1.2, 2.4, 0, 100);
+  const loadScore = lerp(tempoRatio, 1.2, 2.4, 0, 100);
   const strideScore = lerp(input.stride_length_rel_hip, 0.5, 1.4, 0, 100);
-
-  const creation = clamp(
-    pelvisVelScore * 0.35 +
-    xFactorScore   * 0.25 +
-    loadScore      * 0.25 +
-    strideScore    * 0.15
-  );
+  const creation = clamp(pelvisVelScore * 0.35 + xFactorScore * 0.25 + loadScore * 0.25 + strideScore * 0.15);
 
   const tr = input.transfer_ratio;
-  let transferRatioScore: number;
-  if (tr >= TRANSFER_RATIO_ELITE.min && tr <= TRANSFER_RATIO_ELITE.max) {
-    transferRatioScore = 90 + lerp(tr, TRANSFER_RATIO_ELITE.min, TRANSFER_RATIO_ELITE.max, 0, 10);
-  } else if (tr < TRANSFER_RATIO_ELITE.min) {
-    transferRatioScore = lerp(tr, 0.8, TRANSFER_RATIO_ELITE.min, 20, 90);
-  } else {
-    transferRatioScore = lerp(tr, TRANSFER_RATIO_ELITE.max, 2.5, 90, 20);
-  }
+  let trScore: number;
+  if (tr >= 1.5 && tr <= 1.8) trScore = 90 + lerp(tr, 1.5, 1.8, 0, 10);
+  else if (tr < 1.5) trScore = lerp(tr, 0.8, 1.5, 20, 90);
+  else trScore = lerp(tr, 1.8, 2.5, 90, 20);
 
-  const timingGapMs  = input.trunk_omega_time - input.pelvis_omega_time;
-  const bodyDeliveryMs = getDeliveryDurationMs(input);
-  const timingGapPct = (timingGapMs / bodyDeliveryMs) * 100;
-  let timingScore: number;
-  if (timingGapPct >= TIMING_GAP_ELITE.min && timingGapPct <= TIMING_GAP_ELITE.max) {
-    timingScore = 95;
-  } else if (timingGapPct < TIMING_GAP_ELITE.min) {
-    timingScore = lerp(timingGapPct, 0, TIMING_GAP_ELITE.min, 20, 95);
-  } else {
-    timingScore = lerp(timingGapPct, TIMING_GAP_ELITE.max, 35, 95, 30);
-  }
+  const bodyTimingGapPct = (timingGapMs / deliveryMs) * 100;
+  let bodyTimingScore: number;
+  if (bodyTimingGapPct >= 14 && bodyTimingGapPct <= 18) bodyTimingScore = 95;
+  else if (bodyTimingGapPct < 14) bodyTimingScore = lerp(bodyTimingGapPct, 0, 14, 20, 95);
+  else bodyTimingScore = lerp(bodyTimingGapPct, 18, 35, 95, 30);
 
   const decelScore = input.pelvis_omega_time < input.trunk_omega_time ? 85 : 40;
+  const transfer = clamp(trScore * 0.35 + decelScore * 0.30 + bodyTimingScore * 0.20 +
+    (input.arm_omega_peak > input.trunk_omega_peak ? 85 : 50) * 0.15);
+  const body = Math.round(clamp(creation * 0.40 + transfer * 0.60));
 
-  const transfer = clamp(
-    transferRatioScore * 0.35 +
-    decelScore         * 0.30 +
-    timingScore        * 0.20 +
-    (input.arm_omega_peak > input.trunk_omega_peak ? 85 : 50) * 0.15
-  );
-
-  const body = clamp(creation * 0.40 + transfer * 0.60);
-
-  return { body: Math.round(body), creation: Math.round(creation), transfer: Math.round(transfer) };
-}
-
-/** BRAIN — Tempo (40%) + Sequence Timing (35%) + Rhythm (25%) */
-function calculateBrain(input: ScoreCalculationInput): number {
-  const tempoRatio = input.load_duration_ms / Math.max(input.launch_duration_ms, 1);
-  const tempoScore = lerp(Math.abs(tempoRatio - 2.0), 0.2, 1.0, 100, 20);
-
-  const brainDeliveryMs = getDeliveryDurationMs(input);
-  const timingGapMs   = input.trunk_omega_time - input.pelvis_omega_time;
-  const timingGapPct  = (timingGapMs / brainDeliveryMs) * 100;
-  const seqScore = (timingGapPct >= 14 && timingGapPct <= 18) ? 95
-    : timingGapPct >= 10 && timingGapPct < 14 ? 75
-    : timingGapPct > 18  && timingGapPct <= 22 ? 70
-    : 40;
-
-  const correctOrder =
-    input.pelvis_omega_time < input.trunk_omega_time &&
-    input.trunk_omega_time  < (input.pelvis_omega_time + brainDeliveryMs * 0.5);
+  // Brain
+  const brainTempoScore = lerp(Math.abs(tempoRatio - 2.0), 0.2, 1.0, 100, 20);
+  const seqScore = (bodyTimingGapPct >= 14 && bodyTimingGapPct <= 18) ? 95
+    : bodyTimingGapPct >= 10 && bodyTimingGapPct < 14 ? 75
+    : bodyTimingGapPct > 18 && bodyTimingGapPct <= 22 ? 70 : 40;
+  const correctOrder = input.pelvis_omega_time < input.trunk_omega_time;
   const rhythmScore = correctOrder ? 85 : 45;
+  const brain = Math.round(clamp(brainTempoScore * 0.40 + seqScore * 0.35 + rhythmScore * 0.25));
 
-  return Math.round(clamp(
-    tempoScore  * 0.40 +
-    seqScore    * 0.35 +
-    rhythmScore * 0.25
-  ));
-}
+  // Bat (simplified)
+  const massKg = input.mass_total_kg ?? DEFAULT_MASS_KG[input.player_level] ?? 80;
+  const batOmega = input.bat_omega_from_ke ?? input.bat_omega_peak;
+  let batSpeedMph = 0;
+  if (input.measured_bat_speed_mph && input.measured_bat_speed_mph > 0) {
+    batSpeedMph = input.measured_bat_speed_mph;
+  } else if (batOmega && batOmega > 100) {
+    batSpeedMph = Math.min(batOmega, MAX_BAT_OMEGA_DEGS) * OMEGA_TO_MPH;
+  } else {
+    batSpeedMph = input.arm_omega_peak * OMEGA_TO_MPH * 1.3;
+  }
+  const batBench = { youth: { min: 40, elite: 58 }, high_school: { min: 58, elite: 72 }, college: { min: 66, elite: 80 }, pro: { min: 68, elite: 85 } };
+  const b = batBench[input.player_level] ?? batBench.high_school;
+  const batSpeedScore = lerp(batSpeedMph, b.min, b.elite, 20, 100);
+  const bat = Math.round(clamp(batSpeedScore * 0.50 + (correctOrder ? 80 : 40) * 0.50 * Math.max(0, Math.min(1, transferEfficiency))));
 
-/** BAT — Bat delivery quality after energy transfer */
-function calculateBat(
-  input: ScoreCalculationInput,
-  playerLevel: string,
-  transferEfficiency: number,
-  batSpeedResult: BatSpeedResult
-): { bat: number; bat_speed_mph: number | null; predicted_bat_speed_mph: number | null } {
-  const benchmarks: Record<string, { min: number; elite: number }> = {
-    youth:        { min: 40, elite: 58 },
-    high_school:  { min: 58, elite: 72 },
-    college:      { min: 66, elite: 80 },
-    pro:          { min: 68, elite: 85 },
-  };
-  const bench = benchmarks[playerLevel] ?? benchmarks['high_school'];
+  // Ball
+  let ball: number | null = null;
+  const measuredEV = input.measured_ev_mph ?? input.exit_velocity_mph;
+  if (measuredEV && measuredEV > 0) {
+    const evBench = { youth: { min: 40, elite: 65 }, high_school: { min: 68, elite: 92 }, college: { min: 78, elite: 100 }, pro: { min: 85, elite: 108 } };
+    const eb = evBench[input.player_level] ?? evBench.high_school;
+    ball = Math.round(lerp(measuredEV, eb.min, eb.elite, 20, 100));
+  }
 
-  const bat_speed_mph = Math.round(batSpeedResult.bat_speed_mph);
-  const batSpeedScore = lerp(bat_speed_mph, bench.min, bench.elite, 20, 100);
+  const mode: ScoringMode = ball != null ? 'full' : 'training';
+  const w = LEGACY_WEIGHTS[mode];
+  const composite = Math.round(clamp(body * w.body + brain * w.brain + bat * w.bat + (ball ?? 0) * w.ball));
+  const rating = toRating(composite);
+  const color = getColor(composite);
 
-  const accelScore = lerp(
-    input.arm_omega_peak / Math.max(input.trunk_omega_peak, 1),
-    1.0, 1.8, 40, 100
-  );
+  const timingGapPctFinal = (input.load_duration_ms + input.launch_duration_ms) > 0
+    ? Math.round((timingGapMs / (input.load_duration_ms + input.launch_duration_ms)) * 100 * 10) / 10 : 0;
 
-  const effectiveBatOmega = input.bat_omega_from_ke ?? input.bat_omega_peak;
-  const lagScore = effectiveBatOmega != null && effectiveBatOmega > input.arm_omega_peak
-    ? 85 : 55;
-
-  const attackAngleProxyScore = lerp(input.front_foot_angle_deg, 10, 45, 80, 40);
-
-  const rawBat = clamp(
-    batSpeedScore         * 0.30 +
-    accelScore            * 0.25 +
-    lagScore              * 0.25 +
-    attackAngleProxyScore * 0.20
-  );
-
-  const transferFactor = 0.4 + 0.6 * Math.min(1, Math.max(0, (transferEfficiency - 0.3) / 0.6));
-  const bat = Math.round(clamp(rawBat * transferFactor));
-
-  return { bat, bat_speed_mph, predicted_bat_speed_mph: Math.round(batSpeedResult.bat_speed_mph * 10) / 10 };
-}
-
-/** BALL — Batted ball outcome quality */
-function calculateBall(
-  input: ScoreCalculationInput,
-  playerLevel: string,
-  evResult: ExitVeloResult,
-  transferEfficiency: number
-): { ball: number; usedPrediction: boolean } {
-  const hasActualEV = evResult.source === 'measured';
-  const scoringEV = evResult.exit_velocity_mph;
-
-  const evBenchmarks: Record<string, { min: number; elite: number }> = {
-    youth:       { min: 40, elite: 65 },
-    high_school: { min: 68, elite: 92 },
-    college:     { min: 78, elite: 100 },
-    pro:         { min: 85, elite: 108 },
-  };
-  const bench = evBenchmarks[playerLevel] ?? evBenchmarks['high_school'];
-  const exitVeloScore = lerp(scoringEV, bench.min, bench.elite, 20, 100);
-
-  const confidenceFactor = hasActualEV ? 1.0 : 0.90;
-
-  const la = input.launch_angle_deg ?? (hasActualEV ? 15 : 12);
-  const launchScore = la >= 8 && la <= 32 ? lerp(Math.abs(la - 20), 0, 12, 100, 60) : 40;
-
-  const spray = input.spray_angle_deg ?? 0;
-  const sprayScore =
-    Math.abs(spray) <= 15 ? 90
-    : spray > 15 && spray <= 30 ? 85
-    : spray < -15 && spray >= -30 ? 95
-    : Math.abs(spray) <= 45 ? 70
-    : 50;
-
-  const hardHitRate = input.hard_hit_rate
-    ?? (hasActualEV
-      ? (scoringEV >= bench.elite * 0.95 ? 80 : 40)
-      : transferEfficiency * 65 + 10);
-  const hardHitScore = lerp(hardHitRate, 20, 50, 20, 100);
-
-  const rawBall = clamp(
-    exitVeloScore * 0.40 +
-    launchScore   * 0.25 +
-    sprayScore    * 0.20 +
-    hardHitScore  * 0.15
-  );
-
-  const ball = Math.round(clamp(rawBall * confidenceFactor));
-  return { ball, usedPrediction: !hasActualEV };
-}
-
-// ---------------------------------------------------------------------------
-// COMPOSITE CALCULATOR
-// ---------------------------------------------------------------------------
-
-function computeScoringResult(input: ScoreCalculationInput): ScoringResult {
-  // Step 1: Transfer efficiency
-  const transferEfficiency = computeTransferEfficiency(input);
-
-  // Step 2: Bat speed (three-tier) and exit velo (Nathan model)
-  const bsResult = predictBatSpeed(input, transferEfficiency);
-
-  // Resolve measured EV: prefer explicit measured_ev_mph, then exit_velocity_mph
-  const measuredEV = input.measured_ev_mph ?? input.exit_velocity_mph ?? null;
-  const evResult = predictExitVelocity(
-    bsResult.bat_speed_mph, transferEfficiency, input.player_level, measuredEV
-  );
-
-  // Pillars
-  const { body, creation, transfer } = calculateBody(input);
-  const brain = calculateBrain(input);
-  const { bat, bat_speed_mph, predicted_bat_speed_mph } = calculateBat(
-    input, input.player_level, transferEfficiency, bsResult
-  );
-  const { ball, usedPrediction } = calculateBall(
-    input, input.player_level, evResult, transferEfficiency
-  );
-
-  const hasActualOutcome = evResult.source === 'measured';
-  const mode: ScoringMode = hasActualOutcome ? 'full' : 'training';
-  const w = WEIGHTS[mode];
-
-  const score_4bkrs = Math.round(clamp(
-    body  * w.body  +
-    brain * w.brain +
-    bat   * w.bat   +
-    ball  * w.ball
-  ));
-
-  const rating = toRating(score_4bkrs);
-  const color  = toColor(rating);
-
-  const totalSwingMs = input.load_duration_ms + input.launch_duration_ms;
-  const timingGapMs  = input.trunk_omega_time - input.pelvis_omega_time;
-  const timing_gap_pct = totalSwingMs > 0
-    ? Math.round((timingGapMs / totalSwingMs) * 100 * 10) / 10
-    : 0;
-
-  console.log(`[4B-Score] Path=${bsResult.path} Conf=${bsResult.confidence} BatSpeed=${bsResult.bat_speed_mph}mph EV=${evResult.exit_velocity_mph}mph(${evResult.source})`);
-
+  // Build v2 output shape with IK fallback data
   return {
-    score_4bkrs,
-    mode,
-    version: 'v2',
-    body, brain, bat,
-    ball,
-    rating, color,
-    creation, transfer,
-    transfer_ratio:    Math.round(input.transfer_ratio * 1000) / 1000,
-    timing_gap_pct,
-    bat_speed_mph,
-    exit_velocity_mph: evResult.source === 'measured' ? evResult.exit_velocity_mph : null,
-
-    predicted_bat_speed_mph,
-    predicted_exit_velocity_mph: evResult.source === 'predicted' ? evResult.exit_velocity_mph : null,
-    predicted_entry_bucket:      null,
-
-    actual_bat_speed_mph:        bsResult.path === 'measured' ? bsResult.bat_speed_mph : null,
-    actual_exit_velocity_mph:    evResult.source === 'measured' ? evResult.exit_velocity_mph : null,
-    actual_entry_bucket:         null,
-
-    transfer_efficiency:         Math.round(transferEfficiency * 1000) / 1000,
-    bat_speed_path:              bsResult.path,
-    bat_speed_confidence:        bsResult.confidence,
-
-    scoring_timestamp:           new Date().toISOString(),
+    version: '2.0',
+    scoring_method: 'ik_fallback',
+    pre_processing: {
+      swing_duration_ms: input.load_duration_ms + input.launch_duration_ms,
+      swing_category: (input.load_duration_ms + input.launch_duration_ms) > SWING_DURATION_WALKTHROUGH_MS ? 'WALKTHROUGH' : 'COMPETITIVE',
+      delivery_window_ms: deliveryMs,
+      handedness_correction_applied: false,
+      flags: [],
+    },
+    scores: {
+      ground_flow: { score: Math.round(creation), color: getColor(Math.round(creation)), label: getLabel(Math.round(creation)), components: { pelvis_vel_score: Math.round(pelvisVelScore), x_factor_score: Math.round(xFactorScore) } },
+      core_flow: { score: Math.round(transfer), color: getColor(Math.round(transfer)), label: getLabel(Math.round(transfer)), components: { transfer_ratio: tr, timing_gap_pct: Math.round(bodyTimingGapPct * 10) / 10 } },
+      arm_flow: { score: bat, color: getColor(bat), label: getLabel(bat), components: { bat_speed_mph: Math.round(batSpeedMph) } },
+    },
+    pelvis_classification: {
+      classification: input.pelvis_omega_peak < 600 ? 'DEAD_PELVIS' :
+        !correctOrder ? 'LATE_PELVIS' : 'HEALTHY_PELVIS',
+      problem: null,
+      prescription: [],
+      anchor: null,
+    },
+    loss_points: {
+      lp1_ground_to_pelvis: { severity: 'LOW', label: 'IK fallback — limited data' },
+      lp2_transfer_ratio: { ratio: tr, severity: tr >= 1.5 ? 'LOW' : tr >= 1.0 ? 'MEDIUM' : 'HIGH', label: '' },
+      lp3_sequence_timing: { gap_ms: timingGapMs, sequence_correct: correctOrder, severity: correctOrder ? 'LOW' : 'HIGH', label: '' },
+      lp4_plane_misalignment: { severity: 'LOW', label: 'Not available in IK fallback' },
+      lp5_arms_absorbing: { severity: 'LOW', label: 'Not available in IK fallback' },
+      lp6_side_bleed: { severity: 'LOW', label: 'Not available in IK fallback' },
+    },
+    tke_shape: 'UNKNOWN',
+    motor_profile: 'UNKNOWN',
+    energy_ledger: {
+      pelvis_ke: 0, torso_ke: 0, arms_ke: 0, bat_ke: 0, total_ke: 0, lower_half_ke: 0,
+      sequence_correct: correctOrder,
+      x_factor_degrees: input.hip_shoulder_sep_max_deg,
+      trunk_tilt_degrees: 0,
+      pelvis_rot_at_fp_degrees: 0,
+      transfer_ratio: tr,
+      p_to_t_gap_ms: timingGapMs,
+      arms_ke_ratio: 0,
+      delivery_window_ms: deliveryMs,
+    },
+    legacy_4b: { body, brain, bat, ball, score_4bkrs: composite, rating, color },
+    scoring_timestamp: new Date().toISOString(),
   };
 }
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // CORS
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // EDGE FUNCTION HANDLER
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -637,22 +1211,36 @@ serve(async (req: Request) => {
   }
 
   try {
-    const input: ScoreCalculationInput = await req.json();
+    const body = await req.json();
 
-    // Basic validation
-    const required: Array<keyof ScoreCalculationInput> = [
-      'source', 'pelvis_omega_peak', 'trunk_omega_peak', 'arm_omega_peak',
-      'pelvis_omega_time', 'trunk_omega_time', 'transfer_ratio', 'player_level',
-    ];
-    const missing = required.filter(k => input[k] == null);
-    if (missing.length > 0) {
+    // Detect input format: V2 (has me_data) vs Legacy (has pelvis_omega_peak)
+    let result: ScoringOutput;
+
+    if (body.me_data && typeof body.me_data === 'object') {
+      // V2 ME-primary path
+      console.log('[4B-v2] Processing ME-primary input');
+      result = computeV2Scores(body as V2Input);
+    } else if (body.pelvis_omega_peak != null) {
+      // Legacy IK fallback
+      console.log('[4B-v2] Processing IK-fallback input');
+
+      const required = ['source', 'pelvis_omega_peak', 'trunk_omega_peak', 'arm_omega_peak',
+        'pelvis_omega_time', 'trunk_omega_time', 'transfer_ratio', 'player_level'];
+      const missing = required.filter(k => body[k] == null);
+      if (missing.length > 0) {
+        return new Response(
+          JSON.stringify({ error: `Missing required fields: ${missing.join(', ')}` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      result = computeLegacyScores(body as LegacyInput);
+    } else {
       return new Response(
-        JSON.stringify({ error: `Missing required fields: ${missing.join(', ')}` }),
+        JSON.stringify({ error: 'Invalid input: provide either me_data (v2) or pelvis_omega_peak (legacy)' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const result: ScoringResult = computeScoringResult(input);
 
     return new Response(JSON.stringify(result), {
       status: 200,
@@ -668,5 +1256,5 @@ serve(async (req: Request) => {
   }
 });
 
-export { computeScoringResult };
-export type { ScoreCalculationInput, ScoringResult };
+export { computeV2Scores, computeLegacyScores };
+export type { V2Input, LegacyInput, ScoringOutput };
