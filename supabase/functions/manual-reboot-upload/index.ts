@@ -234,11 +234,10 @@ Deno.serve(async (req) => {
         [fileType]: parsedMetrics,
       };
 
+      // Store ONLY storage path — no raw CSV in DB (prevents row bloat)
       if (fileType === 'ik') {
-        updateData.raw_csv_ik = csvText;
         updateData.ik_file_path = storagePath;
       } else {
-        updateData.raw_csv_me = csvText;
         updateData.me_file_path = storagePath;
       }
 
@@ -260,7 +259,7 @@ Deno.serve(async (req) => {
       sessionRecord = data;
       console.log(`[manual-reboot-upload] Updated existing session ${existingSession.id}`);
     } else {
-      // Create new session record
+      // Create new session record — store only paths, not raw CSV text
       const insertData: Record<string, unknown> = {
         player_id: playerId,
         reboot_session_id: `manual-${crypto.randomUUID().slice(0, 8)}`,
@@ -275,10 +274,8 @@ Deno.serve(async (req) => {
       };
 
       if (fileType === 'ik') {
-        insertData.raw_csv_ik = csvText;
         insertData.ik_file_path = storagePath;
       } else {
-        insertData.raw_csv_me = csvText;
         insertData.me_file_path = storagePath;
       }
 
@@ -295,28 +292,44 @@ Deno.serve(async (req) => {
 
     // Auto-trigger 4B scoring if ME data is present
     let scoringResult = null;
-    const hasIk = !!(sessionRecord as Record<string, unknown>).raw_csv_ik;
-    const hasME = !!(sessionRecord as Record<string, unknown>).raw_csv_me;
+    const hasIk = !!(sessionRecord as Record<string, unknown>).ik_file_path;
+    const hasME = fileType === 'momentum'; // we just uploaded ME and have csvText in memory
 
     if (hasME) {
-      console.log(`[manual-reboot-upload] ME data present (IK: ${hasIk}), triggering 4B scoring...`);
+      console.log(`[manual-reboot-upload] ME data present (IK: ${hasIk}), triggering scoring via compute-4b-from-csv...`);
 
       // Update status to processing
       await supabase.from('reboot_sessions').update({ status: 'processing' }).eq('id', sessionRecord.id);
 
-      // Pass raw CSV text directly — no fragile signed URL round-trip
+      // Build payload — pass raw CSV text (already column-filtered by client, ~2MB)
       const scoringPayload: Record<string, unknown> = {
         player_id: playerId,
         session_id: (sessionRecord as Record<string, unknown>).reboot_session_id,
-        raw_csv_me: (sessionRecord as Record<string, unknown>).raw_csv_me,
+        session_date: sessionDate,
+        raw_csv_me: csvText,  // Already small thanks to client-side column filtering
       };
 
+      // If IK file exists, download from storage
       if (hasIk) {
-        scoringPayload.raw_csv_ik = (sessionRecord as Record<string, unknown>).raw_csv_ik;
+        const ikPath = (sessionRecord as Record<string, unknown>).ik_file_path as string;
+        if (ikPath) {
+          try {
+            const { data: ikBlob, error: ikDlErr } = await supabase.storage
+              .from('reboot-uploads')
+              .download(ikPath);
+            if (!ikDlErr && ikBlob) {
+              scoringPayload.raw_csv_ik = await ikBlob.text();
+              console.log(`[manual-reboot-upload] Downloaded IK from storage: ${ikPath} (${((scoringPayload.raw_csv_ik as string).length/1024).toFixed(0)}KB)`);
+            }
+          } catch (dlErr) {
+            console.warn('[manual-reboot-upload] IK download failed, scoring with ME only:', dlErr);
+          }
+        }
       }
 
       try {
-        const analysisResponse = await fetch(`${supabaseUrl}/functions/v1/calculate-4b-scores`, {
+        // Route to compute-4b-from-csv which parses CSV → scoring input → calls calculate-4b-scores
+        const analysisResponse = await fetch(`${supabaseUrl}/functions/v1/compute-4b-from-csv`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -326,7 +339,7 @@ Deno.serve(async (req) => {
         });
 
         scoringResult = await analysisResponse.json();
-        console.log('[manual-reboot-upload] 4B result:', JSON.stringify(scoringResult).slice(0, 500));
+        console.log('[manual-reboot-upload] Scoring result:', JSON.stringify(scoringResult).slice(0, 500));
 
         if (analysisResponse.ok && !scoringResult.error) {
           await supabase.from('reboot_sessions')

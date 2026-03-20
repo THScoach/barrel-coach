@@ -1147,6 +1147,8 @@ serve(async (req: Request) => {
       me_csv_rows,
       raw_csv_ik,
       raw_csv_me,
+      me_storage_path,
+      ik_storage_path,
       player_level = 'pro',
       motor_profile,
       exit_velocity_mph,
@@ -1160,24 +1162,62 @@ serve(async (req: Request) => {
       session_date,
     } = body;
 
-    const ikRows: Record<string, number>[] = Array.isArray(ik_csv_rows)
-      ? ik_csv_rows
-      : typeof raw_csv_ik === 'string'
-        ? parseCsvRows(raw_csv_ik)
-        : [];
+    // Helper: download CSV from storage bucket
+    async function downloadFromStorage(storagePath: string): Promise<string | null> {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const sb = createClient(supabaseUrl, serviceKey);
+        const { data: blob, error } = await sb.storage.from('reboot-uploads').download(storagePath);
+        if (error || !blob) {
+          console.warn(`[CSV] Storage download failed for ${storagePath}:`, error);
+          return null;
+        }
+        const text = await blob.text();
+        console.log(`[CSV] Downloaded ${storagePath}: ${(text.length/1024).toFixed(0)}KB`);
+        return text;
+      } catch (e) {
+        console.warn(`[CSV] Storage download error for ${storagePath}:`, e);
+        return null;
+      }
+    }
 
-    const meRows: Record<string, number>[] = Array.isArray(me_csv_rows)
-      ? me_csv_rows
-      : typeof raw_csv_me === 'string'
-        ? parseCsvRows(raw_csv_me)
-        : [];
+    // Resolve ME rows: pre-parsed > raw string > storage path
+    let meRows: Record<string, number>[] = [];
+    if (Array.isArray(me_csv_rows) && me_csv_rows.length > 0) {
+      meRows = me_csv_rows;
+    } else if (typeof raw_csv_me === 'string' && raw_csv_me.length > 0) {
+      meRows = parseCsvRows(raw_csv_me);
+    } else if (typeof me_storage_path === 'string') {
+      const csv = await downloadFromStorage(me_storage_path);
+      if (csv) meRows = parseCsvRows(csv);
+    }
 
-    if (ikRows.length === 0 || meRows.length === 0) {
+    // Resolve IK rows: pre-parsed > raw string > storage path
+    let ikRows: Record<string, number>[] = [];
+    if (Array.isArray(ik_csv_rows) && ik_csv_rows.length > 0) {
+      ikRows = ik_csv_rows;
+    } else if (typeof raw_csv_ik === 'string' && raw_csv_ik.length > 0) {
+      ikRows = parseCsvRows(raw_csv_ik);
+    } else if (typeof ik_storage_path === 'string') {
+      const csv = await downloadFromStorage(ik_storage_path);
+      if (csv) ikRows = parseCsvRows(csv);
+    }
+
+    // ME is required; IK is optional (ME-only scoring is valid)
+    if (meRows.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Provide either ik_csv_rows/me_csv_rows arrays or raw_csv_ik/raw_csv_me strings' }),
+        JSON.stringify({ error: 'ME data required. Provide me_csv_rows, raw_csv_me, or me_storage_path.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    // If no IK rows, create minimal synthetic IK from ME data
+    if (ikRows.length === 0) {
+      console.warn('[CSV] No IK data — creating synthetic IK from ME rows');
+      ikRows = meRows.map(r => ({ ...r })); // Use ME rows as fallback (shared columns)
+    }
+
+    console.log(`[CSV] Processing: ME=${meRows.length} rows, IK=${ikRows.length} rows`);
 
     const normalizedPlayerLevel: PlayerLevel =
       player_level === 'youth' || player_level === 'high_school' || player_level === 'college' || player_level === 'pro'

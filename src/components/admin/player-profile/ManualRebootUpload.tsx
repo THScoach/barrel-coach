@@ -30,15 +30,61 @@ export function ManualRebootUpload({ playersTableId, playerName }: ManualRebootU
     bothPresent?: boolean;
   } | null>(null);
 
+  /** Strip CSV to only columns needed for scoring — reduces 13MB → ~2MB */
+  const filterCsvColumns = (csvText: string, fileType: "momentum" | "ik"): string => {
+    const ME_COLUMNS = new Set([
+      'time', 'time_seconds', 'org_movement_id', 'movement_id',
+      'time_from_max_hand', 'time_from_contact',
+      'mass_total', 'masstotal',
+      'total_kinetic_energy', 'total_ke',
+      'bat_kinetic_energy', 'bat_rot_energy', 'bat_rotational_energy',
+      'legs_kinetic_energy', 'lowerhalf_kinetic_energy', 'pelvis_ke', 'pelvis_kinetic_energy',
+      'torso_kinetic_energy', 'upperhalf_kinetic_energy',
+      'arms_kinetic_energy', 'arms_ke', 'upperlimb_kinetic_energy',
+    ]);
+    const IK_COLUMNS = new Set([
+      'time', 'time_seconds', 'org_movement_id', 'movement_id',
+      'time_from_max_hand', 'time_from_contact',
+      'pelvis_rot', 'torso_rot', 'torso_side',
+      'left_knee', 'right_knee', 'left_elbow', 'right_elbow',
+      'rhand_x', 'rhand_y', 'rhand_z', 'lhand_x', 'lhand_y', 'lhand_z',
+    ]);
+    const keep = fileType === 'momentum' ? ME_COLUMNS : IK_COLUMNS;
+
+    const lines = csvText.split('\n');
+    if (lines.length < 2) return csvText;
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+    const indices = headers.map((h, i) => keep.has(h) ? i : -1).filter(i => i >= 0);
+
+    if (indices.length === 0) return csvText; // no matches — send full file
+
+    const filtered = [indices.map(i => headers[i]).join(',')];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      const cols = line.split(',');
+      filtered.push(indices.map(i => cols[i] ?? '').join(','));
+    }
+    return filtered.join('\n');
+  };
+
   const uploadSingleFile = async (file: File, fileType: "momentum" | "ik", accessToken: string) => {
+    // Read and filter CSV client-side to reduce payload ~70%
+    const rawCsv = await file.text();
+    const filteredCsv = filterCsvColumns(rawCsv, fileType);
+    const filteredBlob = new Blob([filteredCsv], { type: 'text/csv' });
+    const filteredFile = new File([filteredBlob], file.name, { type: 'text/csv' });
+
+    console.log(`[RebootUpload] ${fileType}: ${(rawCsv.length/1024).toFixed(0)}KB → ${(filteredCsv.length/1024).toFixed(0)}KB (${Math.round((1 - filteredCsv.length/rawCsv.length)*100)}% reduction)`);
+
     const formData = new FormData();
     formData.append("player_id", playersTableId);
     formData.append("file_type", fileType);
     formData.append("session_date", sessionDate);
     formData.append("session_type", sessionType);
     if (drillName.trim()) formData.append("drill_name", drillName.trim());
-    formData.append("file", file);
-    formData.append("file", file);
+    formData.append("file", filteredFile);
 
     const { data, error } = await supabase.functions.invoke("manual-reboot-upload", {
       body: formData,
