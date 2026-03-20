@@ -991,6 +991,114 @@ function buildEnergyLedger(
 }
 
 // ===========================================================================
+// PREDICTIONS — "What your body can do"
+// ===========================================================================
+
+/** Level baselines for body → bat speed (same constants as KESP engine) */
+const LEVEL_BAT_BASELINES: Record<PlayerLevel, { base: number; refWeight: number; refTR: number }> = {
+  youth:       { base: 48, refWeight: 120, refTR: 1.15 },
+  high_school: { base: 64, refWeight: 170, refTR: 1.25 },
+  college:     { base: 68, refWeight: 190, refTR: 1.30 },
+  pro:         { base: 72, refWeight: 200, refTR: 1.32 },
+};
+
+/** Bat profiles for collision model */
+const BAT_COR: Record<PlayerLevel, { e: number; r: number; batCoeff: number }> = {
+  youth:       { e: 0.55, r: 0.25, batCoeff: 1.32 },  // USSSA
+  high_school: { e: 0.50, r: 0.22, batCoeff: 1.27 },  // BBCOR
+  college:     { e: 0.50, r: 0.22, batCoeff: 1.27 },  // BBCOR
+  pro:         { e: 0.50, r: 0.20, batCoeff: 1.25 },   // Wood
+};
+
+const PITCH_DEFAULTS: Record<PlayerLevel, number> = {
+  youth: 50, high_school: 75, college: 82, pro: 90,
+};
+
+/**
+ * Predict bat speed from body mechanics using the energy ledger.
+ * Three-tier: measured bat KE → total KE regression → angular velocity model.
+ */
+function computePredictions(
+  energyLedger: ScoringOutput['energy_ledger'],
+  playerLevel: PlayerLevel,
+  massKg: number | undefined,
+  measuredBatSpeedMph?: number | null,
+  measuredEVMph?: number | null,
+): PredictionResult {
+  const bl = LEVEL_BAT_BASELINES[playerLevel];
+  const batProfile = BAT_COR[playerLevel];
+  const pitchMph = PITCH_DEFAULTS[playerLevel];
+
+  let batSpeedMph: number | null = null;
+  let path: PredictionResult['bat_speed_path'] = 'body_estimation';
+  let confidence: PredictionResult['bat_speed_confidence'] = 'low';
+
+  // TIER 1: Measured bat speed (highest confidence)
+  if (measuredBatSpeedMph && measuredBatSpeedMph > 0) {
+    batSpeedMph = measuredBatSpeedMph;
+    path = 'measured';
+    confidence = 'high';
+  }
+  // TIER 2: Bat KE → bat speed via KE inversion: v = sqrt(2*KE/I_bat) converted to mph
+  else if (energyLedger.bat_ke > 5) {
+    const I_BAT = 0.048; // kg·m²
+    const batOmegaRad = Math.sqrt(2 * energyLedger.bat_ke / I_BAT);
+    // Convert rad/s → mph: omega * barrel_length(~0.7m) * 2.23694
+    batSpeedMph = Math.round(batOmegaRad * 0.70 * 2.23694 * 10) / 10;
+    path = 'ke_direct';
+    confidence = 'medium';
+  }
+  // TIER 3: Body mechanics regression (KESP-style)
+  else {
+    const weightLbs = massKg ? massKg * 2.205 : (bl.refWeight);
+    const weightDelta = Math.max(-50, Math.min(50, weightLbs - bl.refWeight));
+    const massAdj = weightDelta * 0.08;
+
+    // Transfer ratio adjustment
+    const tr = energyLedger.transfer_ratio;
+    const trAdj = tr > 0 ? (tr - bl.refTR) * 12 : 0;
+
+    // Sequence quality bonus
+    const seqAdj = energyLedger.sequence_correct ? 2.0 : -3.0;
+
+    // Pelvis KE contribution (normalized): higher pelvis KE = more fuel
+    const pelvisAdj = energyLedger.pelvis_ke > 0
+      ? Math.min(4, (energyLedger.pelvis_ke - 120) / 40)
+      : 0;
+
+    batSpeedMph = Math.round((bl.base + massAdj + trAdj + seqAdj + pelvisAdj) * 10) / 10;
+    batSpeedMph = Math.max(30, Math.min(95, batSpeedMph)); // sanity clamp
+    path = 'body_estimation';
+    confidence = 'low';
+  }
+
+  // Predict EV using Nathan collision model: EV = q*v_pitch + batCoeff*v_bat*contactQuality
+  let predictedEV: number | null = null;
+  if (batSpeedMph && batSpeedMph > 0) {
+    const avgContactQuality = 0.92; // assume average contact when no sensor data
+    predictedEV = Math.round(
+      (batProfile.e * pitchMph + batProfile.batCoeff * batSpeedMph * avgContactQuality) * 10
+    ) / 10;
+
+    // If measured EV exists, prefer it for the "actual" but still show predicted
+    if (measuredEVMph && measuredEVMph > 0) {
+      // Keep prediction as-is for comparison
+    }
+  }
+
+  // Swing energy: total KE from energy ledger
+  const swingEnergy = energyLedger.total_ke > 0 ? Math.round(energyLedger.total_ke * 10) / 10 : null;
+
+  return {
+    predicted_bat_speed_mph: batSpeedMph,
+    predicted_exit_velocity_mph: predictedEV,
+    predicted_swing_energy_j: swingEnergy,
+    bat_speed_path: path,
+    bat_speed_confidence: confidence,
+  };
+}
+
+// ===========================================================================
 // LEGACY 4B MAPPING (for backward compat with UI)
 // ===========================================================================
 
