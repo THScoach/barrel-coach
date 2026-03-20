@@ -1036,6 +1036,7 @@ function computeV2Scores(input: V2Input): ScoringOutput {
   return {
     version: '2.0',
     scoring_method: 'me_primary',
+    environment: input.environment ?? 'cage',
     pre_processing: {
       swing_duration_ms: preProc.swing_duration_ms,
       swing_category: preProc.swing_category,
