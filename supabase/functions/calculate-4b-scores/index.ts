@@ -29,7 +29,8 @@ type ScoringMethod = 'me_primary' | 'ik_fallback';
 type ScoringMode = 'full' | 'training';
 type FourBRating = 'Elite' | 'Good' | 'Working' | 'Priority';
 type ScoreLabel = 'Elite' | 'Good' | 'Working' | 'Priority';
-type PelvisClassification = 'DEAD_PELVIS' | 'LATE_PELVIS' | 'EARLY_PELVIS' | 'HEALTHY_PELVIS';
+type PelvisClassification = 'DEAD_PELVIS' | 'SPENT_PELVIS' | 'LATE_PELVIS' | 'EARLY_PELVIS' | 'HEALTHY_PELVIS';
+type Environment = 'cage' | 'game' | 'bp';
 type TKEShape = 'SHARP_SPIKE' | 'PLATEAU' | 'DOUBLE_BUMP' | 'UNKNOWN';
 type Severity = 'LOW' | 'MEDIUM' | 'HIGH';
 type MotorProfile = 'SPINNER' | 'TILT_WHIPPER' | 'LOAD_WHIPPER' | 'AMBIGUOUS_WHIPPER' | 'SLINGSHOTTER' | 'TITAN' | 'UNKNOWN';
@@ -108,6 +109,7 @@ interface LegacyInput {
   total_body_energy_j?: number;
   foot_plant_time_ms?: number | null;
   contact_time_ms?: number | null;
+  environment?: Environment;
 }
 
 interface V2Input {
@@ -119,6 +121,7 @@ interface V2Input {
     foot_plant_time_ms?: number;
     contact_time_ms?: number;
   };
+  environment?: Environment;
   // Optional measured ball data
   exit_velocity_mph?: number;
   launch_angle_deg?: number;
@@ -159,6 +162,7 @@ interface PelvisResult {
 interface ScoringOutput {
   version: string;
   scoring_method: ScoringMethod;
+  environment: Environment;
 
   pre_processing: {
     swing_duration_ms: number;
@@ -224,6 +228,7 @@ interface ScoringOutput {
 // ===========================================================================
 
 const DEAD_PELVIS_KE_THRESHOLD = 120; // Joules
+const SPENT_PELVIS_KE_THRESHOLD = 20; // Joules — KE remaining at contact
 const EARLY_PELVIS_ROT_THRESHOLD = -10.0; // Degrees
 const SWING_DURATION_WALKTHROUGH_MS = 550;
 const X_FACTOR_NOISE_THRESHOLD = 60; // Degrees absolute
@@ -482,7 +487,11 @@ function classifyPelvis(
     pelvisRotAtFP = getIKValueAtEvent(ikData.pelvis_rot, preProc.foot_plant_frame) * (180 / Math.PI);
   }
 
-  // Classification tree
+  // Pelvis KE timing: when did it peak and what's left at contact?
+  const pelvisKEPeakFrame = getPeakIndex(meData.LowerTorso_Kinetic_Energy);
+  const pelvisKEAtContact = getValueAtIndex(meData.LowerTorso_Kinetic_Energy, preProc.contact_frame);
+
+  // Classification tree (order matters: Dead → Spent → Late → Early → Healthy)
   if (pelvisKE < DEAD_PELVIS_KE_THRESHOLD) {
     return {
       classification: 'DEAD_PELVIS',
@@ -493,6 +502,20 @@ function classifyPelvis(
         'Synapse pelvis-first assisted rotation',
       ],
       anchor: `Vazquez (~100J pelvis KE). Current: ${Math.round(pelvisKE)}J`,
+    };
+  }
+
+  if (pelvisKEPeakFrame < preProc.foot_plant_frame && pelvisKEAtContact < SPENT_PELVIS_KE_THRESHOLD) {
+    return {
+      classification: 'SPENT_PELVIS',
+      problem: `Pelvis had energy (peaked at ${Math.round(pelvisKE)}J during stride) but spent it before foot plant. By contact only ${Math.round(pelvisKEAtContact)}J remains. The brake never formed to catch the energy.`,
+      prescription: [
+        'Balance disc work (foot-ground stability before pelvis can fire)',
+        'Synapse hip lock under eccentric load',
+        "Welch's Pelvis Inward Turn cue",
+        'Containment: keep pelvis closed longer so energy is available when the chain needs it',
+      ],
+      anchor: `Wilson (+7.3° at FP, peaked 60.6J during stride, 9J at contact). Current: peak ${Math.round(pelvisKE)}J → contact ${Math.round(pelvisKEAtContact)}J`,
     };
   }
 
@@ -1014,6 +1037,7 @@ function computeV2Scores(input: V2Input): ScoringOutput {
   return {
     version: '2.0',
     scoring_method: 'me_primary',
+    environment: input.environment ?? 'cage',
     pre_processing: {
       swing_duration_ms: preProc.swing_duration_ms,
       swing_category: preProc.swing_category,
@@ -1147,6 +1171,7 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
   return {
     version: '2.0',
     scoring_method: 'ik_fallback',
+    environment: input.environment ?? 'cage',
     pre_processing: {
       swing_duration_ms: input.load_duration_ms + input.launch_duration_ms,
       swing_category: (input.load_duration_ms + input.launch_duration_ms) > SWING_DURATION_WALKTHROUGH_MS ? 'WALKTHROUGH' : 'COMPETITIVE',
