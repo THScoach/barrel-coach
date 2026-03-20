@@ -159,6 +159,14 @@ interface PelvisResult {
   anchor: string | null;
 }
 
+interface PredictionResult {
+  predicted_bat_speed_mph: number | null;
+  predicted_exit_velocity_mph: number | null;
+  predicted_swing_energy_j: number | null;
+  bat_speed_path: 'measured' | 'ke_direct' | 'body_estimation';
+  bat_speed_confidence: 'high' | 'medium' | 'low';
+}
+
 interface ScoringOutput {
   version: string;
   scoring_method: ScoringMethod;
@@ -208,6 +216,15 @@ interface ScoringOutput {
     arms_ke_ratio: number;
     delivery_window_ms: number;
   };
+
+  // Predictions — "What your body can do"
+  predictions: PredictionResult;
+
+  // Top-level flattened for backward compat (compute-4b-from-csv reads these)
+  predicted_bat_speed_mph: number | null;
+  predicted_exit_velocity_mph: number | null;
+  bat_speed_path: string | null;
+  bat_speed_confidence: string | null;
 
   // Legacy 4B scores for backward compat with display components
   legacy_4b?: {
