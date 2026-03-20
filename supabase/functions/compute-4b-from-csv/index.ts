@@ -574,8 +574,8 @@ interface DurationGateResult {
  * Rules:
  *   duration > 550ms AND r_elbow at contact < 50° → "load_overweight", scoreable=false
  *   duration > 600ms → "walkthrough", scoreable=false
- *   duration < 350ms → "partial_capture", scoreable=false
- *   350-550ms → "competitive", scoreable=true
+ *   duration < 200ms → "partial_capture", scoreable=false
+ *   200-550ms → "competitive", scoreable=true
  */
 function classifySwingDuration(
   ikRows: Record<string, number>[],
