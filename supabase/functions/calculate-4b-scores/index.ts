@@ -161,6 +161,7 @@ interface PelvisResult {
 interface ScoringOutput {
   version: string;
   scoring_method: ScoringMethod;
+  environment: Environment;
 
   pre_processing: {
     swing_duration_ms: number;
