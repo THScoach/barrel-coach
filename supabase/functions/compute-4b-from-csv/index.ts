@@ -77,14 +77,14 @@ async function computeScoringResult(input: ScoreCalculationInput): Promise<Scori
     timing_gap_pct: raw.energy_ledger?.p_to_t_gap_ms ?? cf.components?.timing_gap_pct ?? 0,
     bat_speed_mph: raw.bat_speed_mph ?? null,
     exit_velocity_mph: raw.exit_velocity_mph ?? null,
-    predicted_bat_speed_mph: raw.predicted_bat_speed_mph ?? null,
-    predicted_exit_velocity_mph: raw.predicted_exit_velocity_mph ?? null,
+    predicted_bat_speed_mph: raw.predicted_bat_speed_mph ?? raw.predictions?.predicted_bat_speed_mph ?? null,
+    predicted_exit_velocity_mph: raw.predicted_exit_velocity_mph ?? raw.predictions?.predicted_exit_velocity_mph ?? null,
     predicted_entry_bucket: raw.predicted_entry_bucket ?? null,
     actual_bat_speed_mph: raw.actual_bat_speed_mph ?? null,
     actual_exit_velocity_mph: raw.actual_exit_velocity_mph ?? null,
     actual_entry_bucket: raw.actual_entry_bucket ?? null,
-    bat_speed_path: raw.bat_speed_path ?? null,
-    bat_speed_confidence: raw.bat_speed_confidence ?? null,
+    bat_speed_path: raw.bat_speed_path ?? raw.predictions?.bat_speed_path ?? null,
+    bat_speed_confidence: raw.bat_speed_confidence ?? raw.predictions?.bat_speed_confidence ?? null,
     scoring_timestamp: raw.scoring_timestamp ?? new Date().toISOString(),
   } as ScoringResult;
 }

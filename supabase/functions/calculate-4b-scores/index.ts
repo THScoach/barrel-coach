@@ -159,6 +159,14 @@ interface PelvisResult {
   anchor: string | null;
 }
 
+interface PredictionResult {
+  predicted_bat_speed_mph: number | null;
+  predicted_exit_velocity_mph: number | null;
+  predicted_swing_energy_j: number | null;
+  bat_speed_path: 'measured' | 'ke_direct' | 'body_estimation';
+  bat_speed_confidence: 'high' | 'medium' | 'low';
+}
+
 interface ScoringOutput {
   version: string;
   scoring_method: ScoringMethod;
@@ -208,6 +216,15 @@ interface ScoringOutput {
     arms_ke_ratio: number;
     delivery_window_ms: number;
   };
+
+  // Predictions — "What your body can do"
+  predictions: PredictionResult;
+
+  // Top-level flattened for backward compat (compute-4b-from-csv reads these)
+  predicted_bat_speed_mph: number | null;
+  predicted_exit_velocity_mph: number | null;
+  bat_speed_path: string | null;
+  bat_speed_confidence: string | null;
 
   // Legacy 4B scores for backward compat with display components
   legacy_4b?: {
@@ -974,6 +991,114 @@ function buildEnergyLedger(
 }
 
 // ===========================================================================
+// PREDICTIONS — "What your body can do"
+// ===========================================================================
+
+/** Level baselines for body → bat speed (same constants as KESP engine) */
+const LEVEL_BAT_BASELINES: Record<PlayerLevel, { base: number; refWeight: number; refTR: number }> = {
+  youth:       { base: 48, refWeight: 120, refTR: 1.15 },
+  high_school: { base: 64, refWeight: 170, refTR: 1.25 },
+  college:     { base: 68, refWeight: 190, refTR: 1.30 },
+  pro:         { base: 72, refWeight: 200, refTR: 1.32 },
+};
+
+/** Bat profiles for collision model */
+const BAT_COR: Record<PlayerLevel, { e: number; r: number; batCoeff: number }> = {
+  youth:       { e: 0.55, r: 0.25, batCoeff: 1.32 },  // USSSA
+  high_school: { e: 0.50, r: 0.22, batCoeff: 1.27 },  // BBCOR
+  college:     { e: 0.50, r: 0.22, batCoeff: 1.27 },  // BBCOR
+  pro:         { e: 0.50, r: 0.20, batCoeff: 1.25 },   // Wood
+};
+
+const PITCH_DEFAULTS: Record<PlayerLevel, number> = {
+  youth: 50, high_school: 75, college: 82, pro: 90,
+};
+
+/**
+ * Predict bat speed from body mechanics using the energy ledger.
+ * Three-tier: measured bat KE → total KE regression → angular velocity model.
+ */
+function computePredictions(
+  energyLedger: ScoringOutput['energy_ledger'],
+  playerLevel: PlayerLevel,
+  massKg: number | undefined,
+  measuredBatSpeedMph?: number | null,
+  measuredEVMph?: number | null,
+): PredictionResult {
+  const bl = LEVEL_BAT_BASELINES[playerLevel];
+  const batProfile = BAT_COR[playerLevel];
+  const pitchMph = PITCH_DEFAULTS[playerLevel];
+
+  let batSpeedMph: number | null = null;
+  let path: PredictionResult['bat_speed_path'] = 'body_estimation';
+  let confidence: PredictionResult['bat_speed_confidence'] = 'low';
+
+  // TIER 1: Measured bat speed (highest confidence)
+  if (measuredBatSpeedMph && measuredBatSpeedMph > 0) {
+    batSpeedMph = measuredBatSpeedMph;
+    path = 'measured';
+    confidence = 'high';
+  }
+  // TIER 2: Bat KE → bat speed via KE inversion: v = sqrt(2*KE/I_bat) converted to mph
+  else if (energyLedger.bat_ke > 5) {
+    const I_BAT = 0.048; // kg·m²
+    const batOmegaRad = Math.sqrt(2 * energyLedger.bat_ke / I_BAT);
+    // Convert rad/s → mph: omega * barrel_length(~0.7m) * 2.23694
+    batSpeedMph = Math.round(batOmegaRad * 0.70 * 2.23694 * 10) / 10;
+    path = 'ke_direct';
+    confidence = 'medium';
+  }
+  // TIER 3: Body mechanics regression (KESP-style)
+  else {
+    const weightLbs = massKg ? massKg * 2.205 : (bl.refWeight);
+    const weightDelta = Math.max(-50, Math.min(50, weightLbs - bl.refWeight));
+    const massAdj = weightDelta * 0.08;
+
+    // Transfer ratio adjustment
+    const tr = energyLedger.transfer_ratio;
+    const trAdj = tr > 0 ? (tr - bl.refTR) * 12 : 0;
+
+    // Sequence quality bonus
+    const seqAdj = energyLedger.sequence_correct ? 2.0 : -3.0;
+
+    // Pelvis KE contribution (normalized): higher pelvis KE = more fuel
+    const pelvisAdj = energyLedger.pelvis_ke > 0
+      ? Math.min(4, (energyLedger.pelvis_ke - 120) / 40)
+      : 0;
+
+    batSpeedMph = Math.round((bl.base + massAdj + trAdj + seqAdj + pelvisAdj) * 10) / 10;
+    batSpeedMph = Math.max(30, Math.min(95, batSpeedMph)); // sanity clamp
+    path = 'body_estimation';
+    confidence = 'low';
+  }
+
+  // Predict EV using Nathan collision model: EV = q*v_pitch + batCoeff*v_bat*contactQuality
+  let predictedEV: number | null = null;
+  if (batSpeedMph && batSpeedMph > 0) {
+    const avgContactQuality = 0.92; // assume average contact when no sensor data
+    predictedEV = Math.round(
+      (batProfile.e * pitchMph + batProfile.batCoeff * batSpeedMph * avgContactQuality) * 10
+    ) / 10;
+
+    // If measured EV exists, prefer it for the "actual" but still show predicted
+    if (measuredEVMph && measuredEVMph > 0) {
+      // Keep prediction as-is for comparison
+    }
+  }
+
+  // Swing energy: total KE from energy ledger
+  const swingEnergy = energyLedger.total_ke > 0 ? Math.round(energyLedger.total_ke * 10) / 10 : null;
+
+  return {
+    predicted_bat_speed_mph: batSpeedMph,
+    predicted_exit_velocity_mph: predictedEV,
+    predicted_swing_energy_j: swingEnergy,
+    bat_speed_path: path,
+    bat_speed_confidence: confidence,
+  };
+}
+
+// ===========================================================================
 // LEGACY 4B MAPPING (for backward compat with UI)
 // ===========================================================================
 
@@ -1027,12 +1152,22 @@ function computeV2Scores(input: V2Input): ScoringOutput {
   // Step 7: Energy Ledger
   const energyLedger = buildEnergyLedger(me_data, ik_data, coreFlow, armFlow, preProc);
 
-  // Step 8: Legacy mapping
+  // Step 8: Predictions — "What your body can do"
+  const predictions = computePredictions(
+    energyLedger,
+    player_metadata.player_level,
+    player_metadata.mass_kg,
+    input.exit_velocity_mph ? undefined : undefined, // no measured bat speed in ME path
+    input.exit_velocity_mph,
+  );
+
+  // Step 9: Legacy mapping
   const legacy4B = mapToLegacy4B(groundFlow, coreFlow, armFlow);
 
   console.log(`[4B-v2] Ground=${groundFlow.score} Core=${coreFlow.score} Arm=${armFlow.score} ` +
     `Pelvis=${pelvisResult.classification} TKE=${tkeShape} Motor=${motorProfile} ` +
-    `TR=${coreFlow.transfer_ratio.toFixed(2)} P→T=${coreFlow.pt_gap_ms.toFixed(1)}ms`);
+    `TR=${coreFlow.transfer_ratio.toFixed(2)} P→T=${coreFlow.pt_gap_ms.toFixed(1)}ms ` +
+    `PredBat=${predictions.predicted_bat_speed_mph} PredEV=${predictions.predicted_exit_velocity_mph}`);
 
   return {
     version: '2.0',
@@ -1055,6 +1190,11 @@ function computeV2Scores(input: V2Input): ScoringOutput {
     tke_shape: tkeShape,
     motor_profile: motorProfile,
     energy_ledger: energyLedger,
+    predictions,
+    predicted_bat_speed_mph: predictions.predicted_bat_speed_mph,
+    predicted_exit_velocity_mph: predictions.predicted_exit_velocity_mph,
+    bat_speed_path: predictions.bat_speed_path,
+    bat_speed_confidence: predictions.bat_speed_confidence,
     legacy_4b: legacy4B,
     scoring_timestamp: new Date().toISOString(),
   };
@@ -1167,6 +1307,44 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
   const timingGapPctFinal = (input.load_duration_ms + input.launch_duration_ms) > 0
     ? Math.round((timingGapMs / (input.load_duration_ms + input.launch_duration_ms)) * 100 * 10) / 10 : 0;
 
+  // Legacy prediction: use angular velocities to predict bat speed
+  const legacyEnergyLedger = {
+    pelvis_ke: 0, torso_ke: 0, arms_ke: 0, bat_ke: input.bat_energy_j ?? 0,
+    total_ke: input.total_body_energy_j ?? 0, lower_half_ke: 0,
+    sequence_correct: correctOrder,
+    x_factor_degrees: input.hip_shoulder_sep_max_deg,
+    trunk_tilt_degrees: 0,
+    pelvis_rot_at_fp_degrees: 0,
+    transfer_ratio: tr,
+    p_to_t_gap_ms: timingGapMs,
+    arms_ke_ratio: 0,
+    delivery_window_ms: deliveryMs,
+  };
+
+  const legacyPredictions = computePredictions(
+    legacyEnergyLedger,
+    input.player_level,
+    input.mass_total_kg,
+    input.measured_bat_speed_mph,
+    input.measured_ev_mph ?? input.exit_velocity_mph,
+  );
+
+  // If bat speed was computed from angular velocity, use that as prediction
+  if (!legacyPredictions.predicted_bat_speed_mph && batSpeedMph > 0) {
+    legacyPredictions.predicted_bat_speed_mph = Math.round(batSpeedMph * 10) / 10;
+    legacyPredictions.bat_speed_path = 'body_estimation';
+    legacyPredictions.bat_speed_confidence = 'low';
+  }
+
+  // Compute predicted EV if we have bat speed but no EV prediction yet
+  if (legacyPredictions.predicted_bat_speed_mph && !legacyPredictions.predicted_exit_velocity_mph) {
+    const bp = BAT_COR[input.player_level] ?? BAT_COR.high_school;
+    const pm = PITCH_DEFAULTS[input.player_level] ?? 75;
+    legacyPredictions.predicted_exit_velocity_mph = Math.round(
+      (bp.e * pm + bp.batCoeff * legacyPredictions.predicted_bat_speed_mph * 0.92) * 10
+    ) / 10;
+  }
+
   // Build v2 output shape with IK fallback data
   return {
     version: '2.0',
@@ -1201,17 +1379,12 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
     },
     tke_shape: 'UNKNOWN',
     motor_profile: 'UNKNOWN',
-    energy_ledger: {
-      pelvis_ke: 0, torso_ke: 0, arms_ke: 0, bat_ke: 0, total_ke: 0, lower_half_ke: 0,
-      sequence_correct: correctOrder,
-      x_factor_degrees: input.hip_shoulder_sep_max_deg,
-      trunk_tilt_degrees: 0,
-      pelvis_rot_at_fp_degrees: 0,
-      transfer_ratio: tr,
-      p_to_t_gap_ms: timingGapMs,
-      arms_ke_ratio: 0,
-      delivery_window_ms: deliveryMs,
-    },
+    energy_ledger: legacyEnergyLedger,
+    predictions: legacyPredictions,
+    predicted_bat_speed_mph: legacyPredictions.predicted_bat_speed_mph,
+    predicted_exit_velocity_mph: legacyPredictions.predicted_exit_velocity_mph,
+    bat_speed_path: legacyPredictions.bat_speed_path,
+    bat_speed_confidence: legacyPredictions.bat_speed_confidence,
     legacy_4b: { body, brain, bat, ball, score_4bkrs: composite, rating, color },
     scoring_timestamp: new Date().toISOString(),
   };
