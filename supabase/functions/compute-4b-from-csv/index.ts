@@ -574,8 +574,8 @@ interface DurationGateResult {
  * Rules:
  *   duration > 550ms AND r_elbow at contact < 50° → "load_overweight", scoreable=false
  *   duration > 600ms → "walkthrough", scoreable=false
- *   duration < 350ms → "partial_capture", scoreable=false
- *   350-550ms → "competitive", scoreable=true
+ *   duration < 200ms → "partial_capture", scoreable=false
+ *   200-550ms → "competitive", scoreable=true
  */
 function classifySwingDuration(
   ikRows: Record<string, number>[],
@@ -590,9 +590,9 @@ function classifySwingDuration(
   
   console.log(`[Duration Gate] frames=${ikRows.length}, contactFrame=${contactFrameIdx}, duration=${durationMs.toFixed(0)}ms`);
 
-  // Check for partial capture first
-  if (durationMs < 350) {
-    console.log(`[Duration Gate] PARTIAL_CAPTURE: ${durationMs.toFixed(0)}ms < 350ms`);
+  // Check for partial capture first (200ms minimum — typical competitive swings are 250-400ms)
+  if (durationMs < 200) {
+    console.log(`[Duration Gate] PARTIAL_CAPTURE: ${durationMs.toFixed(0)}ms < 200ms`);
     return { swing_duration_ms: durationMs, classification: 'partial_capture', scoreable: false };
   }
 
