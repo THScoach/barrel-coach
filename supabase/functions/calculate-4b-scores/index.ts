@@ -486,7 +486,11 @@ function classifyPelvis(
     pelvisRotAtFP = getIKValueAtEvent(ikData.pelvis_rot, preProc.foot_plant_frame) * (180 / Math.PI);
   }
 
-  // Classification tree
+  // Pelvis KE timing: when did it peak and what's left at contact?
+  const pelvisKEPeakFrame = getPeakIndex(meData.LowerTorso_Kinetic_Energy);
+  const pelvisKEAtContact = getValueAtIndex(meData.LowerTorso_Kinetic_Energy, preProc.contact_frame);
+
+  // Classification tree (order matters: Dead → Spent → Late → Early → Healthy)
   if (pelvisKE < DEAD_PELVIS_KE_THRESHOLD) {
     return {
       classification: 'DEAD_PELVIS',
@@ -497,6 +501,20 @@ function classifyPelvis(
         'Synapse pelvis-first assisted rotation',
       ],
       anchor: `Vazquez (~100J pelvis KE). Current: ${Math.round(pelvisKE)}J`,
+    };
+  }
+
+  if (pelvisKEPeakFrame < preProc.foot_plant_frame && pelvisKEAtContact < SPENT_PELVIS_KE_THRESHOLD) {
+    return {
+      classification: 'SPENT_PELVIS',
+      problem: `Pelvis had energy (peaked at ${Math.round(pelvisKE)}J during stride) but spent it before foot plant. By contact only ${Math.round(pelvisKEAtContact)}J remains. The brake never formed to catch the energy.`,
+      prescription: [
+        'Balance disc work (foot-ground stability before pelvis can fire)',
+        'Synapse hip lock under eccentric load',
+        "Welch's Pelvis Inward Turn cue",
+        'Containment: keep pelvis closed longer so energy is available when the chain needs it',
+      ],
+      anchor: `Wilson (+7.3° at FP, peaked 60.6J during stride, 9J at contact). Current: peak ${Math.round(pelvisKE)}J → contact ${Math.round(pelvisKEAtContact)}J`,
     };
   }
 
