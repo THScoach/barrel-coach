@@ -590,9 +590,9 @@ function classifySwingDuration(
   
   console.log(`[Duration Gate] frames=${ikRows.length}, contactFrame=${contactFrameIdx}, duration=${durationMs.toFixed(0)}ms`);
 
-  // Check for partial capture first
-  if (durationMs < 350) {
-    console.log(`[Duration Gate] PARTIAL_CAPTURE: ${durationMs.toFixed(0)}ms < 350ms`);
+  // Check for partial capture first (200ms minimum — typical competitive swings are 250-400ms)
+  if (durationMs < 200) {
+    console.log(`[Duration Gate] PARTIAL_CAPTURE: ${durationMs.toFixed(0)}ms < 200ms`);
     return { swing_duration_ms: durationMs, classification: 'partial_capture', scoreable: false };
   }
 
