@@ -234,11 +234,10 @@ Deno.serve(async (req) => {
         [fileType]: parsedMetrics,
       };
 
+      // Store ONLY storage path — no raw CSV in DB (prevents row bloat)
       if (fileType === 'ik') {
-        updateData.raw_csv_ik = csvText;
         updateData.ik_file_path = storagePath;
       } else {
-        updateData.raw_csv_me = csvText;
         updateData.me_file_path = storagePath;
       }
 
@@ -260,7 +259,7 @@ Deno.serve(async (req) => {
       sessionRecord = data;
       console.log(`[manual-reboot-upload] Updated existing session ${existingSession.id}`);
     } else {
-      // Create new session record
+      // Create new session record — store only paths, not raw CSV text
       const insertData: Record<string, unknown> = {
         player_id: playerId,
         reboot_session_id: `manual-${crypto.randomUUID().slice(0, 8)}`,
@@ -275,10 +274,8 @@ Deno.serve(async (req) => {
       };
 
       if (fileType === 'ik') {
-        insertData.raw_csv_ik = csvText;
         insertData.ik_file_path = storagePath;
       } else {
-        insertData.raw_csv_me = csvText;
         insertData.me_file_path = storagePath;
       }
 
