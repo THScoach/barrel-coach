@@ -51,7 +51,42 @@ async function computeScoringResult(input: ScoreCalculationInput): Promise<Scori
     throw new Error(`Scoring engine returned ${response.status}: ${errText.substring(0, 300)}`);
   }
 
-  return await response.json() as ScoringResult;
+  const raw = await response.json();
+
+  // calculate-4b-scores v2 returns scores nested under legacy_4b + scores.*
+  // Flatten into the ScoringResult shape expected downstream
+  const legacy = raw.legacy_4b ?? {};
+  const scores = raw.scores ?? {};
+  const gf = scores.ground_flow ?? {};
+  const cf = scores.core_flow ?? {};
+  const af = scores.arm_flow ?? {};
+
+  return {
+    score_4bkrs: legacy.score_4bkrs ?? raw.score_4bkrs ?? 0,
+    mode: raw.scoring_method === 'ik_fallback' ? 'training' : 'full',
+    version: raw.version ?? 'v2',
+    body: legacy.body ?? gf.score ?? 0,
+    brain: legacy.brain ?? cf.score ?? 0,
+    bat: legacy.bat ?? af.score ?? 0,
+    ball: legacy.ball ?? null,
+    rating: legacy.rating ?? raw.rating ?? 'Working',
+    color: legacy.color ?? raw.color ?? '#888',
+    creation: gf.score ?? legacy.body ?? 0,
+    transfer: cf.score ?? legacy.brain ?? 0,
+    transfer_ratio: raw.energy_ledger?.transfer_ratio ?? cf.components?.transfer_ratio ?? 0,
+    timing_gap_pct: raw.energy_ledger?.p_to_t_gap_ms ?? cf.components?.timing_gap_pct ?? 0,
+    bat_speed_mph: raw.bat_speed_mph ?? null,
+    exit_velocity_mph: raw.exit_velocity_mph ?? null,
+    predicted_bat_speed_mph: raw.predicted_bat_speed_mph ?? null,
+    predicted_exit_velocity_mph: raw.predicted_exit_velocity_mph ?? null,
+    predicted_entry_bucket: raw.predicted_entry_bucket ?? null,
+    actual_bat_speed_mph: raw.actual_bat_speed_mph ?? null,
+    actual_exit_velocity_mph: raw.actual_exit_velocity_mph ?? null,
+    actual_entry_bucket: raw.actual_entry_bucket ?? null,
+    bat_speed_path: raw.bat_speed_path ?? null,
+    bat_speed_confidence: raw.bat_speed_confidence ?? null,
+    scoring_timestamp: raw.scoring_timestamp ?? new Date().toISOString(),
+  } as ScoringResult;
 }
 
 // ---------------------------------------------------------------------------
