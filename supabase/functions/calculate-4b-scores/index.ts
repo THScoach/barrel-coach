@@ -109,6 +109,7 @@ interface LegacyInput {
   total_body_energy_j?: number;
   foot_plant_time_ms?: number | null;
   contact_time_ms?: number | null;
+  environment?: Environment;
 }
 
 interface V2Input {
