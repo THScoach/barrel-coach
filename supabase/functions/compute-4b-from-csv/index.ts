@@ -431,7 +431,11 @@ function parseRebootCSV(
   // peakIdx is within the delivery window; subtract contactFrameIdx to get relative ms
   const final_pelvis_omega_time = (pelvisOmega.peakIdx - contactFrameIdx) * MS_PER_FRAME;
   const final_trunk_omega_time  = (torsoOmega.peakIdx - contactFrameIdx) * MS_PER_FRAME;
-  const timingGapPct = Math.abs(final_pelvis_omega_time - final_trunk_omega_time) / 200 * 100;
+  // Delivery window = actual foot plant to contact duration (Section E appendix)
+  // DO NOT use hardcoded 200ms — calculate per swing
+  const deliveryDurationMs = Math.max(1, contactFrameIdx * MS_PER_FRAME - (deliveryStart * MS_PER_FRAME));
+  const effectiveDeliveryWindow = deliveryDurationMs > 0 ? deliveryDurationMs : 200; // fallback only if no data
+  const timingGapPct = Math.abs(final_pelvis_omega_time - final_trunk_omega_time) / effectiveDeliveryWindow * 100;
 
   console.log(`[CSV→Score] TIMING: { contactFrameIndex: ${contactFrameIdx}, pelvis_omega_time_ms: ${final_pelvis_omega_time.toFixed(1)}, trunk_omega_time_ms: ${final_trunk_omega_time.toFixed(1)}, timingGapPct: ${timingGapPct.toFixed(1)} }`);
 
