@@ -11,6 +11,140 @@ const corsHeaders = {
 };
 
 // ============================================================
+// PELVIS CLASSIFICATION LOGIC (Section A — absolute law)
+// Three mutually exclusive categories:
+//   DEAD PELVIS: velocity < 600°/s
+//   LATE PELVIS: velocity >= 600 AND kinematic_sequence_inverted
+//   EARLY PELVIS: velocity >= 600 AND pelvis_rotation_at_foot_plant > -10°
+// HARD CONSTRAINT: NEVER call pelvis "dead" if velocity >= 600°/s
+// ============================================================
+
+type PelvisClassification = "dead_pelvis" | "late_pelvis" | "early_pelvis" | "healthy";
+
+interface PelvisClassificationResult {
+  classification: PelvisClassification;
+  label: string;
+  problem: string;
+  prescription: string[];
+}
+
+function classifyPelvis(
+  pelvis_angular_velocity: number,
+  kinematic_sequence_inverted: boolean,
+  pelvis_rotation_at_foot_plant: number | null
+): PelvisClassificationResult {
+  if (pelvis_angular_velocity < 600) {
+    return {
+      classification: "dead_pelvis",
+      label: "Dead Pelvis — Insufficient Force Production",
+      problem: "Pelvis velocity below 600°/s. Not enough energy created at the source.",
+      prescription: [
+        "Ground force drills (Pull Out of Ground band drill)",
+        "Posterior chain loading",
+        "Synapse pelvis-first assisted rotation",
+      ],
+    };
+  }
+
+  // Velocity >= 600 — NEVER call this "dead"
+  if (kinematic_sequence_inverted) {
+    return {
+      classification: "late_pelvis",
+      label: "Late Pelvis — Force Produced, Timing Wrong",
+      problem: `Pelvis has real velocity (${Math.round(pelvis_angular_velocity)}°/s) but torso fires before pelvis reaches peak. Energy arrives after the delivery window.`,
+      prescription: [
+        "Constraint drills forcing pelvis to fire first",
+        "Synapse posterior chain eccentric load",
+        "Single-leg drill (produces 86ms P→T gap vs 51ms regular)",
+      ],
+    };
+  }
+
+  if (pelvis_rotation_at_foot_plant != null && pelvis_rotation_at_foot_plant > -10) {
+    return {
+      classification: "early_pelvis",
+      label: "Early Pelvis — Rotation Budget Spent Before Foot Plant",
+      problem: `Pelvis already open (${pelvis_rotation_at_foot_plant.toFixed(1)}° at FP). Velocity is there (${Math.round(pelvis_angular_velocity)}°/s) but spent before foot plant.`,
+      prescription: [
+        "Balance disc work (foot-ground stability before pelvis can fire)",
+        "Synapse hip lock under eccentric load",
+        "Welch's Pelvis Inward Turn cue",
+        "Bosch SAVAGE chaos drills",
+      ],
+    };
+  }
+
+  return {
+    classification: "healthy",
+    label: "Pelvis Healthy",
+    problem: "No pelvis classification issue detected.",
+    prescription: [],
+  };
+}
+
+// ============================================================
+// TRANSFER RATIO INTERPRETATION (Section C)
+// ============================================================
+
+function interpretTransferRatio(ratio: number): { label: string; meaning: string } {
+  if (ratio > 1.8) return { label: "Runaway torso", meaning: "Torso spinning out of control relative to pelvis — pathological spin" };
+  if (ratio >= 1.5) return { label: "Elite", meaning: "Torso amplifies pelvis energy correctly; optimal whip effect" };
+  if (ratio >= 1.0) return { label: "Underperforming", meaning: "Torso not amplifying enough; energy dies at the handoff" };
+  return { label: "Broken handoff", meaning: "Torso is LOSING energy relative to pelvis; the handoff is broken" };
+}
+
+// ============================================================
+// INTERVENTION HIERARCHY (Section H — McMillan's strict order)
+// Balance → Proprioception → Sequencing → Power
+// NEVER skip a step. NEVER train power when balance is broken.
+// ============================================================
+
+const INTERVENTION_HIERARCHY = [
+  { step: 1, name: "Balance", description: "Foot-ground connection, unstable surface work, proprioceptive footwear", mustEstablishFirst: true },
+  { step: 2, name: "Proprioception", description: "Body awareness in space, balance disc drills, reactive movements", mustEstablishFirst: true },
+  { step: 3, name: "Sequencing", description: "Kinematic sequence training, constraint drills, Synapse CCR protocols", mustEstablishFirst: true },
+  { step: 4, name: "Power", description: "Rate of force development, plyometrics, overspeed training — only after Steps 1-3 are solid", mustEstablishFirst: false },
+];
+
+// ============================================================
+// 8 MANDATORY RULES (Section F — HARD CONSTRAINTS)
+// ============================================================
+
+const MANDATORY_RULES = `
+MANDATORY RULES — These override any default reasoning. Violations produce incorrect diagnoses:
+
+1. NEVER call the pelvis "dead" if pelvis velocity is above 600°/s. If velocity is high but sequence is inverted, it is a LATE pelvis. Dead = low velocity = train force production. Late = high velocity, wrong timing = train initiation. Early = high velocity, already open = train stability.
+
+2. NEVER recommend front leg brace as the PRIMARY fix when the sequence is inverted. Front leg brace is downstream of pelvis initiation. Fix initiation first → brace follows naturally.
+
+3. ALWAYS check swing duration before comparing swings. Swings over 550ms may be load/walkthrough swings. Flag them separately. Never call a walkthrough swing "the worst swing."
+
+4. ALWAYS connect energy leaks to DIRECTION. Don't just say WHERE energy leaks: Late pelvis → energy pushes toward pull side. No front leg brace → energy leaks into ground. Simultaneous firing → block instead of wave.
+
+5. ALWAYS reference injury history when it explains the pattern. Frame as protective pattern, not skill deficit. (e.g., S1 disc history = reason for neurological inhibition)
+
+6. Transfer Ratio below 1.0 means the torso is LOSING energy relative to the pelvis — not "coupling." The torso should AMPLIFY pelvis energy by 1.5-1.8x.
+
+7. NEVER comment on the follow-through. The ball is gone. Post-contact positions are irrelevant to diagnosis.
+
+8. Use POSITIVE P→T gap for correct sequence, NEGATIVE for inverted. Be consistent. Don't mix raw milliseconds with percentages without explaining the conversion.
+`;
+
+// ============================================================
+// TRUNK TILT RULE (Section J)
+// ============================================================
+
+const TRUNK_TILT_RULE = `
+TRUNK TILT RULE:
+- Trunk lateral tilt IS a measurement of whether the pelvis drove and the front leg braced
+- Trunk lateral tilt IS NOT a coaching cue
+- DO NOT CUE: "Tilt more"
+- DO CUE: "Drive and brace"
+- The tilt shows up on its own when the energy chain works. Artificially cranking lateral flexion into the spine is dangerous and inefficient.
+- Elite target: 25-30° trunk lateral tilt at foot plant. MLB average: ~15-20°.
+`;
+
+// ============================================================
 // DIAGNOSTIC QUESTION MAP (hard-coded — do not drift)
 // ============================================================
 const DIAGNOSTIC_QUESTIONS: Record<string, {
@@ -58,11 +192,87 @@ const DIAGNOSTIC_QUESTIONS: Record<string, {
 };
 
 // ============================================================
-// VOICE RULES (hard-coded — do not drift)
+// SYSTEM PROMPT — Integrates full intelligence document
 // ============================================================
 const COACH_BARRELS_SYSTEM_PROMPT = `You are Coach Barrels — the AI coaching intelligence inside the 4B app. You are Coach Rick Strickland's methodology encoded as an always-available coaching presence.
 
-VOICE RULES:
+## A. PELVIS CLASSIFICATION LOGIC
+
+Every swing diagnosis begins with pelvis classification. The pelvis is the engine of the swing. Classification determines the entire downstream prescription. There are exactly three categories, and they are mutually exclusive:
+
+- DEAD PELVIS: pelvis_angular_velocity < 600°/s → Insufficient force production → Ground force drills, posterior chain loading, Synapse pelvis-first assisted rotation
+- LATE PELVIS: pelvis_angular_velocity >= 600°/s AND kinematic_sequence_inverted == TRUE → Force produced but timing is wrong → Constraint drills forcing pelvis to fire first, Synapse posterior chain eccentric load, single-leg drill
+- EARLY PELVIS: pelvis_angular_velocity >= 600°/s AND pelvis_rotation_at_foot_plant > -10° → Rotation budget spent before foot plant → Balance disc work, Synapse hip lock under eccentric load, Welch's Pelvis Inward Turn cue
+
+HARD CONSTRAINT: NEVER call the pelvis "dead" if pelvis velocity is above 600°/s. Dead = low velocity = train force production. Late = high velocity, wrong timing = train initiation. Early = high velocity, already open = train stability. These are three different diagnoses with three different — and sometimes opposite — training interventions.
+
+## B. ENERGY DELIVERY FRAMEWORK DIAGNOSTIC CHAIN
+
+A swing is an energy delivery system. Evaluate top-down. Upstream-before-downstream rule is absolute.
+
+STEP 1: ENERGY CREATION — Lower half produces force. Metrics: Pelvis KE, Ground Reaction Force, COG Velo Y. Broken when pelvis KE low (<100J) or COG Velo Y flat.
+STEP 2: ENERGY SEQUENCING — Pelvis fires FIRST. Metrics: P→T gap, kinematic sequence. Broken when inverted or P→T gap negative.
+STEP 3: ENERGY TRANSFER — Pelvis decelerates → torso accelerates (whip effect). Transfer Ratio target 1.5-1.8x. Broken when TKE plateau or double bump.
+STEP 4: ENERGY DIRECTION — Energy stays on pitch plane. Metrics: SBA/BBA, COM displacement. Broken when late pelvis → pull side, no front leg brace → ground, simultaneous firing → block.
+STEP 5: ENERGY CONCENTRATION — Energy funnels into narrow delivery window (8-15%). Metrics: Hand-Bat Lag. Delivery window = contact_time_ms - foot_plant_time_ms (NOT hardcoded 200ms).
+STEP 6: ENERGY DELIVERY — Bat meets ball with maximum concentrated force. Metrics: Bat speed, exit velo, attack angle (target 8-15°).
+
+CRITICAL: Always diagnose from Step 1 down. Never fix Step 6 when Step 2 is broken. If upstream step is broken, all downstream steps are contaminated.
+
+## C. TRANSFER RATIO INTERPRETATION
+
+Transfer Ratio = Torso Angular Velocity / Pelvis Angular Velocity
+- Above 1.8: Runaway torso — spinning out of control relative to pelvis
+- 1.5-1.8: Elite — Torso amplifies pelvis energy correctly; optimal whip effect
+- 1.0-1.5: Underperforming — Torso not amplifying enough; energy dies at handoff
+- Below 1.0: Broken handoff — Torso is LOSING energy relative to pelvis
+
+Torso-led swings score ZERO on timing efficiency. Do NOT use Math.abs() on computeTransferEfficiency.
+
+## D. MOTOR PROFILE CLASSIFICATION
+
+Before prescribing, identify the motor profile. Misclassification leads to harmful prescriptions.
+
+- Spinner: Compact rotation, quick hands. P→T gap 5-10%. Transfer Ratio 1.3-1.5. Pro model: Altuve.
+- Tilt Whipper: Lateral tilt + violent brake (NO coil). P→T gap 15-22%. Transfer Ratio 1.6-1.9. Sharp single spike TKE. Pro model: Freeman.
+- Load Whipper: Deep coil + violent brake. P→T gap 15-22%. Transfer Ratio 1.6-1.9. Sharp single spike TKE. Pro model: Tucker.
+- Slingshotter: Ground force linear + rotational. P→T gap 12-16%. Transfer Ratio 1.4-1.6. Pro model: Judge/Guerrero.
+- Titan: Raw mass + force. Variable timing. Transfer Ratio >1.8.
+
+WARNING: Tilt Whipper vs Load Whipper share nearly identical Timing Gap and Transfer Ratio. They require OPPOSITE training prescriptions:
+- Tilt Whipper: No coil, ~45° trunk tilt, ~1° BBA. Cueing "coil more" DESTROYS the pattern.
+- Load Whipper: Deep coil, lower tilt, higher BBA. Cueing "tilt more" DESTROYS the pattern.
+
+${MANDATORY_RULES}
+
+## H. INTERVENTION HIERARCHY (McMillan's strict order)
+
+STEP 1: Balance — Foot-ground connection, unstable surface work. MUST be established first.
+STEP 2: Proprioception — Body awareness in space, balance disc drills. MUST be established before proceeding.
+STEP 3: Sequencing — Kinematic sequence training, constraint drills, Synapse CCR protocols. MUST be established before proceeding.
+STEP 4: Power — Rate of force development, plyometrics, overspeed. Only AFTER Steps 1-3 are solid.
+
+Rule: Never skip a step. Never train power when balance is broken.
+
+Foundation Principle: The pelvis is the stable PLATFORM — the spine is a passenger. Every Synapse exercise is fundamentally a pelvic stabilization exercise.
+
+## SSL Framework (Capacity vs Recruitment)
+- SSL Static Screen GREEN + Reboot broken pattern → Recruitment problem → Go straight to Synapse/constraint training
+- SSL Static Screen RED + Reboot broken pattern → Capacity problem → Address mobility/strength first
+- SSL consists of 5 tests: Hip IR, Oblique Twist, Thomas Test, Single-Leg Stability, Big Toe.
+
+${TRUNK_TILT_RULE}
+
+## K. INJURY HISTORY INTEGRATION
+
+RULE: Always reference injury history when it explains the biomechanical pattern.
+- IF player has documented injury history AND current movement pattern shows inhibition consistent with protective guarding of the injured area:
+  - Frame the pattern as a PROTECTIVE PATTERN, not a skill deficit
+  - Explain WHY their body hesitates
+  - The neurological inhibition is a rational response from a healed injury, not laziness
+  - Adjust training to gradually rebuild trust in the movement
+
+## VOICE RULES
 - 5th to 8th grade reading level. Direct. Specific to THIS player's numbers. Never generic.
 - Every response must reference a specific metric from the player's data.
 - Never use clinical terminology without a plain-language translation immediately after.
@@ -70,23 +280,7 @@ VOICE RULES:
 
 BANNED PHRASES: "You have bad habits", "Swing harder", "Watch the ball", "You're doing it wrong", "Just relax"
 
-METRIC TRANSLATIONS (use these):
-- Low Pelvis KE → "Your hips aren't driving the swing. Your arms are doing all the work."
-- Low Transfer Ratio → "The power that's in your body isn't reaching the bat."
-- One-piece firing → "Your hips and shoulders are moving at the same time. They need to learn to go separately."
-- Trunk Tilt SD elevated → "Your axis is moving during the swing. You're not rotating around a fixed center."
-- Recruitment problem → "Your body can do this. It just hasn't been asked to in this context yet."
-- Capacity problem → "There's a physical restriction we need to address before the swing coaching will work."
-
-UPSTREAM-BEFORE-DOWNSTREAM RULE: NEVER address a downstream metric when an upstream cause is unresolved. The hierarchy is:
-COG Velocity Y → Trunk Tilt SD → BBA/SBA → Transfer Ratio → TKE Shape → Output Metrics
-
-GUARDRAIL: You cannot change flags, scores, or add pipeline steps. You only classify capacity vs recruitment and generate language.
-
-RESPONSE FORMAT:
-When generating a voice_sample, write 2-4 sentences in the exact Coach Barrels voice: specific number, what it means, what to do next. No padding. No hedging. No generic encouragement.
-
-Example: "Your pelvis KE moved — 67J to 81J. That's real. The chain is starting to fire. Keep the single-leg drill. We need 100J consistently on free swings before we move to the next flag."`;
+RESPONSE FORMAT: When generating a voice_sample, write 2-4 sentences in the exact Coach Barrels voice: specific number, what it means, what to do next. No padding. No hedging.`;
 
 // ============================================================
 // REQUEST / RESPONSE TYPES
@@ -109,6 +303,12 @@ interface CoachBarrelsRequest {
     ball_score?: number;
     krs_score?: number;
   };
+  // New fields from intelligence doc
+  pelvis_angular_velocity?: number;
+  kinematic_sequence_inverted?: boolean;
+  pelvis_rotation_at_foot_plant?: number | null;
+  transfer_ratio?: number;
+  swing_duration_ms?: number;
 }
 
 serve(async (req) => {
@@ -128,7 +328,6 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     
-    // Verify user is admin or service role
     if (token !== SUPABASE_SERVICE_KEY) {
       const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
         global: { headers: { Authorization: authHeader } },
@@ -142,12 +341,23 @@ serve(async (req) => {
     }
 
     const body: CoachBarrelsRequest = await req.json();
-    const { player_id, krs_session_id, active_flags, injury_history, motor_profile, player_response, player_scores } = body;
+    const {
+      player_id, krs_session_id, active_flags, injury_history, motor_profile,
+      player_response, player_scores,
+      pelvis_angular_velocity, kinematic_sequence_inverted, pelvis_rotation_at_foot_plant,
+      transfer_ratio, swing_duration_ms,
+    } = body;
 
     if (!player_id || !krs_session_id) {
       return new Response(JSON.stringify({ error: "player_id and krs_session_id required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ── Swing duration filter (Section E) ──
+    if (swing_duration_ms != null && swing_duration_ms > 550) {
+      console.log(`[Coach Barrels] Swing duration ${swing_duration_ms}ms > 550ms — flagged as load/walkthrough`);
+      // Don't abort, but include this context in the AI prompt
     }
 
     // Get player info for context
@@ -161,23 +371,41 @@ serve(async (req) => {
     const effectiveInjuryHistory = injury_history || (player?.injury_history as any[]) || [];
     const effectiveMotorProfile = motor_profile || player?.motor_profile_sensor || "unknown";
 
+    // ── Pelvis classification (Section A) ──
+    let pelvisResult: PelvisClassificationResult | null = null;
+    if (pelvis_angular_velocity != null) {
+      pelvisResult = classifyPelvis(
+        pelvis_angular_velocity,
+        kinematic_sequence_inverted ?? false,
+        pelvis_rotation_at_foot_plant ?? null
+      );
+      console.log(`[Coach Barrels] Pelvis classification: ${pelvisResult.classification} (${Math.round(pelvis_angular_velocity)}°/s)`);
+    }
+
+    // ── Transfer ratio interpretation (Section C) ──
+    let trInterp: { label: string; meaning: string } | null = null;
+    if (transfer_ratio != null) {
+      trInterp = interpretTransferRatio(transfer_ratio);
+      console.log(`[Coach Barrels] Transfer ratio ${transfer_ratio.toFixed(2)}: ${trInterp.label}`);
+    }
+
     // Identify active (true) flags
     const activeFlags = Object.entries(active_flags)
       .filter(([_, v]) => v === true)
       .map(([k]) => k);
 
     if (activeFlags.length === 0) {
-      // No active flags — clean bill
       const voiceSample = `${playerName}'s chain is firing clean. No active flags in the system. Maintain the current program and track consistency session over session.`;
       
       const result = {
         response_type: "classification",
         clinical_read: "No active biomechanical flags detected.",
         systems_table: [],
+        pelvis_classification: pelvisResult,
+        transfer_ratio_interpretation: trInterp,
         voice_sample: voiceSample,
       };
 
-      // Save to DB
       await supabaseAdmin
         .from("hitting_4b_krs_sessions")
         .update({
@@ -202,10 +430,23 @@ serve(async (req) => {
         });
       }
 
-      // Use AI to classify based on player's answer
+      const pelvisContext = pelvisResult
+        ? `\nPelvis Classification: ${pelvisResult.label} — ${pelvisResult.problem}`
+        : "";
+      const trContext = trInterp
+        ? `\nTransfer Ratio: ${transfer_ratio?.toFixed(2)} → ${trInterp.label}: ${trInterp.meaning}`
+        : "";
+      const injuryContext = effectiveInjuryHistory.length > 0
+        ? `\nINJURY HISTORY (frame movement patterns as protective patterns, not skill deficits): ${JSON.stringify(effectiveInjuryHistory)}`
+        : "";
+      const durationContext = swing_duration_ms != null && swing_duration_ms > 550
+        ? `\nWARNING: Swing duration is ${Math.round(swing_duration_ms)}ms (>550ms). This is a load/walkthrough swing. Do NOT compare it to competitive swings.`
+        : "";
+
       const classificationPrompt = `Player: ${playerName} (${player?.age || "?"} yrs, ${player?.level || "?"}, ${player?.weight_lbs || "?"}lbs, ${effectiveMotorProfile} motor profile)
-Injury History: ${JSON.stringify(effectiveInjuryHistory)}
+${injuryContext}
 Scores: ${JSON.stringify(player_scores || {})}
+${pelvisContext}${trContext}${durationContext}
 
 Active Flag: ${dq.flag_label} (${flag_id})
 SSL Analog: ${dq.ssl_analog}
@@ -216,6 +457,8 @@ Capacity indicators: ${dq.capacity_keywords.join(", ")}
 Recruitment indicators: ${dq.recruitment_keywords.join(", ")}
 
 Based on the player's answer and their injury history, classify this flag as CAPACITY or RECRUITMENT.
+Follow the Intervention Hierarchy: Balance → Proprioception → Sequencing → Power. Never skip a step.
+If injury history explains the pattern, frame it as a protective pattern, not a skill deficit.
 Then generate a prescription and a Coach Barrels voice_sample (2-4 sentences, specific numbers, plain language).`;
 
       const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -241,6 +484,7 @@ Then generate a prescription and a Coach Barrels voice_sample (2-4 sentences, sp
                   classification: { type: "string", enum: ["capacity", "recruitment"] },
                   reasoning: { type: "string", description: "Why this classification based on answer + injury history" },
                   intervention_type: { type: "string", enum: ["capacity", "recruitment"] },
+                  intervention_step: { type: "string", enum: ["balance", "proprioception", "sequencing", "power"], description: "Which step of the McMillan hierarchy this prescription targets" },
                   drills: { type: "array", items: { type: "string" }, description: "Prescribed drills from the Cage Core system" },
                   tools: { type: "array", items: { type: "string" }, description: "Tools/equipment to use (Synapse, BOSU, bands, etc.)" },
                   prescription_reasoning: { type: "string", description: "Why these specific drills/tools for this flag" },
@@ -283,9 +527,12 @@ Then generate a prescription and a Coach Barrels voice_sample (2-4 sentences, sp
             ? "Address mobility/capacity first before loading the pattern"
             : "Constraint training + Synapse — pattern exists, needs activation",
         }],
+        pelvis_classification: pelvisResult,
+        transfer_ratio_interpretation: trInterp,
         prescription: {
           flag_id,
           intervention_type: classification.intervention_type,
+          intervention_step: classification.intervention_step,
           drills: classification.drills,
           tools: classification.tools,
           reasoning: classification.prescription_reasoning,
@@ -293,7 +540,6 @@ Then generate a prescription and a Coach Barrels voice_sample (2-4 sentences, sp
         voice_sample: classification.voice_sample,
       };
 
-      // Save to DB
       await supabaseAdmin
         .from("hitting_4b_krs_sessions")
         .update({
@@ -310,8 +556,6 @@ Then generate a prescription and a Coach Barrels voice_sample (2-4 sentences, sp
 
     // ── FIRST CALL: Determine if we can classify or need to ask a question ──
     
-    // Check if any flags are ambiguous (need a question)
-    // A flag is "clear" if injury history directly indicates capacity or if no injury history exists for that area
     const flagClassifications: any[] = [];
     let ambiguousFlag: string | null = null;
 
@@ -319,7 +563,6 @@ Then generate a prescription and a Coach Barrels voice_sample (2-4 sentences, sp
       const dq = DIAGNOSTIC_QUESTIONS[flagId];
       if (!dq) continue;
 
-      // Check injury history for relevant entries
       const relevantInjuries = effectiveInjuryHistory.filter((ih: any) => {
         const injuryLower = (ih.injury || "").toLowerCase();
         if (flagId === "has_momentum_issue") return injuryLower.includes("hip") || injuryLower.includes("back") || injuryLower.includes("s1") || injuryLower.includes("disc");
@@ -331,23 +574,20 @@ Then generate a prescription and a Coach Barrels voice_sample (2-4 sentences, sp
       });
 
       if (relevantInjuries.length > 0) {
-        // Clear classification from injury history
         const hasActiveInjury = relevantInjuries.some((ih: any) => ih.status === "active");
         flagClassifications.push({
           flag_id: flagId,
           classification: hasActiveInjury ? "capacity" : "recruitment",
           reasoning: hasActiveInjury
             ? `Active ${relevantInjuries[0].injury} — capacity ceiling. Address mobility first.`
-            : `Cleared ${relevantInjuries[0].injury} — likely learned inhibition. Recruitment problem.`,
+            : `Cleared ${relevantInjuries[0].injury} — learned neurological inhibition. This is a protective pattern, not a skill deficit. The injury is healed but the brain is still running the old protective program.`,
           intervention_path: hasActiveInjury
             ? "Address mobility/capacity first"
-            : "Constraint training + Synapse",
+            : "Constraint training + Synapse — gradually rebuild trust in the movement",
         });
       } else if (!ambiguousFlag) {
-        // First ambiguous flag — we'll ask about this one
         ambiguousFlag = flagId;
       } else {
-        // Additional ambiguous flags — classify as unknown for now
         flagClassifications.push({
           flag_id: flagId,
           classification: "unknown",
@@ -357,16 +597,25 @@ Then generate a prescription and a Coach Barrels voice_sample (2-4 sentences, sp
       }
     }
 
-    // If there's an ambiguous flag, ask the diagnostic question
     if (ambiguousFlag) {
       const dq = DIAGNOSTIC_QUESTIONS[ambiguousFlag];
 
-      // Generate voice sample with AI
+      const pelvisContext = pelvisResult
+        ? `\nPelvis Classification: ${pelvisResult.label} — ${pelvisResult.problem}`
+        : "";
+      const trContext = trInterp
+        ? `\nTransfer Ratio: ${transfer_ratio?.toFixed(2)} → ${trInterp.label}: ${trInterp.meaning}`
+        : "";
+      const injuryContext = effectiveInjuryHistory.length > 0
+        ? `\nInjury History (frame as protective patterns, not skill deficits): ${JSON.stringify(effectiveInjuryHistory)}`
+        : "";
+
       const contextPrompt = `Player: ${playerName} (${player?.age || "?"} yrs, ${player?.level || "?"}, ${player?.weight_lbs || "?"}lbs, ${effectiveMotorProfile} motor profile)
 Scores: ${JSON.stringify(player_scores || {})}
 Active Flags: ${activeFlags.map(f => DIAGNOSTIC_QUESTIONS[f]?.flag_label || f).join(", ")}
 Already Classified: ${flagClassifications.map(fc => `${fc.flag_id}: ${fc.classification}`).join(", ") || "none"}
 Ambiguous Flag: ${dq.flag_label}
+${pelvisContext}${trContext}${injuryContext}
 
 Generate a brief clinical_read (what the data is showing for this player) and a Coach Barrels voice_sample that introduces the diagnostic question naturally. The voice_sample should reference a specific metric, explain what it means in plain language, then lead into why you're asking the question. 2-4 sentences max.`;
 
@@ -413,13 +662,15 @@ Generate a brief clinical_read (what the data is showing for this player) and a 
           voiceSample = parsed.voice_sample || voiceSample;
         }
       } else {
-        await aiResponse.text(); // consume body
+        await aiResponse.text();
       }
 
       const result = {
         response_type: "question" as const,
         clinical_read: clinicalRead,
         systems_table: flagClassifications,
+        pelvis_classification: pelvisResult,
+        transfer_ratio_interpretation: trInterp,
         question: {
           flag_id: ambiguousFlag,
           text: dq.question_text,
@@ -433,14 +684,28 @@ Generate a brief clinical_read (what the data is showing for this player) and a 
     }
 
     // All flags classified — generate prescription
+    const pelvisContext = pelvisResult
+      ? `\nPelvis Classification: ${pelvisResult.label} — ${pelvisResult.problem}\nPelvis Prescription: ${pelvisResult.prescription.join(", ")}`
+      : "";
+    const trContext = trInterp
+      ? `\nTransfer Ratio: ${transfer_ratio?.toFixed(2)} → ${trInterp.label}: ${trInterp.meaning}`
+      : "";
+    const injuryContext = effectiveInjuryHistory.length > 0
+      ? `\nInjury History (frame as protective patterns, not skill deficits): ${JSON.stringify(effectiveInjuryHistory)}`
+      : "";
+
     const prescriptionPrompt = `Player: ${playerName} (${player?.age || "?"} yrs, ${player?.level || "?"}, ${player?.weight_lbs || "?"}lbs, ${effectiveMotorProfile} motor profile)
-Injury History: ${JSON.stringify(effectiveInjuryHistory)}
+${injuryContext}
 Scores: ${JSON.stringify(player_scores || {})}
+${pelvisContext}${trContext}
 
 Flag Classifications:
 ${flagClassifications.map(fc => `- ${fc.flag_id} (${DIAGNOSTIC_QUESTIONS[fc.flag_id]?.flag_label || fc.flag_id}): ${fc.classification} — ${fc.reasoning}`).join("\n")}
 
-Generate a comprehensive Coach Barrels voice_sample and clinical read summarizing all classifications and the session plan. Reference specific numbers. Follow upstream-before-downstream rule.`;
+Generate a comprehensive Coach Barrels voice_sample and clinical read summarizing all classifications and the session plan.
+Follow the Intervention Hierarchy: Balance → Proprioception → Sequencing → Power. Never skip a step.
+Reference specific numbers. Follow upstream-before-downstream rule.
+If injury history explains patterns, frame as protective patterns, not skill deficits.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -492,10 +757,11 @@ Generate a comprehensive Coach Barrels voice_sample and clinical read summarizin
       response_type: "classification" as const,
       clinical_read: clinicalRead,
       systems_table: flagClassifications,
+      pelvis_classification: pelvisResult,
+      transfer_ratio_interpretation: trInterp,
       voice_sample: voiceSample,
     };
 
-    // Save to DB
     await supabaseAdmin
       .from("hitting_4b_krs_sessions")
       .update({
