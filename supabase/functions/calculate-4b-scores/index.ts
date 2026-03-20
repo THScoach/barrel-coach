@@ -1152,12 +1152,22 @@ function computeV2Scores(input: V2Input): ScoringOutput {
   // Step 7: Energy Ledger
   const energyLedger = buildEnergyLedger(me_data, ik_data, coreFlow, armFlow, preProc);
 
-  // Step 8: Legacy mapping
+  // Step 8: Predictions — "What your body can do"
+  const predictions = computePredictions(
+    energyLedger,
+    player_metadata.player_level,
+    player_metadata.mass_kg,
+    input.exit_velocity_mph ? undefined : undefined, // no measured bat speed in ME path
+    input.exit_velocity_mph,
+  );
+
+  // Step 9: Legacy mapping
   const legacy4B = mapToLegacy4B(groundFlow, coreFlow, armFlow);
 
   console.log(`[4B-v2] Ground=${groundFlow.score} Core=${coreFlow.score} Arm=${armFlow.score} ` +
     `Pelvis=${pelvisResult.classification} TKE=${tkeShape} Motor=${motorProfile} ` +
-    `TR=${coreFlow.transfer_ratio.toFixed(2)} P→T=${coreFlow.pt_gap_ms.toFixed(1)}ms`);
+    `TR=${coreFlow.transfer_ratio.toFixed(2)} P→T=${coreFlow.pt_gap_ms.toFixed(1)}ms ` +
+    `PredBat=${predictions.predicted_bat_speed_mph} PredEV=${predictions.predicted_exit_velocity_mph}`);
 
   return {
     version: '2.0',
@@ -1180,6 +1190,11 @@ function computeV2Scores(input: V2Input): ScoringOutput {
     tke_shape: tkeShape,
     motor_profile: motorProfile,
     energy_ledger: energyLedger,
+    predictions,
+    predicted_bat_speed_mph: predictions.predicted_bat_speed_mph,
+    predicted_exit_velocity_mph: predictions.predicted_exit_velocity_mph,
+    bat_speed_path: predictions.bat_speed_path,
+    bat_speed_confidence: predictions.bat_speed_confidence,
     legacy_4b: legacy4B,
     scoring_timestamp: new Date().toISOString(),
   };
