@@ -1307,6 +1307,44 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
   const timingGapPctFinal = (input.load_duration_ms + input.launch_duration_ms) > 0
     ? Math.round((timingGapMs / (input.load_duration_ms + input.launch_duration_ms)) * 100 * 10) / 10 : 0;
 
+  // Legacy prediction: use angular velocities to predict bat speed
+  const legacyEnergyLedger = {
+    pelvis_ke: 0, torso_ke: 0, arms_ke: 0, bat_ke: input.bat_energy_j ?? 0,
+    total_ke: input.total_body_energy_j ?? 0, lower_half_ke: 0,
+    sequence_correct: correctOrder,
+    x_factor_degrees: input.hip_shoulder_sep_max_deg,
+    trunk_tilt_degrees: 0,
+    pelvis_rot_at_fp_degrees: 0,
+    transfer_ratio: tr,
+    p_to_t_gap_ms: timingGapMs,
+    arms_ke_ratio: 0,
+    delivery_window_ms: deliveryMs,
+  };
+
+  const legacyPredictions = computePredictions(
+    legacyEnergyLedger,
+    input.player_level,
+    input.mass_total_kg,
+    input.measured_bat_speed_mph,
+    input.measured_ev_mph ?? input.exit_velocity_mph,
+  );
+
+  // If bat speed was computed from angular velocity, use that as prediction
+  if (!legacyPredictions.predicted_bat_speed_mph && batSpeedMph > 0) {
+    legacyPredictions.predicted_bat_speed_mph = Math.round(batSpeedMph * 10) / 10;
+    legacyPredictions.bat_speed_path = 'body_estimation';
+    legacyPredictions.bat_speed_confidence = 'low';
+  }
+
+  // Compute predicted EV if we have bat speed but no EV prediction yet
+  if (legacyPredictions.predicted_bat_speed_mph && !legacyPredictions.predicted_exit_velocity_mph) {
+    const bp = BAT_COR[input.player_level] ?? BAT_COR.high_school;
+    const pm = PITCH_DEFAULTS[input.player_level] ?? 75;
+    legacyPredictions.predicted_exit_velocity_mph = Math.round(
+      (bp.e * pm + bp.batCoeff * legacyPredictions.predicted_bat_speed_mph * 0.92) * 10
+    ) / 10;
+  }
+
   // Build v2 output shape with IK fallback data
   return {
     version: '2.0',
@@ -1341,17 +1379,12 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
     },
     tke_shape: 'UNKNOWN',
     motor_profile: 'UNKNOWN',
-    energy_ledger: {
-      pelvis_ke: 0, torso_ke: 0, arms_ke: 0, bat_ke: 0, total_ke: 0, lower_half_ke: 0,
-      sequence_correct: correctOrder,
-      x_factor_degrees: input.hip_shoulder_sep_max_deg,
-      trunk_tilt_degrees: 0,
-      pelvis_rot_at_fp_degrees: 0,
-      transfer_ratio: tr,
-      p_to_t_gap_ms: timingGapMs,
-      arms_ke_ratio: 0,
-      delivery_window_ms: deliveryMs,
-    },
+    energy_ledger: legacyEnergyLedger,
+    predictions: legacyPredictions,
+    predicted_bat_speed_mph: legacyPredictions.predicted_bat_speed_mph,
+    predicted_exit_velocity_mph: legacyPredictions.predicted_exit_velocity_mph,
+    bat_speed_path: legacyPredictions.bat_speed_path,
+    bat_speed_confidence: legacyPredictions.bat_speed_confidence,
     legacy_4b: { body, brain, bat, ball, score_4bkrs: composite, rating, color },
     scoring_timestamp: new Date().toISOString(),
   };
