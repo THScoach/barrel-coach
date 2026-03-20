@@ -120,6 +120,7 @@ interface V2Input {
     foot_plant_time_ms?: number;
     contact_time_ms?: number;
   };
+  environment?: Environment;
   // Optional measured ball data
   exit_velocity_mph?: number;
   launch_angle_deg?: number;
