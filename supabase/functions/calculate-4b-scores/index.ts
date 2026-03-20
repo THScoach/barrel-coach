@@ -1171,7 +1171,7 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
   return {
     version: '2.0',
     scoring_method: 'ik_fallback',
-    environment: (body as any).environment ?? 'cage',
+    environment: input.environment ?? 'cage',
     pre_processing: {
       swing_duration_ms: input.load_duration_ms + input.launch_duration_ms,
       swing_category: (input.load_duration_ms + input.launch_duration_ms) > SWING_DURATION_WALKTHROUGH_MS ? 'WALKTHROUGH' : 'COMPETITIVE',
