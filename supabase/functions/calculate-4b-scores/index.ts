@@ -247,6 +247,7 @@ interface ScoringOutput {
 const DEAD_PELVIS_KE_THRESHOLD = 120; // Joules
 const SPENT_PELVIS_KE_THRESHOLD = 20; // Joules — KE remaining at contact
 const EARLY_PELVIS_ROT_THRESHOLD = -10.0; // Degrees
+const JUMP_PELVIS_ROT_RATIO_THRESHOLD = 0.50; // Proj / Mag ratio below this = translational drifter
 const SWING_DURATION_WALKTHROUGH_MS = 550;
 const X_FACTOR_NOISE_THRESHOLD = 60; // Degrees absolute
 
