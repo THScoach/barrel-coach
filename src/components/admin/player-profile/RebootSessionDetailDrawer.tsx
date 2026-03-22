@@ -213,9 +213,17 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
     : null;
 
   const hasScores = playerSession?.overall_score != null || playerSession?.score_4bkrs != null;
+  const hasPredictionData =
+    playerSession?.predicted_bat_speed_mph != null ||
+    playerSession?.predicted_exit_velocity_mph != null ||
+    playerSession?.predicted_entry_bucket != null;
+  const hasActualData =
+    playerSession?.actual_bat_speed_mph != null ||
+    playerSession?.actual_exit_velocity_mph != null;
+  const shouldShowReport = !!playerSession && (hasScores || hasPredictionData || hasActualData);
 
   // Build the coaching report from session data
-  const report: CoachingReportData | null = hasScores && playerSession
+  const report: CoachingReportData | null = shouldShowReport && playerSession
     ? buildCoachingReport(playerSession as unknown as SessionScoreData)
     : null;
 
@@ -252,7 +260,7 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
           <DrillSessionBanner sessionType={(session as any).session_type} drillName={(session as any).drill_name} />
 
           {/* ── Overall Score Header ── */}
-          {report && (
+          {report && hasScores && (
             <div className="flex items-center justify-between bg-slate-800/40 border border-slate-700/50 rounded-xl px-4 py-3">
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Score</p>
@@ -282,7 +290,7 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
           {/* ═══════════════════════════════════════════════════════════════ */}
           {/*  SECTION 2: "What actually happened" — Actuals + gap           */}
           {/* ═══════════════════════════════════════════════════════════════ */}
-          {report && (
+          {report && (hasPredictionData || report.hasActuals) && (
             <div className="space-y-2.5">
               <div className="flex items-center gap-2">
                 <Gauge className="h-4 w-4 text-blue-400" />
@@ -310,7 +318,7 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
           {/* ═══════════════════════════════════════════════════════════════ */}
           {/*  SECTION 3: 4 Pillars as simple questions                     */}
           {/* ═══════════════════════════════════════════════════════════════ */}
-          {report && (
+          {report && hasScores && (
             <div className="space-y-2.5">
               <div className="flex items-center gap-2">
                 <Activity className="h-4 w-4 text-teal-400" />
@@ -327,7 +335,7 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
           {/* ═══════════════════════════════════════════════════════════════ */}
           {/*  SECTION 4: "What to train next" — Coaching                   */}
           {/* ═══════════════════════════════════════════════════════════════ */}
-          {report && (
+          {report && hasScores && (
             <div className="space-y-2.5">
               <div className="flex items-center gap-2">
                 <Dumbbell className="h-4 w-4 text-orange-400" />
@@ -358,7 +366,7 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
           {/* ═══════════════════════════════════════════════════════════════ */}
           {/*  FOOTER: "If this improves…" Projection                       */}
           {/* ═══════════════════════════════════════════════════════════════ */}
-          {report && report.projection.evGain > 0 && (
+          {report && hasScores && report.projection.evGain > 0 && (
             <div className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 rounded-xl p-4">
               <div className="flex items-start gap-2">
                 <TrendingUp className="h-4 w-4 text-purple-400 mt-0.5 shrink-0" />
