@@ -14,7 +14,7 @@
  *   Arm Flow (Timing of Release) — Steps 5-6
  *
  * Six Loss Points (coach-facing diagnostics)
- * Pelvis Classification (Dead / Late / Early / Healthy)
+ * Pelvis Classification (Dead / Jump / Spent / Late / Early / Healthy)
  * TKE Shape Classification
  * Motor Profile Detection
  */
