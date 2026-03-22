@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MAX_SESSIONS = 3; // Reduced cap — each session may trigger Reboot API downloads
+const MAX_SESSIONS = 10; // Per-movement processing in reboot-export-data is now memory-safe
 const SCORING_VERSION = '4b_v2';
 
 Deno.serve(async (req) => {
