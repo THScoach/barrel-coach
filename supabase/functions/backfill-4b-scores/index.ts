@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MAX_SESSIONS = 5; // Hard cap per invocation to stay within memory limits
+const MAX_SESSIONS = 3; // Reduced cap — each session may trigger Reboot API downloads
 const SCORING_VERSION = '4b_v2';
 
 Deno.serve(async (req) => {
@@ -23,10 +23,10 @@ Deno.serve(async (req) => {
 
     console.log(`[Backfill] Starting. player_id=${player_id || 'ALL'}, force=${force_rescore || false}`);
 
-    // Query reboot_sessions: metadata ONLY (no CSV columns)
+    // Query reboot_sessions: include file paths so we know which scoring path to take
     let query = supabase
       .from('reboot_sessions')
-      .select('id, player_id, reboot_session_id, session_date, session_type, drill_name, measured_bat_speed_mph')
+      .select('id, player_id, reboot_session_id, session_date, session_type, drill_name, measured_bat_speed_mph, me_file_path, ik_file_path, source')
       .not('reboot_session_id', 'is', null)
       .order('created_at', { ascending: true });
 
@@ -55,18 +55,17 @@ Deno.serve(async (req) => {
     let processed = 0;
     let failed = 0;
     let skipped = 0;
+    let apiDownloaded = 0;
     const errors: { session_id: string; error: string }[] = [];
 
-    // Process sessions sequentially, one at a time, capped at MAX_SESSIONS
     for (const session of rebootSessions) {
       if (processed + failed >= MAX_SESSIONS) {
-        // Stop processing to avoid memory exhaustion; remaining are "skipped"
         skipped += rebootSessions.length - (processed + failed + skipped);
         break;
       }
 
       try {
-        // Check for existing player_session
+        // Check for existing player_session with actual scores
         const { data: existing } = await supabase
           .from('player_sessions')
           .select('id, body_score, scored_at')
@@ -79,33 +78,73 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Delegate everything to compute-4b-from-csv via reboot_db_session_id
-        // It will fetch CSVs from DB or Reboot API as needed
-        const computeUrl = `${supabaseUrl}/functions/v1/compute-4b-from-csv`;
-        const response = await fetch(computeUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseKey}`,
-          },
-          body: JSON.stringify({
-            player_id: session.player_id,
-            session_id: session.reboot_session_id || session.id,
-            session_date: session.session_date,
-            reboot_db_session_id: session.id,
-            measured_bat_speed_mph: session.measured_bat_speed_mph,
-          }),
-        });
+        const hasLocalCsv = !!(session.me_file_path);
+        const isManualSession = session.reboot_session_id?.startsWith('manual-');
+        const isRebootApiSession = !isManualSession && session.source === 'sync';
 
-        const resultText = await response.text();
+        if (hasLocalCsv) {
+          // PATH A: Local CSV files exist → use compute-4b-from-csv with reboot_db_session_id
+          console.log(`[Backfill] Session ${session.reboot_session_id}: PATH A (local CSV)`);
+          const response = await fetch(`${supabaseUrl}/functions/v1/compute-4b-from-csv`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              player_id: session.player_id,
+              session_id: session.reboot_session_id || session.id,
+              session_date: session.session_date,
+              reboot_db_session_id: session.id,
+              measured_bat_speed_mph: session.measured_bat_speed_mph,
+            }),
+          });
 
-        if (!response.ok) {
-          throw new Error(`Scoring failed (${response.status}): ${resultText.substring(0, 200)}`);
+          const resultText = await response.text();
+          if (!response.ok) {
+            throw new Error(`compute-4b-from-csv failed (${response.status}): ${resultText.substring(0, 200)}`);
+          }
+          const result = JSON.parse(resultText);
+          processed++;
+          console.log(`[Backfill] ✓ Session ${session.reboot_session_id}: Brain=${result.brain} Body=${result.body} Bat=${result.bat}`);
+
+        } else if (isRebootApiSession) {
+          // PATH B: Synced session without local CSV → download from Reboot API via reboot-export-data
+          console.log(`[Backfill] Session ${session.reboot_session_id}: PATH B (Reboot API download)`);
+          const response = await fetch(`${supabaseUrl}/functions/v1/reboot-export-data`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              session_id: session.reboot_session_id,
+              player_id: session.player_id,
+              data_types: ['inverse-kinematics', 'momentum-energy'],
+              trigger_analysis: true,
+            }),
+          });
+
+          const resultText = await response.text();
+          if (!response.ok) {
+            throw new Error(`reboot-export-data failed (${response.status}): ${resultText.substring(0, 200)}`);
+          }
+          const result = JSON.parse(resultText);
+          apiDownloaded++;
+          processed++;
+          
+          const analysisResult = result.analysis_result;
+          if (analysisResult?.brain != null) {
+            console.log(`[Backfill] ✓ Session ${session.reboot_session_id} (API): Brain=${analysisResult.brain} Body=${analysisResult.body} Bat=${analysisResult.bat}`);
+          } else {
+            console.log(`[Backfill] ✓ Session ${session.reboot_session_id} (API): export complete, analysis=${analysisResult ? 'returned' : 'null'}`);
+          }
+
+        } else {
+          // PATH C: Manual session without CSV files — can't score
+          console.warn(`[Backfill] Session ${session.reboot_session_id}: no CSV and not a sync session — skipping`);
+          skipped++;
         }
-
-        const result = JSON.parse(resultText);
-        processed++;
-        console.log(`[Backfill] ✓ Session ${session.reboot_session_id || session.id} scored: Brain=${result.brain} Body=${result.body} Bat=${result.bat} Ball=${result.ball}`);
 
       } catch (err) {
         failed++;
@@ -121,11 +160,12 @@ Deno.serve(async (req) => {
       processed,
       failed,
       skipped,
+      api_downloaded: apiDownloaded,
       scoring_version: SCORING_VERSION,
       errors: errors.slice(0, 10),
     };
 
-    console.log(`[Backfill] Complete. ${JSON.stringify({ processed, failed, skipped, total: rebootSessions.length })}`);
+    console.log(`[Backfill] Complete. ${JSON.stringify({ processed, failed, skipped, apiDownloaded, total: rebootSessions.length })}`);
 
     return new Response(
       JSON.stringify(summary),
