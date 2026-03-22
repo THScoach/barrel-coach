@@ -173,26 +173,46 @@ serve(async (req) => {
     }
 
     // ========================================================================
-    // Step 4: Download CSVs and pass raw text to calculate-4b-scores
+    // Step 4: Score each movement individually to avoid memory exhaustion
     // ========================================================================
     let analysisResult = null;
+    const movementResults: any[] = [];
+
     if (triggerAnalysis) {
-      try {
-        // Download ME CSV content from presigned URLs
-        const meUrls = exportUrls["momentum-energy"] || [];
-        const ikUrls = exportUrls["inverse-kinematics"] || [];
+      const meMap = exportUrlMovementMap["momentum-energy"] || [];
+      const ikMap = exportUrlMovementMap["inverse-kinematics"] || [];
 
-        console.log(`[export] Downloading ${meUrls.length} ME CSV(s) and ${ikUrls.length} IK CSV(s)...`);
+      // Build lookup: movement_id → { meUrl, ikUrl }
+      const movementUrlMap: Record<string, { meUrl?: string; ikUrl?: string }> = {};
+      for (const entry of meMap) {
+        if (!movementUrlMap[entry.movement_id]) movementUrlMap[entry.movement_id] = {};
+        movementUrlMap[entry.movement_id].meUrl = entry.url;
+      }
+      for (const entry of ikMap) {
+        if (!movementUrlMap[entry.movement_id]) movementUrlMap[entry.movement_id] = {};
+        movementUrlMap[entry.movement_id].ikUrl = entry.url;
+      }
 
-        const rawMeCsv = await downloadAndConcatCsvs(meUrls);
-        const rawIkCsv = await downloadAndConcatCsvs(ikUrls);
+      console.log(`[export] Scoring ${Object.keys(movementUrlMap).length} movement(s) individually...`);
 
-        console.log(`[export] ME CSV: ${rawMeCsv.length} chars, IK CSV: ${rawIkCsv.length} chars`);
+      for (const [movId, urls] of Object.entries(movementUrlMap)) {
+        if (!urls.meUrl) {
+          console.warn(`[export] Movement ${movId}: no ME URL, skipping`);
+          continue;
+        }
 
-        if (!rawMeCsv) {
-          console.error("[export] No ME CSV content downloaded — cannot score");
-        } else {
-          // Route through compute-4b-from-csv (CSV parser + scoring engine)
+        try {
+          // Download ONE movement's ME CSV (typically ~1-3MB each)
+          const meCsv = await downloadSingleCsv(urls.meUrl);
+          const ikCsv = urls.ikUrl ? await downloadSingleCsv(urls.ikUrl) : "";
+
+          if (!meCsv) {
+            console.warn(`[export] Movement ${movId}: ME download empty, skipping`);
+            continue;
+          }
+
+          console.log(`[export] Movement ${movId}: ME=${meCsv.length} chars, IK=${ikCsv.length} chars`);
+
           const analysisUrl = `${supabaseUrl}/functions/v1/compute-4b-from-csv`;
           const analysisResponse = await fetch(analysisUrl, {
             method: "POST",
@@ -204,21 +224,29 @@ serve(async (req) => {
               player_id: body.player_id,
               session_id: body.session_id,
               session_date: new Date().toISOString().split("T")[0],
-              raw_csv_me: rawMeCsv,
-              raw_csv_ik: rawIkCsv || undefined,
+              raw_csv_me: meCsv,
+              raw_csv_ik: ikCsv || undefined,
+              movement_id: movId,
             }),
           });
 
           if (analysisResponse.ok) {
-            analysisResult = await analysisResponse.json();
-            console.log("[export] 4B analysis complete via compute-4b-from-csv");
+            const result = await analysisResponse.json();
+            movementResults.push(result);
+            console.log(`[export] ✅ Movement ${movId}: Brain=${result.brain} Body=${result.body} Bat=${result.bat}`);
           } else {
             const errText = await analysisResponse.text();
-            console.error("[export] Analysis failed:", errText.substring(0, 300));
+            console.error(`[export] ✗ Movement ${movId} scoring failed: ${errText.substring(0, 200)}`);
           }
+        } catch (err) {
+          console.error(`[export] Error scoring movement ${movId}:`, err);
         }
-      } catch (err) {
-        console.error("[export] Error during analysis:", err);
+      }
+
+      // Use the last scored result as the session result (compute-4b-from-csv persists per-session)
+      if (movementResults.length > 0) {
+        analysisResult = movementResults[movementResults.length - 1];
+        console.log(`[export] ${movementResults.length}/${Object.keys(movementUrlMap).length} movements scored`);
       }
     }
 
@@ -395,58 +423,31 @@ async function discoverMovementIds(
 }
 
 /**
- * Download CSV files from presigned S3 URLs, decompress if gzipped,
- * and concatenate into a single CSV string (preserving headers from first file only).
+ * Download a single CSV from a presigned S3 URL, decompress if gzipped.
+ * Returns the CSV text or empty string on failure.
  */
-async function downloadAndConcatCsvs(urls: string[]): Promise<string> {
-  if (urls.length === 0) return "";
-
-  const csvTexts: string[] = [];
-
-  for (const url of urls) {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        console.warn(`[export] Failed to download CSV (${response.status}): ${url.substring(0, 80)}...`);
-        continue;
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      let text: string;
-
-      // Check for gzip magic bytes (0x1f, 0x8b)
-      if (bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
-        const ds = new DecompressionStream("gzip");
-        const decompressedStream = new Blob([bytes]).stream().pipeThrough(ds);
-        const decompressedBlob = await new Response(decompressedStream).blob();
-        text = await decompressedBlob.text();
-      } else {
-        text = new TextDecoder().decode(bytes);
-      }
-
-      csvTexts.push(text.trim());
-    } catch (err) {
-      console.error(`[export] Error downloading CSV: ${err}`);
+async function downloadSingleCsv(url: string): Promise<string> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`[export] CSV download failed (${response.status}): ${url.substring(0, 80)}...`);
+      return "";
     }
-  }
 
-  if (csvTexts.length === 0) return "";
-  if (csvTexts.length === 1) return csvTexts[0];
+    const arrayBuffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
 
-  // Concatenate: keep header from first CSV, strip headers from subsequent ones
-  const firstLines = csvTexts[0].split(/\r?\n/);
-  const header = firstLines[0];
-  let combined = csvTexts[0];
-
-  for (let i = 1; i < csvTexts.length; i++) {
-    const lines = csvTexts[i].split(/\r?\n/);
-    // Skip header row (index 0), append data rows
-    const dataRows = lines.slice(1).filter(l => l.trim().length > 0);
-    if (dataRows.length > 0) {
-      combined += "\n" + dataRows.join("\n");
+    // Check for gzip magic bytes (0x1f, 0x8b)
+    if (bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      const ds = new DecompressionStream("gzip");
+      const decompressedStream = new Blob([bytes]).stream().pipeThrough(ds);
+      const decompressedBlob = await new Response(decompressedStream).blob();
+      return (await decompressedBlob.text()).trim();
     }
-  }
 
-  return combined;
+    return new TextDecoder().decode(bytes).trim();
+  } catch (err) {
+    console.error(`[export] Error downloading CSV: ${err}`);
+    return "";
+  }
 }
