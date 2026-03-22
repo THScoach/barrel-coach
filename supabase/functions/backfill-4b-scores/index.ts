@@ -272,13 +272,15 @@ Deno.serve(async (req) => {
             csvIk = downloadedCsv.csvIk || csvIk;
           }
 
-          // Validate CSV data
-          if (!csvMe || csvMe.trim().length < 50 || !csvIk || csvIk.trim().length < 50) {
+          // Validate CSV data — need at least ME
+          if (!csvMe || csvMe.trim().length < 50) {
             skipped++;
             return;
           }
 
-          // Call compute-4b-from-csv edge function (CSV parsing + scoring)
+          // Call compute-4b-from-csv edge function
+          // Pass reboot_db_session_id so compute-4b can fetch CSVs from DB directly
+          // This avoids sending megabytes of CSV data in the JSON body
           const computeUrl = `${supabaseUrl}/functions/v1/compute-4b-from-csv`;
           const response = await fetch(computeUrl, {
             method: 'POST',
@@ -290,8 +292,7 @@ Deno.serve(async (req) => {
               player_id: session.player_id,
               session_id: session.reboot_session_id || session.id,
               session_date: session.session_date,
-              raw_csv_me: csvMe,
-              raw_csv_ik: csvIk,
+              reboot_db_session_id: session.id,
               measured_bat_speed_mph: session.measured_bat_speed_mph,
             }),
           });
