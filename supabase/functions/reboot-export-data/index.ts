@@ -192,7 +192,8 @@ serve(async (req) => {
         if (!rawMeCsv) {
           console.error("[export] No ME CSV content downloaded — cannot score");
         } else {
-          const analysisUrl = `${supabaseUrl}/functions/v1/calculate-4b-scores`;
+          // Route through compute-4b-from-csv (CSV parser + scoring engine)
+          const analysisUrl = `${supabaseUrl}/functions/v1/compute-4b-from-csv`;
           const analysisResponse = await fetch(analysisUrl, {
             method: "POST",
             headers: {
@@ -202,6 +203,7 @@ serve(async (req) => {
             body: JSON.stringify({
               player_id: body.player_id,
               session_id: body.session_id,
+              session_date: new Date().toISOString().split("T")[0],
               raw_csv_me: rawMeCsv,
               raw_csv_ik: rawIkCsv || undefined,
             }),
@@ -209,10 +211,10 @@ serve(async (req) => {
 
           if (analysisResponse.ok) {
             analysisResult = await analysisResponse.json();
-            console.log("[export] 4B analysis complete");
+            console.log("[export] 4B analysis complete via compute-4b-from-csv");
           } else {
             const errText = await analysisResponse.text();
-            console.error("[export] Analysis failed:", errText);
+            console.error("[export] Analysis failed:", errText.substring(0, 300));
           }
         }
       } catch (err) {
