@@ -423,58 +423,31 @@ async function discoverMovementIds(
 }
 
 /**
- * Download CSV files from presigned S3 URLs, decompress if gzipped,
- * and concatenate into a single CSV string (preserving headers from first file only).
+ * Download a single CSV from a presigned S3 URL, decompress if gzipped.
+ * Returns the CSV text or empty string on failure.
  */
-async function downloadAndConcatCsvs(urls: string[]): Promise<string> {
-  if (urls.length === 0) return "";
-
-  const csvTexts: string[] = [];
-
-  for (const url of urls) {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        console.warn(`[export] Failed to download CSV (${response.status}): ${url.substring(0, 80)}...`);
-        continue;
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      let text: string;
-
-      // Check for gzip magic bytes (0x1f, 0x8b)
-      if (bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
-        const ds = new DecompressionStream("gzip");
-        const decompressedStream = new Blob([bytes]).stream().pipeThrough(ds);
-        const decompressedBlob = await new Response(decompressedStream).blob();
-        text = await decompressedBlob.text();
-      } else {
-        text = new TextDecoder().decode(bytes);
-      }
-
-      csvTexts.push(text.trim());
-    } catch (err) {
-      console.error(`[export] Error downloading CSV: ${err}`);
+async function downloadSingleCsv(url: string): Promise<string> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`[export] CSV download failed (${response.status}): ${url.substring(0, 80)}...`);
+      return "";
     }
-  }
 
-  if (csvTexts.length === 0) return "";
-  if (csvTexts.length === 1) return csvTexts[0];
+    const arrayBuffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
 
-  // Concatenate: keep header from first CSV, strip headers from subsequent ones
-  const firstLines = csvTexts[0].split(/\r?\n/);
-  const header = firstLines[0];
-  let combined = csvTexts[0];
-
-  for (let i = 1; i < csvTexts.length; i++) {
-    const lines = csvTexts[i].split(/\r?\n/);
-    // Skip header row (index 0), append data rows
-    const dataRows = lines.slice(1).filter(l => l.trim().length > 0);
-    if (dataRows.length > 0) {
-      combined += "\n" + dataRows.join("\n");
+    // Check for gzip magic bytes (0x1f, 0x8b)
+    if (bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      const ds = new DecompressionStream("gzip");
+      const decompressedStream = new Blob([bytes]).stream().pipeThrough(ds);
+      const decompressedBlob = await new Response(decompressedStream).blob();
+      return (await decompressedBlob.text()).trim();
     }
-  }
 
-  return combined;
+    return new TextDecoder().decode(bytes).trim();
+  } catch (err) {
+    console.error(`[export] Error downloading CSV: ${err}`);
+    return "";
+  }
 }
