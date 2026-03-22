@@ -215,27 +215,41 @@ const NEEDED_COLUMNS = new Set([
 ]);
 
 function parseCsvRows(csvText: string): Record<string, number>[] {
-  const lines = csvText
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  if (lines.length < 2) return [];
-
-  const headers = splitCsvLine(lines[0]).map((header) => header.toLowerCase());
-  // Pre-compute which column indices to keep
-  const keepIndices: { idx: number; name: string }[] = [];
-  headers.forEach((header, index) => {
-    if (header && NEEDED_COLUMNS.has(header)) {
-      keepIndices.push({ idx: index, name: header });
-    }
-  });
+  if (!csvText || csvText.length === 0) return [];
 
   const rows: Record<string, number>[] = [];
+  let keepIndices: { idx: number; name: string }[] | null = null;
 
-  for (let i = 1; i < lines.length; i++) {
-    const cols = splitCsvLine(lines[i]);
+  let cursor = 0;
+  const len = csvText.length;
+
+  while (cursor <= len) {
+    let nextNewline = csvText.indexOf('\n', cursor);
+    if (nextNewline === -1) nextNewline = len;
+
+    let line = csvText.slice(cursor, nextNewline);
+    cursor = nextNewline + 1;
+
+    if (line.endsWith('\r')) line = line.slice(0, -1);
+    line = line.trim();
+    if (line.length === 0) continue;
+
+    if (!keepIndices) {
+      const headers = splitCsvLine(line).map((header) => header.toLowerCase());
+      const computedKeepIndices: { idx: number; name: string }[] = [];
+      headers.forEach((header, index) => {
+        if (header && NEEDED_COLUMNS.has(header)) {
+          computedKeepIndices.push({ idx: index, name: header });
+        }
+      });
+      keepIndices = computedKeepIndices;
+      if (keepIndices.length === 0) return [];
+      continue;
+    }
+
+    const cols = splitCsvLine(line);
     const row: Record<string, number> = {};
+    let hasNumericValue = false;
 
     for (const { idx, name } of keepIndices) {
       const raw = cols[idx];
@@ -243,15 +257,16 @@ function parseCsvRows(csvText: string): Record<string, number>[] {
       const value = Number(raw);
       if (Number.isFinite(value)) {
         row[name] = value;
+        hasNumericValue = true;
       }
     }
 
-    if (Object.keys(row).length > 0) {
+    if (hasNumericValue) {
       rows.push(row);
     }
   }
 
-  return rows;
+  return keepIndices ? rows : [];
 }
 
 // ---------------------------------------------------------------------------
@@ -297,15 +312,16 @@ function peakAngularVelocity5Frame(
   columnName: string,
   maxOmegaDegS = 1200
 ): { peak: number; peakIdx: number } {
-  const angles = rows.map(r => r[columnName] ?? 0);
   let peak = 0;
   let peakIdx = 0;
 
   // 5-frame centred: (angle[i+2] - angle[i-2]) / (4 × dt)
   const dt4 = 4 / FPS; // 4 frame intervals
 
-  for (let i = 2; i < angles.length - 2; i++) {
-    const omega = Math.abs((angles[i + 2] - angles[i - 2]) / dt4) * RAD_TO_DEG;
+  for (let i = 2; i < rows.length - 2; i++) {
+    const next2 = rows[i + 2]?.[columnName] ?? 0;
+    const prev2 = rows[i - 2]?.[columnName] ?? 0;
+    const omega = Math.abs((next2 - prev2) / dt4) * RAD_TO_DEG;
     if (omega > peak && omega <= maxOmegaDegS) {
       peak = omega;
       peakIdx = i;
@@ -370,16 +386,17 @@ function windowedPeakAngularVelocity(
   endFrame: number,
   maxOmegaDegS: number
 ): { peak: number; peakIdx: number } {
-  const angles = rows.map(r => r[columnName] ?? 0);
   const dt4 = 4 / FPS;
   let peak = 0;
   let peakIdx = 0;
 
   const lo = Math.max(2, startFrame);
-  const hi = Math.min(angles.length - 3, endFrame);
+  const hi = Math.min(rows.length - 3, endFrame);
 
   for (let i = lo; i <= hi; i++) {
-    const omega = Math.abs((angles[i + 2] - angles[i - 2]) / dt4) * RAD_TO_DEG;
+    const next2 = rows[i + 2]?.[columnName] ?? 0;
+    const prev2 = rows[i - 2]?.[columnName] ?? 0;
+    const omega = Math.abs((next2 - prev2) / dt4) * RAD_TO_DEG;
     if (omega > peak && omega <= maxOmegaDegS) {
       peak = omega;
       peakIdx = i;
@@ -434,41 +451,41 @@ function parseRebootCSV(
   // Strategy 1: use time_from_max_hand from ME rows (most accurate — this column exists in ME, not IK)
   let contactFrameIdx = -1;
   let meContactIdx = -1;
-  const meTfmh = meRows.map(r => r['time_from_max_hand'] ?? r['time_from_contact'] ?? null);
-  const hasMeTfmh = meTfmh.some(v => v !== null);
-  if (hasMeTfmh) {
-    let minAbs = Infinity;
-    for (let i = 0; i < meTfmh.length; i++) {
-      if (meTfmh[i] === null) continue;
-      const absVal = Math.abs(meTfmh[i]!);
-      if (absVal < minAbs) {
-        minAbs = absVal;
-        meContactIdx = i;
-      }
+  let meContactValue: number | null = null;
+  let minAbsMe = Infinity;
+  for (let i = 0; i < meRows.length; i++) {
+    const tfmh = meRows[i]['time_from_max_hand'] ?? meRows[i]['time_from_contact'];
+    if (tfmh == null) continue;
+    const absVal = Math.abs(tfmh);
+    if (absVal < minAbsMe) {
+      minAbsMe = absVal;
+      meContactIdx = i;
+      meContactValue = tfmh;
     }
-    // ME and IK rows may have different lengths; map ME contact time to IK frame index
-    // ME time_from_max_hand at contact ≈ 0; use the ME frame ratio to estimate IK contact frame
-    if (meContactIdx >= 0 && meRows.length > 1 && ikRows.length > 1) {
-      const meRatio = meContactIdx / (meRows.length - 1);
-      contactFrameIdx = Math.round(meRatio * (ikRows.length - 1));
-      console.log(`[CSV→Score] Contact frame from ME time_from_max_hand: ME_frame=${meContactIdx}/${meRows.length}, IK_frame=${contactFrameIdx}/${ikRows.length} (tfmh=${meTfmh[meContactIdx]?.toFixed(4)})`);
-    }
+  }
+  // ME and IK rows may have different lengths; map ME contact time to IK frame index
+  // ME time_from_max_hand at contact ≈ 0; use the ME frame ratio to estimate IK contact frame
+  if (meContactIdx >= 0 && meRows.length > 1 && ikRows.length > 1) {
+    const meRatio = meContactIdx / (meRows.length - 1);
+    contactFrameIdx = Math.round(meRatio * (ikRows.length - 1));
+    console.log(`[CSV→Score] Contact frame from ME time_from_max_hand: ME_frame=${meContactIdx}/${meRows.length}, IK_frame=${contactFrameIdx}/${ikRows.length} (tfmh=${meContactValue?.toFixed(4)})`);
   }
   // Strategy 2: try IK time_from_max_hand column
   if (contactFrameIdx < 0) {
-    const ikTfmh = ikRows.map(r => r['time_from_max_hand'] ?? r['time_from_contact'] ?? null);
-    const hasIkTfmh = ikTfmh.some(v => v !== null);
-    if (hasIkTfmh) {
-      let minAbs = Infinity;
-      for (let i = 0; i < ikTfmh.length; i++) {
-        if (ikTfmh[i] === null) continue;
-        const absVal = Math.abs(ikTfmh[i]!);
-        if (absVal < minAbs) {
-          minAbs = absVal;
-          contactFrameIdx = i;
-        }
+    let minAbsIk = Infinity;
+    let ikContactValue: number | null = null;
+    for (let i = 0; i < ikRows.length; i++) {
+      const tfmh = ikRows[i]['time_from_max_hand'] ?? ikRows[i]['time_from_contact'];
+      if (tfmh == null) continue;
+      const absVal = Math.abs(tfmh);
+      if (absVal < minAbsIk) {
+        minAbsIk = absVal;
+        contactFrameIdx = i;
+        ikContactValue = tfmh;
       }
-      console.log(`[CSV→Score] Contact frame from IK time_from_max_hand: frame ${contactFrameIdx} (value=${ikTfmh[contactFrameIdx]?.toFixed(4)})`);
+    }
+    if (contactFrameIdx >= 0) {
+      console.log(`[CSV→Score] Contact frame from IK time_from_max_hand: frame ${contactFrameIdx} (value=${ikContactValue?.toFixed(4)})`);
     }
   }
   // Strategy 3: fallback to peak hand speed
@@ -527,13 +544,20 @@ function parseRebootCSV(
   // Also try hand position speed → angular velocity proxy (WITHIN delivery window only)
   const hasRhand = ikRows.some(r => r['rhand_x'] != null && r['rhand_x'] !== 0);
   const handPrefix = hasRhand ? 'rhand' : 'lhand';
-  const windowedRows = ikRows.slice(deliveryStart, deliveryEnd + 1);
-  const handSpeed = peak3DSpeed(windowedRows, `${handPrefix}_x`, `${handPrefix}_y`, `${handPrefix}_z`, 25);
+  const handSpeed = peak3DSpeedInRange(
+    ikRows,
+    `${handPrefix}_x`,
+    `${handPrefix}_y`,
+    `${handPrefix}_z`,
+    deliveryStart,
+    deliveryEnd,
+    25
+  );
   if (handSpeed.speed_ms > 0) {
     const handOmega = Math.min((handSpeed.speed_ms / 0.55) * RAD_TO_DEG, MAX_ARM_OMEGA_DEGS);
     console.log(`[CSV→Score] arm_omega candidate hand_speed (windowed): ${handOmega.toFixed(1)} deg/s (${(handSpeed.speed_ms * 2.23694).toFixed(1)} mph)`);
     if (handOmega > armOmega.peak) {
-      armOmega = { peak: handOmega, peakIdx: deliveryStart + handSpeed.peakIdx };
+      armOmega = { peak: handOmega, peakIdx: handSpeed.peakIdx };
       armSourceColumn = 'hand_speed';
     }
   }
@@ -559,12 +583,13 @@ function parseRebootCSV(
   const mass_total_kg = parseMassFromMERow(meRows);
 
   // --- Hip-shoulder separation ---
-  const xFactorPeaks = ikRows.map(r => {
+  let hip_shoulder_sep_max_deg = 0;
+  for (const r of ikRows) {
     const torsoRot  = r['torso_rot']  ?? 0;
     const pelvisRot = r['pelvis_rot'] ?? 0;
-    return Math.abs((torsoRot - pelvisRot) * RAD_TO_DEG);
-  });
-  const hip_shoulder_sep_max_deg = Math.max(...xFactorPeaks);
+    const sep = Math.abs((torsoRot - pelvisRot) * RAD_TO_DEG);
+    if (sep > hip_shoulder_sep_max_deg) hip_shoulder_sep_max_deg = sep;
+  }
 
   // --- Transfer ratio ---
   const transfer_ratio = pelvisOmega.peak > 0 ? torsoOmega.peak / pelvisOmega.peak : 1;
@@ -576,9 +601,16 @@ function parseRebootCSV(
   // --- Energy from ME ---
   let bat_energy_j: number | undefined;
   let total_body_energy_j: number | undefined;
-  const peakBatKE = meRows.reduce((max, r) => Math.max(max, r['bat_rot_energy'] ?? r['bat_rotational_energy'] ?? 0), 0);
+  let peakBatKE = 0;
+  let peakTotalKE = 0;
+  for (const r of meRows) {
+    const batKE = r['bat_rot_energy'] ?? r['bat_rotational_energy'] ?? 0;
+    if (batKE > peakBatKE) peakBatKE = batKE;
+
+    const totalKE = r['total_ke'] ?? r['total_kinetic_energy'] ?? 0;
+    if (totalKE > peakTotalKE) peakTotalKE = totalKE;
+  }
   if (peakBatKE > 0) bat_energy_j = peakBatKE;
-  const peakTotalKE = meRows.reduce((max, r) => Math.max(max, r['total_ke'] ?? r['total_kinetic_energy'] ?? 0), 0);
   if (peakTotalKE > 0) total_body_energy_j = peakTotalKE;
 
   console.log(`[CSV→Score] 5-frame ω (deg/s): pelvis=${pelvisOmega.peak.toFixed(1)}, trunk=${torsoOmega.peak.toFixed(1)}, arm=${armOmega.peak.toFixed(1)}`);
@@ -716,6 +748,44 @@ function peak3DSpeed(
   }
 
   return { speed_ms: peak, peakIdx };
+}
+
+function peak3DSpeedInRange(
+  rows: Record<string, number>[],
+  xCol: string,
+  yCol: string,
+  zCol: string,
+  startIdx: number,
+  endIdx: number,
+  maxSpeedMs: number
+): { speed_ms: number; peakIdx: number } {
+  const lo = Math.max(0, startIdx);
+  const hi = Math.min(rows.length - 1, endIdx);
+  if (hi <= lo) return { speed_ms: 0, peakIdx: lo };
+
+  const dt = 1 / FPS;
+  const speeds = new Array<number>(hi - lo + 1).fill(0);
+
+  for (let globalIdx = lo + 1; globalIdx <= hi; globalIdx++) {
+    const prev = rows[globalIdx - 1];
+    const curr = rows[globalIdx];
+    const dx = (curr?.[xCol] ?? 0) - (prev?.[xCol] ?? 0);
+    const dy = (curr?.[yCol] ?? 0) - (prev?.[yCol] ?? 0);
+    const dz = (curr?.[zCol] ?? 0) - (prev?.[zCol] ?? 0);
+    speeds[globalIdx - lo] = Math.sqrt(dx * dx + dy * dy + dz * dz) / dt;
+  }
+
+  const smoothed = smooth5(speeds);
+  let peak = 0;
+  let peakLocalIdx = 0;
+  for (let i = 0; i < smoothed.length; i++) {
+    if (smoothed[i] > peak && smoothed[i] <= maxSpeedMs) {
+      peak = smoothed[i];
+      peakLocalIdx = i;
+    }
+  }
+
+  return { speed_ms: peak, peakIdx: lo + peakLocalIdx };
 }
 
 function smooth5(values: number[]): number[] {
@@ -1206,8 +1276,6 @@ serve(async (req: Request) => {
     const {
       ik_csv_rows,
       me_csv_rows,
-      raw_csv_ik,
-      raw_csv_me,
       me_storage_path,
       ik_storage_path,
       player_level = 'pro',
@@ -1222,6 +1290,9 @@ serve(async (req: Request) => {
       player_id,
       session_date,
     } = body;
+
+    let rawCsvMe: string | null = typeof body.raw_csv_me === 'string' ? body.raw_csv_me : null;
+    let rawCsvIk: string | null = typeof body.raw_csv_ik === 'string' ? body.raw_csv_ik : null;
 
     // Helper: download CSV from storage bucket
     async function downloadFromStorage(storagePath: string): Promise<string | null> {
@@ -1253,7 +1324,7 @@ serve(async (req: Request) => {
     let dbCsvMe: string | null = null;
     let dbCsvIk: string | null = null;
 
-    if (reboot_db_session_id && !raw_csv_me && !me_csv_rows?.length) {
+    if (reboot_db_session_id && !rawCsvMe && !me_csv_rows?.length) {
       console.log(`[CSV] Fetching CSVs from DB for reboot_db_session_id=${reboot_db_session_id}`);
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -1281,8 +1352,9 @@ serve(async (req: Request) => {
     // Resolve ME rows
     if (Array.isArray(me_csv_rows) && me_csv_rows.length > 0) {
       meRows = me_csv_rows;
-    } else if (typeof raw_csv_me === 'string' && raw_csv_me.length > 0) {
-      meRows = parseCsvRows(raw_csv_me);
+    } else if (rawCsvMe && rawCsvMe.length > 0) {
+      meRows = parseCsvRows(rawCsvMe);
+      rawCsvMe = null;
     } else if (dbCsvMe && dbCsvMe.length > 0) {
       meRows = parseCsvRows(dbCsvMe);
       dbCsvMe = null; // free memory
@@ -1294,8 +1366,9 @@ serve(async (req: Request) => {
     // Resolve IK rows
     if (Array.isArray(ik_csv_rows) && ik_csv_rows.length > 0) {
       ikRows = ik_csv_rows;
-    } else if (typeof raw_csv_ik === 'string' && raw_csv_ik.length > 0) {
-      ikRows = parseCsvRows(raw_csv_ik);
+    } else if (rawCsvIk && rawCsvIk.length > 0) {
+      ikRows = parseCsvRows(rawCsvIk);
+      rawCsvIk = null;
     } else if (dbCsvIk && dbCsvIk.length > 0) {
       ikRows = parseCsvRows(dbCsvIk);
       dbCsvIk = null; // free memory
@@ -1314,7 +1387,7 @@ serve(async (req: Request) => {
     // If no IK rows, create minimal synthetic IK from ME data
     if (ikRows.length === 0) {
       console.warn('[CSV] No IK data — creating synthetic IK from ME rows');
-      ikRows = meRows.map(r => ({ ...r })); // Use ME rows as fallback (shared columns)
+      ikRows = meRows; // Reuse parsed rows to avoid a second large clone in memory
     }
 
     console.log(`[CSV] Processing: ME=${meRows.length} rows, IK=${ikRows.length} rows`);
@@ -1371,6 +1444,10 @@ serve(async (req: Request) => {
     rawMetrics.swing_classification = durationGate.classification;
     // ALWAYS persist computed scores — duration gate is metadata only, not a scoring blocker.
     // Multi-swing CSVs produce misleading durations; blocking scores hides valid data.
+
+    // Release parsed row buffers before DB writes/response serialization.
+    meRows = [];
+    ikRows = [];
 
     // 3. Persist to player_sessions if session context provided
     if (session_id && player_id) {
