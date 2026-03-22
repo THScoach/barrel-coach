@@ -173,26 +173,46 @@ serve(async (req) => {
     }
 
     // ========================================================================
-    // Step 4: Download CSVs and pass raw text to calculate-4b-scores
+    // Step 4: Score each movement individually to avoid memory exhaustion
     // ========================================================================
     let analysisResult = null;
+    const movementResults: any[] = [];
+
     if (triggerAnalysis) {
-      try {
-        // Download ME CSV content from presigned URLs
-        const meUrls = exportUrls["momentum-energy"] || [];
-        const ikUrls = exportUrls["inverse-kinematics"] || [];
+      const meMap = exportUrlMovementMap["momentum-energy"] || [];
+      const ikMap = exportUrlMovementMap["inverse-kinematics"] || [];
 
-        console.log(`[export] Downloading ${meUrls.length} ME CSV(s) and ${ikUrls.length} IK CSV(s)...`);
+      // Build lookup: movement_id → { meUrl, ikUrl }
+      const movementUrlMap: Record<string, { meUrl?: string; ikUrl?: string }> = {};
+      for (const entry of meMap) {
+        if (!movementUrlMap[entry.movement_id]) movementUrlMap[entry.movement_id] = {};
+        movementUrlMap[entry.movement_id].meUrl = entry.url;
+      }
+      for (const entry of ikMap) {
+        if (!movementUrlMap[entry.movement_id]) movementUrlMap[entry.movement_id] = {};
+        movementUrlMap[entry.movement_id].ikUrl = entry.url;
+      }
 
-        const rawMeCsv = await downloadAndConcatCsvs(meUrls);
-        const rawIkCsv = await downloadAndConcatCsvs(ikUrls);
+      console.log(`[export] Scoring ${Object.keys(movementUrlMap).length} movement(s) individually...`);
 
-        console.log(`[export] ME CSV: ${rawMeCsv.length} chars, IK CSV: ${rawIkCsv.length} chars`);
+      for (const [movId, urls] of Object.entries(movementUrlMap)) {
+        if (!urls.meUrl) {
+          console.warn(`[export] Movement ${movId}: no ME URL, skipping`);
+          continue;
+        }
 
-        if (!rawMeCsv) {
-          console.error("[export] No ME CSV content downloaded — cannot score");
-        } else {
-          // Route through compute-4b-from-csv (CSV parser + scoring engine)
+        try {
+          // Download ONE movement's ME CSV (typically ~1-3MB each)
+          const meCsv = await downloadSingleCsv(urls.meUrl);
+          const ikCsv = urls.ikUrl ? await downloadSingleCsv(urls.ikUrl) : "";
+
+          if (!meCsv) {
+            console.warn(`[export] Movement ${movId}: ME download empty, skipping`);
+            continue;
+          }
+
+          console.log(`[export] Movement ${movId}: ME=${meCsv.length} chars, IK=${ikCsv.length} chars`);
+
           const analysisUrl = `${supabaseUrl}/functions/v1/compute-4b-from-csv`;
           const analysisResponse = await fetch(analysisUrl, {
             method: "POST",
@@ -204,21 +224,29 @@ serve(async (req) => {
               player_id: body.player_id,
               session_id: body.session_id,
               session_date: new Date().toISOString().split("T")[0],
-              raw_csv_me: rawMeCsv,
-              raw_csv_ik: rawIkCsv || undefined,
+              raw_csv_me: meCsv,
+              raw_csv_ik: ikCsv || undefined,
+              movement_id: movId,
             }),
           });
 
           if (analysisResponse.ok) {
-            analysisResult = await analysisResponse.json();
-            console.log("[export] 4B analysis complete via compute-4b-from-csv");
+            const result = await analysisResponse.json();
+            movementResults.push(result);
+            console.log(`[export] ✅ Movement ${movId}: Brain=${result.brain} Body=${result.body} Bat=${result.bat}`);
           } else {
             const errText = await analysisResponse.text();
-            console.error("[export] Analysis failed:", errText.substring(0, 300));
+            console.error(`[export] ✗ Movement ${movId} scoring failed: ${errText.substring(0, 200)}`);
           }
+        } catch (err) {
+          console.error(`[export] Error scoring movement ${movId}:`, err);
         }
-      } catch (err) {
-        console.error("[export] Error during analysis:", err);
+      }
+
+      // Use the last scored result as the session result (compute-4b-from-csv persists per-session)
+      if (movementResults.length > 0) {
+        analysisResult = movementResults[movementResults.length - 1];
+        console.log(`[export] ${movementResults.length}/${Object.keys(movementUrlMap).length} movements scored`);
       }
     }
 
