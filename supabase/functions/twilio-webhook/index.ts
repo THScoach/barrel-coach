@@ -1495,13 +1495,74 @@ async function sendSMS(to: string, message: string): Promise<{ success: boolean;
 // MAIN HANDLER
 // ============================================================
 
+// Twilio signature validation using HMAC-SHA1
+async function validateTwilioSignature(
+  authToken: string,
+  signature: string,
+  url: string,
+  params: Record<string, string>
+): Promise<boolean> {
+  // Build data string: url + sorted params concatenated
+  let data = url;
+  const sortedKeys = Object.keys(params).sort();
+  for (const key of sortedKeys) {
+    data += key + params[key];
+  }
+
+  // Compute HMAC-SHA1 using Web Crypto API
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(authToken),
+    { name: "HMAC", hash: "SHA-1" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(data));
+  const expectedSignature = btoa(String.fromCharCode(...new Uint8Array(sig)));
+
+  return signature === expectedSignature;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Validate Twilio signature before processing
+    const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+    const twilioSignature = req.headers.get("X-Twilio-Signature") || "";
+
     const formData = await req.formData();
+
+    if (twilioAuthToken && twilioSignature) {
+      // Build params from form data
+      const params: Record<string, string> = {};
+      for (const [key, value] of formData.entries()) {
+        params[key] = value.toString();
+      }
+
+      // Use the request URL for validation
+      const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/twilio-webhook`;
+      const isValid = await validateTwilioSignature(twilioAuthToken, twilioSignature, webhookUrl, params);
+
+      if (!isValid) {
+        console.warn("[Twilio Webhook] Invalid signature - rejecting request");
+        return new Response(
+          JSON.stringify({ error: "Invalid Twilio signature" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      console.log("[Twilio Webhook] Signature validated successfully");
+    } else if (!twilioSignature) {
+      // No signature header at all - likely not from Twilio
+      console.warn("[Twilio Webhook] No X-Twilio-Signature header present");
+      return new Response(
+        JSON.stringify({ error: "Missing Twilio signature" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     
     // Check if this is a status callback
     const messageSid = formData.get("MessageSid") as string;
