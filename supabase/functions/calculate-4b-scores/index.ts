@@ -509,7 +509,14 @@ function classifyPelvis(
   const pelvisKEPeakFrame = getPeakIndex(meData.LowerTorso_Kinetic_Energy);
   const pelvisKEAtContact = getValueAtIndex(meData.LowerTorso_Kinetic_Energy, preProc.contact_frame);
 
-  // Classification tree (order matters: Dead → Spent → Late → Early → Healthy)
+  // Rotational vs Translational ratio for Jump Pelvis detection
+  // LowerHalf_Angular_Momentum_Proj = rotational component in swing plane
+  // LowerTorso_Angular_Momentum_Mag = total angular momentum magnitude
+  const peakAngMomProj = getPeak(meData.LowerHalf_Angular_Momentum_Proj);
+  const peakAngMomMag = getPeak(meData.LowerTorso_Angular_Momentum_Mag);
+  const rotRatio = peakAngMomMag > 0 ? peakAngMomProj / peakAngMomMag : 1.0;
+
+  // Classification tree (order matters: Dead → Jump → Spent → Late → Early → Healthy)
   if (pelvisKE < DEAD_PELVIS_KE_THRESHOLD) {
     return {
       classification: 'DEAD_PELVIS',
@@ -520,6 +527,23 @@ function classifyPelvis(
         'Synapse pelvis-first assisted rotation',
       ],
       anchor: `Vazquez (~100J pelvis KE). Current: ${Math.round(pelvisKE)}J`,
+    };
+  }
+
+  // Jump Pelvis: pelvis has energy but it's translational, not rotational
+  // The pelvis drifts forward instead of rotating — a glider/jumper pattern
+  if (rotRatio < JUMP_PELVIS_ROT_RATIO_THRESHOLD && pelvisKE >= DEAD_PELVIS_KE_THRESHOLD) {
+    return {
+      classification: 'JUMP_PELVIS',
+      problem: `Pelvis has energy (${Math.round(pelvisKE)}J) but it's translational, not rotational. Rotation-to-total ratio: ${(rotRatio * 100).toFixed(0)}% (target: >50%). The pelvis drifts forward instead of converting ground force into rotation.`,
+      prescription: [
+        'Synapse CCR loading — teach pelvis to rotate, not drift',
+        'Balance disc work (ground contact stability)',
+        'Med ball rotational series (build rotational motor pattern)',
+        'Hip hinge constraint drill (block forward translation)',
+        'Single-leg rotational holds (force rotation without drift)',
+      ],
+      anchor: `Bradfield (translational drifter — high KE, low rotational component). Current rot ratio: ${(rotRatio * 100).toFixed(0)}%`,
     };
   }
 
