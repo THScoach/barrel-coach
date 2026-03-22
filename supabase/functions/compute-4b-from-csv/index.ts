@@ -195,6 +195,25 @@ function splitCsvLine(line: string): string[] {
   return values;
 }
 
+// Columns actually used by the scoring engine — only parse these to save memory
+const NEEDED_COLUMNS = new Set([
+  'pelvis_rot', 'torso_rot', 'torso_side',
+  'right_elbow', 'left_elbow', 'r_elbow', 'relbow', 'relbow_rot', 'lelbow_rot',
+  'right_shoulder_rot', 'rshoulder_rot', 'rhand_rot', 'lhand_rot',
+  'rhand_x', 'rhand_y', 'rhand_z', 'lhand_x', 'lhand_y', 'lhand_z',
+  'left_knee', 'right_knee',
+  'time', 'time_from_max_hand', 'time_from_contact',
+  'org_movement_id', 'movement_id',
+  'bat_rot_energy', 'bat_rotational_energy',
+  'bat_kinetic_energy', 'arms_kinetic_energy', 'arms_ke',
+  'torso_kinetic_energy', 'total_kinetic_energy', 'total_ke',
+  'lowerhalf_kinetic_energy', 'pelvis_ke', 'pelvis_kinetic_energy',
+  'legs_kinetic_energy', 'upperhalf_kinetic_energy', 'upperlimb_kinetic_energy',
+  'mass_total', 'masstotal',
+  'lowertorso_angular_momentum_mag', 'pelvis_angular_momentum', 'lowertorso_angmom_mag',
+  'torso_angular_momentum_mag', 'uppertorso_angular_momentum_mag', 'torso_angmom_mag',
+]);
+
 function parseCsvRows(csvText: string): Record<string, number>[] {
   const lines = csvText
     .split(/\r?\n/)
@@ -204,21 +223,28 @@ function parseCsvRows(csvText: string): Record<string, number>[] {
   if (lines.length < 2) return [];
 
   const headers = splitCsvLine(lines[0]).map((header) => header.toLowerCase());
+  // Pre-compute which column indices to keep
+  const keepIndices: { idx: number; name: string }[] = [];
+  headers.forEach((header, index) => {
+    if (header && NEEDED_COLUMNS.has(header)) {
+      keepIndices.push({ idx: index, name: header });
+    }
+  });
+
   const rows: Record<string, number>[] = [];
 
   for (let i = 1; i < lines.length; i++) {
     const cols = splitCsvLine(lines[i]);
     const row: Record<string, number> = {};
 
-    headers.forEach((header, index) => {
-      if (!header) return;
-      const raw = cols[index];
-      if (raw == null || raw === '') return;
+    for (const { idx, name } of keepIndices) {
+      const raw = cols[idx];
+      if (raw == null || raw === '') continue;
       const value = Number(raw);
       if (Number.isFinite(value)) {
-        row[header] = value;
+        row[name] = value;
       }
-    });
+    }
 
     if (Object.keys(row).length > 0) {
       rows.push(row);
@@ -1217,23 +1243,62 @@ serve(async (req: Request) => {
       }
     }
 
-    // Resolve ME rows: pre-parsed > raw string > storage path
+    // ── Resolve CSV data ──
+    // Priority: pre-parsed rows > raw string > DB fetch by reboot_db_session_id > storage path
     let meRows: Record<string, number>[] = [];
+    let ikRows: Record<string, number>[] = [];
+
+    // NEW: fetch CSVs from DB if reboot_db_session_id provided (avoids sending MB payloads)
+    const reboot_db_session_id = body.reboot_db_session_id;
+    let dbCsvMe: string | null = null;
+    let dbCsvIk: string | null = null;
+
+    if (reboot_db_session_id && !raw_csv_me && !me_csv_rows?.length) {
+      console.log(`[CSV] Fetching CSVs from DB for reboot_db_session_id=${reboot_db_session_id}`);
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const sb = createClient(supabaseUrl, serviceKey);
+      const { data: dbRow, error: dbErr } = await sb
+        .from('reboot_sessions')
+        .select('raw_csv_me, raw_csv_ik, me_file_path, ik_file_path')
+        .eq('id', reboot_db_session_id)
+        .single();
+      if (dbErr) {
+        console.warn(`[CSV] DB fetch failed:`, dbErr.message);
+      } else if (dbRow) {
+        dbCsvMe = dbRow.raw_csv_me;
+        dbCsvIk = dbRow.raw_csv_ik;
+        // If no inline CSV, try storage paths from the DB row
+        if (!dbCsvMe && dbRow.me_file_path) {
+          dbCsvMe = await downloadFromStorage(dbRow.me_file_path);
+        }
+        if (!dbCsvIk && dbRow.ik_file_path) {
+          dbCsvIk = await downloadFromStorage(dbRow.ik_file_path);
+        }
+      }
+    }
+
+    // Resolve ME rows
     if (Array.isArray(me_csv_rows) && me_csv_rows.length > 0) {
       meRows = me_csv_rows;
     } else if (typeof raw_csv_me === 'string' && raw_csv_me.length > 0) {
       meRows = parseCsvRows(raw_csv_me);
+    } else if (dbCsvMe && dbCsvMe.length > 0) {
+      meRows = parseCsvRows(dbCsvMe);
+      dbCsvMe = null; // free memory
     } else if (typeof me_storage_path === 'string') {
       const csv = await downloadFromStorage(me_storage_path);
       if (csv) meRows = parseCsvRows(csv);
     }
 
-    // Resolve IK rows: pre-parsed > raw string > storage path
-    let ikRows: Record<string, number>[] = [];
+    // Resolve IK rows
     if (Array.isArray(ik_csv_rows) && ik_csv_rows.length > 0) {
       ikRows = ik_csv_rows;
     } else if (typeof raw_csv_ik === 'string' && raw_csv_ik.length > 0) {
       ikRows = parseCsvRows(raw_csv_ik);
+    } else if (dbCsvIk && dbCsvIk.length > 0) {
+      ikRows = parseCsvRows(dbCsvIk);
+      dbCsvIk = null; // free memory
     } else if (typeof ik_storage_path === 'string') {
       const csv = await downloadFromStorage(ik_storage_path);
       if (csv) ikRows = parseCsvRows(csv);
