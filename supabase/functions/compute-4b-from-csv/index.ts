@@ -195,6 +195,25 @@ function splitCsvLine(line: string): string[] {
   return values;
 }
 
+// Columns actually used by the scoring engine — only parse these to save memory
+const NEEDED_COLUMNS = new Set([
+  'pelvis_rot', 'torso_rot', 'torso_side',
+  'right_elbow', 'left_elbow', 'r_elbow', 'relbow', 'relbow_rot', 'lelbow_rot',
+  'right_shoulder_rot', 'rshoulder_rot', 'rhand_rot', 'lhand_rot',
+  'rhand_x', 'rhand_y', 'rhand_z', 'lhand_x', 'lhand_y', 'lhand_z',
+  'left_knee', 'right_knee',
+  'time', 'time_from_max_hand', 'time_from_contact',
+  'org_movement_id', 'movement_id',
+  'bat_rot_energy', 'bat_rotational_energy',
+  'bat_kinetic_energy', 'arms_kinetic_energy', 'arms_ke',
+  'torso_kinetic_energy', 'total_kinetic_energy', 'total_ke',
+  'lowerhalf_kinetic_energy', 'pelvis_ke', 'pelvis_kinetic_energy',
+  'legs_kinetic_energy', 'upperhalf_kinetic_energy', 'upperlimb_kinetic_energy',
+  'mass_total', 'masstotal',
+  'lowertorso_angular_momentum_mag', 'pelvis_angular_momentum', 'lowertorso_angmom_mag',
+  'torso_angular_momentum_mag', 'uppertorso_angular_momentum_mag', 'torso_angmom_mag',
+]);
+
 function parseCsvRows(csvText: string): Record<string, number>[] {
   const lines = csvText
     .split(/\r?\n/)
@@ -204,21 +223,28 @@ function parseCsvRows(csvText: string): Record<string, number>[] {
   if (lines.length < 2) return [];
 
   const headers = splitCsvLine(lines[0]).map((header) => header.toLowerCase());
+  // Pre-compute which column indices to keep
+  const keepIndices: { idx: number; name: string }[] = [];
+  headers.forEach((header, index) => {
+    if (header && NEEDED_COLUMNS.has(header)) {
+      keepIndices.push({ idx: index, name: header });
+    }
+  });
+
   const rows: Record<string, number>[] = [];
 
   for (let i = 1; i < lines.length; i++) {
     const cols = splitCsvLine(lines[i]);
     const row: Record<string, number> = {};
 
-    headers.forEach((header, index) => {
-      if (!header) return;
-      const raw = cols[index];
-      if (raw == null || raw === '') return;
+    for (const { idx, name } of keepIndices) {
+      const raw = cols[idx];
+      if (raw == null || raw === '') continue;
       const value = Number(raw);
       if (Number.isFinite(value)) {
-        row[header] = value;
+        row[name] = value;
       }
-    });
+    }
 
     if (Object.keys(row).length > 0) {
       rows.push(row);
