@@ -1543,6 +1543,19 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
     ) / 10;
   }
 
+  // Compute PCE for legacy path
+  const legacyPelvisClass: PelvisClassification = input.pelvis_omega_peak < 600 ? 'DEAD_PELVIS' :
+    !correctOrder ? 'LATE_PELVIS' : 'HEALTHY_PELVIS';
+  const legacyPCE = computePCE(legacyPelvisClass, legacyEnergyLedger, 'UNKNOWN');
+
+  // Use PCE ball score when no measured ball score
+  const legacyBallScore = ball ?? legacyPCE.predicted_ball_score;
+  const legacyMode: ScoringMode = legacyBallScore != null ? 'full' : 'training';
+  const lw = LEGACY_WEIGHTS[legacyMode];
+  const legacyComposite = Math.round(clamp(body * lw.body + brain * lw.brain + bat * lw.bat + (legacyBallScore ?? 0) * lw.ball));
+  const legacyRating = toRating(legacyComposite);
+  const legacyColor = getColor(legacyComposite);
+
   // Build v2 output shape with IK fallback data
   return {
     version: '2.0',
@@ -1561,8 +1574,7 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
       arm_flow: { score: bat, color: getColor(bat), label: getLabel(bat), components: { bat_speed_mph: Math.round(batSpeedMph) } },
     },
     pelvis_classification: {
-      classification: input.pelvis_omega_peak < 600 ? 'DEAD_PELVIS' :
-        !correctOrder ? 'LATE_PELVIS' : 'HEALTHY_PELVIS',
+      classification: legacyPelvisClass,
       problem: null,
       prescription: [],
       anchor: null,
@@ -1583,7 +1595,8 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
     predicted_exit_velocity_mph: legacyPredictions.predicted_exit_velocity_mph,
     bat_speed_path: legacyPredictions.bat_speed_path,
     bat_speed_confidence: legacyPredictions.bat_speed_confidence,
-    legacy_4b: { body, brain, bat, ball, score_4bkrs: composite, rating, color },
+    predicted_contact: legacyPCE,
+    legacy_4b: { body, brain, bat, ball: legacyBallScore, score_4bkrs: legacyComposite, rating: legacyRating, color: legacyColor },
     scoring_timestamp: new Date().toISOString(),
   };
 }
