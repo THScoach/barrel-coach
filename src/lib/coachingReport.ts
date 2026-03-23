@@ -99,6 +99,7 @@ export interface SessionScoreData {
   score_4bkrs: number | null;
   bat_speed_source: string | null;
   bat_speed_confidence: string | null;
+  raw_metrics?: Record<string, any> | null;
 }
 
 // ---------------------------------------------------------------------------
