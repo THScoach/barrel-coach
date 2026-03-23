@@ -1347,13 +1347,24 @@ function computeV2Scores(input: V2Input): ScoringOutput {
     input.exit_velocity_mph,
   );
 
-  // Step 9: Legacy mapping
-  const legacy4B = mapToLegacy4B(groundFlow, coreFlow, armFlow);
+  // Step 9: PCE — Predicted Contact Expectancy
+  const pce = computePCE(pelvisResult.classification, energyLedger, tkeShape);
+
+  // Step 10: Legacy mapping (with PCE ball score when no measured EV)
+  const measuredEV = input.exit_velocity_mph;
+  let measuredBallScore: number | null = null;
+  if (measuredEV && measuredEV > 0) {
+    const evBench: Record<string, { min: number; elite: number }> = { youth: { min: 40, elite: 65 }, high_school: { min: 68, elite: 92 }, college: { min: 78, elite: 100 }, pro: { min: 85, elite: 108 } };
+    const eb = evBench[player_metadata.player_level] ?? evBench.high_school;
+    measuredBallScore = Math.round(lerp(measuredEV, eb.min, eb.elite, 20, 100));
+  }
+  const legacy4B = mapToLegacy4B(groundFlow, coreFlow, armFlow, pce.predicted_ball_score, measuredBallScore);
 
   console.log(`[4B-v2] Ground=${groundFlow.score} Core=${coreFlow.score} Arm=${armFlow.score} ` +
     `Pelvis=${pelvisResult.classification} TKE=${tkeShape} Motor=${motorProfile} ` +
     `TR=${coreFlow.transfer_ratio.toFixed(2)} P→T=${coreFlow.pt_gap_ms.toFixed(1)}ms ` +
-    `PredBat=${predictions.predicted_bat_speed_mph} PredEV=${predictions.predicted_exit_velocity_mph}`);
+    `PredBat=${predictions.predicted_bat_speed_mph} PredEV=${predictions.predicted_exit_velocity_mph} ` +
+    `PCE=${pce.primary_compensation} BallScore=${legacy4B.ball}`);
 
   return {
     version: '2.0',
@@ -1381,6 +1392,7 @@ function computeV2Scores(input: V2Input): ScoringOutput {
     predicted_exit_velocity_mph: predictions.predicted_exit_velocity_mph,
     bat_speed_path: predictions.bat_speed_path,
     bat_speed_confidence: predictions.bat_speed_confidence,
+    predicted_contact: pce,
     legacy_4b: legacy4B,
     scoring_timestamp: new Date().toISOString(),
   };
