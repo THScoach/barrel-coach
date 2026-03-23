@@ -414,7 +414,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
       question: 'How is your timing?',
       score: brain,
       label: pillarLabel(brain),
-      explanation: getPillarExplanation('BRAIN', brain),
+      explanation: getPillarExplanation('BRAIN', brain, rawMetrics),
       color: pillarColor(brain),
     },
     {
@@ -422,7 +422,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
       question: 'How is your body loading?',
       score: body,
       label: pillarLabel(body),
-      explanation: getPillarExplanation('BODY', body),
+      explanation: getPillarExplanation('BODY', body, rawMetrics),
       color: pillarColor(body),
     },
     {
@@ -430,7 +430,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
       question: 'How well do you get the barrel there?',
       score: bat,
       label: pillarLabel(bat),
-      explanation: getPillarExplanation('BAT', bat),
+      explanation: getPillarExplanation('BAT', bat, rawMetrics),
       color: pillarColor(bat),
     },
     {
@@ -438,7 +438,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
       question: 'What kind of contact should we expect?',
       score: ball,
       label: pillarLabel(ball),
-      explanation: getPillarExplanation('BALL', ball),
+      explanation: getPillarExplanation('BALL', ball, rawMetrics),
       color: pillarColor(ball),
     },
   ];
