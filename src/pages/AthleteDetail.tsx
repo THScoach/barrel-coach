@@ -172,6 +172,7 @@ export default function AthleteDetail() {
           status: rs.status, swingCount: uplData?.count || 0, overallScore: uplData?.avgScore || null,
           grade: uplData?.grade || null, completedSwings: uplData?.complete || 0,
           rebootSessionId: rs.reboot_session_id, leakType: null, dataQuality: null,
+          scoringStatus: 'pending',
         });
       }
 
