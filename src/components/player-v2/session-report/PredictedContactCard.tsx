@@ -142,9 +142,53 @@ export function PredictedContactCard({ predictedContact }: Props) {
         </span>
       </div>
 
+      {/* Calibration anchors */}
+      {pc.calibration?.is_calibrated && (
+        <div className="space-y-1 pt-1" style={{ borderTop: '1px solid #222' }}>
+          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#3b82f6' }}>
+            Calibrated
+          </p>
+          {pc.calibration.anchors?.bat_speed && (
+            <div className="flex items-center justify-between">
+              <span className="text-[11px]" style={{ color: '#888' }}>Bat Speed</span>
+              <span className="text-[11px] font-semibold" style={{ color: '#ccc' }}>
+                {pc.calibration.anchors.bat_speed.known_value} mph
+                {pc.calibration.anchors.bat_speed.known_percentile && (
+                  <span className="text-[10px] ml-1" style={{ color: '#555' }}>
+                    ({pc.calibration.anchors.bat_speed.known_percentile}th pctl)
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
+          {pc.calibration.anchors?.exit_velo && (
+            <div className="flex items-center justify-between">
+              <span className="text-[11px]" style={{ color: '#888' }}>Exit Velo</span>
+              <span className="text-[11px] font-semibold" style={{ color: '#ccc' }}>
+                {pc.calibration.anchors.exit_velo.known_value} mph
+                {pc.calibration.anchors.exit_velo.known_percentile && (
+                  <span className="text-[10px] ml-1" style={{ color: '#555' }}>
+                    ({pc.calibration.anchors.exit_velo.known_percentile}th pctl)
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Player message */}
+      {pc.player_message && (
+        <p className="text-[11px] leading-relaxed" style={{ color: '#888' }}>
+          {pc.player_message}
+        </p>
+      )}
+
       {/* Footer label */}
       <p className="text-[10px] italic" style={{ color: '#444' }}>
-        Predicted — not measured. Based on how your energy chain delivers.
+        {pc.calibration?.is_calibrated
+          ? 'Calibrated — anchored to your known metrics.'
+          : 'Predicted — not measured. Based on how your energy chain delivers.'}
       </p>
     </div>
   );
