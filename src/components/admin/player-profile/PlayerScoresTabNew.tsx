@@ -1,89 +1,41 @@
 /**
- * Rick Lab Player Scores Tab - KRS Reports + Progression
- * =======================================================
- * Two sub-tabs: KRS Reports table and Progression dashboard
+ * Rick Lab Player Scores Tab - Longitudinal View
+ * ================================================
+ * Sub-tabs: Progression (default), Kinematic Sequence, Drill Intel, Stability
+ * KRS Reports removed — per-session scores live on Reboot Motion tab only.
  */
 
 import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
 import { 
-  FileText, 
-  Beaker,
   LineChart, 
   Loader2,
-  ExternalLink,
-  Database,
-  Upload,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Share2,
-  Trash2,
   Zap,
+  Beaker,
   Shield,
 } from "lucide-react";
-import { toast } from "sonner";
-import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
-import { RebootSessionDetail } from "@/components/RebootSessionDetail";
-import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
 import { PlayerProgressionDashboard } from "./PlayerProgressionDashboard";
 import { DrillIntelTab } from "./DrillIntelTab";
 import { KineticSequenceTab } from "./KineticSequenceTab";
 import { StabilityTab } from "./StabilityTab";
-import { SocialPostGenerator } from "../SocialPostGenerator";
-import { cn } from "@/lib/utils";
 
 interface PlayerScoresTabNewProps {
-  playerId: string; // player_profiles.id
-  playersTableId?: string; // players.id
+  playerId: string;
+  playersTableId?: string;
   playerName: string;
 }
 
-interface KRSReport {
-  id: string;
-  type: 'reboot' | 'analyzer' | 'hittrax' | 'video_2d' | '4b_engine';
-  typeName: string;
-  processingStatus?: string;
-  date: Date;
-  compositeScore: number | null;
-  mainLeak: string | null;
-  scores: {
-    brain?: number;
-    body?: number;
-    bat?: number;
-    ball?: number;
-  };
-  rawData: any;
-}
-
 export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: PlayerScoresTabNewProps) {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialSubTab = searchParams.get('subtab') || 'reports';
+  const initialSubTab = searchParams.get('subtab') || 'progression';
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab);
-  
-  const [reports, setReports] = useState<KRSReport[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [mappedPlayersId, setMappedPlayersId] = useState<string | null>(playersTableId || null);
-  
-  // Session detail modals
-  const [selectedRebootSession, setSelectedRebootSession] = useState<any>(null);
-  const [selectedLaunchSession, setSelectedLaunchSession] = useState<any>(null);
-  const [socialPostOpen, setSocialPostOpen] = useState(false);
-  const [socialPostSessionData, setSocialPostSessionData] = useState<any>(null);
 
-  // Sync sub-tab with URL
   useEffect(() => {
     const subtab = searchParams.get('subtab');
-    if (subtab && ['reports', 'progression', 'kinetic', 'stability', 'drill-intel'].includes(subtab)) {
+    if (subtab && ['progression', 'kinetic', 'stability', 'drill-intel'].includes(subtab)) {
       setActiveSubTab(subtab);
     }
   }, [searchParams]);
@@ -93,7 +45,6 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
     setSearchParams({ tab: 'scores', subtab: value });
   };
 
-  // Resolve players_id if not provided
   useEffect(() => {
     if (!playersTableId && playerId) {
       resolvePlayersId();
@@ -106,7 +57,6 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
     try {
       const { data: linkedPlayerId, error } = await supabase
         .rpc('ensure_player_linked', { p_profile_id: playerId });
-      
       if (!error && linkedPlayerId) {
         setMappedPlayersId(linkedPlayerId);
       }
@@ -115,249 +65,16 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
     }
   };
 
-  // Load KRS reports
-  useEffect(() => {
-    if (mappedPlayersId) {
-      loadReports();
-    }
-  }, [mappedPlayersId, playerId]);
-
-  const loadReports = async () => {
-    if (!mappedPlayersId) return;
-    
-    setLoading(true);
-    
-    const [rebootRes, sessionsRes, launchRes, video2dRes, playerSessionsRes] = await Promise.all([
-      supabase
-        .from('reboot_uploads')
-        .select('*')
-        .eq('player_id', mappedPlayersId)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('sessions')
-        .select('*')
-        .eq('player_id', playerId)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('launch_monitor_sessions')
-        .select('*')
-        .eq('player_id', mappedPlayersId)
-        .order('session_date', { ascending: false }),
-      supabase
-        .from('video_2d_sessions')
-        .select('id, session_date, composite_score, body_score, brain_score, bat_score, ball_score, leak_detected, motor_profile, processing_status, created_at')
-        .eq('player_id', mappedPlayersId)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('player_sessions')
-        .select('*')
-        .eq('player_id', mappedPlayersId)
-        .order('session_date', { ascending: false }),
-    ]);
-
-    const formatLeakTitle = (s: string | null) => {
-      if (!s) return null;
-      return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    };
-
-    // Build a set of reboot_session_ids already covered by reboot_uploads (with scores)
-    const rebootUploadSessionIds = new Set(
-      (rebootRes.data || [])
-        .filter(s => s.reboot_session_id)
-        .map(s => s.reboot_session_id)
-    );
-
-    // Filter player_sessions to only include ones NOT already in reboot_uploads
-    const uniquePlayerSessions = (playerSessionsRes.data || []).filter(
-      ps => !rebootUploadSessionIds.has(ps.reboot_session_id)
-    );
-
-    const allReports: KRSReport[] = [
-      // Reboot uploads - merge scores from player_sessions if available
-      ...(rebootRes.data || []).map(s => {
-        // Find matching player_session to get 4B scores
-        const matchingPs = (playerSessionsRes.data || []).find(
-          ps => ps.reboot_session_id === s.reboot_session_id
-        );
-        const usePs = matchingPs && matchingPs.overall_score != null;
-        
-        return {
-          id: s.id,
-          type: 'reboot' as const,
-          typeName: s.ik_file_uploaded && s.me_file_uploaded ? 'Reboot IK+ME' : s.ik_file_uploaded ? 'Reboot IK' : 'Reboot ME',
-          date: new Date(s.created_at || new Date()),
-          compositeScore: usePs ? matchingPs.overall_score : s.composite_score,
-          mainLeak: usePs ? formatLeakTitle(matchingPs.leak_type) : s.weakest_link,
-          scores: {
-            brain: (usePs ? matchingPs.brain_score : s.brain_score) ?? undefined,
-            body: (usePs ? matchingPs.body_score : s.body_score) ?? undefined,
-            bat: (usePs ? matchingPs.bat_score : s.bat_score) ?? undefined,
-            ball: (usePs ? matchingPs.ball_score : undefined) ?? undefined,
-          },
-          rawData: usePs ? { ...s, player_session: matchingPs } : s,
-        };
-      }),
-      // 4B Engine sessions not covered by reboot_uploads
-      ...uniquePlayerSessions.map(ps => ({
-        id: ps.id,
-        type: '4b_engine' as const,
-        typeName: '4B Engine',
-        date: new Date(ps.session_date || ps.created_at || new Date()),
-        compositeScore: ps.overall_score,
-        mainLeak: formatLeakTitle(ps.leak_type),
-        scores: {
-          brain: ps.brain_score ?? undefined,
-          body: ps.body_score ?? undefined,
-          bat: ps.bat_score ?? undefined,
-          ball: ps.ball_score ?? undefined,
-        },
-        rawData: ps,
-      })),
-      ...(sessionsRes.data || []).map(s => ({
-        id: s.id,
-        type: 'analyzer' as const,
-        typeName: s.product_type || 'Video Analysis',
-        date: new Date(s.created_at || new Date()),
-        compositeScore: s.composite_score,
-        mainLeak: s.weakest_category || s.leak_type,
-        scores: {
-          brain: s.four_b_brain ?? undefined,
-          body: s.four_b_body ?? undefined,
-          bat: s.four_b_bat ?? undefined,
-          ball: s.four_b_ball ?? undefined,
-        },
-        rawData: s,
-      })),
-      ...(launchRes.data || []).map(s => ({
-        id: s.id,
-        type: 'hittrax' as const,
-        typeName: s.source || 'HitTrax',
-        date: new Date(s.session_date),
-        compositeScore: s.ball_score,
-        mainLeak: null,
-        scores: {
-          ball: s.ball_score ?? undefined,
-        },
-        rawData: s,
-      })),
-      ...(video2dRes.data || []).map(s => ({
-        id: s.id,
-        type: 'video_2d' as const,
-        typeName: '2D Video',
-        date: new Date(s.session_date || s.created_at || new Date()),
-        compositeScore: s.composite_score ? Math.round(s.composite_score) : null,
-        mainLeak: formatLeakTitle(s.leak_detected),
-        processingStatus: s.processing_status,
-        scores: {
-          brain: s.brain_score ?? undefined,
-          body: s.body_score ?? undefined,
-          bat: s.bat_score ?? undefined,
-          ball: s.ball_score ?? undefined,
-        },
-        rawData: s,
-      })),
-    ];
-
-    allReports.sort((a, b) => b.date.getTime() - a.date.getTime());
-    setReports(allReports);
-    setLoading(false);
-  };
-
-  const handleViewReport = (report: KRSReport) => {
-    if (report.type === 'video_2d') {
-      navigate(`/report/${report.id}`);
-    } else if (report.type === 'reboot' || report.type === '4b_engine') {
-      // For 4b_engine sessions, wrap in reboot_uploads-like format for the detail drawer
-      const sessionData = report.type === '4b_engine' 
-        ? { 
-            ...report.rawData, 
-            reboot_session_id: report.rawData.reboot_session_id,
-            composite_score: report.rawData.overall_score,
-            brain_score: report.rawData.brain_score,
-            body_score: report.rawData.body_score,
-            bat_score: report.rawData.bat_score,
-            ball_score: report.rawData.ball_score,
-            weakest_link: report.rawData.leak_type,
-          }
-        : report.rawData;
-      setSelectedRebootSession(sessionData);
-    } else if (report.type === 'hittrax') {
-      setSelectedLaunchSession(report.rawData);
-    } else {
-      toast.info('Analyzer session detail coming soon');
-    }
-  };
-
-  const handleDeleteSession = async (report: KRSReport) => {
-    const confirmed = window.confirm('Delete this session? This cannot be undone.');
-    if (!confirmed) return;
-
-    try {
-      if (report.type === 'reboot') {
-        const rebootSessionId = report.rawData.reboot_session_id;
-        if (rebootSessionId) {
-          await supabase.from('reboot_uploads').delete().eq('reboot_session_id', rebootSessionId);
-          await supabase.from('reboot_sessions').delete().eq('reboot_session_id', rebootSessionId);
-        } else {
-          await supabase.from('reboot_uploads').delete().eq('id', report.id);
-        }
-      } else if (report.type === '4b_engine') {
-        const rebootSessionId = report.rawData.reboot_session_id;
-        await supabase.from('player_sessions').delete().eq('id', report.id);
-        if (rebootSessionId) {
-          await supabase.from('reboot_sessions').delete().eq('reboot_session_id', rebootSessionId);
-        }
-      } else if (report.type === 'video_2d') {
-        await supabase.from('video_2d_sessions').delete().eq('id', report.id);
-      }
-      toast.success('Session deleted');
-      loadReports();
-    } catch (err) {
-      toast.error('Failed to delete session');
-    }
-  };
-
-  const getScoreBadgeColor = (score: number | null | undefined) => {
-    if (score === null || score === undefined) return 'bg-slate-700 text-slate-400';
-    if (score >= 70) return 'bg-emerald-900/50 text-emerald-400 border-emerald-700';
-    if (score >= 50) return 'bg-yellow-900/50 text-yellow-400 border-yellow-700';
-    return 'bg-red-900/50 text-red-400 border-red-700';
-  };
-
-  const getLeakBadge = (leak: string | null) => {
-    if (!leak) return null;
-    
-    const leakLabels: Record<string, { label: string; color: string }> = {
-      'late_legs': { label: 'Late Legs', color: 'border-blue-500/50 text-blue-400' },
-      'early_arms': { label: 'Early Arms', color: 'border-purple-500/50 text-purple-400' },
-      'torso_bypass': { label: 'Torso Bypass', color: 'border-amber-500/50 text-amber-400' },
-      'arm_bar': { label: 'Arm Bar', color: 'border-red-500/50 text-red-400' },
-      'brain': { label: 'Brain', color: 'border-pink-500/50 text-pink-400' },
-      'body': { label: 'Body', color: 'border-blue-500/50 text-blue-400' },
-      'bat': { label: 'Bat', color: 'border-orange-500/50 text-orange-400' },
-      'ball': { label: 'Ball', color: 'border-green-500/50 text-green-400' },
-    };
-
-    const config = leakLabels[leak.toLowerCase()] || { label: leak, color: 'border-slate-500/50 text-slate-400' };
-    
-    return (
-      <Badge variant="outline" className={cn("text-xs", config.color)}>
-        {config.label}
-      </Badge>
-    );
-  };
+  const loadingSpinner = (
+    <div className="flex items-center justify-center py-16">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  );
 
   return (
     <div className="space-y-6">
       <Tabs value={activeSubTab} onValueChange={handleSubTabChange}>
         <TabsList className="bg-slate-800/50">
-          <TabsTrigger 
-            value="reports" 
-            className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            KRS Reports
-          </TabsTrigger>
           <TabsTrigger 
             value="progression" 
             className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
@@ -388,173 +105,6 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
           </TabsTrigger>
         </TabsList>
 
-        {/* ===== KRS REPORTS TABLE ===== */}
-        <TabsContent value="reports" className="mt-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
-              All KRS Sessions
-            </h3>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-slate-600 text-slate-300 hover:bg-slate-800"
-              onClick={() => setUploadModalOpen(true)}
-              disabled={!mappedPlayersId}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Data
-            </Button>
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : reports.length === 0 ? (
-            <Card className="bg-slate-900/80 border-slate-800">
-              <CardContent className="py-12 text-center">
-                <Database className="h-12 w-12 mx-auto text-slate-600 mb-3" />
-                <p className="text-slate-400 font-medium">No KRS reports yet</p>
-                <p className="text-sm text-slate-500 mt-1">Upload data to generate reports</p>
-                <Button
-                  className="mt-4 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
-                  onClick={() => setUploadModalOpen(true)}
-                  disabled={!mappedPlayersId}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload First Session
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="bg-slate-900/80 border-slate-800 overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-slate-800 hover:bg-transparent">
-                    <TableHead className="text-slate-400">Date</TableHead>
-                    <TableHead className="text-slate-400">Type</TableHead>
-                    <TableHead className="text-slate-400 text-center">Score</TableHead>
-                    <TableHead className="text-slate-400">Main Leak</TableHead>
-                    <TableHead className="text-slate-400 text-center">4B</TableHead>
-                    <TableHead className="text-slate-400 text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reports.map((report) => (
-                    <TableRow 
-                      key={report.id} 
-                      className="group border-slate-800 hover:bg-slate-800/50 cursor-pointer"
-                      onClick={() => handleViewReport(report)}
-                    >
-                      <TableCell className="text-white font-medium">
-                        {format(report.date, 'MMM d, yyyy')}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={cn(
-                          "text-xs",
-                          report.type === 'video_2d' 
-                            ? "border-blue-500/50 text-blue-400" 
-                            : report.type === '4b_engine'
-                            ? "border-indigo-500/50 text-indigo-400"
-                            : "border-slate-700 text-slate-300"
-                        )}>
-                          {report.typeName}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {report.type === 'video_2d' && report.processingStatus !== 'complete' ? (
-                          <Badge className="bg-yellow-900/50 text-yellow-400 border-yellow-700 text-xs">
-                            Processing
-                          </Badge>
-                        ) : report.compositeScore !== null ? (
-                          <Badge className={cn("text-sm font-bold", getScoreBadgeColor(report.compositeScore))}>
-                            {report.compositeScore}
-                          </Badge>
-                        ) : (
-                          <span className="text-slate-500">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {report.type === 'video_2d' && report.processingStatus !== 'complete' 
-                          ? <span className="text-slate-500">—</span>
-                          : report.mainLeak 
-                            ? getLeakBadge(report.mainLeak) 
-                            : <span className="text-slate-500">—</span>
-                        }
-                      </TableCell>
-                      <TableCell>
-                        {report.type === 'video_2d' && report.processingStatus !== 'complete' ? (
-                          <span className="text-xs text-yellow-400">Processing…</span>
-                        ) : (
-                          <div className="flex justify-center gap-1">
-                            {report.scores.brain !== undefined && (
-                              <span className="text-xs text-pink-400">Br:{report.scores.brain}</span>
-                            )}
-                            {report.scores.body !== undefined && (
-                              <span className="text-xs text-blue-400">Bo:{report.scores.body}</span>
-                            )}
-                            {report.scores.bat !== undefined && (
-                              <span className="text-xs text-orange-400">Ba:{report.scores.bat}</span>
-                            )}
-                            {report.scores.ball !== undefined && (
-                              <span className="text-xs text-green-400">Bl:{report.scores.ball}</span>
-                            )}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {(report.type === 'reboot' || report.type === '4b_engine') && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-[#DC2626] hover:text-[#DC2626] hover:bg-[#DC2626]/10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSocialPostSessionData(report.rawData);
-                                setSocialPostOpen(true);
-                              }}
-                              title="Generate Social Post"
-                            >
-                              <Share2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-slate-400 hover:text-white"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleViewReport(report);
-                            }}
-                          >
-                          <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          {(report.type === 'reboot' || report.type === 'video_2d' || report.type === '4b_engine') && 
-                           (report.compositeScore === null || report.processingStatus === 'failed') && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteSession(report);
-                              }}
-                              title="Delete session"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          )}
-        </TabsContent>
-
         {/* ===== PROGRESSION DASHBOARD ===== */}
         <TabsContent value="progression" className="mt-6">
           {mappedPlayersId ? (
@@ -562,18 +112,8 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
               playerId={playerId}
               playersTableId={mappedPlayersId}
               playerName={playerName}
-              onViewSession={(sessionId, type) => {
-                const report = reports.find(r => r.id === sessionId);
-                if (report) {
-                  handleViewReport(report);
-                }
-              }}
             />
-          ) : (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          )}
+          ) : loadingSpinner}
         </TabsContent>
 
         {/* ===== KINETIC SEQUENCE ===== */}
@@ -583,11 +123,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
               playersTableId={mappedPlayersId}
               playerName={playerName}
             />
-          ) : (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          )}
+          ) : loadingSpinner}
         </TabsContent>
 
         {/* ===== DRILL INTEL ===== */}
@@ -597,11 +133,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
               playersTableId={mappedPlayersId}
               playerName={playerName}
             />
-          ) : (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          )}
+          ) : loadingSpinner}
         </TabsContent>
 
         {/* ===== STABILITY ===== */}
@@ -611,51 +143,9 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
               playersTableId={mappedPlayersId}
               playerName={playerName}
             />
-          ) : (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          )}
+          ) : loadingSpinner}
         </TabsContent>
       </Tabs>
-
-      {/* ===== MODALS ===== */}
-      <UnifiedDataUploadModal
-        open={uploadModalOpen}
-        onOpenChange={setUploadModalOpen}
-        playerId={mappedPlayersId || ''}
-        playerName={playerName}
-        onSuccess={loadReports}
-        excludeReboot={true}
-      />
-
-      <RebootSessionDetail
-        open={!!selectedRebootSession}
-        onOpenChange={(open) => !open && setSelectedRebootSession(null)}
-        session={selectedRebootSession}
-        onDelete={() => {
-          setSelectedRebootSession(null);
-          loadReports();
-        }}
-      />
-
-      <LaunchMonitorSessionDetail
-        open={!!selectedLaunchSession}
-        onOpenChange={(open) => !open && setSelectedLaunchSession(null)}
-        session={selectedLaunchSession}
-        onDelete={() => {
-          setSelectedLaunchSession(null);
-          loadReports();
-        }}
-      />
-
-      {/* Social Post Generator */}
-      <SocialPostGenerator
-        open={socialPostOpen}
-        onOpenChange={setSocialPostOpen}
-        sessionData={socialPostSessionData || {}}
-        playerName={playerName}
-      />
     </div>
   );
 }

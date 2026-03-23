@@ -242,18 +242,41 @@ export function PlayerRebootMotionTab({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Fetch reboot sessions for this player
+  // Fetch reboot sessions for this player, enriched with 4B scores from player_sessions
   const { data: sessions, isLoading: loadingSessions } = useQuery({
     queryKey: ["reboot-sessions", playersTableId],
     queryFn: async () => {
       if (!playersTableId) return [];
-      const { data, error } = await supabase
-        .from("reboot_sessions")
-        .select("*")
-        .eq("player_id", playersTableId)
-        .order("session_date", { ascending: false });
-      if (error) throw error;
-      return data || [];
+      const [rebootRes, scoresRes] = await Promise.all([
+        supabase
+          .from("reboot_sessions")
+          .select("*")
+          .eq("player_id", playersTableId)
+          .order("session_date", { ascending: false }),
+        supabase
+          .from("player_sessions")
+          .select("reboot_session_id, overall_score, brain_score, body_score, bat_score, ball_score")
+          .eq("player_id", playersTableId)
+          .not("reboot_session_id", "is", null),
+      ]);
+      if (rebootRes.error) throw rebootRes.error;
+      // Build lookup map of scores by reboot_session_id
+      const scoreMap = new Map<string, any>();
+      for (const ps of scoresRes.data || []) {
+        if (ps.reboot_session_id) scoreMap.set(ps.reboot_session_id, ps);
+      }
+      // Merge scores onto reboot sessions
+      return (rebootRes.data || []).map(s => {
+        const scores = s.reboot_session_id ? scoreMap.get(s.reboot_session_id) : null;
+        return {
+          ...s,
+          overall_score: scores?.overall_score ?? null,
+          brain_score: scores?.brain_score ?? null,
+          body_score: scores?.body_score ?? null,
+          bat_score: scores?.bat_score ?? null,
+          ball_score: scores?.ball_score ?? null,
+        };
+      });
     },
     enabled: !!playersTableId && isLinked,
   });
@@ -446,6 +469,23 @@ export function PlayerRebootMotionTab({
                           </Badge>
                         )}
                       </div>
+                      {/* Inline 4B scores */}
+                      {((session as any).brain_score != null || (session as any).body_score != null || (session as any).bat_score != null) && (
+                        <div className="flex items-center gap-2 text-xs mt-1">
+                          {(session as any).brain_score != null && (
+                            <span className="text-pink-400">Br:{(session as any).brain_score}</span>
+                          )}
+                          {(session as any).body_score != null && (
+                            <span className="text-blue-400">Bo:{(session as any).body_score}</span>
+                          )}
+                          {(session as any).bat_score != null && (
+                            <span className="text-orange-400">Ba:{(session as any).bat_score}</span>
+                          )}
+                          {(session as any).ball_score != null && (
+                            <span className="text-green-400">Bl:{(session as any).ball_score}</span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
                         {session.reboot_session_id && (
                           <span className="flex items-center gap-1 truncate max-w-[200px]">
