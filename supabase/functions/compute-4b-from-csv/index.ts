@@ -1140,12 +1140,13 @@ function buildRawMetrics(
     ? Math.round(result.transfer_efficiency * 1000) / 1000
     : null;
 
-  // ── FIXED root_cause logic (Section A — 3-tier pelvis classification) ──
+  // ── FIXED root_cause logic (Section A — 4-tier pelvis classification) ──
   const isInverted = !pelvisFirst;
   const pelvisVelocity = Math.round(pelvis);
   const hasBrakeFailure = brake_efficiency != null && brake_efficiency === 0;
 
   let rootCause: Record<string, string>;
+  let pelvisClassification: string;
 
   // HARD CONSTRAINT: NEVER call pelvis "dead" if velocity >= 600°/s
   if (pelvisVelocity < 600) {
