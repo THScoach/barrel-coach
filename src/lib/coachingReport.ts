@@ -182,22 +182,22 @@ function getBodyDescription(bodyScore: number, rawMetrics: any): { label: string
 
     switch (classification) {
       case 'DEAD_PELVIS':
-        return { label: getTierLabel(bodyScore), description: "Pelvis isn't producing enough force. Train ground-force drills to wake it up." };
+        return { label: getTierLabel(bodyScore), description: "Pelvis isn't producing enough force. Train ground connection and posterior chain loading." };
       case 'LATE_PELVIS':
-        return { label: getTierLabel(bodyScore), description: "Pelvis has force but fires after the torso. Energy is created out of order." };
+        return { label: getTierLabel(bodyScore), description: "Your pelvis has real velocity but it peaks AFTER your torso. The energy exists but shows up late — the fix is about WHEN it fires, not how hard. Train initiation timing." };
       case 'EARLY_PELVIS':
-        return { label: getTierLabel(bodyScore), description: "Pelvis opens too early during the stride. Rotation starts before you're ready to swing." };
+        return { label: getTierLabel(bodyScore), description: "Pelvis opens too early during the stride. Rotation budget is spent before foot plant — train pelvic stability." };
       case 'SPENT_PELVIS':
-        return { label: getTierLabel(bodyScore), description: "Pelvis had energy but it dissipated before contact. Work on timing your brake." };
+        return { label: getTierLabel(bodyScore), description: "Pelvis had energy but it dissipated before contact. Train containment — hold the energy longer." };
       case 'JUMP_PELVIS':
-        return { label: getTierLabel(bodyScore), description: "Energy is all forward movement, zero rotation. Train hip turn and coil drills." };
+        return { label: getTierLabel(bodyScore), description: "Energy is all forward movement, zero rotation. Train rotational conversion — the body needs to turn, not jump." };
       case 'HEALTHY_PELVIS':
-        if (transferRatio && transferRatio < 1.0) {
-          return { label: getTierLabel(bodyScore), description: "Pelvis is healthy but torso is losing energy. Transfer ratio needs work." };
-        } else if (transferRatio && transferRatio > 1.8) {
-          return { label: getTierLabel(bodyScore), description: "Strong energy chain but torso may be over-rotating. Control the release." };
+        if (transferRatio != null && transferRatio < 1.0) {
+          return { label: getTierLabel(bodyScore), description: "Pelvis is healthy but torso is losing energy at the handoff. Transfer ratio below 1.0 — brake mechanism needs work." };
+        } else if (transferRatio != null && transferRatio > 1.8) {
+          return { label: getTierLabel(bodyScore), description: "Strong energy chain but torso may be over-rotating relative to pelvis. Monitor for runaway torso pattern." };
         } else {
-          return { label: getTierLabel(bodyScore), description: "Energy chain is working. Pelvis loads, transfers, and the torso follows." };
+          return { label: getTierLabel(bodyScore), description: "Energy chain is working. Pelvis loads, transfers, and the torso amplifies. Keep building consistency." };
         }
     }
   } catch (e) {
@@ -212,14 +212,16 @@ function getBrainDescription(brainScore: number, rawMetrics: any): { label: stri
     const timingGapPct = rawMetrics?.timing_gap_pct ?? rawMetrics?.scores?.core_flow?.components?.timing_gap_pct;
 
     if (sequenceCorrect === false) {
-      return { label: getTierLabel(brainScore), description: "Sequence is inverted — torso fires before pelvis. Train separation and tempo drills." };
+      return { label: getTierLabel(brainScore), description: "Sequence is inverted — torso fires before pelvis. This is the priority fix before anything else." };
     } else if (timingGapPct !== undefined && timingGapPct !== null) {
       if (Math.abs(timingGapPct) < 5) {
-        return { label: getTierLabel(brainScore), description: "Sequence is correct but segments fire almost simultaneously. Need more separation." };
-      } else if (Math.abs(timingGapPct) >= 14 && Math.abs(timingGapPct) <= 25) {
-        return { label: getTierLabel(brainScore), description: "Timing separation is in the elite range. Pelvis leads, torso follows on time." };
+        return { label: getTierLabel(brainScore), description: "Sequence is correct but segments fire almost simultaneously. Need more separation between pelvis and torso peaks." };
+      } else if (Math.abs(timingGapPct) >= 14 && Math.abs(timingGapPct) <= 18) {
+        return { label: getTierLabel(brainScore), description: "Timing separation is in the elite range. Pelvis leads torso with optimal gap — this is working." };
+      } else if (Math.abs(timingGapPct) > 18 && Math.abs(timingGapPct) <= 25) {
+        return { label: getTierLabel(brainScore), description: "Timing is correct but the gap between pelvis and torso is wider than ideal. Energy loses momentum in the gap." };
       } else if (Math.abs(timingGapPct) > 25) {
-        return { label: getTierLabel(brainScore), description: "Timing gap is too wide — pelvis fires but torso is slow to follow. Tighten the chain." };
+        return { label: getTierLabel(brainScore), description: "Timing gap is too wide — pelvis fires but torso is late to catch up. Energy dissipates in the gap." };
       }
     }
   } catch (e) {
@@ -230,6 +232,23 @@ function getBrainDescription(brainScore: number, rawMetrics: any): { label: stri
 
 function getBatDescription(batScore: number, rawMetrics: any): { label: string; description: string } {
   try {
+    // Check for energy archetype first (from future archetype classification)
+    const archetype = rawMetrics?.energy_archetype ?? rawMetrics?.predicted_contact?.energy_archetype;
+    if (archetype) {
+      const archetypeDescriptions: Record<string, string> = {
+        'SPIKE': "Max effort barrel — long path, pull-dominant. High exit velo ceiling but higher miss rate. The barrel commits early and stays committed.",
+        'FLAT': "Controlled barrel — short path, all fields. Moderate exit velo but the barrel finds the sweet spot more often than anyone. Consistency over power.",
+        'RAMP': "Progressive barrel — builds through the zone. High exit velo AND high consistency. The barrel accelerates smoothly instead of spiking.",
+        'LATE_SPIKE': "Late-commit barrel — steep entry, flat through zone. The barrel waits until the last moment then flattens through contact. Enables elite pitch selection.",
+        'HIGH_UNSTABLE': "High-ceiling barrel — elite when the platform is locked, inconsistent when it varies. The barrel path drifts with platform stability.",
+        'LOW_FLAT': "Precision barrel — minimal energy, maximum placement. Contact-first approach with limited power upside.",
+        'BROKEN': "The barrel is working independently from the body. Arms are compensating for a chain that isn't delivering. Fix the chain, the barrel follows.",
+      };
+      const desc = archetypeDescriptions[archetype];
+      if (desc) return { label: getTierLabel(batScore), description: desc };
+    }
+
+    // Fallback: root cause and arms KE logic
     const rootCause = rawMetrics?.root_cause?.build;
     const armsKePct = rawMetrics?.arms_ke_pct ?? rawMetrics?.energy_ledger?.arms_ke_ratio;
 
@@ -249,12 +268,35 @@ function getBatDescription(batScore: number, rawMetrics: any): { label: string; 
   return { label: pillarLabel(batScore), description: getGenericPillarExplanation('BAT', batScore) };
 }
 
+function getBallDescription(ballScore: number | null, rawMetrics: any): { label: string; description: string } {
+  try {
+    const pc = rawMetrics?.predicted_contact;
+    const compensation = pc?.primary_compensation;
+
+    if (compensation) {
+      const compensationMessages: Record<string, string> = {
+        'ARMS_DOMINANT': "Your body is built for opposite-field contact right now. You're producing pop-ups and ground balls instead of line drives because energy dies at the torso handoff and your arms take over. That shortens the swing plane — the barrel gets there late and leaves early. Fix the transfer and the barrel stays in the zone longer — more line drives, less pop-ups.",
+        'STABILITY': "Your body is built for pull-side ground balls right now. Your lower half opens too early, leaking power before contact. The barrel dumps into the zone and sweeps across. Fix your balance and your body holds power longer — harder contact, more drives in the air.",
+        'TRANSLATIONAL': "Your body is built for opposite-field contact right now. You're jumping at the ball instead of rotating into it. The barrel gets pushed instead of whipped. Learn to turn that forward energy into rotation and the barrel catches up — more line drives, more power.",
+        'SEQUENCE': "Your upper body is firing before your lower half delivers. That makes the barrel drag through the zone — you're getting pull-side ground balls and opposite-field fly balls. Get the hips firing first and the barrel will be on time — harder, more consistent contact.",
+        'HEALTHY': "Your body is built for hard line drives to all fields. Your energy transfers from the ground up and the barrel stays in the zone for a long time. Keep building on this — your body is delivering energy the way it should.",
+      };
+      const desc = compensationMessages[compensation];
+      if (desc) return { label: getTierLabel(ballScore ?? 0), description: desc };
+    }
+  } catch (e) {
+    console.error("Error generating Ball description:", e);
+  }
+  return { label: pillarLabel(ballScore), description: getGenericPillarExplanation('BALL', ballScore) };
+}
+
 function getPillarExplanation(pillar: string, score: number | null, rawMetrics?: any): string {
   if (rawMetrics && score != null) {
     switch (pillar) {
       case 'BODY': return getBodyDescription(score, rawMetrics).description;
       case 'BRAIN': return getBrainDescription(score, rawMetrics).description;
       case 'BAT': return getBatDescription(score, rawMetrics).description;
+      case 'BALL': return getBallDescription(score, rawMetrics).description;
     }
   }
   return getGenericPillarExplanation(pillar, score);
