@@ -24,11 +24,12 @@ Deno.serve(async (req) => {
     console.log(`[Backfill] Starting. player_id=${player_id || 'ALL'}, force=${force_rescore || false}`);
 
     // Query reboot_sessions: include file paths so we know which scoring path to take
+    // When force_rescore, process newest first so recent sessions get updated first
     let query = supabase
       .from('reboot_sessions')
       .select('id, player_id, reboot_session_id, session_date, session_type, drill_name, measured_bat_speed_mph, me_file_path, ik_file_path, source')
       .not('reboot_session_id', 'is', null)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: !force_rescore });
 
     if (player_id) {
       query = query.eq('player_id', player_id);
