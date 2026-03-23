@@ -1486,6 +1486,7 @@ serve(async (req: Request) => {
         bat_speed_confidence: result.bat_speed_confidence,
         scoring_timestamp: result.scoring_timestamp,
         scored_at: new Date().toISOString(),
+        scoring_status: 'scored',
         raw_metrics: rawMetrics,
         swing_duration_ms: Math.round(durationGate.swing_duration_ms),
         swing_classification: durationGate.classification,
@@ -1588,6 +1589,19 @@ serve(async (req: Request) => {
 
   } catch (err) {
     console.error('[compute-4b-from-csv] Error:', err);
+
+    // Mark session as failed if we have context
+    try {
+      const body = await req.clone().json().catch(() => ({}));
+      if (body.player_id && body.session_id) {
+        const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+        await sb.from('player_sessions')
+          .update({ scoring_status: 'failed' })
+          .eq('player_id', body.player_id)
+          .eq('reboot_session_id', body.session_id);
+      }
+    } catch (_) { /* best effort */ }
+
     return new Response(
       JSON.stringify({ error: 'CSV scoring error', detail: String(err) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

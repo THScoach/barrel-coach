@@ -104,7 +104,7 @@ export default function AthleteDetail() {
     queryFn: async () => {
       const { data: playerSessions, error: psError } = await supabase
         .from("player_sessions")
-        .select("id, session_date, brain_score, body_score, bat_score, ball_score, overall_score, overall_grade, swing_count, data_quality, leak_type, created_at")
+        .select("id, session_date, brain_score, body_score, bat_score, ball_score, overall_score, overall_grade, swing_count, data_quality, leak_type, created_at, scoring_status")
         .eq("player_id", id!)
         .order("session_date", { ascending: false });
       if (psError) throw psError;
@@ -148,6 +148,7 @@ export default function AthleteDetail() {
         rebootSessionId: string | null;
         leakType: string | null;
         dataQuality: string | null;
+        scoringStatus: string;
       };
 
       const results: SessionItem[] = [];
@@ -157,6 +158,7 @@ export default function AthleteDetail() {
           status: "complete", swingCount: ps.swing_count || 0, overallScore: ps.overall_score,
           grade: ps.overall_grade, completedSwings: ps.swing_count || 0,
           rebootSessionId: null, leakType: ps.leak_type, dataQuality: ps.data_quality,
+          scoringStatus: (ps as any).scoring_status || 'pending',
         });
       }
 
@@ -170,6 +172,7 @@ export default function AthleteDetail() {
           status: rs.status, swingCount: uplData?.count || 0, overallScore: uplData?.avgScore || null,
           grade: uplData?.grade || null, completedSwings: uplData?.complete || 0,
           rebootSessionId: rs.reboot_session_id, leakType: null, dataQuality: null,
+          scoringStatus: 'pending',
         });
       }
 
@@ -470,6 +473,12 @@ export default function AthleteDetail() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
+                    {session.scoringStatus === 'failed' && (
+                      <Badge className="bg-red-900/50 text-red-400 border-red-800 text-[10px]">Score Failed</Badge>
+                    )}
+                    {session.scoringStatus === 'pending' && !session.overallScore && (
+                      <Badge className="bg-amber-900/50 text-amber-400 border-amber-800 text-[10px]">Pending</Badge>
+                    )}
                     {session.grade && (
                       <Badge variant="outline" className="border-slate-700 text-slate-300 text-xs">{session.grade}</Badge>
                     )}

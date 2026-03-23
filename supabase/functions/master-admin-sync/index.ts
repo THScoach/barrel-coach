@@ -736,6 +736,7 @@ async function processSession(
         body_score: scoreResult.scores.body,
         bat_score: scoreResult.scores.bat,
         ball_score: scoreResult.scores.ball,
+        scoring_status: 'scored',
         overall_score: scoreResult.scores.overall,
         
         brain_grade: scoreResult.grades.brain,
