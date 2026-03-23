@@ -104,7 +104,7 @@ export default function AthleteDetail() {
     queryFn: async () => {
       const { data: playerSessions, error: psError } = await supabase
         .from("player_sessions")
-        .select("id, session_date, brain_score, body_score, bat_score, ball_score, overall_score, overall_grade, swing_count, data_quality, leak_type, created_at")
+        .select("id, session_date, brain_score, body_score, bat_score, ball_score, overall_score, overall_grade, swing_count, data_quality, leak_type, created_at, scoring_status")
         .eq("player_id", id!)
         .order("session_date", { ascending: false });
       if (psError) throw psError;
