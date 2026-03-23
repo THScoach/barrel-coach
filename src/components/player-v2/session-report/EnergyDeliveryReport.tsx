@@ -5,6 +5,7 @@ import { EnergySequenceCard } from './EnergySequenceCard';
 import { EnergyDirectionCard } from './EnergyDirectionCard';
 import { CoachBarrelsTake } from './CoachBarrelsTake';
 import { NextStepCard } from './NextStepCard';
+import { PredictedContactCard } from './PredictedContactCard';
 import { EnergyShapeVisual } from './EnergyShapeVisual';
 import { RawMetrics, KRSData, BaselineMetrics, getPelvisKE, getArmsKEPct } from './types';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -71,6 +72,9 @@ export function EnergyDeliveryReport({ sessionId, playerId, rawMetrics, existing
 
       {/* Next Step */}
       <NextStepCard metrics={rawMetrics} krsData={krsData} />
+
+      {/* Predicted Contact (PCE) */}
+      <PredictedContactCard predictedContact={rawMetrics?.predicted_contact} />
 
       {/* Energy Shape */}
       <EnergyShapeVisual tkeShape={tkeShape} />

@@ -167,6 +167,39 @@ interface PredictionResult {
   bat_speed_confidence: 'high' | 'medium' | 'low';
 }
 
+// PCE types
+type CompensationPattern = 'ARMS_DOMINANT' | 'STABILITY' | 'TRANSLATIONAL' | 'SEQUENCE' | 'HEALTHY';
+type PlaneType = 'STEEP_SHORT' | 'SWEEP' | 'FLAT_PUSH' | 'STEEP_DRAG' | 'LONG_PLANE';
+type EntryTiming = 'EARLY' | 'LATE' | 'ON_TIME';
+type ContactDepth = 'DEEP' | 'OUT_FRONT' | 'MIDDLE' | 'VARIABLE';
+type TendencyLevel = 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY_LOW';
+type DirectionTendency = 'HEAVY_PULL' | 'PULL' | 'SLIGHT_PULL' | 'ALL_FIELDS' | 'SLIGHT_OPPO' | 'OPPO' | 'HEAVY_OPPO';
+
+interface PredictedContact {
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
+  energy_archetype: string | null;
+  energy_archetype_label: string | null;
+  primary_compensation: CompensationPattern;
+  secondary_compensation: CompensationPattern | null;
+  severity: number;
+  barrel_path: {
+    plane_type: PlaneType;
+    entry_timing: EntryTiming;
+    contact_depth: ContactDepth;
+  };
+  tendencies: {
+    ground_ball: TendencyLevel;
+    line_drive: TendencyLevel;
+    fly_ball: TendencyLevel;
+    pop_up_risk: 'HIGH' | 'MEDIUM' | 'LOW';
+    direction: DirectionTendency;
+    hard_hit_potential: 'HIGH' | 'MEDIUM' | 'LOW';
+    sweet_spot_proxy: TendencyLevel;
+  };
+  plane_length_pct: number;
+  predicted_ball_score: number;
+}
+
 interface ScoringOutput {
   version: string;
   scoring_method: ScoringMethod;
@@ -225,6 +258,9 @@ interface ScoringOutput {
   predicted_exit_velocity_mph: number | null;
   bat_speed_path: string | null;
   bat_speed_confidence: string | null;
+
+  // PCE — Predicted Contact Expectancy
+  predicted_contact?: PredictedContact;
 
   // Legacy 4B scores for backward compat with display components
   legacy_4b?: {
@@ -1124,21 +1160,146 @@ function computePredictions(
 }
 
 // ===========================================================================
+// PCE — Predicted Contact Expectancy (4-Stage Pipeline)
+// ===========================================================================
+
+function computePCE(
+  pelvisClassification: PelvisClassification,
+  energyLedger: ScoringOutput['energy_ledger'],
+  tkeShape: TKEShape,
+): PredictedContact {
+  const tr = energyLedger.transfer_ratio;
+  const armsKePct = energyLedger.arms_ke_ratio;
+  const seqCorrect = energyLedger.sequence_correct;
+
+  // --- Stage 1: Compensation Detection ---
+  let primary: CompensationPattern = 'HEALTHY';
+  let secondary: CompensationPattern | null = null;
+  let severity = 1;
+
+  if (!seqCorrect) {
+    primary = 'SEQUENCE';
+    severity = 3;
+  } else if (armsKePct > 0.35 || tr < 1.0) {
+    primary = 'ARMS_DOMINANT';
+    severity = 3;
+    if (pelvisClassification === 'JUMP_PELVIS') {
+      secondary = 'TRANSLATIONAL';
+    }
+  } else if (pelvisClassification === 'EARLY_PELVIS' || pelvisClassification === 'SPENT_PELVIS') {
+    primary = 'STABILITY';
+    severity = 3;
+  } else if (pelvisClassification === 'JUMP_PELVIS') {
+    primary = 'TRANSLATIONAL';
+    severity = 3;
+  }
+
+  // --- Energy Archetype Classification ---
+  let archetypeId: string | null = null;
+  let archetypeLabel: string | null = null;
+  const pelvisKe = energyLedger.pelvis_ke;
+  const trunkKe = energyLedger.torso_ke;
+
+  if (primary === 'ARMS_DOMINANT' || primary === 'SEQUENCE') {
+    archetypeId = 'BROKEN'; archetypeLabel = 'Disconnected';
+  } else if (pelvisKe > 180 && tkeShape === 'SHARP_SPIKE') {
+    archetypeId = 'SPIKE'; archetypeLabel = 'Bomber';
+  } else if (pelvisKe >= 100 && pelvisKe <= 140 && trunkKe >= 350 && trunkKe <= 450 && tkeShape === 'PLATEAU') {
+    archetypeId = 'FLAT'; archetypeLabel = 'Machine';
+  } else if (pelvisKe >= 100 && pelvisKe <= 140 && trunkKe >= 350 && tkeShape === 'SHARP_SPIKE') {
+    archetypeId = 'RAMP'; archetypeLabel = 'Loader';
+  } else if (pelvisKe < 120 && tkeShape === 'DOUBLE_BUMP') {
+    archetypeId = 'LATE_SPIKE'; archetypeLabel = 'Assassin';
+  } else if (pelvisKe > 130 && pelvisClassification === 'EARLY_PELVIS') {
+    archetypeId = 'HIGH_UNSTABLE'; archetypeLabel = 'Volcano';
+  } else if (pelvisKe < 80 && trunkKe < 200) {
+    archetypeId = 'LOW_FLAT'; archetypeLabel = 'Surgeon';
+  }
+
+  // --- Stage 2: Barrel Path Prediction ---
+  const barrelPathMap: Record<CompensationPattern, { plane_type: PlaneType; entry_timing: EntryTiming; contact_depth: ContactDepth }> = {
+    ARMS_DOMINANT: { plane_type: 'STEEP_SHORT', entry_timing: 'LATE', contact_depth: 'DEEP' },
+    STABILITY:     { plane_type: 'SWEEP',       entry_timing: 'EARLY', contact_depth: 'OUT_FRONT' },
+    TRANSLATIONAL: { plane_type: 'FLAT_PUSH',   entry_timing: 'LATE', contact_depth: 'DEEP' },
+    SEQUENCE:      { plane_type: 'STEEP_DRAG',  entry_timing: 'LATE', contact_depth: 'VARIABLE' },
+    HEALTHY:       { plane_type: 'LONG_PLANE',  entry_timing: 'ON_TIME', contact_depth: 'MIDDLE' },
+  };
+  const barrelPath = barrelPathMap[primary];
+
+  // --- Stage 3: Batted Ball Tendencies ---
+  type T = { gb: TendencyLevel; ld: TendencyLevel; fb: TendencyLevel; pop: 'HIGH' | 'MEDIUM' | 'LOW'; dir: DirectionTendency; hh: 'HIGH' | 'MEDIUM' | 'LOW'; ss: TendencyLevel; plane: number };
+  const tendencyMap: Record<CompensationPattern, T> = {
+    ARMS_DOMINANT:  { gb: 'MEDIUM',    ld: 'LOW',       fb: 'VERY_LOW', pop: 'HIGH',   dir: 'HEAVY_OPPO',  hh: 'LOW',    ss: 'VERY_LOW', plane: 30 },
+    STABILITY:      { gb: 'VERY_HIGH', ld: 'VERY_LOW',  fb: 'VERY_LOW', pop: 'LOW',    dir: 'HEAVY_PULL',  hh: 'LOW',    ss: 'VERY_LOW', plane: 25 },
+    TRANSLATIONAL:  { gb: 'HIGH',      ld: 'VERY_LOW',  fb: 'HIGH',     pop: 'HIGH',   dir: 'OPPO',        hh: 'LOW',    ss: 'LOW',      plane: 35 },
+    SEQUENCE:       { gb: 'HIGH',      ld: 'LOW',       fb: 'MEDIUM',   pop: 'MEDIUM', dir: 'PULL',        hh: 'LOW',    ss: 'LOW',      plane: 40 },
+    HEALTHY:        { gb: 'MEDIUM',    ld: 'HIGH',      fb: 'MEDIUM',   pop: 'LOW',    dir: 'ALL_FIELDS',  hh: 'HIGH',   ss: 'HIGH',     plane: 85 },
+  };
+  const t = tendencyMap[primary];
+
+  // --- Stage 4: Predicted Ball Score ---
+  const ldScoreMap: Record<TendencyLevel, number> = { VERY_HIGH: 35, HIGH: 35, MEDIUM: 22, LOW: 12, VERY_LOW: 5 };
+  const popPenaltyMap: Record<string, number> = { LOW: 0, MEDIUM: -8, HIGH: -15 };
+  const hhScoreMap: Record<string, number> = { HIGH: 15, MEDIUM: 10, LOW: 5 };
+  const dirScoreMap: Record<string, number> = { ALL_FIELDS: 10, SLIGHT_PULL: 7, SLIGHT_OPPO: 7, PULL: 4, OPPO: 4, HEAVY_PULL: 1, HEAVY_OPPO: 1 };
+  const sweetSpotScore = Math.round((t.plane / 100) * 20);
+
+  const ballScore = Math.max(0, Math.min(100, Math.round(
+    (ldScoreMap[t.ld] ?? 12) +
+    (popPenaltyMap[t.pop] ?? 0) +
+    sweetSpotScore +
+    (hhScoreMap[t.hh] ?? 5) +
+    (dirScoreMap[t.dir] ?? 4)
+  )));
+
+  // Confidence
+  let confidence: PredictedContact['confidence'] = 'MEDIUM';
+  if (primary === 'HEALTHY' && archetypeId) confidence = 'HIGH';
+  if (pelvisKe === 0 && trunkKe === 0) confidence = 'NONE';
+
+  return {
+    confidence,
+    energy_archetype: archetypeId,
+    energy_archetype_label: archetypeLabel,
+    primary_compensation: primary,
+    secondary_compensation: secondary,
+    severity,
+    barrel_path: barrelPath,
+    tendencies: {
+      ground_ball: t.gb,
+      line_drive: t.ld,
+      fly_ball: t.fb,
+      pop_up_risk: t.pop,
+      direction: t.dir,
+      hard_hit_potential: t.hh,
+      sweet_spot_proxy: t.ss,
+    },
+    plane_length_pct: t.plane,
+    predicted_ball_score: ballScore,
+  };
+}
+
+// ===========================================================================
 // LEGACY 4B MAPPING (for backward compat with UI)
 // ===========================================================================
 
 function mapToLegacy4B(
   groundFlow: ScoreComponent,
   coreFlow: ScoreComponent,
-  armFlow: ScoreComponent
+  armFlow: ScoreComponent,
+  pceBallScore?: number | null,
+  measuredBallScore?: number | null,
 ): ScoringOutput['legacy_4b'] {
-  // Map Ground → Body, Core → Brain, Arm → Bat
   const body = groundFlow.score;
   const brain = coreFlow.score;
   const bat = armFlow.score;
-  const ball = null; // Not available without ball data
+  // Use measured ball score if available, otherwise PCE predicted score
+  const ball = measuredBallScore ?? pceBallScore ?? null;
 
-  const composite = Math.round(body * 0.40 + brain * 0.30 + bat * 0.30);
+  // Use full weights if we have a ball score (even predicted), else training weights
+  const mode: ScoringMode = ball != null ? 'full' : 'training';
+  const w = LEGACY_WEIGHTS[mode];
+  const composite = Math.round(clamp(body * w.body + brain * w.brain + bat * w.bat + (ball ?? 0) * w.ball));
   const rating = toRating(composite);
   const color = getColor(composite);
 
@@ -1186,13 +1347,24 @@ function computeV2Scores(input: V2Input): ScoringOutput {
     input.exit_velocity_mph,
   );
 
-  // Step 9: Legacy mapping
-  const legacy4B = mapToLegacy4B(groundFlow, coreFlow, armFlow);
+  // Step 9: PCE — Predicted Contact Expectancy
+  const pce = computePCE(pelvisResult.classification, energyLedger, tkeShape);
+
+  // Step 10: Legacy mapping (with PCE ball score when no measured EV)
+  const measuredEV = input.exit_velocity_mph;
+  let measuredBallScore: number | null = null;
+  if (measuredEV && measuredEV > 0) {
+    const evBench: Record<string, { min: number; elite: number }> = { youth: { min: 40, elite: 65 }, high_school: { min: 68, elite: 92 }, college: { min: 78, elite: 100 }, pro: { min: 85, elite: 108 } };
+    const eb = evBench[player_metadata.player_level] ?? evBench.high_school;
+    measuredBallScore = Math.round(lerp(measuredEV, eb.min, eb.elite, 20, 100));
+  }
+  const legacy4B = mapToLegacy4B(groundFlow, coreFlow, armFlow, pce.predicted_ball_score, measuredBallScore);
 
   console.log(`[4B-v2] Ground=${groundFlow.score} Core=${coreFlow.score} Arm=${armFlow.score} ` +
     `Pelvis=${pelvisResult.classification} TKE=${tkeShape} Motor=${motorProfile} ` +
     `TR=${coreFlow.transfer_ratio.toFixed(2)} P→T=${coreFlow.pt_gap_ms.toFixed(1)}ms ` +
-    `PredBat=${predictions.predicted_bat_speed_mph} PredEV=${predictions.predicted_exit_velocity_mph}`);
+    `PredBat=${predictions.predicted_bat_speed_mph} PredEV=${predictions.predicted_exit_velocity_mph} ` +
+    `PCE=${pce.primary_compensation} BallScore=${legacy4B.ball}`);
 
   return {
     version: '2.0',
@@ -1220,6 +1392,7 @@ function computeV2Scores(input: V2Input): ScoringOutput {
     predicted_exit_velocity_mph: predictions.predicted_exit_velocity_mph,
     bat_speed_path: predictions.bat_speed_path,
     bat_speed_confidence: predictions.bat_speed_confidence,
+    predicted_contact: pce,
     legacy_4b: legacy4B,
     scoring_timestamp: new Date().toISOString(),
   };
@@ -1370,6 +1543,19 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
     ) / 10;
   }
 
+  // Compute PCE for legacy path
+  const legacyPelvisClass: PelvisClassification = input.pelvis_omega_peak < 600 ? 'DEAD_PELVIS' :
+    !correctOrder ? 'LATE_PELVIS' : 'HEALTHY_PELVIS';
+  const legacyPCE = computePCE(legacyPelvisClass, legacyEnergyLedger, 'UNKNOWN');
+
+  // Use PCE ball score when no measured ball score
+  const legacyBallScore = ball ?? legacyPCE.predicted_ball_score;
+  const legacyMode: ScoringMode = legacyBallScore != null ? 'full' : 'training';
+  const lw = LEGACY_WEIGHTS[legacyMode];
+  const legacyComposite = Math.round(clamp(body * lw.body + brain * lw.brain + bat * lw.bat + (legacyBallScore ?? 0) * lw.ball));
+  const legacyRating = toRating(legacyComposite);
+  const legacyColor = getColor(legacyComposite);
+
   // Build v2 output shape with IK fallback data
   return {
     version: '2.0',
@@ -1388,8 +1574,7 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
       arm_flow: { score: bat, color: getColor(bat), label: getLabel(bat), components: { bat_speed_mph: Math.round(batSpeedMph) } },
     },
     pelvis_classification: {
-      classification: input.pelvis_omega_peak < 600 ? 'DEAD_PELVIS' :
-        !correctOrder ? 'LATE_PELVIS' : 'HEALTHY_PELVIS',
+      classification: legacyPelvisClass,
       problem: null,
       prescription: [],
       anchor: null,
@@ -1410,7 +1595,8 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
     predicted_exit_velocity_mph: legacyPredictions.predicted_exit_velocity_mph,
     bat_speed_path: legacyPredictions.bat_speed_path,
     bat_speed_confidence: legacyPredictions.bat_speed_confidence,
-    legacy_4b: { body, brain, bat, ball, score_4bkrs: composite, rating, color },
+    predicted_contact: legacyPCE,
+    legacy_4b: { body, brain, bat, ball: legacyBallScore, score_4bkrs: legacyComposite, rating: legacyRating, color: legacyColor },
     scoring_timestamp: new Date().toISOString(),
   };
 }
