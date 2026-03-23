@@ -127,15 +127,6 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
           ) : loadingSpinner}
         </TabsContent>
 
-        {/* ===== STABILITY ===== */}
-        <TabsContent value="stability" className="mt-6">
-          {mappedPlayersId ? (
-            <StabilityTab
-              playersTableId={mappedPlayersId}
-              playerName={playerName}
-            />
-          ) : loadingSpinner}
-        </TabsContent>
       </Tabs>
     </div>
   );
