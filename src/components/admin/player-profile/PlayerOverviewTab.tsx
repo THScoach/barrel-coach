@@ -25,6 +25,7 @@ import { PrescriptionCard } from "./PrescriptionCard";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { RebootSessionDetail } from "@/components/RebootSessionDetail";
 import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
+import { PlayerKnownMetricsForm } from "./PlayerKnownMetricsForm";
 
 interface PlayerOverviewTabProps {
   playerId: string;
