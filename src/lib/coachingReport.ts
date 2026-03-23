@@ -323,6 +323,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
   const brain = session.brain_score ?? 0;
   const bat = session.bat_score ?? 0;
   const ball = session.ball_score;
+  const rawMetrics = session.raw_metrics;
 
   // --- Predictions ---
   const isEstimation = session.bat_speed_confidence === 'low';
