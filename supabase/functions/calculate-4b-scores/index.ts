@@ -1160,6 +1160,126 @@ function computePredictions(
 }
 
 // ===========================================================================
+// PCE — Predicted Contact Expectancy (4-Stage Pipeline)
+// ===========================================================================
+
+function computePCE(
+  pelvisClassification: PelvisClassification,
+  energyLedger: ScoringOutput['energy_ledger'],
+  tkeShape: TKEShape,
+): PredictedContact {
+  const tr = energyLedger.transfer_ratio;
+  const armsKePct = energyLedger.arms_ke_ratio;
+  const seqCorrect = energyLedger.sequence_correct;
+
+  // --- Stage 1: Compensation Detection ---
+  let primary: CompensationPattern = 'HEALTHY';
+  let secondary: CompensationPattern | null = null;
+  let severity = 1;
+
+  if (!seqCorrect) {
+    primary = 'SEQUENCE';
+    severity = 3;
+  } else if (armsKePct > 0.35 || tr < 1.0) {
+    primary = 'ARMS_DOMINANT';
+    severity = 3;
+    if (pelvisClassification === 'JUMP_PELVIS') {
+      secondary = 'TRANSLATIONAL';
+    }
+  } else if (pelvisClassification === 'EARLY_PELVIS' || pelvisClassification === 'SPENT_PELVIS') {
+    primary = 'STABILITY';
+    severity = 3;
+  } else if (pelvisClassification === 'JUMP_PELVIS') {
+    primary = 'TRANSLATIONAL';
+    severity = 3;
+  }
+
+  // --- Energy Archetype Classification ---
+  let archetypeId: string | null = null;
+  let archetypeLabel: string | null = null;
+  const pelvisKe = energyLedger.pelvis_ke;
+  const trunkKe = energyLedger.torso_ke;
+
+  if (primary === 'ARMS_DOMINANT' || primary === 'SEQUENCE') {
+    archetypeId = 'BROKEN'; archetypeLabel = 'Disconnected';
+  } else if (pelvisKe > 180 && tkeShape === 'SHARP_SPIKE') {
+    archetypeId = 'SPIKE'; archetypeLabel = 'Bomber';
+  } else if (pelvisKe >= 100 && pelvisKe <= 140 && trunkKe >= 350 && trunkKe <= 450 && tkeShape === 'PLATEAU') {
+    archetypeId = 'FLAT'; archetypeLabel = 'Machine';
+  } else if (pelvisKe >= 100 && pelvisKe <= 140 && trunkKe >= 350 && tkeShape === 'SHARP_SPIKE') {
+    archetypeId = 'RAMP'; archetypeLabel = 'Loader';
+  } else if (pelvisKe < 120 && tkeShape === 'DOUBLE_BUMP') {
+    archetypeId = 'LATE_SPIKE'; archetypeLabel = 'Assassin';
+  } else if (pelvisKe > 130 && pelvisClassification === 'EARLY_PELVIS') {
+    archetypeId = 'HIGH_UNSTABLE'; archetypeLabel = 'Volcano';
+  } else if (pelvisKe < 80 && trunkKe < 200) {
+    archetypeId = 'LOW_FLAT'; archetypeLabel = 'Surgeon';
+  }
+
+  // --- Stage 2: Barrel Path Prediction ---
+  const barrelPathMap: Record<CompensationPattern, { plane_type: PlaneType; entry_timing: EntryTiming; contact_depth: ContactDepth }> = {
+    ARMS_DOMINANT: { plane_type: 'STEEP_SHORT', entry_timing: 'LATE', contact_depth: 'DEEP' },
+    STABILITY:     { plane_type: 'SWEEP',       entry_timing: 'EARLY', contact_depth: 'OUT_FRONT' },
+    TRANSLATIONAL: { plane_type: 'FLAT_PUSH',   entry_timing: 'LATE', contact_depth: 'DEEP' },
+    SEQUENCE:      { plane_type: 'STEEP_DRAG',  entry_timing: 'LATE', contact_depth: 'VARIABLE' },
+    HEALTHY:       { plane_type: 'LONG_PLANE',  entry_timing: 'ON_TIME', contact_depth: 'MIDDLE' },
+  };
+  const barrelPath = barrelPathMap[primary];
+
+  // --- Stage 3: Batted Ball Tendencies ---
+  type T = { gb: TendencyLevel; ld: TendencyLevel; fb: TendencyLevel; pop: 'HIGH' | 'MEDIUM' | 'LOW'; dir: DirectionTendency; hh: 'HIGH' | 'MEDIUM' | 'LOW'; ss: TendencyLevel; plane: number };
+  const tendencyMap: Record<CompensationPattern, T> = {
+    ARMS_DOMINANT:  { gb: 'MEDIUM',    ld: 'LOW',       fb: 'VERY_LOW', pop: 'HIGH',   dir: 'HEAVY_OPPO',  hh: 'LOW',    ss: 'VERY_LOW', plane: 30 },
+    STABILITY:      { gb: 'VERY_HIGH', ld: 'VERY_LOW',  fb: 'VERY_LOW', pop: 'LOW',    dir: 'HEAVY_PULL',  hh: 'LOW',    ss: 'VERY_LOW', plane: 25 },
+    TRANSLATIONAL:  { gb: 'HIGH',      ld: 'VERY_LOW',  fb: 'HIGH',     pop: 'HIGH',   dir: 'OPPO',        hh: 'LOW',    ss: 'LOW',      plane: 35 },
+    SEQUENCE:       { gb: 'HIGH',      ld: 'LOW',       fb: 'MEDIUM',   pop: 'MEDIUM', dir: 'PULL',        hh: 'LOW',    ss: 'LOW',      plane: 40 },
+    HEALTHY:        { gb: 'MEDIUM',    ld: 'HIGH',      fb: 'MEDIUM',   pop: 'LOW',    dir: 'ALL_FIELDS',  hh: 'HIGH',   ss: 'HIGH',     plane: 85 },
+  };
+  const t = tendencyMap[primary];
+
+  // --- Stage 4: Predicted Ball Score ---
+  const ldScoreMap: Record<TendencyLevel, number> = { VERY_HIGH: 35, HIGH: 35, MEDIUM: 22, LOW: 12, VERY_LOW: 5 };
+  const popPenaltyMap: Record<string, number> = { LOW: 0, MEDIUM: -8, HIGH: -15 };
+  const hhScoreMap: Record<string, number> = { HIGH: 15, MEDIUM: 10, LOW: 5 };
+  const dirScoreMap: Record<string, number> = { ALL_FIELDS: 10, SLIGHT_PULL: 7, SLIGHT_OPPO: 7, PULL: 4, OPPO: 4, HEAVY_PULL: 1, HEAVY_OPPO: 1 };
+  const sweetSpotScore = Math.round((t.plane / 100) * 20);
+
+  const ballScore = Math.max(0, Math.min(100, Math.round(
+    (ldScoreMap[t.ld] ?? 12) +
+    (popPenaltyMap[t.pop] ?? 0) +
+    sweetSpotScore +
+    (hhScoreMap[t.hh] ?? 5) +
+    (dirScoreMap[t.dir] ?? 4)
+  )));
+
+  // Confidence
+  let confidence: PredictedContact['confidence'] = 'MEDIUM';
+  if (primary === 'HEALTHY' && archetypeId) confidence = 'HIGH';
+  if (pelvisKe === 0 && trunkKe === 0) confidence = 'NONE';
+
+  return {
+    confidence,
+    energy_archetype: archetypeId,
+    energy_archetype_label: archetypeLabel,
+    primary_compensation: primary,
+    secondary_compensation: secondary,
+    severity,
+    barrel_path: barrelPath,
+    tendencies: {
+      ground_ball: t.gb,
+      line_drive: t.ld,
+      fly_ball: t.fb,
+      pop_up_risk: t.pop,
+      direction: t.dir,
+      hard_hit_potential: t.hh,
+      sweet_spot_proxy: t.ss,
+    },
+    plane_length_pct: t.plane,
+    predicted_ball_score: ballScore,
+  };
+}
+
+// ===========================================================================
 // LEGACY 4B MAPPING (for backward compat with UI)
 // ===========================================================================
 
