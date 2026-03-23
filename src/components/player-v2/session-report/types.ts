@@ -19,6 +19,7 @@ export interface RawMetrics {
   ke_cascade_ms?: number;
   swing_duration_ms?: number;
   swing_classification?: string;
+  pelvis_classification?: string;
   beat?: string;
   energy_flow?: Record<string, string>;
   root_cause?: { issue?: string; what?: string; build?: string };
