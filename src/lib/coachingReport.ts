@@ -362,7 +362,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
         : 'N/A',
       subLabel: session.predicted_exit_velocity_mph != null
         ? 'How hard the ball should come off when you square it.'
-        : 'Need more data to predict this.',
+        : 'Value out of range — rescore needed.',
       available: session.predicted_exit_velocity_mph != null,
     },
   ];
