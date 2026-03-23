@@ -473,6 +473,12 @@ export default function AthleteDetail() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
+                    {session.scoringStatus === 'failed' && (
+                      <Badge className="bg-red-900/50 text-red-400 border-red-800 text-[10px]">Score Failed</Badge>
+                    )}
+                    {session.scoringStatus === 'pending' && !session.overallScore && (
+                      <Badge className="bg-amber-900/50 text-amber-400 border-amber-800 text-[10px]">Pending</Badge>
+                    )}
                     {session.grade && (
                       <Badge variant="outline" className="border-slate-700 text-slate-300 text-xs">{session.grade}</Badge>
                     )}
