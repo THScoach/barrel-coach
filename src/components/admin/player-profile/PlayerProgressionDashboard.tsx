@@ -68,7 +68,7 @@ interface PlayerProgressionDashboardProps {
   playerId: string; // player_profiles.id
   playersTableId: string; // players.id for data queries
   playerName: string;
-  onViewSession: (sessionId: string, type: 'analyzer' | 'reboot' | 'hittrax') => void;
+  onViewSession?: (sessionId: string, type: 'analyzer' | 'reboot' | 'hittrax') => void;
 }
 
 const LEAK_COLORS: Record<string, string> = {

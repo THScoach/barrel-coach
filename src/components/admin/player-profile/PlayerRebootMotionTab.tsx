@@ -446,6 +446,23 @@ export function PlayerRebootMotionTab({
                           </Badge>
                         )}
                       </div>
+                      {/* Inline 4B scores */}
+                      {((session as any).brain_score != null || (session as any).body_score != null || (session as any).bat_score != null) && (
+                        <div className="flex items-center gap-2 text-xs mt-1">
+                          {(session as any).brain_score != null && (
+                            <span className="text-pink-400">Br:{(session as any).brain_score}</span>
+                          )}
+                          {(session as any).body_score != null && (
+                            <span className="text-blue-400">Bo:{(session as any).body_score}</span>
+                          )}
+                          {(session as any).bat_score != null && (
+                            <span className="text-orange-400">Ba:{(session as any).bat_score}</span>
+                          )}
+                          {(session as any).ball_score != null && (
+                            <span className="text-green-400">Bl:{(session as any).ball_score}</span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
                         {session.reboot_session_id && (
                           <span className="flex items-center gap-1 truncate max-w-[200px]">
