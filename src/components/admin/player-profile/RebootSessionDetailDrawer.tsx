@@ -365,7 +365,17 @@ export function RebootSessionDetailDrawer({ open, onOpenChange, session }: Reboo
           )}
 
           {/* ═══════════════════════════════════════════════════════════════ */}
-          {/*  FOOTER: "If this improves…" Projection                       */}
+          {/*  Energy Delivery Report (includes Predicted Contact card)     */}
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {playerSession?.raw_metrics && typeof playerSession.raw_metrics === 'object' && (
+            <EnergyDeliveryReport
+              sessionId={playerSession.id}
+              playerId={playerSession.player_id}
+              rawMetrics={playerSession.raw_metrics as any}
+              isAdmin={true}
+            />
+          )}
+
           {/* ═══════════════════════════════════════════════════════════════ */}
           {report && hasScores && report.projection.evGain > 0 && (
             <div className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 rounded-xl p-4">
