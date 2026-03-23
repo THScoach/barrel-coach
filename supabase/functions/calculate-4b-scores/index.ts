@@ -1286,15 +1286,20 @@ function computePCE(
 function mapToLegacy4B(
   groundFlow: ScoreComponent,
   coreFlow: ScoreComponent,
-  armFlow: ScoreComponent
+  armFlow: ScoreComponent,
+  pceBallScore?: number | null,
+  measuredBallScore?: number | null,
 ): ScoringOutput['legacy_4b'] {
-  // Map Ground → Body, Core → Brain, Arm → Bat
   const body = groundFlow.score;
   const brain = coreFlow.score;
   const bat = armFlow.score;
-  const ball = null; // Not available without ball data
+  // Use measured ball score if available, otherwise PCE predicted score
+  const ball = measuredBallScore ?? pceBallScore ?? null;
 
-  const composite = Math.round(body * 0.40 + brain * 0.30 + bat * 0.30);
+  // Use full weights if we have a ball score (even predicted), else training weights
+  const mode: ScoringMode = ball != null ? 'full' : 'training';
+  const w = LEGACY_WEIGHTS[mode];
+  const composite = Math.round(clamp(body * w.body + brain * w.brain + bat * w.bat + (ball ?? 0) * w.ball));
   const rating = toRating(composite);
   const color = getColor(composite);
 
