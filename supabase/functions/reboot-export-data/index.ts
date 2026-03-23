@@ -214,29 +214,55 @@ serve(async (req) => {
           console.log(`[export] Movement ${movId}: ME=${meCsv.length} chars, IK=${ikCsv.length} chars`);
 
           const analysisUrl = `${supabaseUrl}/functions/v1/compute-4b-from-csv`;
-          const analysisResponse = await fetch(analysisUrl, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${supabaseServiceKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              player_id: body.player_id,
-              session_id: body.session_id,
-              session_date: new Date().toISOString().split("T")[0],
-              raw_csv_me: meCsv,
-              raw_csv_ik: ikCsv || undefined,
-              movement_id: movId,
-            }),
+          const scoringPayload = JSON.stringify({
+            player_id: body.player_id,
+            session_id: body.session_id,
+            session_date: new Date().toISOString().split("T")[0],
+            raw_csv_me: meCsv,
+            raw_csv_ik: ikCsv || undefined,
+            movement_id: movId,
           });
 
-          if (analysisResponse.ok) {
-            const result = await analysisResponse.json();
-            movementResults.push(result);
-            console.log(`[export] ✅ Movement ${movId}: Brain=${result.brain} Body=${result.body} Bat=${result.bat}`);
-          } else {
-            const errText = await analysisResponse.text();
-            console.error(`[export] ✗ Movement ${movId} scoring failed: ${errText.substring(0, 200)}`);
+          // Retry with exponential backoff (3 attempts: 0s, 2s, 4s)
+          const MAX_RETRIES = 3;
+          let scored = false;
+          for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            if (attempt > 1) {
+              const delay = Math.pow(2, attempt - 1) * 1000;
+              console.log(`[export] Movement ${movId}: retry ${attempt}/${MAX_RETRIES} after ${delay}ms`);
+              await new Promise(r => setTimeout(r, delay));
+            }
+            try {
+              const analysisResponse = await fetch(analysisUrl, {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${supabaseServiceKey}`,
+                  "Content-Type": "application/json",
+                },
+                body: scoringPayload,
+              });
+
+              if (analysisResponse.ok) {
+                const result = await analysisResponse.json();
+                movementResults.push(result);
+                console.log(`[export] ✅ Movement ${movId}: Brain=${result.brain} Body=${result.body} Bat=${result.bat}`);
+                scored = true;
+                break;
+              }
+              const errText = await analysisResponse.text();
+              const status = analysisResponse.status;
+              // Don't retry client errors (4xx) except 429
+              if (status >= 400 && status < 500 && status !== 429) {
+                console.error(`[export] ✗ Movement ${movId} scoring failed (${status}, no retry): ${errText.substring(0, 200)}`);
+                break;
+              }
+              console.warn(`[export] Movement ${movId} attempt ${attempt} failed (${status}): ${errText.substring(0, 150)}`);
+            } catch (fetchErr) {
+              console.warn(`[export] Movement ${movId} attempt ${attempt} fetch error: ${fetchErr}`);
+            }
+          }
+          if (!scored) {
+            console.error(`[export] ✗ Movement ${movId}: all ${MAX_RETRIES} attempts failed`);
           }
         } catch (err) {
           console.error(`[export] Error scoring movement ${movId}:`, err);
