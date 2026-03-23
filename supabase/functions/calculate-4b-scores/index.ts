@@ -175,6 +175,22 @@ type ContactDepth = 'DEEP' | 'OUT_FRONT' | 'MIDDLE' | 'VARIABLE';
 type TendencyLevel = 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY_LOW';
 type DirectionTendency = 'HEAVY_PULL' | 'PULL' | 'SLIGHT_PULL' | 'ALL_FIELDS' | 'SLIGHT_OPPO' | 'OPPO' | 'HEAVY_OPPO';
 
+interface CalibrationAnchor {
+  known_value: number;
+  known_source: string;
+  known_percentile: number | null;
+  efficiency_pct: number | null;
+}
+
+interface Calibration {
+  is_calibrated: boolean;
+  anchors: {
+    bat_speed?: CalibrationAnchor;
+    exit_velo?: CalibrationAnchor;
+    sweet_spot?: { known_value: number; known_source: string };
+  };
+}
+
 interface PredictedContact {
   confidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
   energy_archetype: string | null;
@@ -198,6 +214,8 @@ interface PredictedContact {
   };
   plane_length_pct: number;
   predicted_ball_score: number;
+  calibration?: Calibration | null;
+  player_message?: string | null;
 }
 
 interface ScoringOutput {
