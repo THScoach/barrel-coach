@@ -1486,6 +1486,7 @@ serve(async (req: Request) => {
         bat_speed_confidence: result.bat_speed_confidence,
         scoring_timestamp: result.scoring_timestamp,
         scored_at: new Date().toISOString(),
+        scoring_status: 'scored',
         raw_metrics: rawMetrics,
         swing_duration_ms: Math.round(durationGate.swing_duration_ms),
         swing_classification: durationGate.classification,
