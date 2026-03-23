@@ -148,6 +148,7 @@ export default function AthleteDetail() {
         rebootSessionId: string | null;
         leakType: string | null;
         dataQuality: string | null;
+        scoringStatus: string;
       };
 
       const results: SessionItem[] = [];
