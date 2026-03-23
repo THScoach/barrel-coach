@@ -117,7 +117,7 @@ export default function PlayerData() {
         .order('created_at', { ascending: false }),
       supabase
         .from('player_sessions')
-        .select('id, session_date, overall_score, brain_score, body_score, bat_score, ball_score, rating, leak_type, scored_at')
+        .select('id, session_date, overall_score, brain_score, body_score, bat_score, ball_score, rating, leak_type, scored_at, scoring_status')
         .eq('player_id', playerData.id)
         .not('body_score', 'is', null)
         .order('session_date', { ascending: false }),

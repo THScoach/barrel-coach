@@ -372,7 +372,7 @@ export function RebootSessionDetail({
                 <div className="text-xs opacity-90">{label}</div>
                 <div className="text-2xl font-bold">{score ?? '--'}</div>
                 <div className="text-xs opacity-90">
-                  {score ? getGrade(score) : 'No data'}
+                  {score ? getGrade(score) : (session as any).scoring_status === 'failed' ? 'Failed' : (session as any).scoring_status === 'pending' ? 'Pending' : 'No data'}
                 </div>
               </div>
             ))}
