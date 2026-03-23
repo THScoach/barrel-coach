@@ -158,6 +158,7 @@ export default function AthleteDetail() {
           status: "complete", swingCount: ps.swing_count || 0, overallScore: ps.overall_score,
           grade: ps.overall_grade, completedSwings: ps.swing_count || 0,
           rebootSessionId: null, leakType: ps.leak_type, dataQuality: ps.data_quality,
+          scoringStatus: (ps as any).scoring_status || 'pending',
         });
       }
 
