@@ -410,9 +410,12 @@ export function PlayerOverviewTab({
           onAssignDrill={handleAssignDrill}
           isLoading={scorecardLoading}
         />
-      </div>
 
-      {/* ===== MODALS ===== */}
+        {/* Known Metrics (Calibration Anchors) */}
+        {mappedPlayersId && (
+          <PlayerKnownMetricsForm playerId={mappedPlayersId} />
+        )}
+      </div>
       <UnifiedDataUploadModal
         open={uploadModalOpen}
         onOpenChange={setUploadModalOpen}
