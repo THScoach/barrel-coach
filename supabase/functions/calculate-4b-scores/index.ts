@@ -1814,6 +1814,20 @@ serve(async (req: Request) => {
       console.error('[4B] Error applying prediction bounds:', e);
     }
 
+    // ── Calibration: Anchor PCE to known real-world metrics ───────────────
+    try {
+      const playerId = body.player_id ?? body.player_metadata?.player_id;
+      if (playerId && result.predicted_contact) {
+        const knownMetrics = await getCalibratedMetrics(playerId);
+        if (knownMetrics) {
+          result.predicted_contact = calibratePrediction(result.predicted_contact, knownMetrics);
+          console.log(`[4B] Calibration applied for player ${playerId}`);
+        }
+      }
+    } catch (e) {
+      console.error('[4B] Error applying calibration:', e);
+    }
+
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

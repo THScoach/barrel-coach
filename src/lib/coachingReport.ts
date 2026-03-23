@@ -479,9 +479,9 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
       pillar: 'BALL',
       question: 'What kind of contact should we expect?',
       score: ball,
-      label: pillarLabel(ball),
+      label: getBallBadgeLabel(ball, rawMetrics),
       explanation: getPillarExplanation('BALL', ball, rawMetrics),
-      color: pillarColor(ball),
+      color: getBallBadgeColor(rawMetrics, ball),
     },
   ];
 
