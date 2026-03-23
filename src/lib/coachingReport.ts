@@ -344,7 +344,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
         : 'N/A',
       subLabel: session.predicted_bat_speed_mph != null
         ? batSpeedNote
-        : 'Need more data to predict this.',
+        : 'Value out of range — rescore needed.',
       available: session.predicted_bat_speed_mph != null,
     },
     {
