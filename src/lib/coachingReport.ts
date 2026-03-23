@@ -268,6 +268,31 @@ function getBatDescription(batScore: number, rawMetrics: any): { label: string; 
   return { label: pillarLabel(batScore), description: getGenericPillarExplanation('BAT', batScore) };
 }
 
+/** Determine Ball card badge label based on data source */
+function getBallBadgeLabel(ballScore: number | null | undefined, rawMetrics: any): string {
+  const pc = rawMetrics?.predicted_contact;
+  // Check if actual tracking data exists (exit_velocity_mph in raw_metrics)
+  const hasActualBall = rawMetrics?.exit_velocity_mph != null && rawMetrics.exit_velocity_mph > 0;
+  if (hasActualBall) return `Ball — Actual`;
+  if (pc?.calibration?.is_calibrated) {
+    return pc.confidence === 'MEDIUM' ? 'Ball — Calibrated (Est.)' : 'Ball — Calibrated';
+  }
+  if (pc?.primary_compensation) return 'Ball — Predicted';
+  if (ballScore == null) return 'Ball — No Data';
+  return pillarLabel(ballScore);
+}
+
+/** Determine Ball card badge color based on data source */
+function getBallBadgeColor(rawMetrics: any, ballScore: number | null | undefined): string {
+  const pc = rawMetrics?.predicted_contact;
+  const hasActualBall = rawMetrics?.exit_velocity_mph != null && rawMetrics.exit_velocity_mph > 0;
+  if (hasActualBall) return '#4ecdc4';           // Teal — Actual
+  if (pc?.calibration?.is_calibrated) return '#3b82f6'; // Blue — Calibrated
+  if (pc?.primary_compensation) return '#f97316';       // Orange — Predicted
+  if (ballScore == null) return '#6b7280';              // Gray — No Data
+  return pillarColor(ballScore);
+}
+
 function getBallDescription(ballScore: number | null, rawMetrics: any): { label: string; description: string } {
   try {
     const pc = rawMetrics?.predicted_contact;
