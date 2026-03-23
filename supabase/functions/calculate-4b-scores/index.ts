@@ -1465,6 +1465,40 @@ serve(async (req: Request) => {
       );
     }
 
+    // ── Prediction Sanity Bounds ──────────────────────────────────────────
+    try {
+      const PREDICTED_BAT_SPEED_MAX = 100;
+      const PREDICTED_BAT_SPEED_MIN = 30;
+      const PREDICTED_EXIT_VELO_MAX = 125;
+      const PREDICTED_EXIT_VELO_MIN = 40;
+
+      const flags: string[] = (result.pre_processing?.flags as string[]) ?? [];
+
+      if (result.predicted_bat_speed_mph != null) {
+        if (result.predicted_bat_speed_mph > PREDICTED_BAT_SPEED_MAX || result.predicted_bat_speed_mph < PREDICTED_BAT_SPEED_MIN) {
+          console.warn(`[4B] Predicted bat speed ${result.predicted_bat_speed_mph} out of range — nulling`);
+          result.predicted_bat_speed_mph = null;
+          if (result.predictions) result.predictions.predicted_bat_speed_mph = null;
+          if (!flags.includes('BAT_SPEED_PREDICTION_OUT_OF_RANGE')) flags.push('BAT_SPEED_PREDICTION_OUT_OF_RANGE');
+        }
+      }
+
+      if (result.predicted_exit_velocity_mph != null) {
+        if (result.predicted_exit_velocity_mph > PREDICTED_EXIT_VELO_MAX || result.predicted_exit_velocity_mph < PREDICTED_EXIT_VELO_MIN) {
+          console.warn(`[4B] Predicted exit velo ${result.predicted_exit_velocity_mph} out of range — nulling`);
+          result.predicted_exit_velocity_mph = null;
+          if (result.predictions) result.predictions.predicted_exit_velocity_mph = null;
+          if (!flags.includes('EXIT_VELO_PREDICTION_OUT_OF_RANGE')) flags.push('EXIT_VELO_PREDICTION_OUT_OF_RANGE');
+        }
+      }
+
+      if (result.pre_processing) {
+        (result.pre_processing as any).flags = flags;
+      }
+    } catch (e) {
+      console.error('[4B] Error applying prediction bounds:', e);
+    }
+
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

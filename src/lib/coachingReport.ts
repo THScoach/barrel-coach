@@ -99,6 +99,7 @@ export interface SessionScoreData {
   score_4bkrs: number | null;
   bat_speed_source: string | null;
   bat_speed_confidence: string | null;
+  raw_metrics?: Record<string, any> | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +112,14 @@ function pillarLabel(score: number | null): string {
   if (score >= 80) return 'Plus';
   if (score >= 70) return 'Average';
   if (score >= 60) return 'Fringe';
+  if (score >= 45) return 'Below avg';
+  return 'Poor';
+}
+
+function getTierLabel(score: number): string {
+  if (score >= 80) return 'Elite';
+  if (score >= 65) return 'Above avg';
+  if (score >= 55) return 'Fringe';
   if (score >= 45) return 'Below avg';
   return 'Poor';
 }
@@ -157,9 +166,98 @@ const PILLAR_EXPLANATIONS: Record<string, Record<string, string>> = {
   },
 };
 
-function getPillarExplanation(pillar: string, score: number | null): string {
+function getGenericPillarExplanation(pillar: string, score: number | null): string {
   const label = pillarLabel(score);
   return PILLAR_EXPLANATIONS[pillar]?.[label] ?? 'No data available for this pillar.';
+}
+
+// ---------------------------------------------------------------------------
+// Classification-Aware Description Logic
+// ---------------------------------------------------------------------------
+
+function getBodyDescription(bodyScore: number, rawMetrics: any): { label: string; description: string } {
+  try {
+    const classification = rawMetrics?.pelvis_classification?.classification ?? rawMetrics?.pelvis_classification;
+    const transferRatio = rawMetrics?.transfer_ratio ?? rawMetrics?.energy_ledger?.transfer_ratio;
+
+    switch (classification) {
+      case 'DEAD_PELVIS':
+        return { label: getTierLabel(bodyScore), description: "Pelvis isn't producing enough force. Train ground-force drills to wake it up." };
+      case 'LATE_PELVIS':
+        return { label: getTierLabel(bodyScore), description: "Pelvis has force but fires after the torso. Energy is created out of order." };
+      case 'EARLY_PELVIS':
+        return { label: getTierLabel(bodyScore), description: "Pelvis opens too early during the stride. Rotation starts before you're ready to swing." };
+      case 'SPENT_PELVIS':
+        return { label: getTierLabel(bodyScore), description: "Pelvis had energy but it dissipated before contact. Work on timing your brake." };
+      case 'JUMP_PELVIS':
+        return { label: getTierLabel(bodyScore), description: "Energy is all forward movement, zero rotation. Train hip turn and coil drills." };
+      case 'HEALTHY_PELVIS':
+        if (transferRatio && transferRatio < 1.0) {
+          return { label: getTierLabel(bodyScore), description: "Pelvis is healthy but torso is losing energy. Transfer ratio needs work." };
+        } else if (transferRatio && transferRatio > 1.8) {
+          return { label: getTierLabel(bodyScore), description: "Strong energy chain but torso may be over-rotating. Control the release." };
+        } else {
+          return { label: getTierLabel(bodyScore), description: "Energy chain is working. Pelvis loads, transfers, and the torso follows." };
+        }
+    }
+  } catch (e) {
+    console.error("Error generating Body description:", e);
+  }
+  return { label: pillarLabel(bodyScore), description: getGenericPillarExplanation('BODY', bodyScore) };
+}
+
+function getBrainDescription(brainScore: number, rawMetrics: any): { label: string; description: string } {
+  try {
+    const sequenceCorrect = rawMetrics?.sequence_correct ?? (rawMetrics?.beat === '1-2-3');
+    const timingGapPct = rawMetrics?.timing_gap_pct ?? rawMetrics?.scores?.core_flow?.components?.timing_gap_pct;
+
+    if (sequenceCorrect === false) {
+      return { label: getTierLabel(brainScore), description: "Sequence is inverted — torso fires before pelvis. Train separation and tempo drills." };
+    } else if (timingGapPct !== undefined && timingGapPct !== null) {
+      if (Math.abs(timingGapPct) < 5) {
+        return { label: getTierLabel(brainScore), description: "Sequence is correct but segments fire almost simultaneously. Need more separation." };
+      } else if (Math.abs(timingGapPct) >= 14 && Math.abs(timingGapPct) <= 25) {
+        return { label: getTierLabel(brainScore), description: "Timing separation is in the elite range. Pelvis leads, torso follows on time." };
+      } else if (Math.abs(timingGapPct) > 25) {
+        return { label: getTierLabel(brainScore), description: "Timing gap is too wide — pelvis fires but torso is slow to follow. Tighten the chain." };
+      }
+    }
+  } catch (e) {
+    console.error("Error generating Brain description:", e);
+  }
+  return { label: pillarLabel(brainScore), description: getGenericPillarExplanation('BRAIN', brainScore) };
+}
+
+function getBatDescription(batScore: number, rawMetrics: any): { label: string; description: string } {
+  try {
+    const rootCause = rawMetrics?.root_cause?.build;
+    const armsKePct = rawMetrics?.arms_ke_pct ?? rawMetrics?.energy_ledger?.arms_ke_ratio;
+
+    if (rootCause === 'pelvis_force' || rootCause === 'pelvis_initiation') {
+      return { label: getTierLabel(batScore), description: "Bat score is limited by pelvis — fix the body first and bat delivery will improve." };
+    }
+    if (armsKePct !== undefined && armsKePct !== null) {
+      if (armsKePct > 0.45) {
+        return { label: getTierLabel(batScore), description: "Arms are doing too much of the work. The barrel needs to be fed by the body, not the hands." };
+      } else if (armsKePct < 0.15) {
+        return { label: getTierLabel(batScore), description: "Arms are too passive. Good body connection but the hands need to release through the zone." };
+      }
+    }
+  } catch (e) {
+    console.error("Error generating Bat description:", e);
+  }
+  return { label: pillarLabel(batScore), description: getGenericPillarExplanation('BAT', batScore) };
+}
+
+function getPillarExplanation(pillar: string, score: number | null, rawMetrics?: any): string {
+  if (rawMetrics && score != null) {
+    switch (pillar) {
+      case 'BODY': return getBodyDescription(score, rawMetrics).description;
+      case 'BRAIN': return getBrainDescription(score, rawMetrics).description;
+      case 'BAT': return getBatDescription(score, rawMetrics).description;
+    }
+  }
+  return getGenericPillarExplanation(pillar, score);
 }
 
 // Default drills by pillar when no specific leak mapping exists
@@ -225,6 +323,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
   const brain = session.brain_score ?? 0;
   const bat = session.bat_score ?? 0;
   const ball = session.ball_score;
+  const rawMetrics = session.raw_metrics;
 
   // --- Predictions ---
   const isEstimation = session.bat_speed_confidence === 'low';
@@ -245,7 +344,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
         : 'N/A',
       subLabel: session.predicted_bat_speed_mph != null
         ? batSpeedNote
-        : 'Need more data to predict this.',
+        : 'Value out of range — rescore needed.',
       available: session.predicted_bat_speed_mph != null,
     },
     {
@@ -263,7 +362,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
         : 'N/A',
       subLabel: session.predicted_exit_velocity_mph != null
         ? 'How hard the ball should come off when you square it.'
-        : 'Need more data to predict this.',
+        : 'Value out of range — rescore needed.',
       available: session.predicted_exit_velocity_mph != null,
     },
   ];
@@ -315,7 +414,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
       question: 'How is your timing?',
       score: brain,
       label: pillarLabel(brain),
-      explanation: getPillarExplanation('BRAIN', brain),
+      explanation: getPillarExplanation('BRAIN', brain, rawMetrics),
       color: pillarColor(brain),
     },
     {
@@ -323,7 +422,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
       question: 'How is your body loading?',
       score: body,
       label: pillarLabel(body),
-      explanation: getPillarExplanation('BODY', body),
+      explanation: getPillarExplanation('BODY', body, rawMetrics),
       color: pillarColor(body),
     },
     {
@@ -331,7 +430,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
       question: 'How well do you get the barrel there?',
       score: bat,
       label: pillarLabel(bat),
-      explanation: getPillarExplanation('BAT', bat),
+      explanation: getPillarExplanation('BAT', bat, rawMetrics),
       color: pillarColor(bat),
     },
     {
@@ -339,7 +438,7 @@ export function buildCoachingReport(session: SessionScoreData): CoachingReportDa
       question: 'What kind of contact should we expect?',
       score: ball,
       label: pillarLabel(ball),
-      explanation: getPillarExplanation('BALL', ball),
+      explanation: getPillarExplanation('BALL', ball, rawMetrics),
       color: pillarColor(ball),
     },
   ];
