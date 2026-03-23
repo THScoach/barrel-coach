@@ -34,6 +34,8 @@ export interface RawMetrics {
   swing_count?: number;
   correct_sequence_count?: number;
   pelvis_angular_velocity?: number;
+  // PCE — Predicted Contact Expectancy
+  predicted_contact?: Record<string, any>;
   // Legacy format
   avgPelvisVelocity?: number;
   avgTorsoVelocity?: number;
