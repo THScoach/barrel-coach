@@ -1172,27 +1172,40 @@ function computePCE(
   const armsKePct = energyLedger.arms_ke_ratio;
   const seqCorrect = energyLedger.sequence_correct;
 
-  // --- Stage 1: Compensation Detection ---
+  // --- Stage 1: Compensation Detection (CORRECTED PRIORITY ORDER) ---
+  // ARMS_DOMINANT must be checked FIRST — it was previously after SEQUENCE,
+  // causing misclassifications (e.g., Bradfield flagged as SEQUENCE instead of ARMS_DOMINANT).
   let primary: CompensationPattern = 'HEALTHY';
   let secondary: CompensationPattern | null = null;
   let severity = 1;
 
-  if (!seqCorrect) {
-    primary = 'SEQUENCE';
-    severity = 3;
-  } else if (armsKePct > 0.35 || tr < 1.0) {
+  // 1. ARMS_DOMINANT checked FIRST
+  if (armsKePct > 0.35 || tr < 1.0) {
     primary = 'ARMS_DOMINANT';
     severity = 3;
     if (pelvisClassification === 'JUMP_PELVIS') {
       secondary = 'TRANSLATIONAL';
     }
-  } else if (pelvisClassification === 'EARLY_PELVIS' || pelvisClassification === 'SPENT_PELVIS') {
+  }
+  // 2. STABILITY checked second
+  else if (pelvisClassification === 'EARLY_PELVIS' || pelvisClassification === 'SPENT_PELVIS') {
     primary = 'STABILITY';
     severity = 3;
-  } else if (pelvisClassification === 'JUMP_PELVIS') {
+  }
+  // 3. TRANSLATIONAL checked third
+  else if (pelvisClassification === 'JUMP_PELVIS') {
     primary = 'TRANSLATIONAL';
     severity = 3;
   }
+  // 4. SEQUENCE checked fourth
+  else if (!seqCorrect) {
+    primary = 'SEQUENCE';
+    severity = 3;
+  }
+
+  // Floating-point safety for brake efficiency
+  const brakeEff = energyLedger.brake_efficiency ?? 1.0;
+  const isBrakeFailing = brakeEff < 0.05;
 
   // --- Energy Archetype Classification ---
   let archetypeId: string | null = null;
