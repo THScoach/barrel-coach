@@ -1151,6 +1151,7 @@ function buildRawMetrics(
   // HARD CONSTRAINT: NEVER call pelvis "dead" if velocity >= 600°/s
   if (pelvisVelocity < 600) {
     // DEAD PELVIS — insufficient force production (regardless of sequence)
+    pelvisClassification = 'DEAD_PELVIS';
     rootCause = {
       issue: isInverted
         ? 'Dead pelvis — force production deficit + inverted sequence'
@@ -1162,20 +1163,31 @@ function buildRawMetrics(
     };
   } else if (isInverted) {
     // LATE PELVIS — velocity >= 600 but timing wrong
+    pelvisClassification = 'LATE_PELVIS';
     rootCause = {
       issue: 'Energy Arriving Late: Pelvis Fires After Torso',
       what: `Your pelvis has real velocity (${pelvisVelocity}°/s) but it peaks AFTER your torso. That means the energy shows up after the barrel is already on its way. Instead of going into the ball, that late pelvis energy pushes your body open toward the pull side. This is a LATE pelvis, not a weak pelvis — the fix is about WHEN it fires, not how hard.`,
       build: 'pelvis_initiation',
     };
-  } else if (hasBrakeFailure) {
-    // Brake failure — correct sequence but no deceleration
+  } else if (hasBrakeFailure && input.transfer_ratio < 1.0) {
+    // SPENT PELVIS — correct sequence but no brake AND transfer ratio < 1.0
+    pelvisClassification = 'SPENT_PELVIS';
     rootCause = {
       issue: 'Energy Not Concentrating: Brake System Offline',
       what: `Your front side isn't decelerating. When the lower body doesn't brake, energy passes through your body like water through a pipe with no faucet — it never concentrates into the barrel. Brake efficiency is near zero.`,
       build: 'brake_mechanism',
     };
+  } else if (hasBrakeFailure) {
+    // Brake failure but TR >= 1.0 — not spent, just needs brake work
+    pelvisClassification = 'HEALTHY_PELVIS';
+    rootCause = {
+      issue: 'Brake efficiency low but transfer is adequate',
+      what: `Pelvis sequence and force are good. Brake system needs attention but energy is still transferring. Transfer ratio: ${input.transfer_ratio.toFixed(2)}.`,
+      build: 'brake_mechanism',
+    };
   } else {
     // Healthy: correct sequence, velocity > 600, brake working
+    pelvisClassification = 'HEALTHY_PELVIS';
     rootCause = {
       issue: 'None detected',
       what: 'Swing is functioning well',
