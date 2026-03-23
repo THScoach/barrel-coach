@@ -33,7 +33,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
 
   useEffect(() => {
     const subtab = searchParams.get('subtab');
-    if (subtab && ['progression', 'kinetic', 'stability', 'drill-intel'].includes(subtab)) {
+    if (subtab && ['progression', 'kinetic', 'drill-intel'].includes(subtab)) {
       setActiveSubTab(subtab);
     }
   }, [searchParams]);
