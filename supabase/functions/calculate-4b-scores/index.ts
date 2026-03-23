@@ -167,6 +167,39 @@ interface PredictionResult {
   bat_speed_confidence: 'high' | 'medium' | 'low';
 }
 
+// PCE types
+type CompensationPattern = 'ARMS_DOMINANT' | 'STABILITY' | 'TRANSLATIONAL' | 'SEQUENCE' | 'HEALTHY';
+type PlaneType = 'STEEP_SHORT' | 'SWEEP' | 'FLAT_PUSH' | 'STEEP_DRAG' | 'LONG_PLANE';
+type EntryTiming = 'EARLY' | 'LATE' | 'ON_TIME';
+type ContactDepth = 'DEEP' | 'OUT_FRONT' | 'MIDDLE' | 'VARIABLE';
+type TendencyLevel = 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY_LOW';
+type DirectionTendency = 'HEAVY_PULL' | 'PULL' | 'SLIGHT_PULL' | 'ALL_FIELDS' | 'SLIGHT_OPPO' | 'OPPO' | 'HEAVY_OPPO';
+
+interface PredictedContact {
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
+  energy_archetype: string | null;
+  energy_archetype_label: string | null;
+  primary_compensation: CompensationPattern;
+  secondary_compensation: CompensationPattern | null;
+  severity: number;
+  barrel_path: {
+    plane_type: PlaneType;
+    entry_timing: EntryTiming;
+    contact_depth: ContactDepth;
+  };
+  tendencies: {
+    ground_ball: TendencyLevel;
+    line_drive: TendencyLevel;
+    fly_ball: TendencyLevel;
+    pop_up_risk: 'HIGH' | 'MEDIUM' | 'LOW';
+    direction: DirectionTendency;
+    hard_hit_potential: 'HIGH' | 'MEDIUM' | 'LOW';
+    sweet_spot_proxy: TendencyLevel;
+  };
+  plane_length_pct: number;
+  predicted_ball_score: number;
+}
+
 interface ScoringOutput {
   version: string;
   scoring_method: ScoringMethod;
@@ -225,6 +258,9 @@ interface ScoringOutput {
   predicted_exit_velocity_mph: number | null;
   bat_speed_path: string | null;
   bat_speed_confidence: string | null;
+
+  // PCE — Predicted Contact Expectancy
+  predicted_contact?: PredictedContact;
 
   // Legacy 4B scores for backward compat with display components
   legacy_4b?: {
