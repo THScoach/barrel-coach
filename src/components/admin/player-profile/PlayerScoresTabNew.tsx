@@ -14,12 +14,10 @@ import {
   Loader2,
   Zap,
   Beaker,
-  Shield,
 } from "lucide-react";
 import { PlayerProgressionDashboard } from "./PlayerProgressionDashboard";
 import { DrillIntelTab } from "./DrillIntelTab";
 import { KineticSequenceTab } from "./KineticSequenceTab";
-import { StabilityTab } from "./StabilityTab";
 
 interface PlayerScoresTabNewProps {
   playerId: string;
