@@ -73,6 +73,9 @@ export function EnergyDeliveryReport({ sessionId, playerId, rawMetrics, existing
       {/* Next Step */}
       <NextStepCard metrics={rawMetrics} krsData={krsData} />
 
+      {/* Predicted Contact (PCE) */}
+      <PredictedContactCard predictedContact={rawMetrics?.predicted_contact} />
+
       {/* Energy Shape */}
       <EnergyShapeVisual tkeShape={tkeShape} />
 
