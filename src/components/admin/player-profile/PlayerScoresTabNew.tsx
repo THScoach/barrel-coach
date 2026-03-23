@@ -14,12 +14,10 @@ import {
   Loader2,
   Zap,
   Beaker,
-  Shield,
 } from "lucide-react";
 import { PlayerProgressionDashboard } from "./PlayerProgressionDashboard";
 import { DrillIntelTab } from "./DrillIntelTab";
 import { KineticSequenceTab } from "./KineticSequenceTab";
-import { StabilityTab } from "./StabilityTab";
 
 interface PlayerScoresTabNewProps {
   playerId: string;
@@ -35,7 +33,7 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
 
   useEffect(() => {
     const subtab = searchParams.get('subtab');
-    if (subtab && ['progression', 'kinetic', 'stability', 'drill-intel'].includes(subtab)) {
+    if (subtab && ['progression', 'kinetic', 'drill-intel'].includes(subtab)) {
       setActiveSubTab(subtab);
     }
   }, [searchParams]);
@@ -96,13 +94,6 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
             <Beaker className="h-4 w-4 mr-2" />
             Drill Intel
           </TabsTrigger>
-          <TabsTrigger 
-            value="stability" 
-            className="text-slate-400 data-[state=active]:text-white data-[state=active]:bg-slate-700"
-          >
-            <Shield className="h-4 w-4 mr-2" />
-            Stability
-          </TabsTrigger>
         </TabsList>
 
         {/* ===== PROGRESSION DASHBOARD ===== */}
@@ -136,15 +127,6 @@ export function PlayerScoresTabNew({ playerId, playersTableId, playerName }: Pla
           ) : loadingSpinner}
         </TabsContent>
 
-        {/* ===== STABILITY ===== */}
-        <TabsContent value="stability" className="mt-6">
-          {mappedPlayersId ? (
-            <StabilityTab
-              playersTableId={mappedPlayersId}
-              playerName={playerName}
-            />
-          ) : loadingSpinner}
-        </TabsContent>
       </Tabs>
     </div>
   );
