@@ -28,7 +28,7 @@ interface PredictedContact {
 }
 
 interface Props {
-  predictedContact: PredictedContact | null | undefined;
+  predictedContact: any;
 }
 
 const TENDENCY_COLOR: Record<string, string> = {
