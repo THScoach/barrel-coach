@@ -1241,6 +1241,7 @@ function buildRawMetrics(
   story.barrel = `Estimated bat speed: ${batSpeedMph > 0 ? Math.round(batSpeedMph) + ' mph' : 'N/A'}. Transfer ratio: ${input.transfer_ratio.toFixed(2)}.${brakeNote}`;
 
   return {
+    pelvis_classification: pelvisClassification,
     avgPelvisVelocity: pelvisVelocity,
     pelvis_angular_velocity: pelvisVelocity, // alias for naming consistency
     pelvis_torso_gain,
