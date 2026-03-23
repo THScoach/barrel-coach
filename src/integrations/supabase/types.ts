@@ -3210,6 +3210,7 @@ export type Database = {
           scoreable: boolean | null
           scored_at: string | null
           scoring_mode: string | null
+          scoring_status: string
           scoring_timestamp: string | null
           scoring_version: string | null
           sequence_order: string | null
@@ -3271,6 +3272,7 @@ export type Database = {
           scoreable?: boolean | null
           scored_at?: string | null
           scoring_mode?: string | null
+          scoring_status?: string
           scoring_timestamp?: string | null
           scoring_version?: string | null
           sequence_order?: string | null
@@ -3332,6 +3334,7 @@ export type Database = {
           scoreable?: boolean | null
           scored_at?: string | null
           scoring_mode?: string | null
+          scoring_status?: string
           scoring_timestamp?: string | null
           scoring_version?: string | null
           sequence_order?: string | null
