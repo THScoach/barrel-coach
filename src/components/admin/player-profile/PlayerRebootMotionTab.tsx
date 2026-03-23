@@ -250,7 +250,7 @@ export function PlayerRebootMotionTab({
       const [rebootRes, scoresRes] = await Promise.all([
         supabase
           .from("reboot_sessions")
-          .select("*")
+          .select("id, player_id, reboot_session_id, session_date, session_number, location, notes, status, source, session_type, drill_name, movement_type, created_at, updated_at, measured_bat_speed_mph, measured_ev_mph, bat_speed_source, bat_speed_confidence")
           .eq("player_id", playersTableId)
           .order("session_date", { ascending: false }),
         supabase
