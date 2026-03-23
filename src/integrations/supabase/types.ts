@@ -2838,6 +2838,57 @@ export type Database = {
           },
         ]
       }
+      player_known_metrics: {
+        Row: {
+          created_at: string | null
+          id: string
+          metric_type: string
+          percentile: number | null
+          player_id: string
+          recorded_date: string | null
+          source: string
+          updated_at: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          metric_type: string
+          percentile?: number | null
+          player_id: string
+          recorded_date?: string | null
+          source: string
+          updated_at?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          metric_type?: string
+          percentile?: number | null
+          player_id?: string
+          recorded_date?: string | null
+          source?: string
+          updated_at?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_known_metrics_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_known_metrics_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_kommodo_recordings: {
         Row: {
           created_at: string
