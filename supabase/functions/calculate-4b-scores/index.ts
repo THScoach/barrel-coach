@@ -1634,6 +1634,103 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
 }
 
 // ===========================================================================
+// CALIBRATION — Anchor predictions to known real-world metrics
+// ===========================================================================
+
+async function getCalibratedMetrics(playerId: string | undefined | null): Promise<Record<string, { value: number; source: string; date: string | null; percentile: number | null }> | null> {
+  try {
+    if (!playerId) return null;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data, error } = await supabase
+      .from('player_known_metrics')
+      .select('metric_type, value, source, recorded_date, percentile')
+      .eq('player_id', playerId)
+      .order('recorded_date', { ascending: false });
+
+    if (error || !data || data.length === 0) return null;
+
+    const known: Record<string, { value: number; source: string; date: string | null; percentile: number | null }> = {};
+    for (const row of data) {
+      if (!known[row.metric_type]) {
+        known[row.metric_type] = {
+          value: row.value,
+          source: row.source,
+          date: row.recorded_date,
+          percentile: row.percentile,
+        };
+      }
+    }
+    return known;
+  } catch (e) {
+    console.error('[4B] Error fetching calibrated metrics:', e);
+    return null;
+  }
+}
+
+function calibratePrediction(pce: PredictedContact, knownMetrics: Record<string, any> | null): PredictedContact {
+  try {
+    if (!knownMetrics) return { ...pce, calibration: null };
+
+    const calibration: Calibration = {
+      is_calibrated: true,
+      anchors: {},
+    };
+
+    if (knownMetrics.bat_speed_mph) {
+      const known = knownMetrics.bat_speed_mph;
+      calibration.anchors.bat_speed = {
+        known_value: known.value,
+        known_source: known.source,
+        known_percentile: known.percentile,
+        efficiency_pct: null,
+      };
+    }
+
+    if (knownMetrics.exit_velo_mph) {
+      const known = knownMetrics.exit_velo_mph;
+      calibration.anchors.exit_velo = {
+        known_value: known.value,
+        known_source: known.source,
+        known_percentile: known.percentile,
+        efficiency_pct: null,
+      };
+    }
+
+    if (knownMetrics.sweet_spot_pct) {
+      calibration.anchors.sweet_spot = {
+        known_value: knownMetrics.sweet_spot_pct.value,
+        known_source: knownMetrics.sweet_spot_pct.source,
+      };
+    }
+
+    // Build player message
+    let msg = '';
+    if (calibration.anchors.bat_speed) {
+      const bs = calibration.anchors.bat_speed;
+      const pctlText = bs.known_percentile ? ` (${bs.known_percentile}th percentile)` : '';
+      msg += `Your bat speed is ${bs.known_value} mph${pctlText}. `;
+    }
+    if (calibration.anchors.exit_velo) {
+      const ev = calibration.anchors.exit_velo;
+      const pctlText = ev.known_percentile ? ` (${ev.known_percentile}th percentile)` : '';
+      msg += `Your exit velocity is ${ev.known_value} mph${pctlText}. `;
+    }
+
+    return {
+      ...pce,
+      calibration,
+      player_message: msg.trim() || null,
+    };
+  } catch (e) {
+    console.error('[4B] Calibration error:', e);
+    return { ...pce, calibration: null };
+  }
+}
+
+// ===========================================================================
 // CORS
 // ===========================================================================
 
