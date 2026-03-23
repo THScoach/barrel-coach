@@ -25,6 +25,7 @@ import { PrescriptionCard } from "./PrescriptionCard";
 import { UnifiedDataUploadModal } from "@/components/UnifiedDataUploadModal";
 import { RebootSessionDetail } from "@/components/RebootSessionDetail";
 import { LaunchMonitorSessionDetail } from "@/components/LaunchMonitorSessionDetail";
+import { PlayerKnownMetricsForm } from "./PlayerKnownMetricsForm";
 
 interface PlayerOverviewTabProps {
   playerId: string;
@@ -410,9 +411,12 @@ export function PlayerOverviewTab({
           onAssignDrill={handleAssignDrill}
           isLoading={scorecardLoading}
         />
-      </div>
 
-      {/* ===== MODALS ===== */}
+        {/* Known Metrics (Calibration Anchors) */}
+        {mappedPlayersId && (
+          <PlayerKnownMetricsForm playerId={mappedPlayersId} />
+        )}
+      </div>
       <UnifiedDataUploadModal
         open={uploadModalOpen}
         onOpenChange={setUploadModalOpen}

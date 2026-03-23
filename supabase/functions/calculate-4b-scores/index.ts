@@ -20,6 +20,7 @@
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 // ===========================================================================
 // TYPES
@@ -175,6 +176,22 @@ type ContactDepth = 'DEEP' | 'OUT_FRONT' | 'MIDDLE' | 'VARIABLE';
 type TendencyLevel = 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY_LOW';
 type DirectionTendency = 'HEAVY_PULL' | 'PULL' | 'SLIGHT_PULL' | 'ALL_FIELDS' | 'SLIGHT_OPPO' | 'OPPO' | 'HEAVY_OPPO';
 
+interface CalibrationAnchor {
+  known_value: number;
+  known_source: string;
+  known_percentile: number | null;
+  efficiency_pct: number | null;
+}
+
+interface Calibration {
+  is_calibrated: boolean;
+  anchors: {
+    bat_speed?: CalibrationAnchor;
+    exit_velo?: CalibrationAnchor;
+    sweet_spot?: { known_value: number; known_source: string };
+  };
+}
+
 interface PredictedContact {
   confidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
   energy_archetype: string | null;
@@ -198,6 +215,8 @@ interface PredictedContact {
   };
   plane_length_pct: number;
   predicted_ball_score: number;
+  calibration?: Calibration | null;
+  player_message?: string | null;
 }
 
 interface ScoringOutput {
@@ -1172,27 +1191,40 @@ function computePCE(
   const armsKePct = energyLedger.arms_ke_ratio;
   const seqCorrect = energyLedger.sequence_correct;
 
-  // --- Stage 1: Compensation Detection ---
+  // --- Stage 1: Compensation Detection (CORRECTED PRIORITY ORDER) ---
+  // ARMS_DOMINANT must be checked FIRST — it was previously after SEQUENCE,
+  // causing misclassifications (e.g., Bradfield flagged as SEQUENCE instead of ARMS_DOMINANT).
   let primary: CompensationPattern = 'HEALTHY';
   let secondary: CompensationPattern | null = null;
   let severity = 1;
 
-  if (!seqCorrect) {
-    primary = 'SEQUENCE';
-    severity = 3;
-  } else if (armsKePct > 0.35 || tr < 1.0) {
+  // 1. ARMS_DOMINANT checked FIRST
+  if (armsKePct > 0.35 || tr < 1.0) {
     primary = 'ARMS_DOMINANT';
     severity = 3;
     if (pelvisClassification === 'JUMP_PELVIS') {
       secondary = 'TRANSLATIONAL';
     }
-  } else if (pelvisClassification === 'EARLY_PELVIS' || pelvisClassification === 'SPENT_PELVIS') {
+  }
+  // 2. STABILITY checked second
+  else if (pelvisClassification === 'EARLY_PELVIS' || pelvisClassification === 'SPENT_PELVIS') {
     primary = 'STABILITY';
     severity = 3;
-  } else if (pelvisClassification === 'JUMP_PELVIS') {
+  }
+  // 3. TRANSLATIONAL checked third
+  else if (pelvisClassification === 'JUMP_PELVIS') {
     primary = 'TRANSLATIONAL';
     severity = 3;
   }
+  // 4. SEQUENCE checked fourth
+  else if (!seqCorrect) {
+    primary = 'SEQUENCE';
+    severity = 3;
+  }
+
+  // Floating-point safety for brake efficiency
+  const brakeEff = energyLedger.brake_efficiency ?? 1.0;
+  const isBrakeFailing = brakeEff < 0.05;
 
   // --- Energy Archetype Classification ---
   let archetypeId: string | null = null;
@@ -1602,6 +1634,103 @@ function computeLegacyScores(input: LegacyInput): ScoringOutput {
 }
 
 // ===========================================================================
+// CALIBRATION — Anchor predictions to known real-world metrics
+// ===========================================================================
+
+async function getCalibratedMetrics(playerId: string | undefined | null): Promise<Record<string, { value: number; source: string; date: string | null; percentile: number | null }> | null> {
+  try {
+    if (!playerId) return null;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data, error } = await supabase
+      .from('player_known_metrics')
+      .select('metric_type, value, source, recorded_date, percentile')
+      .eq('player_id', playerId)
+      .order('recorded_date', { ascending: false });
+
+    if (error || !data || data.length === 0) return null;
+
+    const known: Record<string, { value: number; source: string; date: string | null; percentile: number | null }> = {};
+    for (const row of data) {
+      if (!known[row.metric_type]) {
+        known[row.metric_type] = {
+          value: row.value,
+          source: row.source,
+          date: row.recorded_date,
+          percentile: row.percentile,
+        };
+      }
+    }
+    return known;
+  } catch (e) {
+    console.error('[4B] Error fetching calibrated metrics:', e);
+    return null;
+  }
+}
+
+function calibratePrediction(pce: PredictedContact, knownMetrics: Record<string, any> | null): PredictedContact {
+  try {
+    if (!knownMetrics) return { ...pce, calibration: null };
+
+    const calibration: Calibration = {
+      is_calibrated: true,
+      anchors: {},
+    };
+
+    if (knownMetrics.bat_speed_mph) {
+      const known = knownMetrics.bat_speed_mph;
+      calibration.anchors.bat_speed = {
+        known_value: known.value,
+        known_source: known.source,
+        known_percentile: known.percentile,
+        efficiency_pct: null,
+      };
+    }
+
+    if (knownMetrics.exit_velo_mph) {
+      const known = knownMetrics.exit_velo_mph;
+      calibration.anchors.exit_velo = {
+        known_value: known.value,
+        known_source: known.source,
+        known_percentile: known.percentile,
+        efficiency_pct: null,
+      };
+    }
+
+    if (knownMetrics.sweet_spot_pct) {
+      calibration.anchors.sweet_spot = {
+        known_value: knownMetrics.sweet_spot_pct.value,
+        known_source: knownMetrics.sweet_spot_pct.source,
+      };
+    }
+
+    // Build player message
+    let msg = '';
+    if (calibration.anchors.bat_speed) {
+      const bs = calibration.anchors.bat_speed;
+      const pctlText = bs.known_percentile ? ` (${bs.known_percentile}th percentile)` : '';
+      msg += `Your bat speed is ${bs.known_value} mph${pctlText}. `;
+    }
+    if (calibration.anchors.exit_velo) {
+      const ev = calibration.anchors.exit_velo;
+      const pctlText = ev.known_percentile ? ` (${ev.known_percentile}th percentile)` : '';
+      msg += `Your exit velocity is ${ev.known_value} mph${pctlText}. `;
+    }
+
+    return {
+      ...pce,
+      calibration,
+      player_message: msg.trim() || null,
+    };
+  } catch (e) {
+    console.error('[4B] Calibration error:', e);
+    return { ...pce, calibration: null };
+  }
+}
+
+// ===========================================================================
 // CORS
 // ===========================================================================
 
@@ -1683,6 +1812,20 @@ serve(async (req: Request) => {
       }
     } catch (e) {
       console.error('[4B] Error applying prediction bounds:', e);
+    }
+
+    // ── Calibration: Anchor PCE to known real-world metrics ───────────────
+    try {
+      const playerId = body.player_id ?? body.player_metadata?.player_id;
+      if (playerId && result.predicted_contact) {
+        const knownMetrics = await getCalibratedMetrics(playerId);
+        if (knownMetrics) {
+          result.predicted_contact = calibratePrediction(result.predicted_contact, knownMetrics);
+          console.log(`[4B] Calibration applied for player ${playerId}`);
+        }
+      }
+    } catch (e) {
+      console.error('[4B] Error applying calibration:', e);
     }
 
     return new Response(JSON.stringify(result), {
