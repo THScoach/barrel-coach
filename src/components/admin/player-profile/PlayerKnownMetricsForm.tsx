@@ -57,7 +57,10 @@ export function PlayerKnownMetricsForm({ playerId }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!value) return;
+    if (!value) {
+      toast.error('Enter a value before adding');
+      return;
+    }
 
     setSubmitting(true);
     const { error } = await supabase
