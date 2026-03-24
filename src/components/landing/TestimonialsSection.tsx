@@ -72,7 +72,7 @@ function VideoCard({ name, role, videoSrc }: { name: string; role: string; video
 
   return (
     <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition-colors">
-      <div className="relative aspect-[9/16] max-h-[480px] bg-black cursor-pointer" onClick={!playing ? handlePlay : undefined}>
+      <div className="relative aspect-[9/16] max-h-[360px] sm:max-h-[480px] bg-black cursor-pointer" onClick={!playing ? handlePlay : undefined}>
         <video
           ref={videoRef}
           src={videoSrc}
@@ -84,15 +84,15 @@ function VideoCard({ name, role, videoSrc }: { name: string; role: string; video
         />
         {!playing && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-            <div className="w-16 h-16 bg-destructive rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
-              <Play className="w-7 h-7 text-white ml-1" fill="currentColor" />
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-destructive rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+              <Play className="w-5 h-5 sm:w-7 sm:h-7 text-white ml-0.5 sm:ml-1" fill="currentColor" />
             </div>
           </div>
         )}
       </div>
-      <div className="p-4">
-        <h4 className="font-bold text-white text-sm">{name}</h4>
-        <p className="text-xs text-slate-500">{role}</p>
+      <div className="p-3 sm:p-4">
+        <h4 className="font-bold text-white text-xs sm:text-sm">{name}</h4>
+        <p className="text-[10px] sm:text-xs text-slate-500">{role}</p>
       </div>
     </div>
   );
@@ -100,49 +100,49 @@ function VideoCard({ name, role, videoSrc }: { name: string; role: string; video
 
 export function TestimonialsSection() {
   return (
-    <section className="py-20 bg-slate-900/60">
+    <section className="py-14 sm:py-20 bg-slate-900/60">
       <div className="max-w-5xl mx-auto px-4">
-        <h2 className="text-3xl md:text-4xl font-black text-center mb-4">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-center mb-3 sm:mb-4">
           What Players Are{" "}
           <span className="bg-gradient-to-r from-red-500 to-red-400 bg-clip-text text-transparent">
             Saying
           </span>
         </h2>
-        <p className="text-slate-400 text-center mb-12">
+        <p className="text-slate-400 text-center mb-8 sm:mb-12 text-sm sm:text-base">
           Real results from hitters who trained with the 4B System
         </p>
 
         {/* Video Testimonials */}
-        <div className="grid grid-cols-2 md:grid-cols-2 gap-6 max-w-2xl mx-auto mb-10">
+        <div className="grid grid-cols-2 gap-4 sm:gap-6 max-w-2xl mx-auto mb-8 sm:mb-10">
           {videoTestimonials.map((v, i) => (
             <VideoCard key={i} {...v} />
           ))}
         </div>
 
         {/* Written Testimonials */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
           {writtenTestimonials.map((t, i) => (
             <div
               key={i}
-              className="bg-slate-950 border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors"
+              className="bg-slate-950 border border-slate-800 rounded-xl p-4 sm:p-6 hover:border-slate-700 transition-colors"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-full bg-destructive/15 border border-destructive/20 flex items-center justify-center text-sm font-bold text-destructive">
+              <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-destructive/15 border border-destructive/20 flex items-center justify-center text-xs sm:text-sm font-bold text-destructive flex-shrink-0">
                   {t.avatar}
                 </div>
-                <div>
-                  <h4 className="font-bold text-white text-sm">{t.name}</h4>
-                  <p className="text-xs text-slate-500">{t.role}</p>
+                <div className="min-w-0">
+                  <h4 className="font-bold text-white text-xs sm:text-sm truncate">{t.name}</h4>
+                  <p className="text-[10px] sm:text-xs text-slate-500 truncate">{t.role}</p>
                 </div>
               </div>
 
-              <p className="text-slate-300 text-sm italic leading-relaxed mb-4">
+              <p className="text-slate-300 text-xs sm:text-sm italic leading-relaxed mb-3 sm:mb-4">
                 "{t.quote}"
               </p>
 
               <div className="flex gap-0.5 text-amber-400">
                 {[...Array(t.rating)].map((_, j) => (
-                  <Star key={j} className="w-3.5 h-3.5" fill="currentColor" />
+                  <Star key={j} className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="currentColor" />
                 ))}
               </div>
             </div>

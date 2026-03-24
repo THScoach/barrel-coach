@@ -78,20 +78,20 @@ export function MLBTechnologySection() {
   ];
 
   return (
-    <section className="py-20 bg-slate-950">
+    <section className="py-14 sm:py-20 bg-slate-950">
       <div className="max-w-5xl mx-auto px-4">
-        <h2 className="text-3xl md:text-4xl font-black text-center mb-4">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-center mb-3 sm:mb-4">
           Why{" "}
           <span className="bg-gradient-to-r from-red-500 to-red-400 bg-clip-text text-transparent">
             Coach Rick?
           </span>
         </h2>
-        <p className="text-center text-slate-400 mb-12 max-w-2xl mx-auto">
+        <p className="text-center text-slate-400 mb-8 sm:mb-12 max-w-2xl mx-auto text-sm sm:text-base">
           He helped build the technology MLB teams use. Now he uses it to analyze your swing.
         </p>
 
         {/* Technology Columns */}
-        <div className="grid md:grid-cols-3 gap-6 mb-6">
+        <div className="grid sm:grid-cols-3 gap-4 sm:gap-6 mb-6">
           {columns.map((column, i) => (
             <TechColumn key={i} {...column} />
           ))}
@@ -106,21 +106,21 @@ export function MLBTechnologySection() {
           </div>
         </div>
         <div className="flex justify-center mb-6">
-          <ChevronDown className="w-8 h-8 text-red-500 animate-bounce" />
+          <ChevronDown className="w-6 h-6 sm:w-8 sm:h-8 text-red-500 animate-bounce" />
         </div>
 
         {/* Synthesis Card */}
-        <div className="max-w-4xl mx-auto mb-10">
-          <div className="bg-red-600 text-white rounded-xl p-6 border border-red-500/50 shadow-lg shadow-red-600/10">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white/20 flex-shrink-0">
+        <div className="max-w-4xl mx-auto mb-8 sm:mb-10">
+          <div className="bg-red-600 text-white rounded-xl p-4 sm:p-6 border border-red-500/50 shadow-lg shadow-red-600/10">
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-white/20 flex-shrink-0">
                 <img src={coachRickTee} alt="Coach Rick" className="w-full h-full object-cover" />
               </div>
-              <div className="text-center md:text-left flex-1">
-                <h3 className="font-black text-xl uppercase tracking-wide mb-2">
+              <div className="text-center sm:text-left flex-1">
+                <h3 className="font-black text-lg sm:text-xl uppercase tracking-wide mb-1 sm:mb-2">
                   Rick's 4B Analysis Engine
                 </h3>
-                <p className="text-white/90 text-sm md:text-base">
+                <p className="text-white/90 text-xs sm:text-sm md:text-base">
                   Synthesizes all data streams → Identifies your #1 constraint → Prescribes the exact drill to fix it
                 </p>
               </div>
@@ -129,16 +129,16 @@ export function MLBTechnologySection() {
         </div>
 
         {/* MLB Badge */}
-        <div className="flex justify-center mb-10">
-          <div className="inline-flex items-center gap-2 bg-slate-800/80 border border-slate-700/50 text-white px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wide">
-            <span className="text-lg">⚾</span>
+        <div className="flex justify-center mb-8 sm:mb-10">
+          <div className="inline-flex items-center gap-2 bg-slate-800/80 border border-slate-700/50 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-full text-xs sm:text-sm font-bold uppercase tracking-wide">
+            <span className="text-base sm:text-lg">⚾</span>
             Used by MLB Organizations
           </div>
         </div>
 
         {/* CTA */}
         <div className="text-center">
-          <Button asChild variant="outline" size="lg" className="border-slate-600 hover:bg-slate-800 text-white font-bold">
+          <Button asChild variant="outline" size="lg" className="w-full sm:w-auto border-slate-600 hover:bg-slate-800 text-white font-bold">
             <Link to="/about">Learn More About Rick →</Link>
           </Button>
         </div>
