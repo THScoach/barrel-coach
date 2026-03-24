@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Video, Target, ClipboardList, Dna, Play, TrendingUp, Building2, Microscope, GraduationCap, Zap, Star, Clock, Flame, Gift } from 'lucide-react';
+import { Video, Target, ClipboardList, TrendingUp, Building2, Microscope, Zap, Star, Clock, Gift, Brain, BarChart3, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ProductCardProps {
   title: string;
   price: string;
   priceLabel: string;
+  annualNote?: string;
   features: { icon: React.ReactNode; text: string }[];
   timing: string;
   cta: string;
@@ -15,20 +16,12 @@ interface ProductCardProps {
   bottomLabelColor: string;
   isPopular?: boolean;
   variant: 'default' | 'popular' | 'premium';
+  isExternal?: boolean;
 }
 
 function ProductCard({ 
-  title, 
-  price, 
-  priceLabel, 
-  features, 
-  timing, 
-  cta, 
-  ctaLink, 
-  bottomLabel,
-  bottomLabelColor,
-  isPopular,
-  variant
+  title, price, priceLabel, annualNote, features, timing, cta, ctaLink, 
+  bottomLabel, bottomLabelColor, isPopular, variant, isExternal
 }: ProductCardProps) {
   return (
     <div 
@@ -39,7 +32,6 @@ function ProductCard({
         variant === 'premium' && "bg-gray-50 shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
       )}
     >
-      {/* Popular Badge */}
       {isPopular && (
         <div className="absolute -top-3 right-4 bg-[#DC2626] text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
           <Star className="w-3 h-3 fill-current" />
@@ -47,18 +39,16 @@ function ProductCard({
         </div>
       )}
 
-      {/* Price */}
       <div className="text-center mb-6">
         <div className="text-4xl font-black text-[#1E3A8A]">{price}</div>
         <div className="text-sm text-muted-foreground">{priceLabel}</div>
+        {annualNote && <div className="text-xs text-muted-foreground mt-1">{annualNote}</div>}
       </div>
 
-      {/* Title */}
       <h3 className="text-lg font-bold text-[#1E3A8A] text-center mb-4 uppercase tracking-wide">
         {title}
       </h3>
 
-      {/* Features */}
       <ul className="space-y-3 flex-1 mb-6">
         {features.map((feature, i) => (
           <li key={i} className="flex items-start gap-3 text-sm">
@@ -68,13 +58,11 @@ function ProductCard({
         ))}
       </ul>
 
-      {/* Timing Badge */}
       <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-4">
         <Clock className="w-4 h-4" />
         <span>{timing}</span>
       </div>
 
-      {/* CTA Button */}
       <Button 
         asChild 
         className={cn(
@@ -85,14 +73,14 @@ function ProductCard({
         )}
         size="lg"
       >
-        <Link to={ctaLink}>{cta}</Link>
+        {isExternal ? (
+          <a href={ctaLink}>{cta}</a>
+        ) : (
+          <Link to={ctaLink}>{cta}</Link>
+        )}
       </Button>
 
-      {/* Bottom Label */}
-      <p 
-        className="text-center text-xs italic mt-4"
-        style={{ color: bottomLabelColor }}
-      >
+      <p className="text-center text-xs italic mt-4" style={{ color: bottomLabelColor }}>
         {bottomLabel}
       </p>
     </div>
@@ -100,58 +88,63 @@ function ProductCard({
 }
 
 export function ProductComparisonSection() {
-  // Updated 3-tier pricing structure
   const products: ProductCardProps[] = [
     {
-      title: "Starter",
-      price: "$49",
+      title: "The Barrels App",
+      price: "$47",
       priceLabel: "/month",
+      annualNote: "$397/year (save $167)",
       features: [
-        { icon: <Play className="w-4 h-4" />, text: "Full Drill Library access" },
-        { icon: <Target className="w-4 h-4" />, text: "Bring Your Own Sensor (BYOS)" },
+        { icon: <Video className="w-4 h-4" />, text: "Just video. No sensors." },
+        { icon: <BarChart3 className="w-4 h-4" />, text: "4-Pillar Swing Scoring on every upload" },
+        { icon: <Brain className="w-4 h-4" />, text: "Energy Archetype Classification" },
+        { icon: <ClipboardList className="w-4 h-4" />, text: "AI Drill Prescriptions" },
       ],
       timing: "Self-guided training",
-      cta: "GET STARTED →",
+      cta: "START TRAINING →",
       ctaLink: "/pricing",
-      bottomLabel: "Perfect for players with their own sensor.",
+      bottomLabel: "Pro-level truth about your swing, delivered instantly.",
       bottomLabelColor: "#6B7280",
       variant: 'default'
     },
     {
-      title: "The Academy",
-      price: "$99",
+      title: "The Pro Academy",
+      price: "$149",
       priceLabel: "/month",
+      annualNote: "$1,297/year (save $491)",
       features: [
-        { icon: <Gift className="w-4 h-4" />, text: "FREE Smart Sensor Kit included" },
-        { icon: <Building2 className="w-4 h-4" />, text: "Monday Group Coaching Calls" },
-        { icon: <Microscope className="w-4 h-4" />, text: "Coach Rick AI access" },
-        { icon: <TrendingUp className="w-4 h-4" />, text: "Daily Kinetic DNA Tracking" },
-        { icon: <ClipboardList className="w-4 h-4" />, text: "Automated Drill Prescription" },
+        { icon: <Zap className="w-4 h-4" />, text: "Everything in Barrels App" },
+        { icon: <Building2 className="w-4 h-4" />, text: "Weekly Live Film Room with Coach Rick" },
+        { icon: <Microscope className="w-4 h-4" />, text: "Monthly Reboot Motion Deep Dive" },
+        { icon: <TrendingUp className="w-4 h-4" />, text: "48-Hour Priority Reports" },
+        { icon: <ClipboardList className="w-4 h-4" />, text: "The Barrels Playbook" },
       ],
-      timing: "Full coaching experience",
+      timing: "Weekly coaching access",
       cta: "JOIN THE ACADEMY →",
       ctaLink: "/pricing",
-      bottomLabel: "Where clarity becomes consistency.",
+      bottomLabel: "One private lesson costs $150–$200. This is weekly access.",
       bottomLabelColor: "#6B7280",
       isPopular: true,
       variant: 'popular'
     },
     {
-      title: "Elite",
-      price: "$199",
+      title: "Big League Blueprint",
+      price: "$750",
       priceLabel: "/month",
+      annualNote: "$1,997 for 3-month block",
       features: [
-        { icon: <Zap className="w-4 h-4" />, text: "Everything in Academy" },
-        { icon: <Video className="w-4 h-4" />, text: "TWO 1:1 Zoom calls per month" },
-        { icon: <GraduationCap className="w-4 h-4" />, text: "Priority Video Analysis" },
-        { icon: <Dna className="w-4 h-4" />, text: "Direct Text Access to Coach" },
+        { icon: <Zap className="w-4 h-4" />, text: "Everything in Pro Academy" },
+        { icon: <Video className="w-4 h-4" />, text: "Bi-weekly 1:1 Zoom with Coach Rick" },
+        { icon: <Target className="w-4 h-4" />, text: "Priority WhatsApp/Text Access" },
+        { icon: <ClipboardList className="w-4 h-4" />, text: "Custom Advance Scouting" },
       ],
-      timing: "Limited to 20 players",
-      cta: "GET VIP ACCESS →",
-      ctaLink: "/pricing",
-      bottomLabel: "Work directly with Rick.",
+      timing: "Capped at 15 players",
+      cta: "APPLY NOW →",
+      ctaLink: "mailto:rick@catchingbarrels.io?subject=Big League Blueprint Application",
+      bottomLabel: "Application only. Not everyone is accepted.",
       bottomLabelColor: "#DC2626",
-      variant: 'premium'
+      variant: 'premium',
+      isExternal: true,
     }
   ];
 
@@ -159,10 +152,9 @@ export function ProductComparisonSection() {
     <section className="py-20 bg-surface">
       <div className="container">
         <h2 className="text-3xl md:text-4xl font-black text-center mb-12 uppercase text-[#1E3A8A]">
-          Choose Your Analysis
+          Pick Your Path
         </h2>
 
-        {/* Product Cards */}
         <div className="max-w-5xl mx-auto mb-10">
           <div className="grid md:grid-cols-3 gap-6 items-stretch">
             {products.map((product, i) => (
@@ -171,7 +163,7 @@ export function ProductComparisonSection() {
           </div>
         </div>
 
-        {/* Free Diagnostic Banner */}
+        {/* Free Audit Banner */}
         <div className="max-w-3xl mx-auto">
           <div className="bg-[#1E3A8A] text-white rounded-lg px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -179,7 +171,7 @@ export function ProductComparisonSection() {
               <div>
                 <span className="font-semibold">Not sure where to start?</span>
                 <span className="mx-2">|</span>
-                <span className="font-bold">ASK RICK — FREE DIAGNOSTIC</span>
+                <span className="font-bold">FREE SWING FLAW AUDIT</span>
               </div>
             </div>
             <Button 
@@ -187,7 +179,7 @@ export function ProductComparisonSection() {
               variant="outline" 
               className="bg-white text-[#1E3A8A] border-white hover:bg-gray-100 font-bold"
             >
-              <Link to="/diagnostic">GET FREE DIAGNOSTIC →</Link>
+              <Link to="/diagnostic">GET FREE AUDIT →</Link>
             </Button>
           </div>
         </div>
