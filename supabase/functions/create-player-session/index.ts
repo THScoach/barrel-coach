@@ -106,18 +106,48 @@ serve(async (req) => {
 
     const playerName = [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Unknown";
 
+    // Map profile level to sessions table constraint values
+    const rawLevel = (profile.level || "").toLowerCase().trim();
+    const levelMap: Record<string, string> = {
+      "youth": "youth",
+      "little league": "youth",
+      "travel": "travel",
+      "middle school": "middle_school",
+      "middle_school": "middle_school",
+      "hs_jv": "hs_jv",
+      "jv": "hs_jv",
+      "hs_varsity": "hs_varsity",
+      "varsity": "hs_varsity",
+      "high school": "hs_varsity",
+      "high_school": "hs_varsity",
+      "hs": "hs_varsity",
+      "college": "college",
+      "juco": "college",
+      "d1": "college",
+      "d2": "college",
+      "d3": "college",
+      "naia": "college",
+      "pro": "pro",
+      "professional": "pro",
+      "milb": "pro",
+      "minor league": "pro",
+      "mlb": "pro",
+      "indy": "pro",
+    };
+    const mappedLevel = levelMap[rawLevel] || "hs_varsity";
+
     // Create session attached to the existing player profile
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
       .insert({
         product_type: dbProductType,
         price_cents: priceCents,
-        player_id: profile.id, // FK references player_profiles
+        player_id: profile.id,
         player_name: playerName,
         player_email: profile.email,
         player_phone: profile.phone,
         player_age: Math.max(5, Math.min(50, profile.age || 16)),
-        player_level: profile.level || "hs_varsity",
+        player_level: mappedLevel,
         environment: environment,
         swings_required: swingsRequired,
         swings_max_allowed: swingsMaxAllowed,
