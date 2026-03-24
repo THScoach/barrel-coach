@@ -258,24 +258,24 @@ export default function Landing() {
       </section>
 
       {/* ─── PRICING PREVIEW ─── */}
-      <section className="py-20 bg-slate-900/60">
+      <section className="py-14 sm:py-20 bg-slate-900/60">
         <div className="max-w-5xl mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-black text-center mb-12">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-center mb-8 sm:mb-12">
             Simple Pricing
           </h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {PLANS.map((p) => (
               <div
                 key={p.name}
-                className="bg-slate-950 border border-slate-800 rounded-xl p-5 text-center"
+                className="bg-slate-950 border border-slate-800 rounded-xl p-4 sm:p-5 text-center"
               >
-                <h3 className="font-bold text-white mb-1">{p.name}</h3>
-                <p className="text-2xl font-black text-red-500 mb-2">{p.price}</p>
-                <p className="text-slate-400 text-xs">{p.line}</p>
+                <h3 className="font-bold text-white text-sm sm:text-base mb-1">{p.name}</h3>
+                <p className="text-xl sm:text-2xl font-black text-red-500 mb-1 sm:mb-2">{p.price}</p>
+                <p className="text-slate-400 text-[10px] sm:text-xs">{p.line}</p>
               </div>
             ))}
           </div>
-          <div className="text-center mt-8">
+          <div className="text-center mt-6 sm:mt-8">
             <Link to="/pricing" className="text-red-400 hover:text-red-300 text-sm font-semibold underline underline-offset-4">
               View full details →
             </Link>
@@ -284,13 +284,13 @@ export default function Landing() {
       </section>
 
       {/* ─── FINAL CTA ─── */}
-      <section className="py-24">
+      <section className="py-16 sm:py-24">
         <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl font-black mb-8">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black mb-6 sm:mb-8">
             Ready to know what's actually holding you back?
           </h2>
-          <Button asChild size="lg" className="bg-red-600 hover:bg-red-700 text-white font-bold px-10 py-6 text-lg shadow-lg shadow-red-600/20">
-            <Link to="/diagnostic" className="flex items-center gap-2">
+          <Button asChild size="lg" className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold px-10 py-6 text-base sm:text-lg shadow-lg shadow-red-600/20">
+            <Link to="/diagnostic" className="flex items-center justify-center gap-2">
               Start Free — No Credit Card <ArrowRight className="w-5 h-5" />
             </Link>
           </Button>
