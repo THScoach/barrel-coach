@@ -1,7 +1,7 @@
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Check, ArrowRight, Gift, BarChart3, Video, Users, Unlock, Phone, MessageCircle, ClipboardList, AlertTriangle, Crown } from "lucide-react";
+import { Check, ArrowRight, Users, AlertTriangle, Crown, Zap, BarChart3, Brain, Target, Video, Phone, ClipboardList, Shield } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Accordion,
@@ -14,47 +14,43 @@ import { toast } from "sonner";
 
 const faqs = [
   {
-    question: "Is the diagnostic really free?",
-    answer: "Yes. 100% free. No credit card. Upload your swing, get your Motor Profile and PDF report delivered via email. No drills. No guessing.",
+    question: "What does 'Just video. No sensors.' mean?",
+    answer: "You record your swing on your phone — that's it. Reboot Motion processes the video using markerless motion capture and syncs the biomechanics data to Catching Barrels automatically. No sensors, no wearables, no lab visit required.",
   },
   {
-    question: "What's the difference between Starter and Academy?",
-    answer: "Starter ($49/mo) is for players who already have their own sensor — you get full drill library access. Academy ($99/mo) includes a FREE Smart Sensor Kit, Monday group coaching calls, Coach Rick AI, daily tracking, and automated drill prescriptions.",
+    question: "What's the difference between the Barrels App and Pro Academy?",
+    answer: "The Barrels App ($47/mo) is the self-guided system — you get your 4-Pillar Scores, Energy Archetype, and AI-generated drill prescriptions on every upload. The Pro Academy ($149/mo) adds live coaching: weekly Film Room sessions with Coach Strickland, monthly Reboot Motion deep dives, and priority report turnaround.",
   },
   {
-    question: "Is the sensor really free with Academy?",
-    answer: "Yes. When you join The Academy, we ship you a Diamond Kinetics smart sensor (retail $150) at no extra cost. It's yours to keep, even if you cancel.",
+    question: "How is the Big League Blueprint different?",
+    answer: "The Blueprint ($750/mo) is direct 1:1 access to Coach Strickland. Bi-weekly Zoom sessions, priority text access, custom advance scouting, unlimited Reboot Motion reports, and quarterly recruitment strategy calls. It's capped at 15 players and requires an application.",
   },
   {
-    question: "What if I already have a sensor?",
-    answer: "Perfect! The Starter plan is made for you. Or join Academy for the full coaching experience — we support Diamond Kinetics, Blast Motion, and can import data from other systems.",
+    question: "Is the Swing Flaw Audit really free?",
+    answer: "Yes. Upload one swing video, get your single biggest energy leak identified in plain language, plus one drill to fix it. No credit card required. To see your full 4-Pillar Score, Energy Archetype, and complete drill program, subscribe to the Barrels App.",
   },
   {
-    question: "What is Monday Group Coaching?",
-    answer: "Every Monday, Coach Rick hosts a live group session where he reviews member swings, answers questions, and breaks down what he's seeing. It's like having a private coach for the price of a batting cage session.",
-  },
-  {
-    question: "How is Elite different from The Academy?",
-    answer: "Elite includes everything in The Academy plus TWO 1:1 Zoom calls per month with Coach Rick, priority video analysis, and direct text access. Limited to 20 players.",
+    question: "How much does a private lesson with a professional coach cost?",
+    answer: "A single private hitting lesson with a college-level coach runs $100–$150. A professional-level coach charges $150–$250 per session. The Pro Academy delivers weekly group access plus a monthly deep-dive report for $149/mo — less than the cost of one private session.",
   },
   {
     question: "Can I cancel anytime?",
-    answer: "Absolutely. No contracts, no commitments. Cancel with one click. But most players stay because they see real results.",
+    answer: "The Barrels App and Pro Academy are month-to-month — cancel anytime. The Big League Blueprint requires a 3-month minimum commitment because real swing development takes time.",
   },
   {
-    question: "Can I upgrade from Academy to Elite later?",
-    answer: "Yes, if spots are available. Elite is capped at 20 players to ensure quality 1-on-1 time with Coach Rick.",
+    question: "Do you work with coaches and organizations?",
+    answer: "Yes. The Coaches & Organizations License starts at $499/mo for up to 10 players. You get a unified Coach Dashboard, bulk video processing, and monthly strategy calls with Coach Strickland. Contact us for custom enterprise pricing.",
   },
   {
     question: "Is this for youth / college / pro?",
-    answer: "All of the above. The 4B System works at every level. I've used it with 10-year-olds and MLB players. The principles don't change — the details do.",
+    answer: "All of the above. The 4-Pillar System works at every level. Coach Strickland has used it with 10-year-olds and MLB players. The principles don't change — the details do.",
   },
 ];
 
 export default function Pricing() {
   const navigate = useNavigate();
 
-  const handleCheckout = async (priceType: 'starter' | 'academy' | 'elite') => {
+  const handleCheckout = async (priceType: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('create-subscription-checkout', {
         body: { priceType }
@@ -74,221 +70,307 @@ export default function Pricing() {
     <div className="min-h-screen bg-slate-950">
       <Header />
 
-      {/* Philosophy Quote */}
-      <section className="pt-32 pb-12">
+      {/* Hero Headline */}
+      <section className="pt-28 sm:pt-32 pb-8 sm:pb-12">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <blockquote className="text-2xl md:text-3xl font-light text-slate-300 italic">
-            "I want to coach you, not be an accountant.
-            <span className="block mt-2 text-white font-medium not-italic">Just coaching."</span>
-          </blockquote>
-          <p className="mt-4 text-slate-500">— Coach Rick Strickland</p>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-4 leading-tight">
+            Your swing is leaking power.
+            <span className="block text-red-400">We can show you exactly where.</span>
+          </h1>
+          <p className="text-slate-400 text-base sm:text-lg max-w-2xl mx-auto">
+            Just video. No sensors. The same biomechanics system used by AAA hitters — built by the coach who turned Cedric Mullins from a .098 ISO into a career year.
+          </p>
         </div>
       </section>
 
-      {/* Pricing Cards — 3 Tiers */}
-      <section className="pb-12">
-        <div className="max-w-6xl mx-auto px-4">
-          {/* Headline */}
-          <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-black text-white mb-3">
-              ELITE TRAINING. SIMPLE PRICING.
-            </h2>
-            <p className="text-slate-400 text-lg">No complicated tiers. Just results.</p>
-          </div>
-          
-          <div className="grid md:grid-cols-4 gap-6 items-start">
-            
-            {/* 1. Kinetic DNA Diagnostic — FREE */}
-            <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-6 flex flex-col">
-              <div className="text-teal-400 text-xs font-bold uppercase tracking-wider mb-2">
-                START HERE
-              </div>
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold text-white mb-2">Kinetic DNA Diagnostic</h3>
-                <div className="text-5xl font-black text-white mb-2">FREE</div>
-              </div>
-              
-              <ul className="space-y-3 mb-6 flex-grow">
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>Motor Profile Assessment</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-300">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>PDF report delivered via email</span>
-                </li>
-              </ul>
-
-              <Button asChild variant="outline" className="w-full border-slate-600 hover:bg-slate-800 text-white font-bold py-6 text-lg">
-                <Link to="/diagnostic">Get Your Free Diagnostic</Link>
-              </Button>
+      {/* Free Audit Banner */}
+      <section className="pb-8 sm:pb-12">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="bg-gradient-to-r from-teal-500/10 to-emerald-500/5 border border-teal-500/30 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+            <div className="w-14 h-14 rounded-full bg-teal-500/20 border border-teal-500/40 flex items-center justify-center flex-shrink-0">
+              <Target className="w-7 h-7 text-teal-400" />
             </div>
+            <div className="flex-grow text-center sm:text-left">
+              <h3 className="text-xl font-bold text-white mb-1">The Swing Flaw Audit — Free</h3>
+              <p className="text-slate-400 text-sm">
+                Upload one swing video. Get your single biggest energy leak identified in plain language, plus one drill to fix it. No sensors. No credit card.
+              </p>
+            </div>
+            <Button asChild className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-6 flex-shrink-0">
+              <Link to="/diagnostic">Get Your Free Audit →</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
 
-            {/* 2. STARTER — $49/month (NEW) */}
-            <div className="bg-slate-900/80 border border-teal-500/50 rounded-2xl p-6 flex flex-col relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-teal-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
-                New
+      {/* Pricing Cards — 3 Core Tiers */}
+      <section className="pb-12 sm:pb-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid md:grid-cols-3 gap-5 sm:gap-6 items-start">
+            
+            {/* Tier 1: The Barrels App */}
+            <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-6 sm:p-8 flex flex-col">
+              <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3">
+                Self-Guided
               </div>
-              
-              <div className="mb-6 pt-4">
-                <h3 className="text-2xl font-bold text-white mb-2">Starter</h3>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-5xl font-black text-white">$49</span>
-                  <span className="text-xl text-slate-400">/month</span>
-                </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-white mb-1">The Barrels App</h3>
+              <p className="text-slate-400 text-sm mb-4">The System. No Guesswork.</p>
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-4xl sm:text-5xl font-black text-white">$47</span>
+                <span className="text-lg text-slate-400">/month</span>
               </div>
+              <p className="text-xs text-slate-500 mb-6">or $397/year (save $167)</p>
 
-              <ul className="space-y-4 mb-6 flex-grow">
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>🔓 Full Drill Library Access</span>
+              <ul className="space-y-3 mb-8 flex-grow">
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <span>Just video. No sensors. Record on your phone.</span>
                 </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>📱 Bring Your Own Sensor (BYOS)</span>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <span>4-Pillar Swing Scoring (Body, Brain, Bat, Ball)</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <span>Energy Archetype Classification with roadmap</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <span>Pelvis Dysfunction Detection</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <span>PCE Model — predicted bat speed & exit velo</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <span>AI Drill Prescriptions based on your motor profile</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <span>24/7 Coach Barrels AI assistant</span>
                 </li>
               </ul>
-
-              <p className="text-xs text-slate-400 text-center mb-4">Perfect for players with their own sensor</p>
 
               <Button 
-                onClick={() => handleCheckout('starter')}
-                className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-6 text-lg"
+                onClick={() => handleCheckout('barrels_app')}
+                className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-5 text-base"
               >
-                Get Started
+                Start Training
               </Button>
+              <p className="text-xs text-slate-500 text-center mt-3">Cancel anytime. Your data stays yours.</p>
             </div>
 
-            {/* 3. THE ACADEMY — $99/month (MOST POPULAR) */}
-            <div className="bg-slate-900 border-2 border-teal-500 rounded-2xl p-8 flex flex-col relative ring-4 ring-teal-500/30 scale-105 shadow-2xl shadow-teal-500/20 md:-mt-4 md:mb-4">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-6 py-2 bg-teal-500 rounded-full text-sm font-bold text-white uppercase tracking-wider">
+            {/* Tier 2: The Pro Academy — MOST POPULAR */}
+            <div className="bg-slate-900 border-2 border-red-500/60 rounded-2xl p-6 sm:p-8 flex flex-col relative ring-4 ring-red-500/20 md:-translate-y-3 shadow-2xl shadow-red-500/10">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-5 py-1.5 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap">
                 Most Popular
               </div>
               
-              <div className="mb-6 pt-2">
-                <h3 className="text-2xl font-bold text-white mb-2">The Academy</h3>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-5xl font-black text-white">$99</span>
-                  <span className="text-xl text-slate-400">/month</span>
-                </div>
+              <div className="text-red-400 text-xs font-bold uppercase tracking-wider mb-3 pt-2">
+                Data + Coaching
               </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-white mb-1">The Pro Academy</h3>
+              <p className="text-slate-400 text-sm mb-4">The combination that actually develops hitters.</p>
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-4xl sm:text-5xl font-black text-white">$149</span>
+                <span className="text-lg text-slate-400">/month</span>
+              </div>
+              <p className="text-xs text-slate-500 mb-6">or $1,297/year (save $491)</p>
 
-              <ul className="space-y-4 mb-8 flex-grow">
-                {/* FREE SENSOR KIT - HIGHLIGHTED */}
-                <li className="flex items-start gap-3 p-3 bg-gradient-to-r from-amber-500/20 to-orange-500/10 border border-amber-500/40 rounded-xl">
-                  <Gift className="w-6 h-6 text-amber-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-amber-300 font-bold">🎁 FREE Smart Sensor Kit</span>
-                    <span className="block text-amber-400/80 text-sm">(We ship it today)</span>
-                  </div>
+              <ul className="space-y-3 mb-8 flex-grow">
+                <li className="flex items-start gap-3 text-slate-200 text-sm font-medium">
+                  <Zap className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>Everything in the Barrels App</span>
                 </li>
-                
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>📅 Monday Group Coaching Calls</span>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>Weekly Live Film Room with Coach Strickland</span>
                 </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>🤖 Coach Rick AI access</span>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>Monthly Reboot Motion Biomechanics Deep Dive</span>
                 </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>📊 Daily Kinetic DNA Tracking</span>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>48-Hour Priority Report Turnaround</span>
                 </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <span>⚾ Automated Drill Prescription</span>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>Advanced Session Tracking with trend lines</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span>The Barrels Playbook — monthly Coach Rick breakdown</span>
                 </li>
               </ul>
 
               <Button 
-                onClick={() => handleCheckout('academy')}
-                className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-6 text-lg"
+                onClick={() => handleCheckout('pro_academy')}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-5 text-base"
               >
-                Join The Academy
+                Join The Pro Academy
               </Button>
+              <p className="text-xs text-slate-400 text-center mt-3">
+                One private lesson costs $150–$200. This is weekly access for the same price.
+              </p>
             </div>
 
-            {/* 4. ELITE — $199/month (LIMITED) */}
-            <div className="bg-gradient-to-b from-slate-900 to-red-950/30 border-2 border-red-500/50 rounded-2xl p-6 flex flex-col relative">
-              {/* VIP Badge */}
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-red-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
-                VIP ACCESS
+            {/* Tier 3: The Big League Blueprint */}
+            <div className="bg-gradient-to-b from-slate-900 to-amber-950/20 border-2 border-amber-500/40 rounded-2xl p-6 sm:p-8 flex flex-col relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-amber-600 rounded-full text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap">
+                Application Only
               </div>
               
-              <div className="mb-6 pt-4">
-                <h3 className="text-2xl font-bold text-white mb-2">Elite</h3>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-5xl font-black text-white">$199</span>
-                  <span className="text-xl text-slate-400">/month</span>
-                </div>
+              <div className="text-amber-400 text-xs font-bold uppercase tracking-wider mb-3 pt-2">
+                1:1 with Coach Rick
               </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-white mb-1">Big League Blueprint</h3>
+              <p className="text-slate-400 text-sm mb-4">For the player serious about the next level.</p>
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-4xl sm:text-5xl font-black text-white">$750</span>
+                <span className="text-lg text-slate-400">/month</span>
+              </div>
+              <p className="text-xs text-slate-500 mb-6">3-month minimum · or $1,997 for 3-mo block</p>
 
-              <ul className="space-y-4 mb-6 flex-grow">
-                {/* Everything in Academy */}
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span className="font-semibold">✅ Everything in Academy</span>
+              <ul className="space-y-3 mb-6 flex-grow">
+                <li className="flex items-start gap-3 text-slate-200 text-sm font-medium">
+                  <Zap className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <span>Everything in the Pro Academy</span>
                 </li>
-                
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span>📞 TWO 1:1 Zoom calls per month</span>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <span>Bi-weekly 1:1 Zoom with Coach Strickland (45 min)</span>
                 </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span>🎥 Priority Video Analysis</span>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <span>Priority WhatsApp/Text — 24hr response (Mon–Fri)</span>
                 </li>
-                <li className="flex items-start gap-3 text-slate-200">
-                  <Check className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span>💬 Direct Text Access to Coach</span>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <span>Custom Advance Scouting & Pitcher Attack Plans</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <span>Unlimited Reboot Motion reports — all reviewed personally</span>
+                </li>
+                <li className="flex items-start gap-3 text-slate-200 text-sm">
+                  <Check className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <span>Quarterly Recruitment Strategy Session</span>
                 </li>
               </ul>
 
-              {/* Limited Spots Warning */}
-              <div className="flex items-center justify-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg mb-6">
-                <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                <span className="text-red-400 text-sm font-semibold">⚠️ Limited to 20 players</span>
+              {/* Scarcity */}
+              <div className="flex items-center justify-center gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg mb-5">
+                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <span className="text-amber-400 text-xs font-semibold">Capped at 15 players</span>
               </div>
 
-              <Button 
-                onClick={() => handleCheckout('elite')}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-6 text-lg"
-              >
-                Get VIP Access
+              <Button asChild className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-5 text-base">
+                <a href="mailto:rick@catchingbarrels.io?subject=Big League Blueprint Application">Apply for the Blueprint →</a>
               </Button>
+              <p className="text-xs text-slate-500 text-center mt-3">
+                Applications reviewed personally by Coach Strickland.
+              </p>
             </div>
 
           </div>
         </div>
       </section>
 
-      {/* Value Comparison */}
-      <section className="pb-16">
+      {/* Coaches & Organizations */}
+      <section className="pb-12 sm:pb-16">
         <div className="max-w-4xl mx-auto px-4">
-          <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/5 border border-amber-500/30 rounded-2xl p-8 text-center">
-            <Gift className="w-12 h-12 text-amber-400 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold text-white mb-2">The Academy Value</h3>
-            <p className="text-slate-300 mb-4">
-              Your first month includes the <span className="text-amber-400 font-bold">FREE Smart Sensor Kit</span> (retail $150).
-            </p>
-            <p className="text-slate-400 text-sm">
-              That's $150 of hardware + full coaching access for just $99. No contracts. Cancel anytime.
-            </p>
+          <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row items-start gap-5">
+              <div className="w-14 h-14 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center flex-shrink-0">
+                <Users className="w-7 h-7 text-slate-300" />
+              </div>
+              <div className="flex-grow">
+                <h3 className="text-xl font-bold text-white mb-1">Coaches & Organizations License</h3>
+                <p className="text-slate-400 text-sm mb-4">
+                  Bring pro-level biomechanics to your entire roster. Unified Coach Dashboard, bulk video processing, and monthly strategy calls with Coach Strickland.
+                </p>
+                <div className="grid sm:grid-cols-3 gap-3 mb-5">
+                  <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                    <div className="text-lg font-black text-white">$499</div>
+                    <div className="text-xs text-slate-400">up to 10 players</div>
+                  </div>
+                  <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                    <div className="text-lg font-black text-white">$997</div>
+                    <div className="text-xs text-slate-400">up to 25 players</div>
+                  </div>
+                  <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                    <div className="text-lg font-black text-white">Custom</div>
+                    <div className="text-xs text-slate-400">college & MLB enterprise</div>
+                  </div>
+                </div>
+                <Button asChild variant="outline" className="border-slate-600 hover:bg-slate-800 text-white font-bold">
+                  <a href="mailto:rick@catchingbarrels.io?subject=Coaches License Inquiry">Request a Demo →</a>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Value Anchor */}
+      <section className="pb-12 sm:pb-16">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="bg-gradient-to-r from-red-500/10 to-amber-500/5 border border-red-500/30 rounded-2xl p-6 sm:p-8 text-center">
+            <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">The Math Is Simple</h3>
+            <div className="grid sm:grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-black text-red-400">$150–$250</div>
+                <div className="text-xs text-slate-400 mt-1">One private session with a professional coach</div>
+              </div>
+              <div>
+                <div className="text-2xl font-black text-white">$149/mo</div>
+                <div className="text-xs text-slate-400 mt-1">Weekly Film Room + monthly deep dive + full platform</div>
+              </div>
+              <div>
+                <div className="text-2xl font-black text-teal-400">$47/mo</div>
+                <div className="text-xs text-slate-400 mt-1">Pro-level swing analysis on every upload</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Ascension Path */}
+      <section className="pb-12 sm:pb-16">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <h3 className="text-lg font-bold text-white mb-6">Your Path Forward</h3>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 text-sm">
+            <div className="bg-teal-500/10 border border-teal-500/30 rounded-lg px-4 py-2 text-teal-400 font-medium">
+              Free Audit
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-600 rotate-90 sm:rotate-0" />
+            <div className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white font-medium">
+              Barrels App · $47
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-600 rotate-90 sm:rotate-0" />
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-2 text-red-400 font-medium">
+              Pro Academy · $149
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-600 rotate-90 sm:rotate-0" />
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-2 text-amber-400 font-medium">
+              Blueprint · $750
+            </div>
           </div>
         </div>
       </section>
 
       {/* FAQ */}
-      <section className="py-16">
+      <section className="py-12 sm:py-16">
         <div className="max-w-3xl mx-auto px-4">
-          <h2 className="text-3xl font-bold text-white mb-8 text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 text-center">
             Common Questions
           </h2>
           <Accordion type="single" collapsible className="w-full">
             {faqs.map((faq, index) => (
               <AccordionItem key={index} value={`faq-${index}`} className="border-slate-800">
-                <AccordionTrigger className="text-white hover:text-teal-400 text-left">
+                <AccordionTrigger className="text-white hover:text-red-400 text-left">
                   {faq.question}
                 </AccordionTrigger>
                 <AccordionContent className="text-slate-400">
@@ -301,17 +383,17 @@ export default function Pricing() {
       </section>
 
       {/* Final CTA */}
-      <section className="py-16 bg-slate-900/50">
+      <section className="py-12 sm:py-16 bg-slate-900/50">
         <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
             Ready to stop guessing?
           </h2>
           <p className="text-slate-400 mb-8">
-            Get your free Kinetic DNA Diagnostic and see exactly what's holding you back.
+            Upload one swing video. See your biggest energy leak in 60 seconds. Free.
           </p>
-          <Button asChild size="lg" className="bg-teal-500 hover:bg-teal-600 text-white font-bold px-8 py-6 text-lg">
+          <Button asChild size="lg" className="bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-6 text-lg">
             <Link to="/diagnostic" className="flex items-center gap-2">
-              Start Your Free Diagnostic
+              Get Your Free Swing Flaw Audit
               <ArrowRight className="w-5 h-5" />
             </Link>
           </Button>
