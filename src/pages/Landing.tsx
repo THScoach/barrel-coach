@@ -67,27 +67,32 @@ const PLANS = [
   {
     name: "The Barrels App",
     price: "$47/mo",
-    line: "The system. No guesswork.",
-    features: ["Just video. No sensors.", "4-Pillar Swing Scoring on every upload", "Energy Archetype Classification", "AI Drill Prescriptions"],
+    line: "The System. No Guesswork.",
+    description: "Record on your phone. Get pro-level biomechanics data instantly.",
+    features: ["Just video. No sensors.", "4-Pillar Swing Scoring (0–100)", "Energy Archetype + Pelvis Detection", "AI Drill Prescriptions + PCE Model"],
     cta: "Start Training",
     featured: false,
   },
   {
     name: "The Pro Academy",
     price: "$149/mo",
-    line: "Data + coaching. The combination that develops hitters.",
-    features: ["Everything in Barrels App", "Weekly Live Film Room with Coach Rick", "Monthly Reboot Motion Deep Dive", "48-Hour Priority Reports"],
+    line: "Data + Coaching. The combination that develops hitters.",
+    description: "The App tells you what's wrong. The Academy tells you how to fix it.",
+    features: ["Everything in Barrels App", "Weekly Film Room with Coach Rick", "Monthly Biomechanics Deep Dive", "48-Hour Priority Reports + Playbook"],
     cta: "Join The Academy",
     featured: true,
+    valueAnchor: "One private lesson costs $150–$200. This is weekly access.",
   },
   {
     name: "Big League Blueprint",
     price: "$750/mo",
-    line: "Direct access to Coach Strickland. 15 spots only.",
-    features: ["Everything in Pro Academy", "Bi-weekly 1:1 Zoom with Coach Rick", "Priority Text/WhatsApp Access", "Custom Advance Scouting"],
+    line: "Direct 1:1 access to Coach Strickland.",
+    description: "Not a program — a partnership. Application only.",
+    features: ["Everything in Pro Academy", "Bi-weekly 1:1 Zoom (45 min)", "Priority WhatsApp/Text Access", "Custom Scouting + Recruitment Strategy"],
     cta: "Apply Now",
     featured: false,
     isApplication: true,
+    note: "Capped at 15 players",
   },
 ];
 
@@ -288,10 +293,10 @@ export default function Landing() {
             Start free. Go deeper when you're ready.
           </p>
           <div className="grid sm:grid-cols-3 gap-4 sm:gap-5">
-            {PLANS.filter(p => p.name !== 'Free Diagnostic').map((p) => (
+            {PLANS.map((p) => (
               <div
                 key={p.name}
-                className={`relative rounded-2xl p-5 sm:p-6 text-center transition-all ${
+                className={`relative rounded-2xl p-5 sm:p-6 flex flex-col transition-all ${
                   p.featured
                     ? 'bg-gradient-to-b from-red-950/40 to-slate-950 border-2 border-red-500/50 ring-1 ring-red-500/20 sm:-translate-y-2'
                     : 'bg-slate-950 border border-slate-800 hover:border-slate-700'
@@ -303,11 +308,12 @@ export default function Landing() {
                   </div>
                 )}
                 <h3 className="font-bold text-white text-sm sm:text-lg mb-1">{p.name}</h3>
-                <p className={`text-2xl sm:text-3xl font-black mb-2 ${p.featured ? 'text-red-400' : 'text-white'}`}>
+                <p className={`text-2xl sm:text-3xl font-black mb-1 ${p.featured ? 'text-red-400' : 'text-white'}`}>
                   {p.price}
                 </p>
-                <p className="text-slate-400 text-xs sm:text-sm mb-4">{p.line}</p>
-                <ul className="text-left space-y-1.5 mb-5">
+                <p className="text-slate-400 text-xs sm:text-sm mb-2 font-medium">{p.line}</p>
+                <p className="text-slate-500 text-[11px] sm:text-xs mb-4">{p.description}</p>
+                <ul className="text-left space-y-1.5 mb-4 flex-grow">
                   {p.features.map((f, i) => (
                     <li key={i} className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-300">
                       <span className={`mt-0.5 ${p.featured ? 'text-red-400' : 'text-slate-500'}`}>✓</span>
@@ -315,6 +321,12 @@ export default function Landing() {
                     </li>
                   ))}
                 </ul>
+                {'note' in p && p.note && (
+                  <p className="text-amber-400 text-[10px] font-semibold text-center mb-3">{p.note}</p>
+                )}
+                {'valueAnchor' in p && p.valueAnchor && (
+                  <p className="text-slate-400 text-[10px] italic text-center mb-3">{p.valueAnchor}</p>
+                )}
                 <Button
                   asChild
                   size="sm"
@@ -331,7 +343,7 @@ export default function Landing() {
           </div>
           <div className="text-center mt-5 sm:mt-8 space-y-2">
             <Link to="/diagnostic" className="block text-slate-300 hover:text-white text-sm font-semibold transition-colors">
-              Not sure? Get a Free Diagnostic first →
+              Not sure? Get a Free Swing Flaw Audit first →
             </Link>
           </div>
         </div>
