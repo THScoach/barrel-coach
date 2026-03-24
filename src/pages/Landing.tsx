@@ -191,28 +191,28 @@ export default function Landing() {
       </section>
 
       {/* ─── ENERGY ARCHETYPES ─── */}
-      <section className="py-20 bg-slate-900/40">
+      <section className="py-14 sm:py-20 bg-slate-900/40">
         <div className="max-w-5xl mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-black text-center mb-4">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-center mb-3 sm:mb-4">
             Discover your{" "}
             <span className="text-red-500">Energy Archetype</span>
           </h2>
-          <p className="text-slate-400 text-center mb-12 max-w-2xl mx-auto">
+          <p className="text-slate-400 text-center mb-8 sm:mb-12 max-w-2xl mx-auto text-sm sm:text-base">
             Every hitter generates power differently. Our biomechanics engine classifies your 
             movement pattern into one of seven archetypes — so your training matches your body.
           </p>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {ARCHETYPES.map((a) => (
               <div
                 key={a.name}
-                className="relative bg-slate-950 border border-slate-800 rounded-xl p-5 hover:border-slate-600 transition-all group overflow-hidden"
+                className="relative bg-slate-950 border border-slate-800 rounded-xl p-4 sm:p-5 hover:border-slate-600 transition-all group overflow-hidden"
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${a.color} opacity-0 group-hover:opacity-[0.06] transition-opacity`} />
                 <div className="relative">
-                  <a.icon className="w-6 h-6 text-slate-500 group-hover:text-red-400 mb-3 transition-colors" />
-                  <h3 className="font-bold text-white text-sm mb-1">{a.name}</h3>
-                  <p className="text-slate-500 text-xs leading-relaxed">{a.description}</p>
+                  <a.icon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500 group-hover:text-red-400 mb-2 sm:mb-3 transition-colors" />
+                  <h3 className="font-bold text-white text-xs sm:text-sm mb-0.5 sm:mb-1">{a.name}</h3>
+                  <p className="text-slate-500 text-[10px] sm:text-xs leading-relaxed">{a.description}</p>
                 </div>
               </div>
             ))}
