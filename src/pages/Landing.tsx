@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Upload, Brain, Target, Zap, Activity, Flame, Crosshair, Gauge, Wind, Scissors, Unplug, Instagram, Twitter, Mail } from "lucide-react";
+import { CoachRickSection } from "@/components/landing/CoachRickSection";
 
 const PILLARS = [
   {
@@ -154,6 +155,9 @@ export default function Landing() {
           </p>
         </div>
       </section>
+
+      {/* ─── COACH RICK ─── */}
+      <CoachRickSection />
 
       {/* ─── THE SOLUTION (4B Pillars) ─── */}
       <section className="py-20">
