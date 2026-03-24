@@ -238,19 +238,19 @@ export default function Landing() {
       {/* ─── TESTIMONIALS ─── */}
       <TestimonialsSection />
 
-      <section className="py-20">
+      <section className="py-14 sm:py-20">
         <div className="max-w-4xl mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-black text-center mb-12">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-center mb-8 sm:mb-12">
             How It Works
           </h2>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid sm:grid-cols-3 gap-8">
             {STEPS.map((s) => (
               <div key={s.number} className="text-center">
-                <div className="w-14 h-14 rounded-full bg-red-600 text-white text-2xl font-black flex items-center justify-center mx-auto mb-4">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-red-600 text-white text-xl sm:text-2xl font-black flex items-center justify-center mx-auto mb-3 sm:mb-4">
                   {s.number}
                 </div>
-                <h3 className="text-lg font-bold mb-2">{s.title}</h3>
-                <p className="text-slate-400 text-sm leading-relaxed">{s.detail}</p>
+                <h3 className="text-base sm:text-lg font-bold mb-2">{s.title}</h3>
+                <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">{s.detail}</p>
               </div>
             ))}
           </div>
