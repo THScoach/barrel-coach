@@ -64,10 +64,30 @@ const STEPS = [
 ];
 
 const PLANS = [
-  { name: "Free Diagnostic", price: "Free", line: "Kinetic DNA Profile + PDF report" },
-  { name: "Starter", price: "$49/mo", line: "Full drill library — BYOS" },
-  { name: "Academy", price: "$99/mo", line: "Sensor kit + weekly coaching" },
-  { name: "Elite", price: "$199/mo", line: "1:1 Zoom + direct text access" },
+  {
+    name: "Starter",
+    price: "$49/mo",
+    line: "For players with their own sensor",
+    features: ["Full Drill Library access", "Bring Your Own Sensor (BYOS)"],
+    cta: "Get Started",
+    featured: false,
+  },
+  {
+    name: "The Academy",
+    price: "$99/mo",
+    line: "Full coaching + FREE Smart Sensor Kit",
+    features: ["FREE Smart Sensor Kit included", "Monday Group Coaching Calls", "Coach Rick AI access", "Daily Kinetic DNA Tracking"],
+    cta: "Join The Academy",
+    featured: true,
+  },
+  {
+    name: "Elite",
+    price: "$199/mo",
+    line: "VIP access to Coach Rick",
+    features: ["Everything in Academy", "TWO 1:1 Zoom calls / month", "Priority Video Analysis", "Direct Text Access"],
+    cta: "Get VIP Access",
+    featured: false,
+  },
 ];
 
 export default function Landing() {
@@ -260,24 +280,57 @@ export default function Landing() {
       {/* ─── PRICING PREVIEW ─── */}
       <section className="py-14 sm:py-20 bg-slate-900/60">
         <div className="max-w-5xl mx-auto px-4">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-center mb-8 sm:mb-12">
-            Simple Pricing
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-center mb-3 sm:mb-4">
+            Pick Your Path
           </h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {PLANS.map((p) => (
+          <p className="text-slate-400 text-center text-sm sm:text-base mb-8 sm:mb-12 max-w-xl mx-auto">
+            Start free. Go deeper when you're ready.
+          </p>
+          <div className="grid sm:grid-cols-3 gap-4 sm:gap-5">
+            {PLANS.filter(p => p.name !== 'Free Diagnostic').map((p) => (
               <div
                 key={p.name}
-                className="bg-slate-950 border border-slate-800 rounded-xl p-4 sm:p-5 text-center"
+                className={`relative rounded-2xl p-5 sm:p-6 text-center transition-all ${
+                  p.featured
+                    ? 'bg-gradient-to-b from-red-950/40 to-slate-950 border-2 border-red-500/50 ring-1 ring-red-500/20 sm:-translate-y-2'
+                    : 'bg-slate-950 border border-slate-800 hover:border-slate-700'
+                }`}
               >
-                <h3 className="font-bold text-white text-sm sm:text-base mb-1">{p.name}</h3>
-                <p className="text-xl sm:text-2xl font-black text-red-500 mb-1 sm:mb-2">{p.price}</p>
-                <p className="text-slate-400 text-[10px] sm:text-xs">{p.line}</p>
+                {p.featured && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] sm:text-xs font-bold uppercase tracking-wider px-3 py-0.5 rounded-full">
+                    Most Popular
+                  </div>
+                )}
+                <h3 className="font-bold text-white text-sm sm:text-lg mb-1">{p.name}</h3>
+                <p className={`text-2xl sm:text-3xl font-black mb-2 ${p.featured ? 'text-red-400' : 'text-white'}`}>
+                  {p.price}
+                </p>
+                <p className="text-slate-400 text-xs sm:text-sm mb-4">{p.line}</p>
+                <ul className="text-left space-y-1.5 mb-5">
+                  {p.features.map((f, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-300">
+                      <span className={`mt-0.5 ${p.featured ? 'text-red-400' : 'text-slate-500'}`}>✓</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  asChild
+                  size="sm"
+                  className={`w-full font-bold text-xs sm:text-sm ${
+                    p.featured
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : 'bg-slate-800 hover:bg-slate-700 text-white'
+                  }`}
+                >
+                  <Link to="/pricing">{p.cta}</Link>
+                </Button>
               </div>
             ))}
           </div>
-          <div className="text-center mt-6 sm:mt-8">
-            <Link to="/pricing" className="text-red-400 hover:text-red-300 text-sm font-semibold underline underline-offset-4">
-              View full details →
+          <div className="text-center mt-5 sm:mt-8 space-y-2">
+            <Link to="/diagnostic" className="block text-slate-300 hover:text-white text-sm font-semibold transition-colors">
+              Not sure? Get a Free Diagnostic first →
             </Link>
           </div>
         </div>
