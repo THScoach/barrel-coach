@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Check, Zap, Users, Crown, Target, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Check, Zap, Users, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const tiers = [
@@ -39,7 +39,7 @@ const tiers = [
     features: [
       'Everything in Barrels App',
       'Weekly Live Film Room with Coach Rick',
-      'Monthly Reboot Motion Deep Dive',
+      'Monthly Biomechanics Deep Dive',
       '48-Hour Priority Reports',
       'Advanced Session Tracking',
       'The Barrels Playbook — monthly breakdown',
@@ -47,6 +47,7 @@ const tiers = [
     cta: 'Join The Academy',
     ctaLink: '/pricing',
     ctaStyle: 'bg-red-600 hover:bg-red-700',
+    valueAnchor: 'One private lesson costs $150–$200. This is weekly access.',
   },
   {
     name: 'Big League Blueprint',
@@ -63,7 +64,7 @@ const tiers = [
       'Bi-weekly 1:1 Zoom (45 min each)',
       'Priority WhatsApp/Text Access',
       'Custom Advance Scouting',
-      'Unlimited Reboot Motion reports',
+      'Unlimited biomechanics reports',
       'Quarterly Recruitment Strategy',
     ],
     cta: 'Apply Now',
@@ -136,6 +137,10 @@ export function PricingSection() {
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
                   <span className="text-amber-400 text-xs font-semibold">{tier.note}</span>
                 </div>
+              )}
+
+              {'valueAnchor' in tier && tier.valueAnchor && (
+                <p className="text-xs text-slate-400 text-center italic mb-4">{tier.valueAnchor}</p>
               )}
 
               <Button asChild className={`w-full font-bold ${tier.ctaStyle}`}>

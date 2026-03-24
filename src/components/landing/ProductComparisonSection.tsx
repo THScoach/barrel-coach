@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Video, Target, ClipboardList, TrendingUp, Building2, Microscope, Zap, Star, Clock, Gift, Brain, BarChart3, Users } from 'lucide-react';
+import { Video, Target, ClipboardList, TrendingUp, Building2, Microscope, Zap, Star, Clock, Brain, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ProductCardProps {
@@ -8,6 +8,8 @@ interface ProductCardProps {
   price: string;
   priceLabel: string;
   annualNote?: string;
+  headline: string;
+  description: string;
   features: { icon: React.ReactNode; text: string }[];
   timing: string;
   cta: string;
@@ -20,7 +22,7 @@ interface ProductCardProps {
 }
 
 function ProductCard({ 
-  title, price, priceLabel, annualNote, features, timing, cta, ctaLink, 
+  title, price, priceLabel, annualNote, headline, description, features, timing, cta, ctaLink, 
   bottomLabel, bottomLabelColor, isPopular, variant, isExternal
 }: ProductCardProps) {
   return (
@@ -39,15 +41,18 @@ function ProductCard({
         </div>
       )}
 
-      <div className="text-center mb-6">
+      <div className="text-center mb-4">
         <div className="text-4xl font-black text-[#1E3A8A]">{price}</div>
         <div className="text-sm text-muted-foreground">{priceLabel}</div>
         {annualNote && <div className="text-xs text-muted-foreground mt-1">{annualNote}</div>}
       </div>
 
-      <h3 className="text-lg font-bold text-[#1E3A8A] text-center mb-4 uppercase tracking-wide">
+      <h3 className="text-lg font-bold text-[#1E3A8A] text-center mb-2 uppercase tracking-wide">
         {title}
       </h3>
+      <p className="text-xs text-center text-muted-foreground mb-4 font-medium">{headline}</p>
+
+      <p className="text-xs text-muted-foreground mb-4 leading-relaxed">{description}</p>
 
       <ul className="space-y-3 flex-1 mb-6">
         {features.map((feature, i) => (
@@ -94,11 +99,13 @@ export function ProductComparisonSection() {
       price: "$47",
       priceLabel: "/month",
       annualNote: "$397/year (save $167)",
+      headline: "The System. No Guesswork.",
+      description: "Record your swing on your phone. Our system processes it into biomechanics data automatically and scores it across four pillars. No more guessing what to work on.",
       features: [
         { icon: <Video className="w-4 h-4" />, text: "Just video. No sensors." },
         { icon: <BarChart3 className="w-4 h-4" />, text: "4-Pillar Swing Scoring on every upload" },
         { icon: <Brain className="w-4 h-4" />, text: "Energy Archetype Classification" },
-        { icon: <ClipboardList className="w-4 h-4" />, text: "AI Drill Prescriptions" },
+        { icon: <ClipboardList className="w-4 h-4" />, text: "AI Drill Prescriptions based on motor profile" },
       ],
       timing: "Self-guided training",
       cta: "START TRAINING →",
@@ -112,12 +119,14 @@ export function ProductComparisonSection() {
       price: "$149",
       priceLabel: "/month",
       annualNote: "$1,297/year (save $491)",
+      headline: "Data + Coaching. The Combination That Develops Hitters.",
+      description: "The App tells you what's wrong. The Academy tells you how to fix it — with a real coach in the room, every week.",
       features: [
         { icon: <Zap className="w-4 h-4" />, text: "Everything in Barrels App" },
         { icon: <Building2 className="w-4 h-4" />, text: "Weekly Live Film Room with Coach Rick" },
-        { icon: <Microscope className="w-4 h-4" />, text: "Monthly Reboot Motion Deep Dive" },
+        { icon: <Microscope className="w-4 h-4" />, text: "Monthly Biomechanics Deep Dive" },
         { icon: <TrendingUp className="w-4 h-4" />, text: "48-Hour Priority Reports" },
-        { icon: <ClipboardList className="w-4 h-4" />, text: "The Barrels Playbook" },
+        { icon: <ClipboardList className="w-4 h-4" />, text: "The Barrels Playbook — monthly breakdown" },
       ],
       timing: "Weekly coaching access",
       cta: "JOIN THE ACADEMY →",
@@ -132,11 +141,13 @@ export function ProductComparisonSection() {
       price: "$750",
       priceLabel: "/month",
       annualNote: "$1,997 for 3-month block",
+      headline: "For the Player Serious About the Next Level.",
+      description: "Direct, personalized access to Coach Strickland. Not a program — a partnership. Capped at 15 players.",
       features: [
         { icon: <Zap className="w-4 h-4" />, text: "Everything in Pro Academy" },
         { icon: <Video className="w-4 h-4" />, text: "Bi-weekly 1:1 Zoom with Coach Rick" },
         { icon: <Target className="w-4 h-4" />, text: "Priority WhatsApp/Text Access" },
-        { icon: <ClipboardList className="w-4 h-4" />, text: "Custom Advance Scouting" },
+        { icon: <ClipboardList className="w-4 h-4" />, text: "Custom Advance Scouting & Attack Plans" },
       ],
       timing: "Capped at 15 players",
       cta: "APPLY NOW →",
