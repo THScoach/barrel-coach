@@ -165,25 +165,25 @@ export default function Landing() {
       <MLBTechnologySection />
 
       {/* ─── THE SOLUTION (4B Pillars) ─── */}
-      <section className="py-20">
+      <section className="py-14 sm:py-20">
         <div className="max-w-5xl mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-black text-center mb-4">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-center mb-3 sm:mb-4">
             Your body has a blueprint.{" "}
             <span className="text-red-500">We read it.</span>
           </h2>
-          <p className="text-slate-500 text-center mb-12 text-lg">The 4B System — powered by Reboot Motion biomechanics data</p>
+          <p className="text-slate-500 text-center mb-8 sm:mb-12 text-base sm:text-lg">The 4B System — powered by Reboot Motion biomechanics data</p>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {PILLARS.map((p) => (
               <div
                 key={p.label}
-                className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center hover:border-red-500/40 transition-colors group"
+                className="bg-slate-900 border border-slate-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:border-red-500/40 transition-colors group"
               >
-                <div className="w-14 h-14 rounded-xl bg-red-600/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-red-600/20 transition-colors">
-                  <p.icon className="w-7 h-7 text-red-500" />
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-red-600/10 flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:bg-red-600/20 transition-colors">
+                  <p.icon className="w-5 h-5 sm:w-7 sm:h-7 text-red-500" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">{p.label}</h3>
-                <p className="text-slate-400 text-sm">{p.description}</p>
+                <h3 className="text-base sm:text-xl font-bold mb-1 sm:mb-2">{p.label}</h3>
+                <p className="text-slate-400 text-xs sm:text-sm">{p.description}</p>
               </div>
             ))}
           </div>
