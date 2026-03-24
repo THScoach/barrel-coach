@@ -65,28 +65,29 @@ const STEPS = [
 
 const PLANS = [
   {
-    name: "Starter",
-    price: "$49/mo",
-    line: "For players with their own sensor",
-    features: ["Full Drill Library access", "Bring Your Own Sensor (BYOS)"],
-    cta: "Get Started",
+    name: "The Barrels App",
+    price: "$47/mo",
+    line: "The system. No guesswork.",
+    features: ["Just video. No sensors.", "4-Pillar Swing Scoring on every upload", "Energy Archetype Classification", "AI Drill Prescriptions"],
+    cta: "Start Training",
     featured: false,
   },
   {
-    name: "The Academy",
-    price: "$99/mo",
-    line: "Full coaching + FREE Smart Sensor Kit",
-    features: ["FREE Smart Sensor Kit included", "Monday Group Coaching Calls", "Coach Rick AI access", "Daily Kinetic DNA Tracking"],
+    name: "The Pro Academy",
+    price: "$149/mo",
+    line: "Data + coaching. The combination that develops hitters.",
+    features: ["Everything in Barrels App", "Weekly Live Film Room with Coach Rick", "Monthly Reboot Motion Deep Dive", "48-Hour Priority Reports"],
     cta: "Join The Academy",
     featured: true,
   },
   {
-    name: "Elite",
-    price: "$199/mo",
-    line: "VIP access to Coach Rick",
-    features: ["Everything in Academy", "TWO 1:1 Zoom calls / month", "Priority Video Analysis", "Direct Text Access"],
-    cta: "Get VIP Access",
+    name: "Big League Blueprint",
+    price: "$750/mo",
+    line: "Direct access to Coach Strickland. 15 spots only.",
+    features: ["Everything in Pro Academy", "Bi-weekly 1:1 Zoom with Coach Rick", "Priority Text/WhatsApp Access", "Custom Advance Scouting"],
+    cta: "Apply Now",
     featured: false,
+    isApplication: true,
   },
 ];
 
