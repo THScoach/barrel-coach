@@ -75,16 +75,16 @@ export default function Landing() {
     <div className="min-h-screen bg-slate-950 text-white">
       {/* ─── NAV ─── */}
       <nav className="fixed top-0 inset-x-0 z-50 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14 sm:h-16">
           <Logo />
-          <div className="flex items-center gap-6">
-            <Link to="/athletes" className="text-sm text-slate-400 hover:text-white transition-colors">
+          <div className="flex items-center gap-4 sm:gap-6">
+            <Link to="/athletes" className="text-xs sm:text-sm text-slate-400 hover:text-white transition-colors">
               Athletes
             </Link>
-            <Link to="/pricing" className="text-sm text-slate-400 hover:text-white transition-colors">
+            <Link to="/pricing" className="text-xs sm:text-sm text-slate-400 hover:text-white transition-colors">
               Plans
             </Link>
-            <Link to="/login" className="text-sm text-slate-400 hover:text-white transition-colors">
+            <Link to="/login" className="text-xs sm:text-sm text-slate-400 hover:text-white transition-colors">
               Login
             </Link>
           </div>
