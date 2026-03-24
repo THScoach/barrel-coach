@@ -92,49 +92,49 @@ export default function Landing() {
       </nav>
 
       {/* ─── HERO ─── */}
-      <section className="relative pt-32 pb-24 overflow-hidden">
+      <section className="relative pt-24 sm:pt-32 pb-16 sm:pb-24 overflow-hidden">
         {/* Ambient glow effects */}
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[160px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-red-600/5 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/3 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-[300px] sm:w-[600px] h-[300px] sm:h-[600px] bg-red-600/10 rounded-full blur-[120px] sm:blur-[160px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[200px] sm:w-[400px] h-[200px] sm:h-[400px] bg-red-600/5 rounded-full blur-[80px] sm:blur-[120px] translate-y-1/2 -translate-x-1/3 pointer-events-none" />
 
-        <div className="relative max-w-4xl mx-auto px-8 text-center">
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-8 text-center">
           {/* Authority badge */}
-          <div className="inline-flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 rounded-full px-4 py-1.5 mb-8">
+          <div className="inline-flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 rounded-full px-3 sm:px-4 py-1.5 mb-6 sm:mb-8">
             <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-xs font-medium text-slate-300 tracking-wide uppercase">
+            <span className="text-[10px] sm:text-xs font-medium text-slate-300 tracking-wide uppercase">
               Built by an Active AAA Hitting Coach
             </span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-7xl font-black leading-[1.1] mb-6 tracking-tight">
+          <h1 className="text-3xl sm:text-5xl md:text-7xl font-black leading-[1.1] mb-5 sm:mb-6 tracking-tight">
             Stop Guessing.{" "}
             <span className="bg-gradient-to-r from-red-500 to-red-400 bg-clip-text text-transparent">
               Start Catching Barrels.
             </span>
           </h1>
 
-          <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10 leading-relaxed">
+          <p className="text-base sm:text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-8 sm:mb-10 leading-relaxed">
             The only hitting platform powered by{" "}
             <span className="text-white font-semibold">Reboot Motion biomechanics</span> — 
             classifying your energy archetype, scoring your swing across 4 pillars, 
             and predicting your batted ball outcomes.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button asChild size="lg" className="bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-6 text-lg shadow-lg shadow-red-600/20">
-              <Link to="/diagnostic" className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+            <Button asChild size="lg" className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-6 text-base sm:text-lg shadow-lg shadow-red-600/20">
+              <Link to="/diagnostic" className="flex items-center justify-center gap-2">
                 Get Your Free Diagnostic <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="border-slate-600 hover:bg-slate-800 text-white font-bold px-8 py-6 text-lg">
+            <Button asChild variant="outline" size="lg" className="w-full sm:w-auto border-slate-600 hover:bg-slate-800 text-white font-bold px-8 py-6 text-base sm:text-lg">
               <Link to="/pricing">View Plans</Link>
             </Button>
           </div>
 
           {/* Tech stack badges */}
-          <div className="flex flex-wrap items-center justify-center gap-3 mt-10">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-8 sm:mt-10">
             {["Reboot Motion Sensors", "4B Scoring Engine", "AI Drill Prescription"].map((badge) => (
-              <span key={badge} className="text-xs text-slate-500 border border-slate-800 rounded-full px-3 py-1">
+              <span key={badge} className="text-[10px] sm:text-xs text-slate-500 border border-slate-800 rounded-full px-2.5 sm:px-3 py-1">
                 {badge}
               </span>
             ))}
