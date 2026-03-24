@@ -64,10 +64,30 @@ const STEPS = [
 ];
 
 const PLANS = [
-  { name: "Free Diagnostic", price: "Free", line: "Kinetic DNA Profile + PDF report" },
-  { name: "Starter", price: "$49/mo", line: "Full drill library — BYOS" },
-  { name: "Academy", price: "$99/mo", line: "Sensor kit + weekly coaching" },
-  { name: "Elite", price: "$199/mo", line: "1:1 Zoom + direct text access" },
+  {
+    name: "Starter",
+    price: "$49/mo",
+    line: "For players with their own sensor",
+    features: ["Full Drill Library access", "Bring Your Own Sensor (BYOS)"],
+    cta: "Get Started",
+    featured: false,
+  },
+  {
+    name: "The Academy",
+    price: "$99/mo",
+    line: "Full coaching + FREE Smart Sensor Kit",
+    features: ["FREE Smart Sensor Kit included", "Monday Group Coaching Calls", "Coach Rick AI access", "Daily Kinetic DNA Tracking"],
+    cta: "Join The Academy",
+    featured: true,
+  },
+  {
+    name: "Elite",
+    price: "$199/mo",
+    line: "VIP access to Coach Rick",
+    features: ["Everything in Academy", "TWO 1:1 Zoom calls / month", "Priority Video Analysis", "Direct Text Access"],
+    cta: "Get VIP Access",
+    featured: false,
+  },
 ];
 
 export default function Landing() {
