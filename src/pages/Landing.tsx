@@ -298,14 +298,14 @@ export default function Landing() {
       </section>
 
       {/* ─── FOOTER ─── */}
-      <footer className="border-t border-slate-800 py-8">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
+      <footer className="border-t border-slate-800 py-6 sm:py-8">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-4 sm:flex-row sm:justify-between text-sm text-slate-500">
           <div className="flex items-center gap-4">
             <Logo size="sm" />
             <span className="hidden sm:inline text-slate-600">|</span>
             <span className="hidden sm:inline text-slate-500 text-xs">Stop guessing. Start catching barrels.</span>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6 flex-wrap justify-center">
             <a href="https://www.instagram.com/catchingbarrels" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
               <Instagram className="w-4 h-4" />
             </a>
