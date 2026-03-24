@@ -1,12 +1,4 @@
-import { Star, Play, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState, useRef } from 'react';
-
-const videoTestimonials = [
-  { src: '/videos/testimonial-1.mp4' },
-  { src: '/videos/testimonial-2.mp4' },
-  { src: '/videos/testimonial-3.mp4' },
-  { src: '/videos/testimonial-4.mp4' },
-];
+import { Star } from 'lucide-react';
 
 const testimonials = [
   {
@@ -40,143 +32,42 @@ const testimonials = [
 ];
 
 export function TestimonialsSection() {
-  const [currentVideo, setCurrentVideo] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  const handlePlayClick = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  const handleVideoEnded = () => {
-    setIsPlaying(false);
-  };
-
-  const goToVideo = (index: number) => {
-    setIsPlaying(false);
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
-    setCurrentVideo(index);
-  };
-
-  const nextVideo = () => {
-    goToVideo((currentVideo + 1) % videoTestimonials.length);
-  };
-
-  const prevVideo = () => {
-    goToVideo((currentVideo - 1 + videoTestimonials.length) % videoTestimonials.length);
-  };
-
   return (
-    <section className="bg-slate-900 py-24">
-      <div className="container max-w-6xl mx-auto px-4">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <span className="inline-block bg-red-600 text-white text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-full mb-4">
-            Testimonials
+    <section className="py-20 bg-slate-900/60">
+      <div className="max-w-5xl mx-auto px-4">
+        <h2 className="text-3xl md:text-4xl font-black text-center mb-4">
+          What Players Are{" "}
+          <span className="bg-gradient-to-r from-red-500 to-red-400 bg-clip-text text-transparent">
+            Saying
           </span>
-          <h2 className="text-4xl md:text-5xl font-bold text-white">
-            WHAT PLAYERS ARE SAYING
-          </h2>
-        </div>
+        </h2>
+        <p className="text-slate-400 text-center mb-12">
+          Real results from hitters who trained with the 4B System
+        </p>
 
-        {/* Video Testimonial Carousel */}
-        <div className="mb-16">
-          <div className="relative max-w-3xl mx-auto">
-            {/* Navigation Arrows */}
-            {videoTestimonials.length > 1 && (
-              <>
-                <button
-                  onClick={prevVideo}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 z-10 w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white hover:bg-slate-700 transition-colors hidden md:flex"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={nextVideo}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 z-10 w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white hover:bg-slate-700 transition-colors hidden md:flex"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </>
-            )}
-
-            {/* Video Player */}
-            <div className="rounded-2xl overflow-hidden shadow-2xl shadow-red-500/10">
-              <video
-                ref={videoRef}
-                key={videoTestimonials[currentVideo].src}
-                src={videoTestimonials[currentVideo].src}
-                className="w-full aspect-video object-cover"
-                onEnded={handleVideoEnded}
-                onClick={handlePlayClick}
-                playsInline
-              />
-              {!isPlaying && (
-                <button
-                  onClick={handlePlayClick}
-                  className="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/30 transition-colors group"
-                >
-                  <div className="w-20 h-20 rounded-full bg-red-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
-                    <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
-                  </div>
-                </button>
-              )}
-            </div>
-
-            {/* Dots Indicator */}
-            {videoTestimonials.length > 1 && (
-              <div className="flex justify-center gap-2 mt-4">
-                {videoTestimonials.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => goToVideo(index)}
-                    className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                      index === currentVideo ? 'bg-red-500' : 'bg-slate-600 hover:bg-slate-500'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-          <p className="text-center text-slate-400 mt-4 text-sm">
-            Hear from players who transformed their swing with the 4B System
-          </p>
-        </div>
-
-        {/* Testimonials Grid */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {testimonials.map((testimonial, index) => (
-            <div 
-              key={index}
-              className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-8"
+        <div className="grid md:grid-cols-2 gap-6">
+          {testimonials.map((t, i) => (
+            <div
+              key={i}
+              className="bg-slate-950 border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors"
             >
-              <div className="flex items-center gap-4 mb-5">
-                <div className="w-14 h-14 rounded-full bg-slate-700 flex items-center justify-center text-lg font-bold text-white">
-                  {testimonial.avatar}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-11 h-11 rounded-full bg-red-600/15 border border-red-500/20 flex items-center justify-center text-sm font-bold text-red-400">
+                  {t.avatar}
                 </div>
                 <div>
-                  <h4 className="font-bold text-white">{testimonial.name}</h4>
-                  <p className="text-sm text-slate-400">{testimonial.role}</p>
+                  <h4 className="font-bold text-white text-sm">{t.name}</h4>
+                  <p className="text-xs text-slate-500">{t.role}</p>
                 </div>
               </div>
-              
-              <p className="text-slate-300 italic leading-relaxed mb-4">
-                "{testimonial.quote}"
+
+              <p className="text-slate-300 text-sm italic leading-relaxed mb-4">
+                "{t.quote}"
               </p>
-              
-              <div className="flex gap-1 text-amber-400">
-                {[...Array(testimonial.rating)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4" fill="currentColor" />
+
+              <div className="flex gap-0.5 text-amber-400">
+                {[...Array(t.rating)].map((_, j) => (
+                  <Star key={j} className="w-3.5 h-3.5" fill="currentColor" />
                 ))}
               </div>
             </div>

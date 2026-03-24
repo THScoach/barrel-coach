@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Upload, Brain, Target, Zap, Activity, Flame, Crosshair, Gauge, Wind, Scissors, Unplug, Instagram, Twitter, Mail } from "lucide-react";
 import { CoachRickSection } from "@/components/landing/CoachRickSection";
 import { MLBTechnologySection } from "@/components/landing/MLBTechnologySection";
+import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
 
 const PILLARS = [
   {
@@ -234,7 +235,9 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ─── HOW IT WORKS ─── */}
+      {/* ─── TESTIMONIALS ─── */}
+      <TestimonialsSection />
+
       <section className="py-20">
         <div className="max-w-4xl mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-black text-center mb-12">
