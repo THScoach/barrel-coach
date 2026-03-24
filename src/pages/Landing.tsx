@@ -221,14 +221,14 @@ export default function Landing() {
       </section>
 
       {/* ─── RESULTS ─── */}
-      <section className="py-20 bg-gradient-to-b from-red-950/30 to-slate-950">
+      <section className="py-14 sm:py-20 bg-gradient-to-b from-red-950/30 to-slate-950">
         <div className="max-w-5xl mx-auto px-4">
-          <h2 className="text-2xl font-bold text-center text-slate-300 mb-12">Proven Results</h2>
-          <div className="grid md:grid-cols-3 gap-8 text-center">
+          <h2 className="text-xl sm:text-2xl font-bold text-center text-slate-300 mb-8 sm:mb-12">Proven Results</h2>
+          <div className="grid grid-cols-3 gap-4 sm:gap-8 text-center">
             {STATS.map((s) => (
               <div key={s.label}>
-                <p className="text-4xl md:text-5xl font-black text-white mb-2">{s.value}</p>
-                <p className="text-slate-400">{s.label}</p>
+                <p className="text-2xl sm:text-4xl md:text-5xl font-black text-white mb-1 sm:mb-2">{s.value}</p>
+                <p className="text-slate-400 text-xs sm:text-base">{s.label}</p>
               </div>
             ))}
           </div>
