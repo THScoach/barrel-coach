@@ -143,13 +143,13 @@ export default function Landing() {
       </section>
 
       {/* ─── THE PROBLEM ─── */}
-      <section className="py-20 bg-slate-900/60">
+      <section className="py-14 sm:py-20 bg-slate-900/60">
         <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl font-black mb-6">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black mb-5 sm:mb-6">
             Most hitting instruction is built on{" "}
             <span className="text-red-500">observation, not data.</span>
           </h2>
-          <p className="text-lg text-slate-400 leading-relaxed">
+          <p className="text-base sm:text-lg text-slate-400 leading-relaxed">
             Coaches teach the same cues to every hitter. You get generic feedback 
             that doesn't match your body type, your movement pattern, or your energy system. 
             Progress stalls — not because you're not working hard, but because no one has ever 
