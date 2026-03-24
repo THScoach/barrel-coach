@@ -160,6 +160,9 @@ export default function Landing() {
       {/* ─── COACH RICK ─── */}
       <CoachRickSection />
 
+      {/* ─── WHY COACH RICK (TECH) ─── */}
+      <MLBTechnologySection />
+
       {/* ─── THE SOLUTION (4B Pillars) ─── */}
       <section className="py-20">
         <div className="max-w-5xl mx-auto px-4">
