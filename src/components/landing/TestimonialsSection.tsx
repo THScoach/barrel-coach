@@ -72,7 +72,7 @@ function VideoCard({ name, role, videoSrc }: { name: string; role: string; video
 
   return (
     <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition-colors">
-      <div className="relative aspect-[9/16] max-h-[480px] bg-black cursor-pointer" onClick={!playing ? handlePlay : undefined}>
+      <div className="relative aspect-[9/16] max-h-[360px] sm:max-h-[480px] bg-black cursor-pointer" onClick={!playing ? handlePlay : undefined}>
         <video
           ref={videoRef}
           src={videoSrc}
@@ -84,15 +84,15 @@ function VideoCard({ name, role, videoSrc }: { name: string; role: string; video
         />
         {!playing && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-            <div className="w-16 h-16 bg-destructive rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
-              <Play className="w-7 h-7 text-white ml-1" fill="currentColor" />
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-destructive rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+              <Play className="w-5 h-5 sm:w-7 sm:h-7 text-white ml-0.5 sm:ml-1" fill="currentColor" />
             </div>
           </div>
         )}
       </div>
-      <div className="p-4">
-        <h4 className="font-bold text-white text-sm">{name}</h4>
-        <p className="text-xs text-slate-500">{role}</p>
+      <div className="p-3 sm:p-4">
+        <h4 className="font-bold text-white text-xs sm:text-sm">{name}</h4>
+        <p className="text-[10px] sm:text-xs text-slate-500">{role}</p>
       </div>
     </div>
   );
