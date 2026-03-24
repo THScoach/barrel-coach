@@ -3,6 +3,7 @@ import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Upload, Brain, Target, Zap, Activity, Flame, Crosshair, Gauge, Wind, Scissors, Unplug, Instagram, Twitter, Mail } from "lucide-react";
 import { CoachRickSection } from "@/components/landing/CoachRickSection";
+import { MLBTechnologySection } from "@/components/landing/MLBTechnologySection";
 
 const PILLARS = [
   {
@@ -158,6 +159,9 @@ export default function Landing() {
 
       {/* ─── COACH RICK ─── */}
       <CoachRickSection />
+
+      {/* ─── WHY COACH RICK (TECH) ─── */}
+      <MLBTechnologySection />
 
       {/* ─── THE SOLUTION (4B Pillars) ─── */}
       <section className="py-20">
