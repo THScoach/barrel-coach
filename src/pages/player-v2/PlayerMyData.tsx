@@ -208,7 +208,7 @@ export default function PlayerMyData() {
 
         {activeTab === 'trends' && (
           sessions.length === 0 ? (
-            <EmptyState icon={<BarChart3 className="h-12 w-12" />} title="No trends yet" description="Complete sessions to see your score progression over time" ctaLabel="Start Session" ctaTo="/player/session" />
+            <EmptyState illustration={<TrendsIllustration size={96} />} title="No trends yet" description="Complete sessions to see your score progression over time" ctaLabel="Start Session" ctaTo="/player/session" />
           ) : (
             <div className="space-y-3">
               <div className="rounded-2xl p-4" style={{ background: 'linear-gradient(180deg, #111 0%, #0a0a0a 100%)', border: '1px solid #1a1a1a' }}>
