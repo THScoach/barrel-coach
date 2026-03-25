@@ -158,18 +158,7 @@ export default function PlayerHomeDashboard() {
   }, [player?.id]);
 
   if (loading) {
-    return (
-      <div style={{ background: '#000', minHeight: '100vh' }}>
-        <div className="p-4 space-y-4">
-          <Skeleton className="h-12 w-full" style={{ background: '#111' }} />
-          <Skeleton className="h-52 w-full rounded-xl" style={{ background: '#111' }} />
-          <div className="grid grid-cols-4 gap-2">
-            {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-xl" style={{ background: '#111' }} />)}
-          </div>
-          <Skeleton className="h-24 w-full rounded-xl" style={{ background: '#111' }} />
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const has3DScores = player?.latest_composite_score != null;
