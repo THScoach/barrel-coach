@@ -295,7 +295,7 @@ export default function PlayerHomeDashboard() {
         {/* No Data State */}
         {!krs && (
           <EmptyState
-            icon={<BarChart3 className="h-12 w-12" />}
+            illustration={<ScoresIllustration size={96} />}
             title="No scores yet"
             description="Upload your first swing session to see your 4B scores."
             ctaLabel="Start Session"

@@ -330,7 +330,7 @@ function VideoTab({ playerId, sessionIdParam }: { playerId: string | null; sessi
   }
 
   if (!session) {
-    return <EmptyState icon={<Video className="h-12 w-12" />} title="No video data" description="Complete a session to view video analysis" ctaLabel="Start Session" ctaTo="/player/session" />;
+    return <EmptyState illustration={<VideoIllustration size={96} />} title="No video data" description="Complete a session to view video analysis" ctaLabel="Start Session" ctaTo="/player/session" />;
   }
 
   const metrics = session.raw_metrics || {};
