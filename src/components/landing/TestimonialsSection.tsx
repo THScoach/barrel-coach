@@ -1,5 +1,5 @@
 import { Star, Play } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { useState, useRef, forwardRef } from 'react';
 
 const videoTestimonials = [
   {
