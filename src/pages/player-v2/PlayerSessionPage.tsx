@@ -9,7 +9,7 @@ import { PlayerTopBar } from "@/components/player-v2/PlayerTopBar";
 import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { EmptyState } from "@/components/player-v2/EmptyState";
 import { TagPill } from "@/components/player-v2/TagPill";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SessionSkeleton } from "@/components/player-v2/PageSkeleton";
 import { toast } from "sonner";
 import { Dumbbell, Play, Check, X, Upload, Plus } from "lucide-react";
 import { format } from "date-fns";
