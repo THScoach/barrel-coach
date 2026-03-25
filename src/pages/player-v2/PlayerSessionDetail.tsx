@@ -12,7 +12,7 @@ import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { PillarScoreCard } from "@/components/player-v2/PillarScoreCard";
 import { Video2DAnalysisCard } from "@/components/admin/Video2DAnalysisCard";
 import { EnergyDeliveryReport } from "@/components/player-v2/session-report/EnergyDeliveryReport";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SessionDetailSkeleton } from "@/components/player-v2/PageSkeleton";
 import { scoreColor } from "@/lib/player-utils";
 import { ArrowLeft, Play, Cpu } from "lucide-react";
 import { format } from "date-fns";
