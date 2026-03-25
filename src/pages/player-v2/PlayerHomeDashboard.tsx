@@ -204,7 +204,7 @@ export default function PlayerHomeDashboard() {
 
         {/* Motor Profile Card */}
         {player?.motor_profile_sensor && (
-          <Link to="/player/profile" className="block rounded-2xl p-4 transition-all hover:scale-[1.01] active:scale-[0.99]" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
+          <Link to="/player/profile" className="block rounded-2xl p-4 transition-all hover:scale-[1.01] active:scale-[0.99] animate-fade-up-d1" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
             <div className="flex items-center gap-3">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center"
