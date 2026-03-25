@@ -240,7 +240,7 @@ export default function PlayerHomeDashboard() {
 
         {/* Projected Gain Card */}
         {projections && (
-          <div className="rounded-2xl p-4" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
+          <div className="rounded-2xl p-4 animate-fade-up-d3" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
             <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: '#555' }}>Projected Gains</p>
             <div className="grid grid-cols-2 gap-4">
               {projections.projected_bat_speed && (
