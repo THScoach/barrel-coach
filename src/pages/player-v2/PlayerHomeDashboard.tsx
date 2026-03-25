@@ -269,7 +269,7 @@ export default function PlayerHomeDashboard() {
         )}
 
         {/* Today's Session CTA */}
-        <div className="rounded-2xl p-4" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
+        <div className="rounded-2xl p-4 animate-fade-up-d4" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
           <div className="flex items-center gap-2 mb-2">
             <Target className="h-4 w-4" style={{ color: '#E63946' }} />
             <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#555' }}>Today's Session</span>
