@@ -223,7 +223,7 @@ export default function PlayerHomeDashboard() {
 
         {/* Primary Flag Card */}
         {primaryFlag && (
-          <div className="rounded-2xl p-4" style={{ background: 'linear-gradient(145deg, rgba(230,57,70,0.08), rgba(230,57,70,0.03))', border: '1px solid rgba(230,57,70,0.2)' }}>
+          <div className="rounded-2xl p-4 animate-fade-up-d2" style={{ background: 'linear-gradient(145deg, rgba(230,57,70,0.08), rgba(230,57,70,0.03))', border: '1px solid rgba(230,57,70,0.2)' }}>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#E63946' }} />
               <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#E63946' }}>Primary Fix</span>
