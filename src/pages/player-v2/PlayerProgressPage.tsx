@@ -10,7 +10,7 @@ import { PlayerTopBar } from "@/components/player-v2/PlayerTopBar";
 import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { TagPill } from "@/components/player-v2/TagPill";
 import { scoreColor } from "@/lib/player-utils";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ProgressSkeleton } from "@/components/player-v2/PageSkeleton";
 import { BarChart3, ArrowRight, ChevronRight } from "lucide-react";
 
 interface SessionScore {
