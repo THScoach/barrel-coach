@@ -59,7 +59,7 @@ const writtenTestimonials = [
   },
 ];
 
-function VideoCard({ name, role, videoSrc }: { name: string; role: string; videoSrc: string }) {
+const VideoCard = forwardRef<HTMLDivElement, { name: string; role: string; videoSrc: string }>(function VideoCard({ name, role, videoSrc }, ref) {
   const [playing, setPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
