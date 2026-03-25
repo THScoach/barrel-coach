@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/player-v2/EmptyState";
 import { TagPill } from "@/components/player-v2/TagPill";
 import { SessionSkeleton } from "@/components/player-v2/PageSkeleton";
 import { toast } from "sonner";
+import { DrillsIllustration } from "@/components/player-v2/EmptyStateIllustrations";
 import { Dumbbell, Play, Check, X, Upload, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
