@@ -1,5 +1,6 @@
 /**
  * My Data — 4 tabs: 4B Card, Trends, Sessions, Video
+ * Polished with consistent 4B brand styling
  */
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
@@ -7,12 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePlayerData } from "@/hooks/usePlayerData";
 import { PlayerTopBar } from "@/components/player-v2/PlayerTopBar";
 import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
+import { PillarScoreCard } from "@/components/player-v2/PillarScoreCard";
 import { EmptyState } from "@/components/player-v2/EmptyState";
 import { TagPill } from "@/components/player-v2/TagPill";
 import { scoreColor } from "@/lib/player-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Upload, BarChart3, Play, Video, Share } from "lucide-react";
+import { Upload, BarChart3, Play, Video, Share, ChevronRight } from "lucide-react";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip
@@ -123,8 +125,8 @@ export default function PlayerMyData() {
       <div style={{ background: '#000', minHeight: '100vh' }}>
         <Skeleton className="h-14 w-full" style={{ background: '#111' }} />
         <div className="p-4 space-y-4">
-          <Skeleton className="h-8 w-full" style={{ background: '#111' }} />
-          <Skeleton className="h-64 w-full rounded-xl" style={{ background: '#111' }} />
+          <Skeleton className="h-10 w-full" style={{ background: '#111' }} />
+          <Skeleton className="h-64 w-full rounded-2xl" style={{ background: '#111' }} />
         </div>
       </div>
     );
@@ -148,14 +150,14 @@ export default function PlayerMyData() {
       <PlayerTopBar playerName={player?.name ?? null} motorProfile={player?.motor_profile_sensor ?? null} />
 
       {/* Tab Bar */}
-      <div className="flex px-4 gap-0 overflow-x-auto" style={{ borderBottom: '1px solid #222' }}>
+      <div className="flex px-4 gap-0 overflow-x-auto" style={{ borderBottom: '1px solid #1a1a1a' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => setSearchParams({ tab: tab.key })}
-            className="px-4 py-3 text-sm font-semibold whitespace-nowrap transition-colors"
+            className="px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all"
             style={{
-              color: activeTab === tab.key ? '#E63946' : '#555',
+              color: activeTab === tab.key ? '#E63946' : '#444',
               borderBottom: activeTab === tab.key ? '2px solid #E63946' : '2px solid transparent',
             }}
           >
@@ -169,41 +171,36 @@ export default function PlayerMyData() {
           sessions.length === 0 ? (
             <EmptyState icon={<Upload className="h-12 w-12" />} title="No 4B Card yet" description="Upload your first swing session to see your 4B Card" ctaLabel="Start Session" ctaTo="/player/session" />
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Radar Chart */}
-              <div className="rounded-xl p-4" style={{ background: '#111', border: '1px solid #222' }}>
-                <ResponsiveContainer width="100%" height={250}>
-                  <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
-                    <PolarGrid stroke="#333" />
-                    <PolarAngleAxis dataKey="pillar" tick={{ fill: '#a0a0a0', fontSize: 12, fontWeight: 600 }} />
-                    <Radar name="Score" dataKey="score" stroke="#E63946" fill="rgba(230,57,70,0.15)" fillOpacity={1} strokeWidth={2} />
+              <div className="rounded-2xl p-4" style={{ background: 'linear-gradient(180deg, #111 0%, #0a0a0a 100%)', border: '1px solid #1a1a1a' }}>
+                <p className="text-[10px] font-black uppercase tracking-widest text-center mb-2" style={{ color: '#555' }}>4B Performance Profile</p>
+                <ResponsiveContainer width="100%" height={240}>
+                  <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="68%">
+                    <PolarGrid stroke="#1a1a1a" />
+                    <PolarAngleAxis dataKey="pillar" tick={{ fill: '#666', fontSize: 11, fontWeight: 700 }} />
+                    <Radar name="Score" dataKey="score" stroke="#E63946" fill="rgba(230,57,70,0.12)" fillOpacity={1} strokeWidth={2.5} />
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
 
-              {/* Pillar Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                {radarData.map(d => (
-                  <div key={d.pillar} className="rounded-xl p-4" style={{ background: '#111', border: '1px solid #222' }}>
-                    <p className="text-[11px] font-semibold uppercase" style={{ color: '#555' }}>{d.pillar}</p>
-                    <p className="text-2xl font-bold mt-1" style={{ color: scoreColor(d.score) }}>{d.score}</p>
-                    <div className="mt-2 h-1.5 rounded-full" style={{ background: '#222' }}>
-                      <div className="h-full rounded-full transition-all" style={{ width: `${d.score}%`, background: scoreColor(d.score) }} />
-                    </div>
-                  </div>
+              {/* Pillar Grid — reuse PillarScoreCard */}
+              <div className="grid grid-cols-4 gap-2">
+                {(['body', 'brain', 'bat', 'ball'] as const).map(pillar => (
+                  <PillarScoreCard key={pillar} pillar={pillar} value={latest?.[`${pillar}_score`] ?? null} />
                 ))}
               </div>
 
               {/* Active Flags */}
               {flags.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold uppercase mb-3" style={{ color: '#555' }}>Active Flags — Priority Order</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: '#555' }}>Active Flags</p>
                   <div className="space-y-2">
                     {flags.map(f => (
-                      <div key={f.id} className="rounded-lg p-3 flex items-start justify-between" style={{ background: '#111', border: '1px solid #222' }}>
+                      <div key={f.id} className="rounded-xl p-3 flex items-start justify-between" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
                         <div className="flex-1">
-                          <p className="text-sm font-bold" style={{ color: '#fff' }}>{f.flag_type?.replace(/_/g, ' ')}</p>
-                          <p className="text-[12px] mt-0.5" style={{ color: '#555' }}>{f.message}</p>
+                          <p className="text-sm font-black" style={{ color: '#fff' }}>{f.flag_type?.replace(/_/g, ' ')}</p>
+                          <p className="text-[11px] mt-0.5" style={{ color: '#555' }}>{f.message}</p>
                         </div>
                         <TagPill label={f.pillar || 'body'} color={scoreColor(60)} />
                       </div>
@@ -219,17 +216,19 @@ export default function PlayerMyData() {
           sessions.length === 0 ? (
             <EmptyState icon={<BarChart3 className="h-12 w-12" />} title="No trends yet" description="Complete sessions to see your score progression over time" ctaLabel="Start Session" ctaTo="/player/session" />
           ) : (
-            <div className="space-y-4">
-              <div className="rounded-xl p-4" style={{ background: '#111', border: '1px solid #222' }}>
-                <p className="text-xs font-semibold uppercase mb-3" style={{ color: '#555' }}>KRS Over Time</p>
+            <div className="space-y-3">
+              <div className="rounded-2xl p-4" style={{ background: 'linear-gradient(180deg, #111 0%, #0a0a0a 100%)', border: '1px solid #1a1a1a' }}>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-4" style={{ color: '#555' }}>KRS Over Time</p>
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={trendData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-                    <XAxis dataKey="date" tick={{ fill: '#555', fontSize: 11 }} />
-                    <YAxis domain={[0, 100]} tick={{ fill: '#555', fontSize: 11 }} />
-                    <Tooltip contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 8, color: '#fff' }} />
-                    <Line type="monotone" dataKey="krs" stroke="#E63946" strokeWidth={2} dot={{ fill: '#E63946', r: 4 }} />
-                    {/* Teal dashed projection line could go here when projection data is available */}
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+                    <XAxis dataKey="date" tick={{ fill: '#444', fontSize: 10, fontWeight: 600 }} axisLine={{ stroke: '#1a1a1a' }} />
+                    <YAxis domain={[0, 100]} tick={{ fill: '#444', fontSize: 10, fontWeight: 600 }} axisLine={{ stroke: '#1a1a1a' }} />
+                    <Tooltip
+                      contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 12, color: '#fff', fontSize: 12, fontWeight: 700 }}
+                      labelStyle={{ color: '#555' }}
+                    />
+                    <Line type="monotone" dataKey="krs" stroke="#E63946" strokeWidth={2.5} dot={{ fill: '#E63946', r: 4, strokeWidth: 0 }} activeDot={{ r: 6, fill: '#E63946' }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -241,39 +240,46 @@ export default function PlayerMyData() {
           sessions.length === 0 ? (
             <EmptyState icon={<Upload className="h-12 w-12" />} title="No sessions yet" description="Upload your first Reboot file to get started." ctaLabel="Start Session" ctaTo="/player/session" />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {sessions.map((s, i) => {
                 const prev = sessions[i + 1];
                 const diff = prev?.overall_score && s.overall_score ? s.overall_score - prev.overall_score : null;
+                const badgeColor = s.source === '2d' ? '#3B82F6' : '#14B8A6';
                 return (
                   <Link
                     key={s.id}
                     to={`/player/session/${s.id}`}
-                    className="block rounded-xl p-4 transition-colors hover:opacity-90"
-                    style={{ background: '#111', border: '1px solid #222' }}
+                    className="block rounded-2xl p-4 transition-all hover:scale-[1.01] active:scale-[0.98]"
+                    style={{ background: '#111', border: '1px solid #1a1a1a' }}
                   >
                     <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-bold" style={{ color: '#fff' }}>
-                          Session {sessions.length - i} · {format(new Date(s.session_date), 'MMM d, yyyy')}
+                      <div className="flex-1">
+                        <p className="text-sm font-black" style={{ color: '#fff' }}>
+                          Session {sessions.length - i}
                         </p>
-                        <div className="flex gap-2 mt-1.5">
+                        <p className="text-[11px] mt-0.5" style={{ color: '#444' }}>
+                          {format(new Date(s.session_date), 'MMM d, yyyy')}
+                        </p>
+                        <div className="flex gap-1.5 mt-2">
                           <span
-                            className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                            style={{ background: s.source === '2d' ? '#3B82F620' : '#14B8A620', color: s.source === '2d' ? '#3B82F6' : '#14B8A6' }}
+                            className="text-[9px] font-bold px-1.5 py-0.5 rounded-md"
+                            style={{ background: `${badgeColor}15`, color: badgeColor }}
                           >
-                            {s.source === '2d' ? 'Video Analysis' : '3D Analysis'}
+                            {s.source === '2d' ? 'Video' : '3D'}
                           </span>
                           {s.leak_type && <TagPill label={s.leak_type.replace(/_/g, ' ')} color="#ffa500" />}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold" style={{ color: scoreColor(s.overall_score) }}>{s.overall_score ?? '—'}</p>
-                        {diff !== null && (
-                          <p className="text-xs font-semibold" style={{ color: diff >= 0 ? '#4ecdc4' : '#E63946' }}>
-                            {diff >= 0 ? '+' : ''}{diff}
-                          </p>
-                        )}
+                      <div className="text-right flex items-center gap-3">
+                        <div>
+                          <p className="text-2xl font-black" style={{ color: scoreColor(s.overall_score) }}>{s.overall_score ?? '—'}</p>
+                          {diff !== null && (
+                            <p className="text-[11px] font-bold" style={{ color: diff >= 0 ? '#4ecdc4' : '#E63946' }}>
+                              {diff >= 0 ? '+' : ''}{diff}
+                            </p>
+                          )}
+                        </div>
+                        <ChevronRight className="h-4 w-4" style={{ color: '#333' }} />
                       </div>
                     </div>
                   </Link>
@@ -313,7 +319,7 @@ function VideoTab({ playerId, sessionIdParam }: { playerId: string | null; sessi
         query = query.order("session_date", { ascending: false }).limit(1);
       }
 
-      const { data, error } = await query.maybeSingle();
+      const { data } = await query.maybeSingle();
       if (data) setSession(data);
       setLoading(false);
     };
@@ -323,8 +329,8 @@ function VideoTab({ playerId, sessionIdParam }: { playerId: string | null; sessi
   if (loading) {
     return (
       <div className="space-y-3">
-        <Skeleton className="h-48 w-full rounded-xl" style={{ background: '#111' }} />
-        <Skeleton className="h-24 w-full rounded-xl" style={{ background: '#111' }} />
+        <Skeleton className="h-48 w-full rounded-2xl" style={{ background: '#111' }} />
+        <Skeleton className="h-24 w-full rounded-2xl" style={{ background: '#111' }} />
       </div>
     );
   }
@@ -336,12 +342,12 @@ function VideoTab({ playerId, sessionIdParam }: { playerId: string | null; sessi
   const metrics = session.raw_metrics || {};
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl overflow-hidden" style={{ background: '#0a0a0a', aspectRatio: '16/9', border: '1px solid #222' }}>
+    <div className="space-y-3">
+      <div className="rounded-2xl overflow-hidden" style={{ background: '#0a0a0a', aspectRatio: '16/9', border: '1px solid #1a1a1a' }}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
-            <Play className="h-12 w-12 mx-auto mb-2" style={{ color: '#555' }} />
-            <p className="text-xs" style={{ color: '#555' }}>Session video</p>
+            <Play className="h-12 w-12 mx-auto mb-2" style={{ color: '#333' }} />
+            <p className="text-[11px] font-semibold" style={{ color: '#333' }}>Session video</p>
           </div>
         </div>
       </div>
@@ -352,11 +358,11 @@ function VideoTab({ playerId, sessionIdParam }: { playerId: string | null; sessi
           <button
             key={rate}
             onClick={() => setPlaybackRate(rate)}
-            className="flex-1 py-2 rounded-lg text-xs font-semibold transition-colors"
+            className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all"
             style={{
-              background: playbackRate === rate ? '#E63946' : '#111',
-              color: playbackRate === rate ? '#fff' : '#555',
-              border: `1px solid ${playbackRate === rate ? '#E63946' : '#222'}`,
+              background: playbackRate === rate ? 'linear-gradient(135deg, #E63946, #c62b38)' : '#111',
+              color: playbackRate === rate ? '#fff' : '#444',
+              border: `1px solid ${playbackRate === rate ? '#E63946' : '#1a1a1a'}`,
             }}
           >
             {rate}x
@@ -365,15 +371,15 @@ function VideoTab({ playerId, sessionIdParam }: { playerId: string | null; sessi
       </div>
 
       {/* 3-column metric grid */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2">
         {[
           { label: 'Transfer Ratio', value: metrics.transfer_ratio ?? '—' },
           { label: 'Pelvis KE', value: metrics.pelvis_ke ? `${metrics.pelvis_ke}J` : '—' },
           { label: 'P→T Gap', value: metrics.peak_timing_gap_ms ? `${metrics.peak_timing_gap_ms}ms` : '—' },
         ].map(m => (
-          <div key={m.label} className="rounded-lg p-3 text-center" style={{ background: '#111', border: '1px solid #222' }}>
-            <p className="text-[10px] uppercase" style={{ color: '#555' }}>{m.label}</p>
-            <p className="text-lg font-bold mt-1" style={{ color: '#fff' }}>{m.value}</p>
+          <div key={m.label} className="rounded-xl p-3 text-center" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
+            <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#444' }}>{m.label}</p>
+            <p className="text-lg font-black mt-1" style={{ color: '#fff' }}>{m.value}</p>
           </div>
         ))}
       </div>
@@ -383,8 +389,8 @@ function VideoTab({ playerId, sessionIdParam }: { playerId: string | null; sessi
         {['This Session', 'Baseline', 'Best'].map(label => (
           <button
             key={label}
-            className="flex-1 py-2 rounded-lg text-xs font-semibold"
-            style={{ background: '#111', border: '1px solid #222', color: '#555' }}
+            className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all hover:opacity-80"
+            style={{ background: '#111', border: '1px solid #1a1a1a', color: '#444' }}
             onClick={() => toast.info("Coming soon")}
           >
             {label}
@@ -394,8 +400,8 @@ function VideoTab({ playerId, sessionIdParam }: { playerId: string | null; sessi
 
       <button
         onClick={() => toast.info("Coming soon")}
-        className="w-full py-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
-        style={{ background: '#111', border: '1px solid #222', color: '#555' }}
+        className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all hover:opacity-80"
+        style={{ background: '#111', border: '1px solid #1a1a1a', color: '#444' }}
       >
         <Share className="h-4 w-4" /> Export Clip
       </button>
