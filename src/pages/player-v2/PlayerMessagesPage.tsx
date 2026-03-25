@@ -1,7 +1,6 @@
 /**
  * Coach Barrels — AI Chat + Insights tabs (4B brand)
- * Calls coach-rick-ai-chat edge function for live AI responses
- * Supports image/PDF uploads with Gemini vision
+ * Polished with consistent styling
  */
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +29,7 @@ interface InsightMessage {
   created_at: string;
 }
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 
 function fileToBase64(file: File): Promise<string> {
@@ -38,7 +37,7 @@ function fileToBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      resolve(result.split(',')[1]); // strip data:...;base64,
+      resolve(result.split(',')[1]);
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
@@ -209,38 +208,45 @@ export default function PlayerMessagesPage() {
     return (
       <div style={{ background: '#000', minHeight: '100vh' }}>
         <div className="p-4 space-y-3">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" style={{ background: '#111' }} />)}
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-2xl" style={{ background: '#111' }} />)}
         </div>
       </div>
     );
   }
 
+  const unreadCount = insights.filter(m => !m.is_read).length;
+
   return (
     <div className="flex flex-col" style={{ background: '#000', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
       {/* Header */}
-      <header className="sticky top-0 z-50 px-4 py-3 flex items-center gap-3" style={{ background: '#0a0a0a', borderBottom: '1px solid #222' }}>
-        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(230,57,70,0.12)' }}>
+      <header className="sticky top-0 z-50 px-4 py-3 flex items-center gap-3" style={{ background: 'rgba(5,5,5,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #1a1a1a' }}>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(230,57,70,0.1)' }}>
           <span className="text-lg">🧢</span>
         </div>
         <div className="flex-1">
-          <p className="text-sm font-bold" style={{ color: '#fff' }}>Coach Barrels</p>
+          <p className="text-sm font-black" style={{ color: '#fff' }}>Coach Barrels</p>
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full" style={{ background: '#22C55E' }} />
-            <span className="text-[11px]" style={{ color: '#22C55E' }}>Online</span>
+            <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#22C55E' }} />
+            <span className="text-[10px] font-semibold" style={{ color: '#22C55E' }}>Online</span>
           </div>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-1">
           {(['chat', 'insights'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className="pb-1 text-xs font-semibold capitalize transition-colors"
+              className="px-3 py-1.5 rounded-lg text-[11px] font-bold capitalize transition-all"
               style={{
-                color: activeTab === tab ? '#ffffff' : '#555',
-                borderBottom: activeTab === tab ? '2px solid #E63946' : '2px solid transparent',
+                color: activeTab === tab ? '#fff' : '#555',
+                background: activeTab === tab ? 'rgba(230,57,70,0.12)' : 'transparent',
               }}
             >
               {tab}
+              {tab === 'insights' && unreadCount > 0 && (
+                <span className="ml-1 text-[9px] px-1 py-0.5 rounded-full" style={{ background: '#E63946', color: '#fff' }}>
+                  {unreadCount}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -251,7 +257,13 @@ export default function PlayerMessagesPage() {
         {activeTab === 'chat' && (
           loadingMessages ? (
             <div className="space-y-3">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-3/4 rounded-xl" style={{ background: '#111' }} />)}
+              {[1, 2, 3].map(i => (
+                <Skeleton
+                  key={i}
+                  className="h-16 rounded-2xl"
+                  style={{ background: '#111', width: i % 2 === 0 ? '75%' : '65%', marginLeft: i % 2 === 0 ? 'auto' : '0' }}
+                />
+              ))}
             </div>
           ) : messages.length === 0 ? (
             <EmptyState
@@ -265,41 +277,40 @@ export default function PlayerMessagesPage() {
                 const isPlayer = m.role === 'user';
                 const isDiagnostic = m.isDiagnostic;
                 return (
-                  <div key={m.id} className={isPlayer ? 'ml-12' : 'mr-12'}>
+                  <div key={m.id} className={`animate-fade-in ${isPlayer ? 'ml-12' : 'mr-12'}`}>
                     {isDiagnostic && (
-                      <p className="text-[11px] font-bold mb-1" style={{ color: '#4ecdc4' }}>DIAGNOSTIC UPDATE</p>
+                      <p className="text-[10px] font-black tracking-wider mb-1" style={{ color: '#4ecdc4' }}>DIAGNOSTIC UPDATE</p>
                     )}
                     <div
-                      className="p-3 text-sm leading-relaxed whitespace-pre-wrap"
+                      className="text-[13px] leading-relaxed whitespace-pre-wrap"
                       style={{
-                        background: isDiagnostic ? 'rgba(78,205,196,0.05)' : isPlayer ? 'rgba(230,57,70,0.12)' : '#1a1a1a',
-                        border: `1px solid ${isDiagnostic ? 'rgba(78,205,196,0.2)' : isPlayer ? 'rgba(230,57,70,0.2)' : '#222'}`,
-                        borderRadius: isPlayer ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                        color: '#fff',
-                        padding: '12px 14px',
+                        background: isDiagnostic ? 'rgba(78,205,196,0.04)' : isPlayer ? 'rgba(230,57,70,0.08)' : '#111',
+                        border: `1px solid ${isDiagnostic ? 'rgba(78,205,196,0.15)' : isPlayer ? 'rgba(230,57,70,0.15)' : '#1a1a1a'}`,
+                        borderRadius: isPlayer ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                        color: '#ddd',
+                        padding: '12px 16px',
                       }}
                     >
-                      {/* Image thumbnail */}
                       {m.imageUrl && (
                         <img
                           src={m.imageUrl}
                           alt="Uploaded"
-                          className="rounded-lg mb-2 max-h-48 w-auto object-contain"
+                          className="rounded-xl mb-2 max-h-48 w-auto object-contain"
                         />
                       )}
                       {m.content}
                     </div>
-                    <p className="text-[10px] mt-1 px-1" style={{ color: '#555' }}>
+                    <p className="text-[9px] mt-1 px-1 font-semibold" style={{ color: '#333' }}>
                       {format(m.timestamp, 'h:mm a')}
                     </p>
                   </div>
                 );
               })}
               {sending && (
-                <div className="mr-12">
-                  <div className="p-3 flex items-center gap-2" style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: '16px 16px 16px 4px' }}>
-                    <Loader2 className="h-4 w-4 animate-spin" style={{ color: '#555' }} />
-                    <span className="text-sm" style={{ color: '#555' }}>Coach Barrels is thinking...</span>
+                <div className="mr-12 animate-fade-in">
+                  <div className="p-3 flex items-center gap-2 rounded-2xl" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
+                    <Loader2 className="h-4 w-4 animate-spin" style={{ color: '#E63946' }} />
+                    <span className="text-[13px] font-semibold" style={{ color: '#555' }}>Coach Barrels is thinking...</span>
                   </div>
                 </div>
               )}
@@ -312,23 +323,23 @@ export default function PlayerMessagesPage() {
           insights.length === 0 ? (
             <EmptyState icon={<Lightbulb className="h-12 w-12" />} title="No insights yet" description="Insights appear after sessions are analyzed" />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {insights.map(m => (
                 <button
                   key={m.id}
                   onClick={() => markRead(m.id)}
-                  className="block w-full text-left rounded-xl p-4 transition-opacity"
+                  className="block w-full text-left rounded-2xl p-4 transition-all hover:scale-[1.01] active:scale-[0.98]"
                   style={{
                     background: '#111',
-                    border: '1px solid #222',
+                    border: `1px solid ${m.is_read ? '#1a1a1a' : 'rgba(230,57,70,0.15)'}`,
                     opacity: m.is_read ? 0.6 : 1,
                   }}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs" style={{ color: '#555' }}>{format(new Date(m.created_at), 'MMM d')}</span>
-                    {!m.is_read && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(230,57,70,0.15)', color: '#E63946' }}>New</span>}
+                    <span className="text-[10px] font-semibold" style={{ color: '#444' }}>{format(new Date(m.created_at), 'MMM d')}</span>
+                    {!m.is_read && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(230,57,70,0.1)', color: '#E63946' }}>New</span>}
                   </div>
-                  <p className="text-[13px] leading-relaxed" style={{ color: '#a0a0a0' }}>{m.content}</p>
+                  <p className="text-[12px] leading-relaxed" style={{ color: '#888' }}>{m.content}</p>
                 </button>
               ))}
             </div>
@@ -338,14 +349,13 @@ export default function PlayerMessagesPage() {
 
       {/* Input — Chat tab only */}
       {activeTab === 'chat' && (
-        <div className="fixed bottom-16 left-0 right-0 px-4 py-3" style={{ background: '#000', borderTop: '1px solid #222' }}>
-          {/* Pending image preview */}
+        <div className="fixed bottom-14 left-0 right-0 px-4 py-3" style={{ background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(12px)', borderTop: '1px solid #1a1a1a' }}>
           {pendingImage && (
             <div className="mb-2 relative inline-block">
               {pendingImage.preview ? (
-                <img src={pendingImage.preview} alt="Preview" className="h-16 rounded-lg border" style={{ borderColor: '#333' }} />
+                <img src={pendingImage.preview} alt="Preview" className="h-16 rounded-xl" style={{ border: '1px solid #1a1a1a' }} />
               ) : (
-                <div className="h-16 px-4 rounded-lg flex items-center gap-2 text-xs" style={{ background: '#111', border: '1px solid #333', color: '#a0a0a0' }}>
+                <div className="h-16 px-4 rounded-xl flex items-center gap-2 text-[11px]" style={{ background: '#111', border: '1px solid #1a1a1a', color: '#888' }}>
                   📄 {pendingImage.file.name}
                 </div>
               )}
@@ -369,10 +379,10 @@ export default function PlayerMessagesPage() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={sending}
-              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-opacity"
-              style={{ background: '#111', border: '1px solid #222', opacity: sending ? 0.5 : 1 }}
+              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all"
+              style={{ background: '#111', border: '1px solid #1a1a1a', opacity: sending ? 0.5 : 1 }}
             >
-              <ImagePlus className="h-4 w-4" style={{ color: '#a0a0a0' }} />
+              <ImagePlus className="h-4 w-4" style={{ color: '#666' }} />
             </button>
             <input
               value={newMessage}
@@ -380,14 +390,14 @@ export default function PlayerMessagesPage() {
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder="Message Coach Barrels..."
               disabled={sending}
-              className="flex-1 px-4 py-2.5 rounded-full text-sm outline-none"
-              style={{ background: '#111', border: '1px solid #222', color: '#fff' }}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: '#111', border: '1px solid #1a1a1a', color: '#fff' }}
             />
             <button
               onClick={handleSend}
               disabled={sending || (!newMessage.trim() && !pendingImage)}
-              className="w-10 h-10 rounded-full flex items-center justify-center transition-opacity"
-              style={{ background: '#E63946', opacity: (!newMessage.trim() && !pendingImage || sending) ? 0.5 : 1 }}
+              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all"
+              style={{ background: 'linear-gradient(135deg, #E63946, #c62b38)', opacity: (!newMessage.trim() && !pendingImage || sending) ? 0.4 : 1 }}
             >
               <Send className="h-4 w-4" style={{ color: '#fff' }} />
             </button>
