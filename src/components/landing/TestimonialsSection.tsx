@@ -1,5 +1,5 @@
 import { Star, Play } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { useState, useRef, forwardRef } from 'react';
 
 const videoTestimonials = [
   {
@@ -59,7 +59,7 @@ const writtenTestimonials = [
   },
 ];
 
-function VideoCard({ name, role, videoSrc }: { name: string; role: string; videoSrc: string }) {
+const VideoCard = forwardRef<HTMLDivElement, { name: string; role: string; videoSrc: string }>(function VideoCard({ name, role, videoSrc }, ref) {
   const [playing, setPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -71,7 +71,7 @@ function VideoCard({ name, role, videoSrc }: { name: string; role: string; video
   };
 
   return (
-    <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition-colors">
+    <div ref={ref} className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition-colors">
       <div className="relative aspect-[9/16] max-h-[360px] sm:max-h-[480px] bg-black cursor-pointer" onClick={!playing ? handlePlay : undefined}>
         <video
           ref={videoRef}
@@ -96,11 +96,11 @@ function VideoCard({ name, role, videoSrc }: { name: string; role: string; video
       </div>
     </div>
   );
-}
+});
 
-export function TestimonialsSection() {
+export const TestimonialsSection = forwardRef<HTMLElement>(function TestimonialsSection(_props, ref) {
   return (
-    <section className="py-14 sm:py-20 bg-slate-900/60">
+    <section ref={ref} className="py-14 sm:py-20 bg-slate-900/60">
       <div className="max-w-5xl mx-auto px-4">
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-center mb-3 sm:mb-4">
           What Players Are{" "}
@@ -151,4 +151,4 @@ export function TestimonialsSection() {
       </div>
     </section>
   );
-}
+});
