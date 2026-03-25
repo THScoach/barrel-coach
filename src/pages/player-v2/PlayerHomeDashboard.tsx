@@ -188,7 +188,7 @@ export default function PlayerHomeDashboard() {
 
       <main className="px-4 pb-24 space-y-3 pt-4">
         {/* KRS + 4B Pillars Card */}
-        <div className="rounded-2xl p-5 pb-4" style={{ background: 'linear-gradient(180deg, #111 0%, #0a0a0a 100%)', border: '1px solid #1a1a1a' }}>
+        <div className="rounded-2xl p-5 pb-4 animate-fade-up" style={{ background: 'linear-gradient(180deg, #111 0%, #0a0a0a 100%)', border: '1px solid #1a1a1a' }}>
           <KRSRingChart score={krs} />
           <div className="grid grid-cols-4 gap-2 mt-4">
             {(['body', 'brain', 'bat', 'ball'] as const).map(pillar => (
