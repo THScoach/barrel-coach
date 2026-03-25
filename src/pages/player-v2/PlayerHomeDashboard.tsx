@@ -15,6 +15,7 @@ import { TagPill } from "@/components/player-v2/TagPill";
 import { EmptyState } from "@/components/player-v2/EmptyState";
 import { DashboardSkeleton } from "@/components/player-v2/PageSkeleton";
 import { motorProfileColor } from "@/lib/player-utils";
+import { ScoresIllustration } from "@/components/player-v2/EmptyStateIllustrations";
 import { BarChart3, ChevronRight, Zap, Target, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 
@@ -294,7 +295,7 @@ export default function PlayerHomeDashboard() {
         {/* No Data State */}
         {!krs && (
           <EmptyState
-            icon={<BarChart3 className="h-12 w-12" />}
+            illustration={<ScoresIllustration size={96} />}
             title="No scores yet"
             description="Upload your first swing session to see your 4B scores."
             ctaLabel="Start Session"

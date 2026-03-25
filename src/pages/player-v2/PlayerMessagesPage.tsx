@@ -9,6 +9,7 @@ import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { EmptyState } from "@/components/player-v2/EmptyState";
 import { MessagesSkeleton } from "@/components/player-v2/PageSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ChatIllustration, InsightsIllustration } from "@/components/player-v2/EmptyStateIllustrations";
 import { Send, MessageSquare, Lightbulb, Loader2, ImagePlus, X } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -262,7 +263,7 @@ export default function PlayerMessagesPage() {
             </div>
           ) : messages.length === 0 ? (
             <EmptyState
-              icon={<MessageSquare className="h-12 w-12" />}
+              illustration={<ChatIllustration size={96} />}
               title="Chat with Coach Barrels"
               description="Ask about your swing, drills, or game plan — Coach Barrels knows your data"
             />
@@ -316,7 +317,7 @@ export default function PlayerMessagesPage() {
 
         {activeTab === 'insights' && (
           insights.length === 0 ? (
-            <EmptyState icon={<Lightbulb className="h-12 w-12" />} title="No insights yet" description="Insights appear after sessions are analyzed" />
+            <EmptyState illustration={<InsightsIllustration size={96} />} title="No insights yet" description="Insights appear after sessions are analyzed" />
           ) : (
             <div className="space-y-2">
               {insights.map(m => (

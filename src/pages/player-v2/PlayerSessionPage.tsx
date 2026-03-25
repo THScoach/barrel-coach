@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/player-v2/EmptyState";
 import { TagPill } from "@/components/player-v2/TagPill";
 import { SessionSkeleton } from "@/components/player-v2/PageSkeleton";
 import { toast } from "sonner";
+import { DrillsIllustration } from "@/components/player-v2/EmptyStateIllustrations";
 import { Dumbbell, Play, Check, X, Upload, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -130,7 +131,7 @@ export default function PlayerSession() {
         </Link>
 
         {drills.length === 0 ? (
-          <EmptyState icon={<Dumbbell className="h-12 w-12" />} title="No drills assigned" description="Upload a swing session first — Coach Barrels will prescribe drills based on your analysis." ctaLabel="Start New Session" ctaTo="/player/session/new" />
+          <EmptyState illustration={<DrillsIllustration size={96} />} title="No drills assigned" description="Upload a swing session first — Coach Barrels will prescribe drills based on your analysis." ctaLabel="Start New Session" ctaTo="/player/session/new" />
         ) : (
           <div className="space-y-2">
             <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: '#555' }}>Drill Sequence</p>

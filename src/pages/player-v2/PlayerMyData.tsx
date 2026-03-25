@@ -15,6 +15,7 @@ import { scoreColor } from "@/lib/player-utils";
 import { DataSkeleton } from "@/components/player-v2/PageSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { SwingIllustration, TrendsIllustration, VideoIllustration } from "@/components/player-v2/EmptyStateIllustrations";
 import { Upload, BarChart3, Play, Video, Share, ChevronRight } from "lucide-react";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer,
@@ -162,7 +163,7 @@ export default function PlayerMyData() {
       <main className="px-4 pb-24 pt-4">
         {activeTab === '4b' && (
           sessions.length === 0 ? (
-            <EmptyState icon={<Upload className="h-12 w-12" />} title="No 4B Card yet" description="Upload your first swing session to see your 4B Card" ctaLabel="Start Session" ctaTo="/player/session" />
+            <EmptyState illustration={<SwingIllustration size={96} />} title="No 4B Card yet" description="Upload your first swing session to see your 4B Card" ctaLabel="Start Session" ctaTo="/player/session" />
           ) : (
             <div className="space-y-3">
               {/* Radar Chart */}
@@ -207,7 +208,7 @@ export default function PlayerMyData() {
 
         {activeTab === 'trends' && (
           sessions.length === 0 ? (
-            <EmptyState icon={<BarChart3 className="h-12 w-12" />} title="No trends yet" description="Complete sessions to see your score progression over time" ctaLabel="Start Session" ctaTo="/player/session" />
+            <EmptyState illustration={<TrendsIllustration size={96} />} title="No trends yet" description="Complete sessions to see your score progression over time" ctaLabel="Start Session" ctaTo="/player/session" />
           ) : (
             <div className="space-y-3">
               <div className="rounded-2xl p-4" style={{ background: 'linear-gradient(180deg, #111 0%, #0a0a0a 100%)', border: '1px solid #1a1a1a' }}>
@@ -231,7 +232,7 @@ export default function PlayerMyData() {
 
         {activeTab === 'sessions' && (
           sessions.length === 0 ? (
-            <EmptyState icon={<Upload className="h-12 w-12" />} title="No sessions yet" description="Upload your first Reboot file to get started." ctaLabel="Start Session" ctaTo="/player/session" />
+            <EmptyState illustration={<SwingIllustration size={96} />} title="No sessions yet" description="Upload your first Reboot file to get started." ctaLabel="Start Session" ctaTo="/player/session" />
           ) : (
             <div className="space-y-2">
               {sessions.map((s, i) => {
@@ -329,7 +330,7 @@ function VideoTab({ playerId, sessionIdParam }: { playerId: string | null; sessi
   }
 
   if (!session) {
-    return <EmptyState icon={<Video className="h-12 w-12" />} title="No video data" description="Complete a session to view video analysis" ctaLabel="Start Session" ctaTo="/player/session" />;
+    return <EmptyState illustration={<VideoIllustration size={96} />} title="No video data" description="Complete a session to view video analysis" ctaLabel="Start Session" ctaTo="/player/session" />;
   }
 
   const metrics = session.raw_metrics || {};
