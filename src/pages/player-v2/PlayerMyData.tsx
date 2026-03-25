@@ -232,7 +232,7 @@ export default function PlayerMyData() {
 
         {activeTab === 'sessions' && (
           sessions.length === 0 ? (
-            <EmptyState icon={<Upload className="h-12 w-12" />} title="No sessions yet" description="Upload your first Reboot file to get started." ctaLabel="Start Session" ctaTo="/player/session" />
+            <EmptyState illustration={<SwingIllustration size={96} />} title="No sessions yet" description="Upload your first Reboot file to get started." ctaLabel="Start Session" ctaTo="/player/session" />
           ) : (
             <div className="space-y-2">
               {sessions.map((s, i) => {
