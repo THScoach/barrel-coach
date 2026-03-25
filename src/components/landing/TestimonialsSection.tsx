@@ -96,9 +96,9 @@ const VideoCard = forwardRef<HTMLDivElement, { name: string; role: string; video
       </div>
     </div>
   );
-}
+});
 
-export function TestimonialsSection() {
+export const TestimonialsSection = forwardRef<HTMLElement>(function TestimonialsSection(_props, ref) {
   return (
     <section className="py-14 sm:py-20 bg-slate-900/60">
       <div className="max-w-5xl mx-auto px-4">
