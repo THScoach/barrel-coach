@@ -163,7 +163,7 @@ export default function PlayerMyData() {
       <main className="px-4 pb-24 pt-4">
         {activeTab === '4b' && (
           sessions.length === 0 ? (
-            <EmptyState icon={<Upload className="h-12 w-12" />} title="No 4B Card yet" description="Upload your first swing session to see your 4B Card" ctaLabel="Start Session" ctaTo="/player/session" />
+            <EmptyState illustration={<SwingIllustration size={96} />} title="No 4B Card yet" description="Upload your first swing session to see your 4B Card" ctaLabel="Start Session" ctaTo="/player/session" />
           ) : (
             <div className="space-y-3">
               {/* Radar Chart */}
