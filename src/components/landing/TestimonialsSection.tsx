@@ -100,7 +100,7 @@ const VideoCard = forwardRef<HTMLDivElement, { name: string; role: string; video
 
 export const TestimonialsSection = forwardRef<HTMLElement>(function TestimonialsSection(_props, ref) {
   return (
-    <section className="py-14 sm:py-20 bg-slate-900/60">
+    <section ref={ref} className="py-14 sm:py-20 bg-slate-900/60">
       <div className="max-w-5xl mx-auto px-4">
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-center mb-3 sm:mb-4">
           What Players Are{" "}
