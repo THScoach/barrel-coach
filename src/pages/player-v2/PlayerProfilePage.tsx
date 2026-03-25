@@ -7,7 +7,7 @@ import { usePlayerData } from "@/hooks/usePlayerData";
 import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { TagPill } from "@/components/player-v2/TagPill";
 import { getInitials, motorProfileColor } from "@/lib/player-utils";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ProfileSkeleton } from "@/components/player-v2/PageSkeleton";
 import { toast } from "sonner";
 import { LogOut, Download, Share2, ChevronRight } from "lucide-react";
 
