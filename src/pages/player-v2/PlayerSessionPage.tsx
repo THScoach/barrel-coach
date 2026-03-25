@@ -9,7 +9,7 @@ import { PlayerTopBar } from "@/components/player-v2/PlayerTopBar";
 import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { EmptyState } from "@/components/player-v2/EmptyState";
 import { TagPill } from "@/components/player-v2/TagPill";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SessionSkeleton } from "@/components/player-v2/PageSkeleton";
 import { toast } from "sonner";
 import { Dumbbell, Play, Check, X, Upload, Plus } from "lucide-react";
 import { format } from "date-fns";
@@ -76,17 +76,7 @@ export default function PlayerSession() {
   };
 
   if (loading || loadingDrills) {
-    return (
-      <div style={{ background: '#000', minHeight: '100vh' }}>
-        <Skeleton className="h-14 w-full" style={{ background: '#111' }} />
-        <div className="p-4 space-y-3">
-          <Skeleton className="h-6 w-48" style={{ background: '#111' }} />
-          {[1, 2, 3].map(i => (
-            <Skeleton key={i} className="h-36 w-full rounded-2xl" style={{ background: '#111' }} />
-          ))}
-        </div>
-      </div>
-    );
+    return <SessionSkeleton />;
   }
 
   const today = format(new Date(), 'EEEE, MMM d');

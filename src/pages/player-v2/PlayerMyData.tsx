@@ -12,6 +12,7 @@ import { PillarScoreCard } from "@/components/player-v2/PillarScoreCard";
 import { EmptyState } from "@/components/player-v2/EmptyState";
 import { TagPill } from "@/components/player-v2/TagPill";
 import { scoreColor } from "@/lib/player-utils";
+import { DataSkeleton } from "@/components/player-v2/PageSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Upload, BarChart3, Play, Video, Share, ChevronRight } from "lucide-react";
@@ -121,15 +122,7 @@ export default function PlayerMyData() {
   }, [player?.id]);
 
   if (loading) {
-    return (
-      <div style={{ background: '#000', minHeight: '100vh' }}>
-        <Skeleton className="h-14 w-full" style={{ background: '#111' }} />
-        <div className="p-4 space-y-4">
-          <Skeleton className="h-10 w-full" style={{ background: '#111' }} />
-          <Skeleton className="h-64 w-full rounded-2xl" style={{ background: '#111' }} />
-        </div>
-      </div>
-    );
+    return <DataSkeleton />;
   }
 
   const latest = sessions[0] || null;

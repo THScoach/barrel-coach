@@ -7,7 +7,7 @@ import { usePlayerData } from "@/hooks/usePlayerData";
 import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { TagPill } from "@/components/player-v2/TagPill";
 import { getInitials, motorProfileColor } from "@/lib/player-utils";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ProfileSkeleton } from "@/components/player-v2/PageSkeleton";
 import { toast } from "sonner";
 import { LogOut, Download, Share2, ChevronRight } from "lucide-react";
 
@@ -47,15 +47,7 @@ export default function PlayerProfilePage() {
   };
 
   if (loading) {
-    return (
-      <div style={{ background: '#000', minHeight: '100vh' }}>
-        <div className="p-4 space-y-4">
-          <Skeleton className="h-20 w-20 rounded-full mx-auto" style={{ background: '#1a1a1a' }} />
-          <Skeleton className="h-6 w-48 mx-auto" style={{ background: '#111' }} />
-          <Skeleton className="h-48 w-full rounded-2xl" style={{ background: '#111' }} />
-        </div>
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   const weightNum = player?.weight_lbs ? Number(player.weight_lbs) : 0;

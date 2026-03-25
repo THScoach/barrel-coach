@@ -12,7 +12,7 @@ import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { PillarScoreCard } from "@/components/player-v2/PillarScoreCard";
 import { Video2DAnalysisCard } from "@/components/admin/Video2DAnalysisCard";
 import { EnergyDeliveryReport } from "@/components/player-v2/session-report/EnergyDeliveryReport";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SessionDetailSkeleton } from "@/components/player-v2/PageSkeleton";
 import { scoreColor } from "@/lib/player-utils";
 import { ArrowLeft, Play, Cpu } from "lucide-react";
 import { format } from "date-fns";
@@ -187,16 +187,7 @@ export default function PlayerSessionDetail() {
   };
 
   if (playerLoading || loading) {
-    return (
-      <div style={{ background: '#000', minHeight: '100vh' }}>
-        <div className="p-4 space-y-3">
-          <Skeleton className="h-10 w-32" style={{ background: '#111' }} />
-          <Skeleton className="h-48 w-full rounded-2xl" style={{ background: '#111' }} />
-          <Skeleton className="h-24 w-full rounded-2xl" style={{ background: '#111' }} />
-          <Skeleton className="h-64 w-full rounded-2xl" style={{ background: '#111' }} />
-        </div>
-      </div>
-    );
+    return <SessionDetailSkeleton />;
   }
 
   if (!source) {

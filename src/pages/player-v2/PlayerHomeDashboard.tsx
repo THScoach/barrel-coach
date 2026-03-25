@@ -13,8 +13,8 @@ import { PillarScoreCard } from "@/components/player-v2/PillarScoreCard";
 import { ScoreHistoryBar } from "@/components/player-v2/ScoreHistoryBar";
 import { TagPill } from "@/components/player-v2/TagPill";
 import { EmptyState } from "@/components/player-v2/EmptyState";
+import { DashboardSkeleton } from "@/components/player-v2/PageSkeleton";
 import { motorProfileColor } from "@/lib/player-utils";
-import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart3, ChevronRight, Zap, Target, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 
@@ -158,18 +158,7 @@ export default function PlayerHomeDashboard() {
   }, [player?.id]);
 
   if (loading) {
-    return (
-      <div style={{ background: '#000', minHeight: '100vh' }}>
-        <div className="p-4 space-y-4">
-          <Skeleton className="h-12 w-full" style={{ background: '#111' }} />
-          <Skeleton className="h-52 w-full rounded-xl" style={{ background: '#111' }} />
-          <div className="grid grid-cols-4 gap-2">
-            {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-xl" style={{ background: '#111' }} />)}
-          </div>
-          <Skeleton className="h-24 w-full rounded-xl" style={{ background: '#111' }} />
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const has3DScores = player?.latest_composite_score != null;
@@ -199,7 +188,7 @@ export default function PlayerHomeDashboard() {
 
       <main className="px-4 pb-24 space-y-3 pt-4">
         {/* KRS + 4B Pillars Card */}
-        <div className="rounded-2xl p-5 pb-4" style={{ background: 'linear-gradient(180deg, #111 0%, #0a0a0a 100%)', border: '1px solid #1a1a1a' }}>
+        <div className="rounded-2xl p-5 pb-4 animate-fade-up" style={{ background: 'linear-gradient(180deg, #111 0%, #0a0a0a 100%)', border: '1px solid #1a1a1a' }}>
           <KRSRingChart score={krs} />
           <div className="grid grid-cols-4 gap-2 mt-4">
             {(['body', 'brain', 'bat', 'ball'] as const).map(pillar => (
@@ -215,7 +204,7 @@ export default function PlayerHomeDashboard() {
 
         {/* Motor Profile Card */}
         {player?.motor_profile_sensor && (
-          <Link to="/player/profile" className="block rounded-2xl p-4 transition-all hover:scale-[1.01] active:scale-[0.99]" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
+          <Link to="/player/profile" className="block rounded-2xl p-4 transition-all hover:scale-[1.01] active:scale-[0.99] animate-fade-up-d1" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
             <div className="flex items-center gap-3">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -234,7 +223,7 @@ export default function PlayerHomeDashboard() {
 
         {/* Primary Flag Card */}
         {primaryFlag && (
-          <div className="rounded-2xl p-4" style={{ background: 'linear-gradient(145deg, rgba(230,57,70,0.08), rgba(230,57,70,0.03))', border: '1px solid rgba(230,57,70,0.2)' }}>
+          <div className="rounded-2xl p-4 animate-fade-up-d2" style={{ background: 'linear-gradient(145deg, rgba(230,57,70,0.08), rgba(230,57,70,0.03))', border: '1px solid rgba(230,57,70,0.2)' }}>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#E63946' }} />
               <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#E63946' }}>Primary Fix</span>
@@ -251,7 +240,7 @@ export default function PlayerHomeDashboard() {
 
         {/* Projected Gain Card */}
         {projections && (
-          <div className="rounded-2xl p-4" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
+          <div className="rounded-2xl p-4 animate-fade-up-d3" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
             <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: '#555' }}>Projected Gains</p>
             <div className="grid grid-cols-2 gap-4">
               {projections.projected_bat_speed && (
@@ -280,7 +269,7 @@ export default function PlayerHomeDashboard() {
         )}
 
         {/* Today's Session CTA */}
-        <div className="rounded-2xl p-4" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
+        <div className="rounded-2xl p-4 animate-fade-up-d4" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
           <div className="flex items-center gap-2 mb-2">
             <Target className="h-4 w-4" style={{ color: '#E63946' }} />
             <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#555' }}>Today's Session</span>
