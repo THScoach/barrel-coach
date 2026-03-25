@@ -151,4 +151,4 @@ export const TestimonialsSection = forwardRef<HTMLElement>(function Testimonials
       </div>
     </section>
   );
-}
+});
