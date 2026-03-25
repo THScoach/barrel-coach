@@ -151,7 +151,7 @@ export default function PlayerProgress() {
 
       <main className="px-4 pb-24 pt-4 space-y-3">
         {/* Score Summary */}
-        <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(180deg, #111 0%, #0a0a0a 100%)', border: '1px solid #1a1a1a' }}>
+        <div className="rounded-2xl p-5 animate-fade-up" style={{ background: 'linear-gradient(180deg, #111 0%, #0a0a0a 100%)', border: '1px solid #1a1a1a' }}>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
               <p className="text-[10px] uppercase font-bold tracking-wider" style={{ color: '#444' }}>Baseline</p>
