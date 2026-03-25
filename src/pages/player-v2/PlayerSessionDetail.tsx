@@ -187,16 +187,7 @@ export default function PlayerSessionDetail() {
   };
 
   if (playerLoading || loading) {
-    return (
-      <div style={{ background: '#000', minHeight: '100vh' }}>
-        <div className="p-4 space-y-3">
-          <Skeleton className="h-10 w-32" style={{ background: '#111' }} />
-          <Skeleton className="h-48 w-full rounded-2xl" style={{ background: '#111' }} />
-          <Skeleton className="h-24 w-full rounded-2xl" style={{ background: '#111' }} />
-          <Skeleton className="h-64 w-full rounded-2xl" style={{ background: '#111' }} />
-        </div>
-      </div>
-    );
+    return <SessionDetailSkeleton />;
   }
 
   if (!source) {

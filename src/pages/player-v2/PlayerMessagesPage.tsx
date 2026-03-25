@@ -205,13 +205,7 @@ export default function PlayerMessagesPage() {
   };
 
   if (loading) {
-    return (
-      <div style={{ background: '#000', minHeight: '100vh' }}>
-        <div className="p-4 space-y-3">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-2xl" style={{ background: '#111' }} />)}
-        </div>
-      </div>
-    );
+    return <MessagesSkeleton />;
   }
 
   const unreadCount = insights.filter(m => !m.is_read).length;

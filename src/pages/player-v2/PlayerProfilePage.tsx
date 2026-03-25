@@ -47,15 +47,7 @@ export default function PlayerProfilePage() {
   };
 
   if (loading) {
-    return (
-      <div style={{ background: '#000', minHeight: '100vh' }}>
-        <div className="p-4 space-y-4">
-          <Skeleton className="h-20 w-20 rounded-full mx-auto" style={{ background: '#1a1a1a' }} />
-          <Skeleton className="h-6 w-48 mx-auto" style={{ background: '#111' }} />
-          <Skeleton className="h-48 w-full rounded-2xl" style={{ background: '#111' }} />
-        </div>
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   const weightNum = player?.weight_lbs ? Number(player.weight_lbs) : 0;
