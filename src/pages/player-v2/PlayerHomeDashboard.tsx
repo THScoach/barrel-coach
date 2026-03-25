@@ -13,8 +13,8 @@ import { PillarScoreCard } from "@/components/player-v2/PillarScoreCard";
 import { ScoreHistoryBar } from "@/components/player-v2/ScoreHistoryBar";
 import { TagPill } from "@/components/player-v2/TagPill";
 import { EmptyState } from "@/components/player-v2/EmptyState";
+import { DashboardSkeleton } from "@/components/player-v2/PageSkeleton";
 import { motorProfileColor } from "@/lib/player-utils";
-import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart3, ChevronRight, Zap, Target, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 
