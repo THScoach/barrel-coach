@@ -8,6 +8,7 @@ import { usePlayerData } from "@/hooks/usePlayerData";
 import { PlayerBottomNav } from "@/components/player-v2/PlayerBottomNav";
 import { EmptyState } from "@/components/player-v2/EmptyState";
 import { MessagesSkeleton } from "@/components/player-v2/PageSkeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Send, MessageSquare, Lightbulb, Loader2, ImagePlus, X } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
