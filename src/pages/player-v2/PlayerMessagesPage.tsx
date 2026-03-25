@@ -317,7 +317,7 @@ export default function PlayerMessagesPage() {
 
         {activeTab === 'insights' && (
           insights.length === 0 ? (
-            <EmptyState icon={<Lightbulb className="h-12 w-12" />} title="No insights yet" description="Insights appear after sessions are analyzed" />
+            <EmptyState illustration={<InsightsIllustration size={96} />} title="No insights yet" description="Insights appear after sessions are analyzed" />
           ) : (
             <div className="space-y-2">
               {insights.map(m => (
