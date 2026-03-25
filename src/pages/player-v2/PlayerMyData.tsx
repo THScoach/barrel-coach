@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/player-v2/EmptyState";
 import { TagPill } from "@/components/player-v2/TagPill";
 import { scoreColor } from "@/lib/player-utils";
 import { DataSkeleton } from "@/components/player-v2/PageSkeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Upload, BarChart3, Play, Video, Share, ChevronRight } from "lucide-react";
 import {
