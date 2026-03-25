@@ -263,7 +263,7 @@ export default function PlayerMessagesPage() {
             </div>
           ) : messages.length === 0 ? (
             <EmptyState
-              icon={<MessageSquare className="h-12 w-12" />}
+              illustration={<ChatIllustration size={96} />}
               title="Chat with Coach Barrels"
               description="Ask about your swing, drills, or game plan — Coach Barrels knows your data"
             />
