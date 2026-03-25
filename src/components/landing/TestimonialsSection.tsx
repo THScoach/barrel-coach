@@ -71,7 +71,7 @@ const VideoCard = forwardRef<HTMLDivElement, { name: string; role: string; video
   };
 
   return (
-    <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition-colors">
+    <div ref={ref} className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition-colors">
       <div className="relative aspect-[9/16] max-h-[360px] sm:max-h-[480px] bg-black cursor-pointer" onClick={!playing ? handlePlay : undefined}>
         <video
           ref={videoRef}
