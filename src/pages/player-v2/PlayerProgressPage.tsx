@@ -113,15 +113,7 @@ export default function PlayerProgress() {
   }, [player?.id, loading]);
 
   if (loading || loadingData) {
-    return (
-      <div style={{ background: '#000', minHeight: '100vh' }}>
-        <Skeleton className="h-14 w-full" style={{ background: '#111' }} />
-        <div className="p-4 space-y-3">
-          <Skeleton className="h-28 w-full rounded-2xl" style={{ background: '#111' }} />
-          <Skeleton className="h-48 w-full rounded-2xl" style={{ background: '#111' }} />
-        </div>
-      </div>
-    );
+    return <ProgressSkeleton />;
   }
 
   if (sessions.length === 0) {
