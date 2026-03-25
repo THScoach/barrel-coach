@@ -176,7 +176,7 @@ export default function PlayerProgress() {
         </div>
 
         {/* Score Timeline */}
-        <div className="rounded-2xl p-5" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
+        <div className="rounded-2xl p-5 animate-fade-up-d1" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
           <p className="text-[10px] font-black uppercase tracking-widest mb-4" style={{ color: '#555' }}>Score Timeline</p>
           <div className="space-y-2">
             {[...sessions].reverse().slice(0, 10).map((s) => {
